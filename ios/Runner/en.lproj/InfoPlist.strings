@@ -1,0 +1,7 @@
+NSCameraUsageDescription = "We use your camera to track your form and count reps during your workout.
+";
+NSMicrophoneUsageDescription = "
+ We use your microphone to capture sound with your workout videos (no talking needed!).";
+NSPhotoLibraryUsageDescription = "we save your workout videos to your device so you can review your progress anytime.";
+PermissionGroupNotification = "We use notifications to remind you when rest ends.
+";

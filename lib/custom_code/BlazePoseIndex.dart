@@ -1,0 +1,35 @@
+class BlazePoseIndex {
+  static const nose = 0;
+  static const leftEyeInner = 1;
+  static const leftEye = 2;
+  static const leftEyeOuter = 3;
+  static const rightEyeInner = 4;
+  static const rightEye = 5;
+  static const rightEyeOuter = 6;
+  static const leftEar = 7;
+  static const rightEar = 8;
+  static const leftMouth = 9;
+  static const rightMouth = 10;
+  static const leftShoulder = 11;
+  static const rightShoulder = 12;
+  static const leftElbow = 13;
+  static const rightElbow = 14;
+  static const leftWrist = 15;
+  static const rightWrist = 16;
+  static const leftPinky = 17;
+  static const rightPinky = 18;
+  static const leftIndex = 19;
+  static const rightIndex = 20;
+  static const leftThumb = 21;
+  static const rightThumb = 22;
+  static const leftHip = 23;
+  static const rightHip = 24;
+  static const leftKnee = 25;
+  static const rightKnee = 26;
+  static const leftAnkle = 27;
+  static const rightAnkle = 28;
+  static const leftHeel = 29;
+  static const rightHeel = 30;
+  static const leftFootIndex = 31;
+  static const rightFootIndex = 32;
+}

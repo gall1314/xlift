@@ -1,0 +1,1205 @@
+import '/backend/sqlite/sqlite_manager.dart';
+import '/components/exercise_options_bottom_shit_widget.dart';
+import '/components/set_row2_widget.dart';
+import '/components/set_row_warm_up_widget.dart';
+import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
+import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
+import '/flutter_flow/custom_functions.dart' as functions;
+import '/index.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'exercise_componet_model.dart';
+export 'exercise_componet_model.dart';
+
+class ExerciseComponetWidget extends StatefulWidget {
+  const ExerciseComponetWidget({
+    super.key,
+    required this.exerciseId,
+    required this.startTimer,
+    required this.selectRest,
+    required this.closeIt,
+    required this.showError,
+    this.exerciseName,
+    required this.workoutId,
+  });
+
+  final int? exerciseId;
+  final Future Function(int setNumber, int exerciseId)? startTimer;
+  final Future Function()? selectRest;
+  final Future Function()? closeIt;
+  final Future Function()? showError;
+  final String? exerciseName;
+  final String? workoutId;
+
+  @override
+  State<ExerciseComponetWidget> createState() => _ExerciseComponetWidgetState();
+}
+
+class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
+  late ExerciseComponetModel _model;
+
+  @override
+  void setState(VoidCallback callback) {
+    super.setState(callback);
+    _model.onUpdate();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _model = createModel(context, () => ExerciseComponetModel());
+  }
+
+  @override
+  void dispose() {
+    _model.maybeDispose();
+
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<FFAppState>();
+
+    return FutureBuilder<List<Exercise2Row>>(
+      future: SQLiteManager.instance.exercise2(
+        exerciseId: widget.exerciseId!,
+      ),
+      builder: (context, snapshot) {
+        // Customize what your widget looks like when it's loading.
+        if (!snapshot.hasData) {
+          return Center(
+            child: SizedBox(
+              width: 50.0,
+              height: 50.0,
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  FlutterFlowTheme.of(context).secondary,
+                ),
+              ),
+            ),
+          );
+        }
+        final containerExercise2RowList = snapshot.data!;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: functions.isExerciseComplete(
+                    FFAppState().completedExercises.toList(),
+                    widget.exerciseId!)
+                ? FlutterFlowTheme.of(context).accent2
+                : FlutterFlowTheme.of(context).secondaryBackground,
+            borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(
+              color: FlutterFlowTheme.of(context).alternate,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.max,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.max,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.max,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.max,
+                                children: [
+                                  InkWell(
+                                    splashColor: Colors.transparent,
+                                    focusColor: Colors.transparent,
+                                    hoverColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    onTap: () async {
+                                      if (containerExercise2RowList
+                                              .firstOrNull?.isPublic ==
+                                          1) {
+                                        context.pushNamed(
+                                          ExerciseHistoryWidget.routeName,
+                                          queryParameters: {
+                                            'exerciseId': serializeParam(
+                                              widget.exerciseId,
+                                              ParamType.int,
+                                            ),
+                                            'overview': serializeParam(
+                                              true,
+                                              ParamType.bool,
+                                            ),
+                                            'analytics': serializeParam(
+                                              false,
+                                              ParamType.bool,
+                                            ),
+                                          }.withoutNulls,
+                                        );
+                                      } else {
+                                        context.pushNamed(
+                                          ExerciseHistoryCustomWidget.routeName,
+                                          queryParameters: {
+                                            'exerciseId': serializeParam(
+                                              widget.exerciseId,
+                                              ParamType.int,
+                                            ),
+                                            'overview': serializeParam(
+                                              true,
+                                              ParamType.bool,
+                                            ),
+                                            'analytics': serializeParam(
+                                              false,
+                                              ParamType.bool,
+                                            ),
+                                          }.withoutNulls,
+                                        );
+                                      }
+                                    },
+                                    child: Container(
+                                      width: 45.0,
+                                      height: 45.0,
+                                      child: custom_widgets.ExerciseAssetImage(
+                                        width: 45.0,
+                                        height: 45.0,
+                                        exerciseName:
+                                            functions.exerciseImageName(
+                                                valueOrDefault<String>(
+                                          containerExercise2RowList
+                                              .firstOrNull?.name,
+                                          '-',
+                                        )),
+                                        borderRadius: 8.0,
+                                      ),
+                                    ),
+                                  ),
+                                  InkWell(
+                                    splashColor: Colors.transparent,
+                                    focusColor: Colors.transparent,
+                                    hoverColor: Colors.transparent,
+                                    highlightColor: Colors.transparent,
+                                    onTap: () async {
+                                      context.pushNamed(
+                                        ExerciseHistoryWidget.routeName,
+                                        queryParameters: {
+                                          'exerciseId': serializeParam(
+                                            widget.exerciseId,
+                                            ParamType.int,
+                                          ),
+                                          'overview': serializeParam(
+                                            true,
+                                            ParamType.bool,
+                                          ),
+                                          'analytics': serializeParam(
+                                            false,
+                                            ParamType.bool,
+                                          ),
+                                        }.withoutNulls,
+                                      );
+                                    },
+                                    child: Text(
+                                      valueOrDefault<String>(
+                                        containerExercise2RowList
+                                            .firstOrNull?.name,
+                                        '-',
+                                      ),
+                                      style: FlutterFlowTheme.of(context)
+                                          .titleSmall
+                                          .override(
+                                            font: GoogleFonts.interTight(
+                                              fontWeight:
+                                                  FlutterFlowTheme.of(context)
+                                                      .titleSmall
+                                                      .fontWeight,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .titleSmall
+                                                      .fontStyle,
+                                            ),
+                                            color: FlutterFlowTheme.of(context)
+                                                .primaryText,
+                                            letterSpacing: 0.0,
+                                            fontWeight:
+                                                FlutterFlowTheme.of(context)
+                                                    .titleSmall
+                                                    .fontWeight,
+                                            fontStyle:
+                                                FlutterFlowTheme.of(context)
+                                                    .titleSmall
+                                                    .fontStyle,
+                                          ),
+                                    ),
+                                  ),
+                                ].divide(SizedBox(width: 12.0)),
+                              ),
+                              if (functions.isExerciseSuperset(
+                                  FFAppState().exercisesets.toList(),
+                                  widget.exerciseId!))
+                                Container(
+                                  width: 95.0,
+                                  height: 35.0,
+                                  decoration: BoxDecoration(
+                                    color: Color(0x8614B8A6),
+                                    borderRadius: BorderRadius.circular(30.0),
+                                  ),
+                                  child: Padding(
+                                    padding: EdgeInsets.all(5.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.max,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          FFLocalizations.of(context).getText(
+                                            'v02hj46u' /* Superset */,
+                                          ),
+                                          style: FlutterFlowTheme.of(context)
+                                              .bodyMedium
+                                              .override(
+                                                font: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w500,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .bodyMedium
+                                                          .fontStyle,
+                                                ),
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .secondaryBackground,
+                                                letterSpacing: 0.0,
+                                                fontWeight: FontWeight.w500,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                        ),
+                                      ].divide(SizedBox(width: 5.0)),
+                                    ),
+                                  ),
+                                ),
+                              if (!functions.isExerciseComplete(
+                                  FFAppState().completedExercises.toList(),
+                                  widget.exerciseId!))
+                                Stack(
+                                  children: [
+                                    Column(
+                                      mainAxisSize: MainAxisSize.max,
+                                      children: [
+                                        InkWell(
+                                          splashColor: Colors.transparent,
+                                          focusColor: Colors.transparent,
+                                          hoverColor: Colors.transparent,
+                                          highlightColor: Colors.transparent,
+                                          onTap: () async {
+                                            await widget.selectRest?.call();
+                                          },
+                                          child: Container(
+                                            width: 145.0,
+                                            height: 40.0,
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .secondaryBackground,
+                                              borderRadius:
+                                                  BorderRadius.circular(12.0),
+                                              border: Border.all(
+                                                color:
+                                                    FlutterFlowTheme.of(context)
+                                                        .secondaryBackground,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Align(
+                                              alignment: AlignmentDirectional(
+                                                  -1.0, 0.0),
+                                              child: Padding(
+                                                padding: EdgeInsetsDirectional
+                                                    .fromSTEB(
+                                                        0.0, 5.0, 0.0, 5.0),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.max,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.timer_outlined,
+                                                      color: Color(0xFF14B8A6),
+                                                      size: 24.0,
+                                                    ),
+                                                    Expanded(
+                                                      child: Padding(
+                                                        padding:
+                                                            EdgeInsetsDirectional
+                                                                .fromSTEB(
+                                                                    8.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
+                                                        child: Text(
+                                                          FFLocalizations.of(
+                                                                  context)
+                                                              .getText(
+                                                            'a5q10uho' /* Rest: */,
+                                                          ),
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: Color(
+                                                                    0xFF14B8A6),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      child: Padding(
+                                                        padding:
+                                                            EdgeInsetsDirectional
+                                                                .fromSTEB(
+                                                                    6.0,
+                                                                    0.0,
+                                                                    0.0,
+                                                                    0.0),
+                                                        child: Text(
+                                                          functions.formatExerciseRestTime(
+                                                              FFAppState()
+                                                                  .restTimers,
+                                                              widget
+                                                                  .exerciseId!),
+                                                          style: FlutterFlowTheme
+                                                                  .of(context)
+                                                              .bodyMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .bodyMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: Color(
+                                                                    0xFF14B8A6),
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .bodyMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Icon(
+                                                      Icons.expand_more_rounded,
+                                                      color: Color(0xFF14B8A6),
+                                                      size: 24.0,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                            ].divide(SizedBox(height: 6.0)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!_model.complete)
+                      Row(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                          if (!functions.isExerciseComplete(
+                              FFAppState().completedExercises.toList(),
+                              widget.exerciseId!))
+                            Column(
+                              mainAxisSize: MainAxisSize.max,
+                              children: [
+                                FlutterFlowIconButton(
+                                  borderColor: Colors.transparent,
+                                  borderRadius: 18.0,
+                                  borderWidth: 1.0,
+                                  buttonSize: 36.0,
+                                  fillColor:
+                                      FlutterFlowTheme.of(context).success,
+                                  disabledColor: FlutterFlowTheme.of(context)
+                                      .primaryBackground,
+                                  disabledIconColor:
+                                      FlutterFlowTheme.of(context)
+                                          .secondaryText,
+                                  icon: Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 18.0,
+                                  ),
+                                  onPressed: !functions.canMarkExerciseAsDone(
+                                          FFAppState().exercisesets.toList(),
+                                          FFAppState().loggedSets.toList(),
+                                          widget.exerciseId!,
+                                          containerExercise2RowList.firstOrNull
+                                                      ?.allowsBodyweight ==
+                                                  1
+                                              ? true
+                                              : false,
+                                          containerExercise2RowList.firstOrNull
+                                                      ?.isTimeBased ==
+                                                  1
+                                              ? true
+                                              : false)
+                                      ? null
+                                      : () async {
+                                          if (functions.canMarkExerciseAsDone(
+                                              FFAppState()
+                                                  .exercisesets
+                                                  .toList(),
+                                              FFAppState().loggedSets.toList(),
+                                              widget.exerciseId!,
+                                              containerExercise2RowList
+                                                          .firstOrNull
+                                                          ?.allowsBodyweight ==
+                                                      1
+                                                  ? true
+                                                  : false,
+                                              containerExercise2RowList
+                                                          .firstOrNull
+                                                          ?.isTimeBased ==
+                                                      1
+                                                  ? true
+                                                  : false)) {
+                                            _model.mark2 = await actions
+                                                .markExerciseCompletedV2(
+                                              FFAppState()
+                                                  .exercisesets
+                                                  .toList(),
+                                              FFAppState().loggedSets.toList(),
+                                              widget.exerciseId!,
+                                              containerExercise2RowList
+                                                          .firstOrNull
+                                                          ?.allowsBodyweight ==
+                                                      1
+                                                  ? true
+                                                  : false,
+                                              containerExercise2RowList
+                                                          .firstOrNull
+                                                          ?.isTimeBased ==
+                                                      1
+                                                  ? true
+                                                  : false,
+                                            );
+                                            await actions
+                                                .cancelRestNotification();
+                                            _model.comp = await actions
+                                                .setExerciseComplete(
+                                              FFAppState()
+                                                  .completedExercises
+                                                  .toList(),
+                                              widget.exerciseId!,
+                                              true,
+                                            );
+                                            FFAppState().loggedSets = _model
+                                                .mark2!
+                                                .toList()
+                                                .cast<dynamic>();
+                                            FFAppState().completedExercises =
+                                                _model.comp!
+                                                    .toList()
+                                                    .cast<dynamic>();
+                                            _model.updatePage(() {});
+                                            HapticFeedback.mediumImpact();
+                                          }
+
+                                          safeSetState(() {});
+                                        },
+                                ),
+                                FlutterFlowIconButton(
+                                  borderColor:
+                                      FlutterFlowTheme.of(context).alternate,
+                                  borderRadius: 18.0,
+                                  borderWidth: 1.0,
+                                  buttonSize: 36.0,
+                                  fillColor: FlutterFlowTheme.of(context)
+                                      .secondaryBackground,
+                                  icon: Icon(
+                                    Icons.more_vert,
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryText,
+                                    size: 18.0,
+                                  ),
+                                  onPressed: () async {
+                                    await showModalBottomSheet(
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      enableDrag: false,
+                                      context: context,
+                                      builder: (context) {
+                                        return Padding(
+                                          padding:
+                                              MediaQuery.viewInsetsOf(context),
+                                          child:
+                                              ExerciseOptionsBottomShitWidget(
+                                            exerciseId: widget.exerciseId!,
+                                            exerciseName:
+                                                containerExercise2RowList
+                                                    .firstOrNull?.name,
+                                            exerciseEquipment:
+                                                containerExercise2RowList
+                                                    .firstOrNull?.equipment,
+                                            timed: containerExercise2RowList
+                                                        .firstOrNull
+                                                        ?.isTimeBased ==
+                                                    1
+                                                ? true
+                                                : false,
+                                            bodyWeight:
+                                                containerExercise2RowList
+                                                            .firstOrNull
+                                                            ?.isBodyweight ==
+                                                        1
+                                                    ? true
+                                                    : false,
+                                            workoutId: widget.workoutId!,
+                                            showWarmup: () async {
+                                              _model.showWormUp = true;
+                                              safeSetState(() {});
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ).then((value) => safeSetState(() {}));
+                                  },
+                                ),
+                              ].divide(SizedBox(height: 5.0)),
+                            ),
+                        ].divide(SizedBox(width: 8.0)),
+                      ),
+                    if (functions.isExerciseComplete(
+                        FFAppState().completedExercises.toList(),
+                        widget.exerciseId!))
+                      InkWell(
+                        splashColor: Colors.transparent,
+                        focusColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        onLongPress: () async {
+                          _model.compno = await actions.setExerciseComplete(
+                            FFAppState().completedExercises.toList(),
+                            widget.exerciseId!,
+                            false,
+                          );
+                          FFAppState().loggedSets =
+                              _model.mark2!.toList().cast<dynamic>();
+                          FFAppState().completedExercises =
+                              _model.compno!.toList().cast<dynamic>();
+                          _model.updatePage(() {});
+                          HapticFeedback.mediumImpact();
+
+                          safeSetState(() {});
+                        },
+                        child: FlutterFlowIconButton(
+                          borderColor:
+                              FlutterFlowTheme.of(context).secondaryText,
+                          borderRadius: 18.0,
+                          borderWidth: 1.0,
+                          buttonSize: 36.0,
+                          fillColor:
+                              FlutterFlowTheme.of(context).secondaryBackground,
+                          icon: Icon(
+                            Icons.remove_done_sharp,
+                            color: FlutterFlowTheme.of(context).secondaryText,
+                            size: 18.0,
+                          ),
+                          onPressed: () {
+                            print('IconButton pressed ...');
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+                if (!functions.isExerciseComplete(
+                    FFAppState().completedExercises.toList(),
+                    widget.exerciseId!))
+                  Container(
+                    decoration: BoxDecoration(),
+                    child: Padding(
+                      padding:
+                          EdgeInsetsDirectional.fromSTEB(0.0, 10.0, 0.0, 0.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                0.0, 0.0, 10.0, 0.0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.max,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 40.0,
+                                  height: 35.0,
+                                  decoration: BoxDecoration(
+                                    color: FlutterFlowTheme.of(context)
+                                        .secondaryBackground,
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 1,
+                                  child: Align(
+                                    alignment: AlignmentDirectional(0.0, 0.0),
+                                    child: Container(
+                                      width: 80.0,
+                                      decoration: BoxDecoration(),
+                                      child: Text(
+                                        FFLocalizations.of(context).getText(
+                                          '1zuasebz' /* Previous */,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        style: FlutterFlowTheme.of(context)
+                                            .bodyMedium
+                                            .override(
+                                              font: GoogleFonts.inter(
+                                                fontWeight:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontWeight,
+                                                fontStyle:
+                                                    FlutterFlowTheme.of(context)
+                                                        .bodyMedium
+                                                        .fontStyle,
+                                              ),
+                                              color:
+                                                  FlutterFlowTheme.of(context)
+                                                      .secondaryText,
+                                              letterSpacing: 0.0,
+                                              fontWeight:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontWeight,
+                                              fontStyle:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .fontStyle,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (containerExercise2RowList
+                                        .firstOrNull?.isTimeBased ==
+                                    1)
+                                  Expanded(
+                                    flex: 2,
+                                    child: Align(
+                                      alignment: AlignmentDirectional(0.0, 0.0),
+                                      child: Padding(
+                                        padding: EdgeInsetsDirectional.fromSTEB(
+                                            1.0, 0.0, 0.0, 0.0),
+                                        child: Container(
+                                          width: 160.0,
+                                          height: 50.0,
+                                          decoration: BoxDecoration(
+                                            color: FlutterFlowTheme.of(context)
+                                                .secondaryBackground,
+                                          ),
+                                          child: Align(
+                                            alignment:
+                                                AlignmentDirectional(0.0, 0.0),
+                                            child: Text(
+                                              FFLocalizations.of(context)
+                                                  .getText(
+                                                'j5paqm5m' /* Time */,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                              style:
+                                                  FlutterFlowTheme.of(context)
+                                                      .bodyMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .secondaryText,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontStyle,
+                                                      ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (containerExercise2RowList
+                                        .firstOrNull?.isTimeBased ==
+                                    0)
+                                  Align(
+                                    alignment: AlignmentDirectional(0.0, 0.0),
+                                    child: Container(
+                                      width: 80.0,
+                                      decoration: BoxDecoration(),
+                                      child: Align(
+                                        alignment:
+                                            AlignmentDirectional(0.0, 0.0),
+                                        child: Padding(
+                                          padding: EdgeInsets.all(5.0),
+                                          child: Text(
+                                            FFLocalizations.of(context).getText(
+                                              'ju5hixlu' /* Reps */,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            style: FlutterFlowTheme.of(context)
+                                                .bodyMedium
+                                                .override(
+                                                  font: GoogleFonts.inter(
+                                                    fontWeight:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .fontWeight,
+                                                    fontStyle:
+                                                        FlutterFlowTheme.of(
+                                                                context)
+                                                            .bodyMedium
+                                                            .fontStyle,
+                                                  ),
+                                                  color: FlutterFlowTheme.of(
+                                                          context)
+                                                      .secondaryText,
+                                                  letterSpacing: 0.0,
+                                                  fontWeight:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .bodyMedium
+                                                          .fontWeight,
+                                                  fontStyle:
+                                                      FlutterFlowTheme.of(
+                                                              context)
+                                                          .bodyMedium
+                                                          .fontStyle,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (containerExercise2RowList
+                                        .firstOrNull?.isTimeBased ==
+                                    0)
+                                  Expanded(
+                                    flex: 1,
+                                    child: Align(
+                                      alignment: AlignmentDirectional(0.0, 0.0),
+                                      child: Container(
+                                        width: 82.0,
+                                        height: 50.0,
+                                        decoration: BoxDecoration(),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.max,
+                                          children: [
+                                            Align(
+                                              alignment: AlignmentDirectional(
+                                                  0.0, 0.0),
+                                              child: Padding(
+                                                padding: EdgeInsets.all(5.0),
+                                                child: Text(
+                                                  'Weight',
+                                                  textAlign: TextAlign.center,
+                                                  maxLines: 1,
+                                                  style: FlutterFlowTheme.of(
+                                                          context)
+                                                      .bodyMedium
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .bodyMedium
+                                                                  .fontStyle,
+                                                        ),
+                                                        color:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .secondaryText,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .bodyMedium
+                                                                .fontStyle,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              FFAppState().isKg
+                                                  ? '(Kg)'
+                                                  : '(Lbs)',
+                                              style:
+                                                  FlutterFlowTheme.of(context)
+                                                      .labelSmall
+                                                      .override(
+                                                        font: GoogleFonts.inter(
+                                                          fontWeight:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelSmall
+                                                                  .fontWeight,
+                                                          fontStyle:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .labelSmall
+                                                                  .fontStyle,
+                                                        ),
+                                                        fontSize: 10.0,
+                                                        letterSpacing: 0.0,
+                                                        fontWeight:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelSmall
+                                                                .fontWeight,
+                                                        fontStyle:
+                                                            FlutterFlowTheme.of(
+                                                                    context)
+                                                                .labelSmall
+                                                                .fontStyle,
+                                                      ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (containerExercise2RowList
+                                        .firstOrNull?.aiFormAnalysis ==
+                                    1)
+                                  Container(
+                                    width: 35.0,
+                                    height: 35.0,
+                                    decoration: BoxDecoration(),
+                                  ),
+                              ].divide(SizedBox(width: 6.0)),
+                            ),
+                          ),
+                          if (_model.showWormUp)
+                            Container(
+                              width: MediaQuery.sizeOf(context).width * 1.0,
+                              decoration: BoxDecoration(
+                                color: FlutterFlowTheme.of(context)
+                                    .secondaryBackground,
+                              ),
+                              child: Builder(
+                                builder: (context) {
+                                  final warmupSet = functions
+                                      .formatWarmupSets(
+                                          FFAppState().warmupSets.toList(),
+                                          widget.exerciseId!)
+                                      .toList();
+
+                                  return ListView.separated(
+                                    padding: EdgeInsets.zero,
+                                    primary: false,
+                                    shrinkWrap: true,
+                                    scrollDirection: Axis.vertical,
+                                    itemCount: warmupSet.length,
+                                    separatorBuilder: (_, __) =>
+                                        SizedBox(height: 8.0),
+                                    itemBuilder: (context, warmupSetIndex) {
+                                      final warmupSetItem =
+                                          warmupSet[warmupSetIndex];
+                                      return SetRowWarmUpWidget(
+                                        key: Key(
+                                            'Keyaj6_${warmupSetIndex}_of_${warmupSet.length}'),
+                                        exerciseId: widget.exerciseId!,
+                                        weight: getJsonField(
+                                          warmupSetItem,
+                                          r'''$["weight"]''',
+                                        ).toString(),
+                                        reps: getJsonField(
+                                          warmupSetItem,
+                                          r'''$["repsText"]''',
+                                        ).toString(),
+                                        setNumber: getJsonField(
+                                          warmupSetItem,
+                                          r'''$["setNumber"]''',
+                                        ),
+                                        isTimed: containerExercise2RowList
+                                                    .firstOrNull?.isTimeBased ==
+                                                1
+                                            ? true
+                                            : false,
+                                        isBodyweightOnly:
+                                            (containerExercise2RowList
+                                                            .firstOrNull
+                                                            ?.isTimeBased ==
+                                                        0
+                                                    ? true
+                                                    : false) &&
+                                                (containerExercise2RowList
+                                                            .firstOrNull
+                                                            ?.isBodyweight ==
+                                                        1
+                                                    ? true
+                                                    : false),
+                                        exerciseName: containerExercise2RowList
+                                            .firstOrNull?.name,
+                                        show: () async {
+                                          _model.showWormUp = false;
+                                          safeSetState(() {});
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          Builder(
+                            builder: (context) {
+                              final setList = functions
+                                  .newCustomFunctionOffline(widget.exerciseId!,
+                                      FFAppState().exercisesets.toList())
+                                  .toList();
+
+                              return ListView.separated(
+                                padding: EdgeInsets.zero,
+                                primary: false,
+                                shrinkWrap: true,
+                                scrollDirection: Axis.vertical,
+                                itemCount: setList.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 8.0),
+                                itemBuilder: (context, setListIndex) {
+                                  final setListItem = setList[setListIndex];
+                                  return wrapWithModel(
+                                    model: _model.setRow2Models.getModel(
+                                      '${setListIndex.toString()}${widget.exerciseId?.toString()}${getJsonField(
+                                        setListItem,
+                                        r'''$["setNumber"]''',
+                                      ).toString()}',
+                                      setListIndex,
+                                    ),
+                                    updateCallback: () => safeSetState(() {}),
+                                    child: SetRow2Widget(
+                                      key: Key(
+                                        'Keyu2n_${'${setListIndex.toString()}${widget.exerciseId?.toString()}${getJsonField(
+                                          setListItem,
+                                          r'''$["setNumber"]''',
+                                        ).toString()}'}',
+                                      ),
+                                      setNumber: getJsonField(
+                                        setListItem,
+                                        r'''$["setNumber"]''',
+                                      ),
+                                      exerciseName: containerExercise2RowList
+                                          .firstOrNull?.name,
+                                      timed: !(containerExercise2RowList
+                                                  .firstOrNull?.isTimeBased ==
+                                              1
+                                          ? false
+                                          : true),
+                                      exerciseId: widget.exerciseId!,
+                                      ai: !(containerExercise2RowList
+                                                  .firstOrNull
+                                                  ?.aiFormAnalysis ==
+                                              1
+                                          ? false
+                                          : true),
+                                      bodyweight: containerExercise2RowList
+                                                  .firstOrNull?.isBodyweight ==
+                                              1
+                                          ? true
+                                          : false,
+                                      showRestTime: _model.restTime,
+                                      allowsBodyweight:
+                                          containerExercise2RowList.firstOrNull
+                                                      ?.allowsBodyweight ==
+                                                  1
+                                              ? true
+                                              : false,
+                                      startTimer:
+                                          (setNumber, exerciseId) async {
+                                        if (functions.shouldStartRestTimer(
+                                            FFAppState().exercisesets.toList(),
+                                            widget.exerciseId!,
+                                            _model.restTime)) {
+                                          await widget.startTimer?.call(
+                                            setNumber,
+                                            exerciseId,
+                                          );
+                                        } else {
+                                          return;
+                                        }
+                                      },
+                                      closeIt: () async {
+                                        await widget.closeIt?.call();
+                                      },
+                                      showError: () async {
+                                        await widget.showError?.call();
+                                      },
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          Padding(
+                            padding: EdgeInsetsDirectional.fromSTEB(
+                                0.0, 20.0, 0.0, 10.0),
+                            child: FFButtonWidget(
+                              onPressed: () async {
+                                HapticFeedback.selectionClick();
+                                _model.addSet = await actions.addSetToExercise(
+                                  FFAppState().exercisesets.toList(),
+                                  widget.exerciseId!,
+                                  containerExercise2RowList
+                                              .firstOrNull?.isBodyweight ==
+                                          1
+                                      ? true
+                                      : false,
+                                );
+                                FFAppState().exercisesets =
+                                    _model.addSet!.toList().cast<dynamic>();
+                                safeSetState(() {});
+
+                                safeSetState(() {});
+                              },
+                              text: FFLocalizations.of(context).getText(
+                                'y4ilum0g' /* Add set */,
+                              ),
+                              icon: Icon(
+                                Icons.add,
+                                size: 15.0,
+                              ),
+                              options: FFButtonOptions(
+                                width: MediaQuery.sizeOf(context).width * 0.329,
+                                height: 35.8,
+                                padding: EdgeInsets.all(10.0),
+                                iconAlignment: IconAlignment.start,
+                                iconPadding: EdgeInsets.all(0.0),
+                                color: FlutterFlowTheme.of(context)
+                                    .secondaryBackground,
+                                textStyle: FlutterFlowTheme.of(context)
+                                    .titleSmall
+                                    .override(
+                                      font: GoogleFonts.interTight(
+                                        fontWeight: FlutterFlowTheme.of(context)
+                                            .titleSmall
+                                            .fontWeight,
+                                        fontStyle: FlutterFlowTheme.of(context)
+                                            .titleSmall
+                                            .fontStyle,
+                                      ),
+                                      color: FlutterFlowTheme.of(context)
+                                          .secondary,
+                                      fontSize: 18.0,
+                                      letterSpacing: 0.0,
+                                      fontWeight: FlutterFlowTheme.of(context)
+                                          .titleSmall
+                                          .fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .titleSmall
+                                          .fontStyle,
+                                    ),
+                                elevation: 0.0,
+                                borderSide: BorderSide(
+                                  color: FlutterFlowTheme.of(context).secondary,
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(30.0),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: MediaQuery.sizeOf(context).width * 1.0,
+                            decoration: BoxDecoration(),
+                          ),
+                          Container(
+                            width: MediaQuery.sizeOf(context).width * 1.0,
+                            decoration: BoxDecoration(),
+                          ),
+                        ].divide(SizedBox(height: 5.0)),
+                      ),
+                    ),
+                  ),
+              ].divide(SizedBox(height: 20.0)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
