@@ -11,7 +11,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.gallevi.xlift
       integrations:
-        app_store_connect: APP_STORE_CONNECT_INTEGRATION_NAME
+        app_store_connect: xlift
       vars:
         BUILD_OFFSET: 1543
     triggering:
