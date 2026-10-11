@@ -10,8 +10,10 @@ workflows:
       xcode: latest
       cocoapods: default
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.gallevi.xlift
+        provisioning_profiles:
+          - xlift_appstore
+        certificates:
+          - xlift_dist
       vars:
         BUILD_OFFSET: 1543
     triggering:
