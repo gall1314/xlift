@@ -3,6 +3,8 @@ workflows:
     name: Xlift iOS (TestFlight)
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: xlift
     environment:
       flutter: stable
       xcode: latest
@@ -10,8 +12,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gallevi.xlift
-      integrations:
-        app_store_connect: xlift
       vars:
         BUILD_OFFSET: 1543
     triggering:
