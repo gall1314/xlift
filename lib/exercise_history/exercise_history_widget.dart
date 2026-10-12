@@ -254,7 +254,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                           .fontStyle,
                                     ),
                                 indicatorColor:
-                                    FlutterFlowTheme.of(context).secondary,
+                                    FlutterFlowTheme.of(context).primary,
                                 tabs: [
                                   Tab(
                                     text: FFLocalizations.of(context).getText(
@@ -2029,7 +2029,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                       .trending_up,
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .secondary,
+                                                                      .primary,
                                                                   size: 24.0,
                                                                 ),
                                                               ],
@@ -2119,7 +2119,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                       .fitness_center,
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .primary,
+                                                                      .secondary,
                                                                   size: 24.0,
                                                                 ),
                                                               ],
@@ -2609,63 +2609,70 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                 );
                                               },
                                             ),
-                                          Builder(
-                                            builder: (context) => Container(
-                                              width: MediaQuery.sizeOf(context)
-                                                      .width *
-                                                  1.0,
-                                              height: 300.0,
-                                              child: custom_widgets
-                                                  .FormAnalysisCard(
+                                          if (exerciseHistoryExercise2RowList
+                                                  .firstOrNull
+                                                  ?.aiFormAnalysis ==
+                                              1)
+                                            Builder(
+                                              builder: (context) => Container(
                                                 width:
                                                     MediaQuery.sizeOf(context)
                                                             .width *
                                                         1.0,
                                                 height: 300.0,
-                                                exerciseId: widget.exerciseId!,
-                                                userId: currentUserUid,
-                                                exerciseName:
-                                                    exerciseHistoryExercise2RowList
-                                                        .firstOrNull?.name,
-                                                onSetTap:
-                                                    (setLogId, analysis) async {
-                                                  await showDialog(
-                                                    context: context,
-                                                    builder: (dialogContext) {
-                                                      return Dialog(
-                                                        elevation: 0,
-                                                        insetPadding:
-                                                            EdgeInsets.zero,
-                                                        backgroundColor:
-                                                            Colors.transparent,
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                    0.0, 0.0)
-                                                                .resolve(
-                                                                    Directionality.of(
-                                                                        context)),
-                                                        child: GestureDetector(
-                                                          onTap: () {
-                                                            FocusScope.of(
-                                                                    dialogContext)
-                                                                .unfocus();
-                                                            FocusManager
-                                                                .instance
-                                                                .primaryFocus
-                                                                ?.unfocus();
-                                                          },
+                                                child: custom_widgets
+                                                    .FormAnalysisCard(
+                                                  width:
+                                                      MediaQuery.sizeOf(context)
+                                                              .width *
+                                                          1.0,
+                                                  height: 300.0,
+                                                  exerciseId:
+                                                      widget.exerciseId!,
+                                                  userId: currentUserUid,
+                                                  exerciseName:
+                                                      exerciseHistoryExercise2RowList
+                                                          .firstOrNull?.name,
+                                                  onSetTap: (setLogId,
+                                                      analysis) async {
+                                                    await showDialog(
+                                                      context: context,
+                                                      builder: (dialogContext) {
+                                                        return Dialog(
+                                                          elevation: 0,
+                                                          insetPadding:
+                                                              EdgeInsets.zero,
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .transparent,
+                                                          alignment: AlignmentDirectional(
+                                                                  0.0, 0.0)
+                                                              .resolve(
+                                                                  Directionality.of(
+                                                                      context)),
                                                           child:
-                                                              Analyze2AppAfterWidget(
-                                                            anlysis: analysis,
+                                                              GestureDetector(
+                                                            onTap: () {
+                                                              FocusScope.of(
+                                                                      dialogContext)
+                                                                  .unfocus();
+                                                              FocusManager
+                                                                  .instance
+                                                                  .primaryFocus
+                                                                  ?.unfocus();
+                                                            },
+                                                            child:
+                                                                Analyze2AppAfterWidget(
+                                                              anlysis: analysis,
+                                                            ),
                                                           ),
-                                                        ),
-                                                      );
-                                                    },
-                                                  );
-                                                },
+                                                        );
+                                                      },
+                                                    );
+                                                  },
+                                                ),
                                               ),
                                             ),
-                                          ),
                                           if (exerciseHistoryExercise2RowList
                                                   .firstOrNull?.isTimeBased ==
                                               1)
@@ -3579,7 +3586,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                         backgroundColor:
                                                             FlutterFlowTheme.of(
                                                                     context)
-                                                                .secondary,
+                                                                .primary,
                                                         textStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -6068,7 +6075,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                   ),
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .secondary,
+                                                                      .primary,
                                                                   fontSize:
                                                                       38.0,
                                                                   letterSpacing:

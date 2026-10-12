@@ -238,7 +238,7 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                       .fontStyle,
                                             ),
                                     indicatorColor:
-                                        FlutterFlowTheme.of(context).secondary,
+                                        FlutterFlowTheme.of(context).primary,
                                     indicatorWeight: 4.0,
                                     padding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 12.0, 16.0, 12.0),
@@ -702,7 +702,7 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                       color:
                                                           FlutterFlowTheme.of(
                                                                   context)
-                                                              .secondary,
+                                                              .primary,
                                                       textStyle:
                                                           FlutterFlowTheme.of(
                                                                   context)
@@ -1492,7 +1492,7 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                       color:
                                                           FlutterFlowTheme.of(
                                                                   context)
-                                                              .secondary,
+                                                              .primary,
                                                       textStyle:
                                                           FlutterFlowTheme.of(
                                                                   context)

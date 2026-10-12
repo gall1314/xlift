@@ -32,12 +32,10 @@ class SetRow2ForCreationModel
   late TimeForCreationModel timeForCreationModel;
   // Stores action output result for [Custom Action - updateLoggedSetForCreationV4] action in timeForCreation widget.
   List<dynamic>? updateTime2;
-  // State field(s) for RepsField widget.
-  FocusNode? repsFieldFocusNode;
-  TextEditingController? repsFieldTextController;
-  String? Function(BuildContext, String?)? repsFieldTextControllerValidator;
+  // Stores action output result for [Custom Action - updateLoggedSetForCreationV4] action in PreviousSetButton widget.
+  List<dynamic>? updateRepsCopyCopy;
   // Stores action output result for [Custom Action - updateLoggedSetForCreationV4] action in RepsField widget.
-  List<dynamic>? updateReps;
+  List<dynamic>? updateRepsCopy;
   // Stores action output result for [Custom Action - markSetWeightedInt] action in IconButton widget.
   List<dynamic>? weighted3;
   // Model for dropSetCreation component.
@@ -52,9 +50,6 @@ class SetRow2ForCreationModel
   @override
   void dispose() {
     timeForCreationModel.dispose();
-    repsFieldFocusNode?.dispose();
-    repsFieldTextController?.dispose();
-
     dropSetCreationModel.dispose();
   }
 }

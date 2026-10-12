@@ -373,72 +373,6 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                             ),
                           ),
                         ),
-                        Align(
-                          alignment: AlignmentDirectional(0.0, 0.0),
-                          child: FutureBuilder<List<CorrectedPreviosSetRow>>(
-                            future: SQLiteManager.instance.correctedPreviosSet(
-                              exerciseId: widget.exerciseId!,
-                              setNumber: widget.setNumber!,
-                              userId: currentUserUid,
-                            ),
-                            builder: (context, snapshot) {
-                              // Customize what your widget looks like when it's loading.
-                              if (!snapshot.hasData) {
-                                return Image.asset(
-                                  '',
-                                );
-                              }
-                              final containerCorrectedPreviosSetRowList =
-                                  snapshot.data!;
-
-                              return Container(
-                                width: 80.0,
-                                decoration: BoxDecoration(),
-                                child: Text(
-                                  valueOrDefault<String>(
-                                    functions.correctedFormatPreviousSet(
-                                        containerCorrectedPreviosSetRowList
-                                            .firstOrNull?.reps,
-                                        containerCorrectedPreviosSetRowList
-                                            .firstOrNull?.weight,
-                                        containerCorrectedPreviosSetRowList
-                                            .firstOrNull?.durationeconds,
-                                        containerCorrectedPreviosSetRowList
-                                                    .firstOrNull?.isKg ==
-                                                0
-                                            ? false
-                                            : true),
-                                    '-',
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryText,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
                         if (functions.isSetDoneOffline(
                                 FFAppState().loggedSets.toList(),
                                 widget.exerciseId!,
@@ -530,6 +464,7 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                 exerciseId: widget.exerciseId,
                                 setNumber: widget.setNumber,
                                 loggedSets: FFAppState().loggedSets,
+                                fontWeight: 400,
                                 onTap: () async {
                                   _model.update =
                                       await actions.updateFlatSetValue(
@@ -850,14 +785,14 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                 Builder(
                                   builder: (context) => FlutterFlowIconButton(
                                     borderColor:
-                                        FlutterFlowTheme.of(context).secondary,
+                                        FlutterFlowTheme.of(context).primary,
                                     borderRadius: 40.0,
                                     borderWidth: 2.5,
                                     buttonSize: 35.0,
                                     icon: Icon(
                                       Icons.assignment_outlined,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       size: 18.0,
                                     ),
                                     onPressed: () async {
@@ -912,14 +847,14 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                 Builder(
                                   builder: (context) => FlutterFlowIconButton(
                                     borderColor:
-                                        FlutterFlowTheme.of(context).secondary,
+                                        FlutterFlowTheme.of(context).primary,
                                     borderRadius: 40.0,
                                     borderWidth: 2.5,
                                     buttonSize: 35.0,
                                     icon: Icon(
                                       Icons.camera_alt,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       size: 18.0,
                                     ),
                                     onPressed: () async {
@@ -1065,7 +1000,7 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                   FFAppState().analysisCount))
                                 FlutterFlowIconButton(
                                   borderColor:
-                                      FlutterFlowTheme.of(context).secondary,
+                                      FlutterFlowTheme.of(context).primary,
                                   borderRadius: 40.0,
                                   borderWidth: 2.5,
                                   buttonSize: 35.0,
@@ -1073,8 +1008,7 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                     FaIconData(const IconData(/* lock */ 0xf023,
                                         fontFamily: 'FontAwesomeSolid',
                                         fontPackage: 'font_awesome_flutter')),
-                                    color:
-                                        FlutterFlowTheme.of(context).secondary,
+                                    color: FlutterFlowTheme.of(context).primary,
                                     size: 18.0,
                                   ),
                                   onPressed: () async {

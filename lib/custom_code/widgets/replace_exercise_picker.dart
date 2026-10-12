@@ -14,7 +14,8 @@ import 'package:flutter/material.dart' hide RepeatMode;
 
 import 'package:flutter/services.dart';
 
-/// Full "Replace Exercise" screen body.
+/// "Replace Exercise" — designed to live inside a FlutterFlow Bottom Sheet
+/// (~80% height): rounded top corners, drag handle, no status-bar inset.
 ///
 /// Runs its own SQLite queries: - smartReplace(exerciseId) → ranked, first
 /// row = best match - getAllExercises()        → full catalog (exercise_view
@@ -288,83 +289,103 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     }
   }
 
+  Future<void> _close() async {
+    if (widget.onClose != null) {
+      await widget.onClose!();
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
     final mq = MediaQuery.of(context);
-    final h = widget.height ?? mq.size.height;
+    final h = widget.height ?? mq.size.height * 0.8;
 
-    return Container(
-      width: widget.width,
-      height: h,
-      color: theme.primaryBackground,
-      child: Column(
-        children: [
-          _header(theme, mq.padding.top),
-          if (_loading)
-            Expanded(
-              child: Center(
-                child: CircularProgressIndicator(color: theme.primary),
-              ),
-            )
-          else if (_error != null)
-            Expanded(child: _errorView(theme))
-          else ...[
-            _currentCard(theme),
-            _tabs(theme),
-            if (_smartTab) _equipRow(theme) else _searchAndMuscles(theme),
-            Expanded(child: _list(theme)),
-            _bottomBar(theme, mq.padding.bottom),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: Container(
+        width: widget.width,
+        height: h,
+        color: theme.primaryBackground,
+        child: Column(
+          children: [
+            _header(theme),
+            if (_loading)
+              Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(color: theme.primary),
+                ),
+              )
+            else if (_error != null)
+              Expanded(child: _errorView(theme))
+            else ...[
+              _currentCard(theme),
+              _tabs(theme),
+              if (_smartTab) _equipRow(theme) else _searchAndMuscles(theme),
+              Expanded(child: _list(theme)),
+              _bottomBar(theme, mq.padding.bottom),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _header(FlutterFlowTheme theme, double topInset) {
+  Widget _header(FlutterFlowTheme theme) {
     return Container(
       color: theme.secondaryBackground,
-      padding: EdgeInsets.fromLTRB(4, topInset + 4, 8, 4),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: Icon(Icons.chevron_left_rounded,
-                size: 30, color: theme.primaryText),
-            onPressed: () async {
-              if (widget.onClose != null) {
-                await widget.onClose!();
-              } else {
-                Navigator.of(context).maybePop();
-              }
-            },
-          ),
-          Expanded(
-            child: Text(
-              'Replace Exercise',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: theme.primaryText,
-              ),
+          // drag handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.alternate,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          SizedBox(
-            width: 72,
-            child: widget.onCreate == null
-                ? const SizedBox()
-                : TextButton(
-                    onPressed: () => widget.onCreate!(),
-                    child: Text(
-                      'Create',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: theme.primary,
-                      ),
-                    ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(Icons.close_rounded,
+                    size: 24, color: theme.primaryText),
+                onPressed: _close,
+              ),
+              Expanded(
+                child: Text(
+                  'Replace Exercise',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: theme.primaryText,
                   ),
+                ),
+              ),
+              SizedBox(
+                width: 72,
+                child: widget.onCreate == null
+                    ? const SizedBox()
+                    : TextButton(
+                        onPressed: () => widget.onCreate!(),
+                        child: Text(
+                          'Create',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: theme.primary,
+                          ),
+                        ),
+                      ),
+              ),
+            ],
           ),
         ],
       ),
@@ -400,8 +421,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     ].where((x) => x.isNotEmpty).toList();
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.secondaryBackground,
         borderRadius: BorderRadius.circular(16),
@@ -531,7 +552,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     }
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: theme.alternate.withOpacity(0.55),
@@ -597,7 +618,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     return Column(
       children: [
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
@@ -941,7 +962,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
   Widget _bottomBar(FlutterFlowTheme theme, double bottomInset) {
     final enabled = _selectedId != null && !_busy;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
+      padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
       decoration: BoxDecoration(
         color: theme.secondaryBackground,
         border: Border(top: BorderSide(color: theme.alternate)),

@@ -126,7 +126,8 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                 child: custom_widgets.ExerciseHeaderButton(
                                   width: double.infinity,
                                   height: 45.0,
-                                  exerciseName: widget.exerciseName!,
+                                  exerciseName: containerExercise2RowList
+                                      .firstOrNull!.name,
                                   illustration: '',
                                   imageSize: 45.0,
                                   imageRadius: 8.0,
@@ -225,161 +226,29 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     ),
                                   ),
                                 ),
-                              if (!functions.isExerciseComplete(
-                                  FFAppState().completedExercises.toList(),
-                                  widget.exerciseId!))
-                                Stack(
-                                  children: [
-                                    Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        InkWell(
-                                          splashColor: Colors.transparent,
-                                          focusColor: Colors.transparent,
-                                          hoverColor: Colors.transparent,
-                                          highlightColor: Colors.transparent,
-                                          onTap: () async {
-                                            await widget.selectRest?.call();
-                                          },
-                                          child: Container(
-                                            width: 145.0,
-                                            height: 40.0,
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .secondaryBackground,
-                                              borderRadius:
-                                                  BorderRadius.circular(12.0),
-                                              border: Border.all(
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryBackground,
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: Align(
-                                              alignment: AlignmentDirectional(
-                                                  -1.0, 0.0),
-                                              child: Padding(
-                                                padding: EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                        0.0, 5.0, 0.0, 5.0),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.max,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.timer_outlined,
-                                                      color: Color(0xFF14B8A6),
-                                                      size: 24.0,
-                                                    ),
-                                                    Expanded(
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    8.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        child: Text(
-                                                          FFLocalizations.of(
-                                                                  context)
-                                                              .getText(
-                                                            'a5q10uho' /* Rest: */,
-                                                          ),
-                                                          style: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontWeight,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                                color: Color(
-                                                                    0xFF14B8A6),
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    6.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0),
-                                                        child: Text(
-                                                          functions.formatExerciseRestTime(
-                                                              FFAppState()
-                                                                  .restTimers,
-                                                              widget
-                                                                  .exerciseId!),
-                                                          style: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .bodyMedium
-                                                              .override(
-                                                                font:
-                                                                    GoogleFonts
-                                                                        .inter(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                  fontStyle: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .bodyMedium
-                                                                      .fontStyle,
-                                                                ),
-                                                                color: Color(
-                                                                    0xFF14B8A6),
-                                                                letterSpacing:
-                                                                    0.0,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                fontStyle: FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Icon(
-                                                      Icons.expand_more_rounded,
-                                                      color: Color(0xFF14B8A6),
-                                                      size: 24.0,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                              InkWell(
+                                splashColor: Colors.transparent,
+                                focusColor: Colors.transparent,
+                                hoverColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                onTap: () async {
+                                  await widget.selectRest?.call();
+                                },
+                                child: Container(
+                                  width: 150.0,
+                                  height: 40.0,
+                                  child: custom_widgets.RestTimeButton(
+                                    width: 150.0,
+                                    height: 40.0,
+                                    exerciseId: widget.exerciseId!,
+                                    textColor:
+                                        FlutterFlowTheme.of(context).secondary,
+                                    fontSize: 14.0,
+                                    exerciseRestTimes: FFAppState().restTimers,
+                                    onTap: () async {},
+                                  ),
                                 ),
+                              ),
                             ].divide(SizedBox(height: 6.0)),
                           ),
                         ],
@@ -1096,8 +965,8 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                             .titleSmall
                                             .fontStyle,
                                       ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       fontSize: 18.0,
                                       letterSpacing: 0.0,
                                       fontWeight: FlutterFlowTheme.of(context)
@@ -1109,7 +978,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     ),
                                 elevation: 0.0,
                                 borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   width: 1.5,
                                 ),
                                 borderRadius: BorderRadius.circular(30.0),

@@ -23,6 +23,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// getSetLogs(workoutLogId, exerciseId)      -> set rows per exercise
 /// getSetAnalysis(setLogId)                  -> AI badge per set
 ///
+/// set_log.id and set_analysis.id are UUID strings.
+///
 /// Callbacks: [onExerciseTap](exerciseId, isPublic) from the ↗ button;
 /// [onAnalysisTap](setLogId, analysisId, analysis) from the AI badge, where
 /// analysis is the raw GetSetAnalysisRow.
@@ -49,7 +51,8 @@ class WorkoutSummaryView extends StatefulWidget {
   final Future Function()? onMore;
   final Future Function(int exerciseId, bool isPublic)? onExerciseTap;
   final Future Function(
-      int setLogId, int analysisId, GetSetAnalysisRow analysis)? onAnalysisTap;
+          String setLogId, String analysisId, GetSetAnalysisRow analysis)?
+      onAnalysisTap;
 
   @override
   State<WorkoutSummaryView> createState() => _WorkoutSummaryViewState();
@@ -80,7 +83,8 @@ class _Muscle {
 }
 
 class _SetRow {
-  final int id, setNumber;
+  final String id; // set_log.id (UUID)
+  final int setNumber;
   final int? reps, durationMs;
   final double? weight;
   final bool isKg;
@@ -218,16 +222,18 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
       final sets = <_SetRow>[];
       for (final sr in setRows) {
         final s = _rowMap(sr);
-        final int setLogId = _i(s['id']);
+        final String setLogId = _s(s['id']);
         Map<String, dynamic>? analysis;
         GetSetAnalysisRow? analysisRow;
-        try {
-          final aRows = await db.getSetAnalysis(setLogId: setLogId.toString());
-          if (aRows.isNotEmpty) {
-            analysisRow = aRows.first;
-            analysis = _rowMap(analysisRow);
-          }
-        } catch (_) {}
+        if (setLogId.isNotEmpty) {
+          try {
+            final aRows = await db.getSetAnalysis(setLogId: setLogId);
+            if (aRows.isNotEmpty) {
+              analysisRow = aRows.first;
+              analysis = _rowMap(analysisRow);
+            }
+          } catch (_) {}
+        }
         sets.add(_SetRow(
           setLogId,
           _i(s['set_number']),
@@ -828,7 +834,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                             ? null
                             : () => widget.onAnalysisTap!(
                                   s.id,
-                                  _i(s.analysis?['id']),
+                                  _s(s.analysis?['id']),
                                   s.analysisRow!,
                                 ),
                         child: Container(

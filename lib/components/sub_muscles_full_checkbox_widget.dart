@@ -440,7 +440,7 @@ class _SubMusclesFullCheckboxWidgetState
                                                   activeColor:
                                                       FlutterFlowTheme.of(
                                                               context)
-                                                          .secondary,
+                                                          .primary,
                                                   checkColor:
                                                       FlutterFlowTheme.of(
                                                               context)
@@ -484,7 +484,7 @@ class _SubMusclesFullCheckboxWidgetState
                   padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                   iconPadding:
                       EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)

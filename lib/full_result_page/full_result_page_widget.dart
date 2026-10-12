@@ -481,7 +481,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                       Icon(
                                         Icons.lightbulb_rounded,
                                         color: FlutterFlowTheme.of(context)
-                                            .secondary,
+                                            .primary,
                                         size: 20.0,
                                       ),
                                       Expanded(
@@ -623,7 +623,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                 padding: EdgeInsets.all(8.0),
                                 iconPadding: EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 0.0),
-                                color: FlutterFlowTheme.of(context).secondary,
+                                color: FlutterFlowTheme.of(context).primary,
                                 textStyle: FlutterFlowTheme.of(context)
                                     .titleSmall
                                     .override(
@@ -760,7 +760,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                                     Icons.check_circle_sharp,
                                                     color: FlutterFlowTheme.of(
                                                             context)
-                                                        .secondary,
+                                                        .primary,
                                                     size: 20.0,
                                                   ),
                                               ],
@@ -1054,7 +1054,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                           EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                       iconPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).titleSmall.override(
                                 font: GoogleFonts.interTight(

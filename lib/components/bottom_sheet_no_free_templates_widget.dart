@@ -126,7 +126,7 @@ class _BottomSheetNoFreeTemplatesWidgetState
                 width: 72.0,
                 height: 72.0,
                 decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   borderRadius: BorderRadius.circular(18.0),
                   shape: BoxShape.rectangle,
                 ),
@@ -206,7 +206,7 @@ class _BottomSheetNoFreeTemplatesWidgetState
                   padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                   iconPadding:
                       EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)

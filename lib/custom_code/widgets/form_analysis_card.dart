@@ -20,17 +20,17 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// AI Form Analysis for one exercise — self-contained.
 ///
-/// Compact teaser card (score, delta, mini chart, 3 stats). Tapping it
-/// pushes a full-screen page (same data, no reload) with a close button,
-/// big chart with tappable points, "What's holding you back", tip and the
-/// last set rep-by-rep. Loads getExerciseAnalyses(exerciseId, userId).
+/// Compact teaser card (score, delta, mini chart, 3 stats). Tapping it pushes
+/// a full-screen page (same data, no reload) with a close button, big chart
+/// with tappable points, "What's holding you back", tip and the last set
+/// rep-by-rep. Loads getExerciseAnalyses(exerciseId, userId).
 ///
-/// No analyses → non-tappable "preview" card showing what the user will
-/// get once a set is analyzed.
+/// No analyses → non-tappable "preview" card showing what the user will get
+/// once a set is analyzed.
 ///
 /// [onSetTap](setLogId, analysis) fires from chart points / "Open set
-/// analysis": the widget runs getSetAnalysis(setLogId) itself and hands
-/// over the raw GetSetAnalysisRow.
+/// analysis": the widget runs getSetAnalysis(setLogId) itself and hands over
+/// the raw GetSetAnalysisRow. set_log.id is a UUID string.
 class FormAnalysisCard extends StatefulWidget {
   const FormAnalysisCard({
     super.key,
@@ -47,7 +47,7 @@ class FormAnalysisCard extends StatefulWidget {
   final int exerciseId;
   final String userId;
   final String? exerciseName;
-  final Future Function(int setLogId, GetSetAnalysisRow analysis)? onSetTap;
+  final Future Function(String setLogId, GetSetAnalysisRow analysis)? onSetTap;
 
   @override
   State<FormAnalysisCard> createState() => _FormAnalysisCardState();
@@ -67,7 +67,8 @@ class _Rep {
 
 class _Analysis {
   final String analysisId;
-  final int setLogId, setNumber, totalReps, properReps;
+  final String setLogId; // UUID
+  final int setNumber, totalReps, properReps;
   final double score;
   final double? avgDepth;
   final DateTime when;
@@ -331,7 +332,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
       final m = _rowMap(r);
       out.add(_Analysis(
         analysisId: m['analysis_id']?.toString() ?? '',
-        setLogId: _i(m['set_log_id']),
+        setLogId: (m['set_log_id'] ?? '').toString().trim(),
         setNumber: _i(m['set_number']),
         totalReps: _i(m['total_reps']),
         properReps: _i(m['proper_reps']),
@@ -616,7 +617,7 @@ class _FormAnalysisFullPage extends StatefulWidget {
 
   final List<_Analysis> list;
   final String? exerciseName;
-  final Future Function(int setLogId, GetSetAnalysisRow analysis)? onSetTap;
+  final Future Function(String setLogId, GetSetAnalysisRow analysis)? onSetTap;
 
   @override
   State<_FormAnalysisFullPage> createState() => _FormAnalysisFullPageState();
@@ -627,13 +628,13 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
   bool _firing = false;
 
   /// Loads the set's analysis row and hands it to the FF callback.
-  Future<void> _fireSetTap(int setLogId) async {
+  Future<void> _fireSetTap(String setLogId) async {
     final cb = widget.onSetTap;
-    if (cb == null || _firing) return;
+    if (cb == null || _firing || setLogId.isEmpty) return;
     _firing = true;
     try {
-      final rows = await SQLiteManager.instance
-          .getSetAnalysis(setLogId: setLogId.toString());
+      final rows =
+          await SQLiteManager.instance.getSetAnalysis(setLogId: setLogId);
       if (rows.isNotEmpty) await cb(setLogId, rows.first);
     } catch (_) {
     } finally {

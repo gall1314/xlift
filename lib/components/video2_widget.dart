@@ -155,7 +155,7 @@ class _Video2WidgetState extends State<Video2Widget> {
                   child: custom_widgets.SaveAnalyzedVideoButton(
                     width: 36.0,
                     height: 36.0,
-                    accentColor: FlutterFlowTheme.of(context).secondary,
+                    accentColor: FlutterFlowTheme.of(context).primary,
                     analysisResult: functions.getSetByExerciseAndNumber(
                         FFAppState().workoutAnalysisState.toList(),
                         widget.exerciseId!,
@@ -211,7 +211,7 @@ class _Video2WidgetState extends State<Video2Widget> {
                         fontStyle:
                             FlutterFlowTheme.of(context).titleSmall.fontStyle,
                       ),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       letterSpacing: 0.0,
                       fontWeight:
                           FlutterFlowTheme.of(context).titleSmall.fontWeight,
@@ -220,7 +220,7 @@ class _Video2WidgetState extends State<Video2Widget> {
                     ),
                 elevation: 0.0,
                 borderSide: BorderSide(
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   width: 2.0,
                 ),
                 borderRadius: BorderRadius.circular(12.0),

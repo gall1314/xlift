@@ -52,7 +52,7 @@ class _SupersetCreationWidgetState extends State<SupersetCreationWidget> {
         width: MediaQuery.sizeOf(context).width * 1.0,
         height: MediaQuery.sizeOf(context).height * 1.0,
         currentExerciseId: widget.currentExerciseId!,
-        accentColor: FlutterFlowTheme.of(context).secondary,
+        accentColor: FlutterFlowTheme.of(context).primary,
         items: FFAppState().exerciseSetsCretion,
         onSelect: (selectedItem) async {
           _model.superset = await actions.pairSupersetSimple(

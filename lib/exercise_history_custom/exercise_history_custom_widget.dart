@@ -297,7 +297,7 @@ class _ExerciseHistoryCustomWidgetState
                                           .fontStyle,
                                     ),
                                 indicatorColor:
-                                    FlutterFlowTheme.of(context).secondary,
+                                    FlutterFlowTheme.of(context).primary,
                                 tabs: [
                                   Tab(
                                     text: FFLocalizations.of(context).getText(
@@ -4357,7 +4357,7 @@ class _ExerciseHistoryCustomWidgetState
                                                         backgroundColor:
                                                             FlutterFlowTheme.of(
                                                                     context)
-                                                                .secondary,
+                                                                .primary,
                                                         textStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)

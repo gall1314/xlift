@@ -228,7 +228,7 @@ class _SexBottomshitWidgetState extends State<SexBottomshitWidget> {
                               if (widget.initial == 'Male')
                                 Icon(
                                   Icons.check_rounded,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ],
@@ -299,7 +299,7 @@ class _SexBottomshitWidgetState extends State<SexBottomshitWidget> {
                               if (widget.initial == 'Female')
                                 Icon(
                                   Icons.check_rounded,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ],
@@ -370,7 +370,7 @@ class _SexBottomshitWidgetState extends State<SexBottomshitWidget> {
                               if (widget.initial == 'Prefer not to say')
                                 Icon(
                                   Icons.check_rounded,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ],

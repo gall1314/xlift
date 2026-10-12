@@ -41,6 +41,8 @@ class SetRowEditModel extends FlutterFlowModel<SetRowEditWidget> {
   List<dynamic>? doneTrueCopyCopy;
   // Model for timeForCreation component.
   late TimeForCreationModel timeForCreationModel;
+  // Stores action output result for [Custom Action - updateFlatSetValue] action in PreviousSetButton widget.
+  List<dynamic>? repsUpdateCopyCopy;
   // Stores action output result for [Custom Action - updateFlatSetValue] action in RepsField widget.
   List<dynamic>? repsUpdateCopy;
   // Stores action output result for [Custom Action - updateFlatSetValue] action in WeightField widget.

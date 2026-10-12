@@ -334,75 +334,6 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                             ),
                           ),
                         ),
-                        Align(
-                          alignment: AlignmentDirectional(0.0, 0.0),
-                          child: FutureBuilder<List<PreviosSetRow>>(
-                            future: SQLiteManager.instance.previosSet(
-                              exerciseId: widget.exerciseId!,
-                              setNumber: widget.setNumber!,
-                            ),
-                            builder: (context, snapshot) {
-                              // Customize what your widget looks like when it's loading.
-                              if (!snapshot.hasData) {
-                                return Center(
-                                  child: SizedBox(
-                                    width: 50.0,
-                                    height: 50.0,
-                                    child: CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        FlutterFlowTheme.of(context).secondary,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                              final containerPreviosSetRowList = snapshot.data!;
-
-                              return Container(
-                                width: 80.0,
-                                decoration: BoxDecoration(),
-                                child: Text(
-                                  functions.formatPreviousSet(
-                                      containerPreviosSetRowList
-                                          .firstOrNull?.reps,
-                                      containerPreviosSetRowList
-                                          .firstOrNull?.weight,
-                                      containerPreviosSetRowList
-                                          .firstOrNull?.durationSeconds,
-                                      containerPreviosSetRowList
-                                                  .firstOrNull?.isKg ==
-                                              0
-                                          ? false
-                                          : true),
-                                  textAlign: TextAlign.center,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .secondaryText,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
                         if (functions.isSetDoneOffline(
                                 FFAppState().loggedSets.toList(),
                                 widget.exerciseId!,
@@ -462,6 +393,84 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                               },
                             ),
                           ),
+                        FutureBuilder<List<PreviosSetRow>>(
+                          future: SQLiteManager.instance.previosSet(
+                            exerciseId: widget.exerciseId!,
+                            setNumber: widget.setNumber!,
+                          ),
+                          builder: (context, snapshot) {
+                            // Customize what your widget looks like when it's loading.
+                            if (!snapshot.hasData) {
+                              return Center(
+                                child: SizedBox(
+                                  width: 50.0,
+                                  height: 50.0,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      FlutterFlowTheme.of(context).secondary,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            final previousSetButtonPreviosSetRowList =
+                                snapshot.data!;
+
+                            return Container(
+                              width: 80.0,
+                              height: 45.0,
+                              child: custom_widgets.PreviousSetButton(
+                                width: 80.0,
+                                height: 45.0,
+                                text: functions.formatPreviousSet(
+                                    previousSetButtonPreviosSetRowList
+                                        .firstOrNull?.reps,
+                                    previousSetButtonPreviosSetRowList
+                                        .firstOrNull?.weight,
+                                    previousSetButtonPreviosSetRowList
+                                        .firstOrNull?.durationSeconds,
+                                    previousSetButtonPreviosSetRowList
+                                                .firstOrNull?.isKg ==
+                                            0
+                                        ? false
+                                        : true),
+                                exerciseId: widget.exerciseId,
+                                setNumber: widget.setNumber,
+                                textColor:
+                                    FlutterFlowTheme.of(context).secondaryText,
+                                fontSize: 14.0,
+                                fontWeight: 400,
+                                loggedSets: FFAppState().loggedSetsCreation,
+                                onTap: () async {
+                                  _model.repsUpdateCopyCopy =
+                                      await actions.updateFlatSetValue(
+                                    FFAppState().loggedSetsCreation.toList(),
+                                    widget.exerciseId!,
+                                    widget.setNumber!,
+                                    previousSetButtonPreviosSetRowList
+                                        .firstOrNull?.reps,
+                                    widget.weight,
+                                    _model.durationMs,
+                                    functions.isSetDone(
+                                        widget.exerciseId!,
+                                        widget.setNumber!,
+                                        FFAppState()
+                                            .loggedSetsCreation
+                                            .toList()),
+                                    FFAppState().exercisesets.toList(),
+                                  );
+                                  FFAppState().loggedSetsCreation = _model
+                                      .repsUpdateCopyCopy!
+                                      .toList()
+                                      .cast<dynamic>();
+                                  safeSetState(() {});
+
+                                  safeSetState(() {});
+                                },
+                              ),
+                            );
+                          },
+                        ),
                         Container(
                           width: 80.0,
                           height: 50.0,

@@ -46,7 +46,7 @@ class _ReorderWidgetState extends State<ReorderWidget> {
         width: MediaQuery.sizeOf(context).width * 1.0,
         height: MediaQuery.sizeOf(context).height * 1.0,
         items: FFAppState().exercisesets,
-        accentColor: FlutterFlowTheme.of(context).secondary,
+        accentColor: FlutterFlowTheme.of(context).primary,
         onSave: (reorderedItems) async {
           FFAppState().exercisesets = reorderedItems.toList().cast<dynamic>();
           FFAppState().update(() {});

@@ -180,7 +180,7 @@ class _ExerciseOptionsBottomCreationWidgetState
                               children: [
                                 Icon(
                                   Icons.refresh,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                                 Expanded(

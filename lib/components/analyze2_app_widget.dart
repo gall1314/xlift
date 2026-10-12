@@ -439,7 +439,7 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                       children: [
                         Icon(
                           Icons.lightbulb,
-                          color: FlutterFlowTheme.of(context).secondary,
+                          color: FlutterFlowTheme.of(context).primary,
                           size: 20.0,
                         ),
                         Expanded(
@@ -548,7 +548,7 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                     padding: EdgeInsets.all(8.0),
                     iconPadding:
                         EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                    color: FlutterFlowTheme.of(context).secondary,
+                    color: FlutterFlowTheme.of(context).primary,
                     textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                           font: GoogleFonts.interTight(
                             fontWeight: FlutterFlowTheme.of(context)
@@ -730,7 +730,7 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                   padding: EdgeInsets.all(8.0),
                   iconPadding:
                       EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleMedium.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)

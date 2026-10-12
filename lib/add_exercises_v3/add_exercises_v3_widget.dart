@@ -654,13 +654,13 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                             FlutterFlowIconButton(
                                               borderColor:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               borderRadius: 40.0,
                                               borderWidth: 2.0,
                                               buttonSize: 40.0,
                                               fillColor:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               icon: Icon(
                                                 Icons.smart_toy_outlined,
                                                 color:
@@ -880,7 +880,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                     BoxDecoration(
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .secondary,
+                                                                      .primary,
                                                                   borderRadius:
                                                                       BorderRadius
                                                                           .circular(
@@ -958,7 +958,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                               Icon(
                                                                             Icons.smart_toy_outlined,
                                                                             color:
-                                                                                FlutterFlowTheme.of(context).secondary,
+                                                                                FlutterFlowTheme.of(context).primary,
                                                                             size:
                                                                                 18.0,
                                                                           ),
@@ -1330,7 +1330,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                               width: 4.0,
                                                                               height: 60.0,
                                                                               decoration: BoxDecoration(
-                                                                                color: FlutterFlowTheme.of(context).secondary,
+                                                                                color: FlutterFlowTheme.of(context).primary,
                                                                                 borderRadius: BorderRadius.circular(2.0),
                                                                               ),
                                                                             ),
@@ -1640,7 +1640,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                       decoration:
                                                                           BoxDecoration(
                                                                         color: FlutterFlowTheme.of(context)
-                                                                            .secondary,
+                                                                            .primary,
                                                                         borderRadius:
                                                                             BorderRadius.circular(2.0),
                                                                       ),
@@ -1704,7 +1704,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                                 alignment: AlignmentDirectional(0.0, 0.0),
                                                                                 child: Icon(
                                                                                   Icons.smart_toy_outlined,
-                                                                                  color: FlutterFlowTheme.of(context).secondary,
+                                                                                  color: FlutterFlowTheme.of(context).primary,
                                                                                   size: 18.0,
                                                                                 ),
                                                                               ),

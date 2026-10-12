@@ -213,7 +213,7 @@ class _AnalysiAlertWidgetState extends State<AnalysiAlertWidget> {
                       padding: EdgeInsets.all(8.0),
                       iconPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).titleSmall.override(
                                 font: GoogleFonts.interTight(

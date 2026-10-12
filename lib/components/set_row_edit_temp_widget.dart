@@ -744,7 +744,7 @@ class _SetRowEditTempWidgetState extends State<SetRowEditTempWidget> {
                                                   fillColor:
                                                       FlutterFlowTheme.of(
                                                               context)
-                                                          .secondary,
+                                                          .primary,
                                                   icon: Icon(
                                                     Icons.add,
                                                     color: FlutterFlowTheme.of(

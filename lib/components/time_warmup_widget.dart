@@ -764,8 +764,8 @@ class _TimeWarmupWidgetState extends State<TimeWarmupWidget> {
                                   Align(
                                     alignment: AlignmentDirectional(0.0, 0.0),
                                     child: FlutterFlowIconButton(
-                                      borderColor: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      borderColor:
+                                          FlutterFlowTheme.of(context).primary,
                                       borderRadius: 30.0,
                                       borderWidth: 1.5,
                                       buttonSize: 30.0,
@@ -774,7 +774,7 @@ class _TimeWarmupWidgetState extends State<TimeWarmupWidget> {
                                       icon: Icon(
                                         Icons.play_arrow,
                                         color: FlutterFlowTheme.of(context)
-                                            .success,
+                                            .primary,
                                         size: 14.0,
                                       ),
                                       onPressed: () async {
@@ -815,8 +815,8 @@ class _TimeWarmupWidgetState extends State<TimeWarmupWidget> {
                                   Align(
                                     alignment: AlignmentDirectional(0.0, 0.0),
                                     child: FlutterFlowIconButton(
-                                      borderColor: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      borderColor:
+                                          FlutterFlowTheme.of(context).primary,
                                       borderRadius: 30.0,
                                       borderWidth: 1.2,
                                       buttonSize: 30.0,
@@ -825,7 +825,7 @@ class _TimeWarmupWidgetState extends State<TimeWarmupWidget> {
                                       icon: Icon(
                                         Icons.pause_rounded,
                                         color: FlutterFlowTheme.of(context)
-                                            .secondary,
+                                            .primary,
                                         size: 14.0,
                                       ),
                                       onPressed: () async {

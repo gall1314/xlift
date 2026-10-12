@@ -413,7 +413,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                         0
                                                     ? FlutterFlowTheme.of(
                                                             context)
-                                                        .secondary
+                                                        .primary
                                                     : FlutterFlowTheme.of(
                                                             context)
                                                         .alternate,
@@ -514,7 +514,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                             leftColor: Color(0xFF6D6AF2),
                                             rightColor:
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                           ),
                                         ),
                                         Text(
@@ -603,12 +603,12 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                         0
                                                     ? FlutterFlowTheme.of(
                                                             context)
-                                                        .secondary
+                                                        .primary
                                                     : FlutterFlowTheme.of(
                                                             context)
                                                         .alternate,
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(12.0),
@@ -704,7 +704,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                             leftColor: Color(0xFF6D6AF2),
                                             rightColor:
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                           ),
                                         ),
                                         Text(
@@ -793,12 +793,12 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                         0
                                                     ? FlutterFlowTheme.of(
                                                             context)
-                                                        .secondary
+                                                        .primary
                                                     : FlutterFlowTheme.of(
                                                             context)
                                                         .alternate,
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(12.0),
@@ -898,7 +898,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                             leftColor: Color(0xFF6D6AF2),
                                             rightColor:
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                           ),
                                         ),
                                         Text(
@@ -990,12 +990,12 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                         0
                                                     ? FlutterFlowTheme.of(
                                                             context)
-                                                        .secondary
+                                                        .primary
                                                     : FlutterFlowTheme.of(
                                                             context)
                                                         .alternate,
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(12.0),
@@ -1091,7 +1091,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                             leftColor: Color(0xFF6D6AF2),
                                             rightColor:
                                                 FlutterFlowTheme.of(context)
-                                                    .secondary,
+                                                    .primary,
                                           ),
                                         ),
                                         Text(
@@ -1413,7 +1413,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                               ),
                                               color:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               letterSpacing: 0.0,
                                               fontWeight:
                                                   FlutterFlowTheme.of(context)
@@ -1524,7 +1524,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                               progressColor:
                                                                   FlutterFlowTheme.of(
                                                                           context)
-                                                                      .secondary,
+                                                                      .primary,
                                                               backgroundColor:
                                                                   FlutterFlowTheme.of(
                                                                           context)
@@ -1703,7 +1703,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                             decoration: BoxDecoration(
                                               color:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               borderRadius:
                                                   BorderRadius.circular(8.0),
                                             ),

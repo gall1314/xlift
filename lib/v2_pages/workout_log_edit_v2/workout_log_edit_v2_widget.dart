@@ -268,7 +268,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                           EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                       iconPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).titleSmall.override(
                                 font: GoogleFonts.interTight(
@@ -364,7 +364,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                                           Icon(
                                             Icons.calendar_today,
                                             color: FlutterFlowTheme.of(context)
-                                                .primary,
+                                                .secondary,
                                             size: 20.0,
                                           ),
                                           Text(
@@ -541,7 +541,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                                           Icon(
                                             Icons.access_time,
                                             color: FlutterFlowTheme.of(context)
-                                                .primary,
+                                                .secondary,
                                             size: 20.0,
                                           ),
                                           Text(

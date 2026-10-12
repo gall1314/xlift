@@ -379,7 +379,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                             ),
                                         indicatorColor:
                                             FlutterFlowTheme.of(context)
-                                                .secondary,
+                                                .primary,
                                         indicatorWeight: 3.0,
                                         tabs: [
                                           Tab(
@@ -1731,36 +1731,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                                                   fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                                                 ),
                                                                                           ),
-                                                                                          Text(
-                                                                                            valueOrDefault<String>(
-                                                                                              containerUserRowList.firstOrNull?.sex,
-                                                                                              '-',
-                                                                                            ),
-                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                  font: GoogleFonts.inter(
-                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                  ),
-                                                                                                  letterSpacing: 0.0,
-                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                ),
-                                                                                          ),
-                                                                                          Text(
-                                                                                            valueOrDefault<String>(
-                                                                                              containerUserRowList.firstOrNull?.dateOfBirth,
-                                                                                              '-',
-                                                                                            ),
-                                                                                            style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                  font: GoogleFonts.inter(
-                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                  ),
-                                                                                                  letterSpacing: 0.0,
-                                                                                                  fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                ),
-                                                                                          ),
                                                                                         ],
                                                                                       ),
                                                                                     ].divide(SizedBox(width: 12.0)),
@@ -2153,7 +2123,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                                 FlutterFlowIconButton(
                                                                               borderRadius: 30.0,
                                                                               buttonSize: 40.0,
-                                                                              fillColor: FlutterFlowTheme.of(context).secondary,
+                                                                              fillColor: FlutterFlowTheme.of(context).primary,
                                                                               icon: Icon(
                                                                                 Icons.restart_alt,
                                                                                 color: FlutterFlowTheme.of(context).info,
@@ -2348,7 +2318,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                             startOnMonday:
                                                                                 false,
                                                                             accentColor:
-                                                                                FlutterFlowTheme.of(context).secondary,
+                                                                                FlutterFlowTheme.of(context).primary,
                                                                           ),
                                                                         ),
                                                                         Row(
@@ -2721,7 +2691,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                                                   height: 32.0,
                                                                                                   padding: EdgeInsets.all(8.0),
                                                                                                   iconPadding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                                                                                                  color: FlutterFlowTheme.of(context).secondary,
+                                                                                                  color: FlutterFlowTheme.of(context).primary,
                                                                                                   textStyle: FlutterFlowTheme.of(context).labelSmall.override(
                                                                                                         font: GoogleFonts.inter(
                                                                                                           fontWeight: FontWeight.w500,
@@ -5084,7 +5054,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                           .fontStyle,
                                     ),
                                 indicatorColor:
-                                    FlutterFlowTheme.of(context).secondary,
+                                    FlutterFlowTheme.of(context).primary,
                                 tabs: [
                                   Tab(
                                     text: FFLocalizations.of(context).getText(
@@ -5611,7 +5581,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               0.0,
                                                                               0.0),
                                                                           color:
-                                                                              FlutterFlowTheme.of(context).secondary,
+                                                                              FlutterFlowTheme.of(context).primary,
                                                                           textStyle: FlutterFlowTheme.of(context)
                                                                               .labelSmall
                                                                               .override(
@@ -5829,7 +5799,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                   .fromSTEB(0.0, 0.0, 0.0, 0.0),
                                               color:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               textStyle: FlutterFlowTheme.of(
                                                       context)
                                                   .titleMedium
@@ -6232,7 +6202,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                             0.0),
                                                                     color: FlutterFlowTheme.of(
                                                                             context)
-                                                                        .secondary,
+                                                                        .primary,
                                                                     textStyle: FlutterFlowTheme.of(
                                                                             context)
                                                                         .bodySmall

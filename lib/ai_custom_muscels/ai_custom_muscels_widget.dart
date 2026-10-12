@@ -125,8 +125,8 @@ class _AiCustomMuscelsWidgetState extends State<AiCustomMuscelsWidget> {
                                         MediaQuery.sizeOf(context).width * 1.0,
                                     height: 4.0,
                                     decoration: BoxDecoration(
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       borderRadius:
                                           BorderRadius.circular(9999.0),
                                       shape: BoxShape.rectangle,
@@ -2060,7 +2060,7 @@ class _AiCustomMuscelsWidgetState extends State<AiCustomMuscelsWidget> {
                         EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                     iconPadding:
                         EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                    color: FlutterFlowTheme.of(context).secondary,
+                    color: FlutterFlowTheme.of(context).primary,
                     textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                           font: GoogleFonts.interTight(
                             fontWeight: FlutterFlowTheme.of(context)

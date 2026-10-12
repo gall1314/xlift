@@ -18,14 +18,17 @@ import 'package:google_fonts/google_fonts.dart';
 /// Tappable "previous set" label ("120 kg × 10").
 ///
 /// Press feedback: while the finger is down the text fades to ~40% and
-/// shrinks slightly. [onTap] fires on release (tap or long-press).
-/// Empty [text] renders nothing.
+/// shrinks slightly. [onTap] fires on release (tap or long-press). Empty
+/// [text] renders nothing.
 ///
 /// Done detection: [loggedSets] (the page-state list of logged sets) is
-/// scanned for an entry whose exercise id == [exerciseId] and set number
-/// == [setNumber]. If found → plain text, not tappable, no animation.
-/// Accepts entries as Map or any object exposing toMap(); keys tried:
-/// exercise_id / exerciseId, set_number / setNumber.
+/// scanned for an entry whose exercise id == [exerciseId] and set number ==
+/// [setNumber]. If found → plain text, not tappable, no animation. Accepts
+/// entries as Map or any object exposing toMap(); keys tried: exercise_id /
+/// exerciseId, set_number / setNumber.
+///
+/// [fontWeight]: 100–900 (400 normal, 500 medium, 600 semibold, 700 bold).
+/// Default 500.
 class PreviousSetButton extends StatefulWidget {
   const PreviousSetButton({
     super.key,
@@ -37,6 +40,7 @@ class PreviousSetButton extends StatefulWidget {
     this.setNumber,
     this.textColor,
     this.fontSize,
+    this.fontWeight,
     this.textAlign,
     this.onTap,
   });
@@ -49,6 +53,7 @@ class PreviousSetButton extends StatefulWidget {
   final int? setNumber;
   final Color? textColor;
   final double? fontSize;
+  final int? fontWeight;
   final String? textAlign; // 'left' | 'center' | 'right' (default center)
   final Future Function()? onTap;
 
@@ -110,6 +115,19 @@ class _PreviousSetButtonState extends State<PreviousSetButton> {
     }
   }
 
+  FontWeight get _weight {
+    final w = widget.fontWeight ?? 500;
+    if (w <= 100) return FontWeight.w100;
+    if (w <= 200) return FontWeight.w200;
+    if (w <= 300) return FontWeight.w300;
+    if (w <= 400) return FontWeight.w400;
+    if (w <= 500) return FontWeight.w500;
+    if (w <= 600) return FontWeight.w600;
+    if (w <= 700) return FontWeight.w700;
+    if (w <= 800) return FontWeight.w800;
+    return FontWeight.w900;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
@@ -122,7 +140,7 @@ class _PreviousSetButtonState extends State<PreviousSetButton> {
       fontFamily: theme.bodyMediumFamily,
       color: widget.textColor ?? theme.secondaryText,
       fontSize: widget.fontSize ?? 16,
-      fontWeight: FontWeight.w500,
+      fontWeight: _weight,
       useGoogleFonts: GoogleFonts.asMap().containsKey(theme.bodyMediumFamily),
     );
 

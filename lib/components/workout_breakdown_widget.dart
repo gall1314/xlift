@@ -51,7 +51,7 @@ class _WorkoutBreakdownWidgetState extends State<WorkoutBreakdownWidget> {
         workoutLogId: widget.workoutLogId!,
         userId: currentUserUid,
         isDark: Theme.of(context).brightness == Brightness.dark,
-        accentColor: FlutterFlowTheme.of(context).secondary,
+        accentColor: FlutterFlowTheme.of(context).primary,
         initiallyExpanded: false,
       ),
     );

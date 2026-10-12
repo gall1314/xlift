@@ -820,8 +820,8 @@ class _SettingssWidgetState extends State<SettingssWidget> {
                                                 safeSetState(() {});
                                               }
                                             },
-                                      activeColor: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      activeColor:
+                                          FlutterFlowTheme.of(context).primary,
                                       inactiveTrackColor:
                                           FlutterFlowTheme.of(context)
                                               .alternate,

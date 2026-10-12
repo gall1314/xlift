@@ -8,6 +8,7 @@ import '/backend/schema/structs/index.dart';
 import '/backend/sqlite/sqlite_manager.dart';
 import '/auth/base_auth_user_provider.dart';
 
+import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
 import '/index.dart';
@@ -147,16 +148,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => WorkoutV2Widget(
             workoutId: params.getParam(
               'workoutId',
-              ParamType.String,
-            ),
-          ),
-        ),
-        FFRoute(
-          name: AfterWorkoutFixOfflineWidget.routeName,
-          path: AfterWorkoutFixOfflineWidget.routePath,
-          builder: (context, params) => AfterWorkoutFixOfflineWidget(
-            workoutLogId: params.getParam(
-              'workoutLogId',
               ParamType.String,
             ),
           ),
@@ -401,11 +392,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => CalenderWidget(),
         ),
         FFRoute(
-          name: ErrWidget.routeName,
-          path: ErrWidget.routePath,
-          builder: (context, params) => ErrWidget(),
-        ),
-        FFRoute(
           name: ExerciseHistoryCustomWidget.routeName,
           path: ExerciseHistoryCustomWidget.routePath,
           builder: (context, params) => ExerciseHistoryCustomWidget(
@@ -453,11 +439,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => ManageSubscriptionWidget(),
         ),
         FFRoute(
-          name: AfterGymWorkoutPageWidget.routeName,
-          path: AfterGymWorkoutPageWidget.routePath,
-          builder: (context, params) => AfterGymWorkoutPageWidget(),
-        ),
-        FFRoute(
           name: Test3Widget.routeName,
           path: Test3Widget.routePath,
           builder: (context, params) => Test3Widget(
@@ -487,11 +468,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => LiveSquatWidget(),
         ),
         FFRoute(
-          name: EngagingModernHomePageWidget.routeName,
-          path: EngagingModernHomePageWidget.routePath,
-          builder: (context, params) => EngagingModernHomePageWidget(),
-        ),
-        FFRoute(
           name: BarbelllWidget.routeName,
           path: BarbelllWidget.routePath,
           builder: (context, params) => BarbelllWidget(
@@ -510,11 +486,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ParamType.int,
             ),
           ),
-        ),
-        FFRoute(
-          name: BuildworkoutWidget.routeName,
-          path: BuildworkoutWidget.routePath,
-          builder: (context, params) => BuildworkoutWidget(),
         ),
         FFRoute(
           name: AiCustomMuscelsWidget.routeName,
@@ -604,11 +575,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: ChangePasswordWidget.routeName,
           path: ChangePasswordWidget.routePath,
           builder: (context, params) => ChangePasswordWidget(),
-        ),
-        FFRoute(
-          name: RestyleTheExistingPageWidget.routeName,
-          path: RestyleTheExistingPageWidget.routePath,
-          builder: (context, params) => RestyleTheExistingPageWidget(),
         ),
         FFRoute(
           name: SignInWelcomePage6Widget.routeName,
@@ -891,11 +857,15 @@ class FFRoute {
                 )
               : builder(context, ffParams);
           final child = appStateNotifier.loading
-              ? Container(
-                  color: Color(0xFF1E1E1E),
-                  child: Image.asset(
-                    'assets/images/logo_11.png',
-                    fit: BoxFit.contain,
+              ? Center(
+                  child: SizedBox(
+                    width: 50.0,
+                    height: 50.0,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        FlutterFlowTheme.of(context).secondary,
+                      ),
+                    ),
                   ),
                 )
               : page;

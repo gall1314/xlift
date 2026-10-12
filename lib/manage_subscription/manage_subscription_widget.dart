@@ -870,7 +870,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                       color:
                                                           FlutterFlowTheme.of(
                                                                   context)
-                                                              .secondary,
+                                                              .primary,
                                                       fontSize: 14.0,
                                                       letterSpacing: 0.0,
                                                       fontWeight:
@@ -970,7 +970,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                           ),
                                                           color: FlutterFlowTheme
                                                                   .of(context)
-                                                              .secondary,
+                                                              .primary,
                                                           letterSpacing: 0.0,
                                                           fontWeight:
                                                               FlutterFlowTheme.of(
@@ -1029,7 +1029,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                           ),
                                                           color: FlutterFlowTheme
                                                                   .of(context)
-                                                              .secondary,
+                                                              .primary,
                                                           fontSize: 14.0,
                                                           letterSpacing: 0.0,
                                                           fontWeight:
@@ -1083,7 +1083,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                           ),
                                                           color: FlutterFlowTheme
                                                                   .of(context)
-                                                              .secondary,
+                                                              .primary,
                                                           fontSize: 14.0,
                                                           letterSpacing: 0.0,
                                                           fontWeight:
@@ -1206,7 +1206,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                       color:
                                                           FlutterFlowTheme.of(
                                                                   context)
-                                                              .secondary,
+                                                              .primary,
                                                       fontSize: 13.0,
                                                       letterSpacing: 0.0,
                                                       fontWeight:
@@ -1258,7 +1258,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                               0.0, 0.0),
                                                   color: FlutterFlowTheme.of(
                                                           context)
-                                                      .secondary,
+                                                      .primary,
                                                   textStyle:
                                                       FlutterFlowTheme.of(
                                                               context)

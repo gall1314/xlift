@@ -185,7 +185,7 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                       Icon(
                                         Icons.label_rounded,
                                         color: FlutterFlowTheme.of(context)
-                                            .primary,
+                                            .secondary,
                                         size: 20.0,
                                       ),
                                       Text(
@@ -228,7 +228,7 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                       Icon(
                                         Icons.fitness_center_rounded,
                                         color: FlutterFlowTheme.of(context)
-                                            .primary,
+                                            .secondary,
                                         size: 20.0,
                                       ),
                                       Text(
@@ -270,7 +270,7 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                       Icon(
                                         Icons.schedule_rounded,
                                         color: FlutterFlowTheme.of(context)
-                                            .primary,
+                                            .secondary,
                                         size: 20.0,
                                       ),
                                       Text(
@@ -703,7 +703,7 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                   padding: EdgeInsets.all(8.0),
                                   iconPadding: EdgeInsetsDirectional.fromSTEB(
                                       0.0, 0.0, 0.0, 0.0),
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   textStyle: FlutterFlowTheme.of(context)
                                       .titleMedium
                                       .override(

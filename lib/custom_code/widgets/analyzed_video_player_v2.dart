@@ -23,17 +23,15 @@ import 'package:video_player/video_player.dart';
 ///
 /// Same engine as SquatAnalyzedVideoPlayer (file loading, set-object unwrap,
 /// landmark interpolation, pose_reliable, lockout flash, rep sounds +
-/// haptics) with a new presentation:
-///   - Rep-segmented progress bar: one segment per rep, colored good / bad
-///     (from result.reps[i].good, falling back to rep_just_finished). Tap a
-///     segment to jump to that rep, drag to scrub.
-///   - Overlay: "REP n / total" top-left, HEIGHT ring top-right,
-///     GOOD REP / NEEDS WORK pill + feedback text at the bottom.
-///   - Fullscreen button: opens a black full-screen route on the SAME
-///     controller (no reload), X to close.
+/// haptics) with a new presentation: - Rep-segmented progress bar: one
+/// segment per rep, colored good / bad. Tap a segment to jump to that rep,
+/// drag to scrub. - Overlay: "REP n / total" top-left, metric ring top-right,
+/// and for the whole span of the current rep segment: GOOD REP / NEEDS WORK
+/// pill + that rep's feedback (if any). - Fullscreen button: opens a black
+/// full-screen route on the SAME controller (no reload), X to close.
 ///
-/// Parameter names are compatible with the old widget so it can be swapped
-/// in place. New: autoplay, goodColor, badColor, accentColor.
+/// Parameter names are compatible with the old widget so it can be swapped in
+/// place. New: autoplay, goodColor, badColor, accentColor.
 class AnalyzedVideoPlayerV2 extends StatefulWidget {
   const AnalyzedVideoPlayerV2({
     Key? key,
@@ -71,7 +69,9 @@ class _RepSegment {
   final double endT;
   final bool? good; // null = tail / unknown
   final int index; // 1-based rep number, 0 for tail
-  const _RepSegment(this.startT, this.endT, this.good, this.index);
+  final String? feedback; // this rep's feedback (may be multi-line)
+  const _RepSegment(this.startT, this.endT, this.good, this.index,
+      [this.feedback]);
 }
 
 class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
@@ -186,8 +186,21 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
     }
   }
 
-  /// One segment per rep: [previous lockout, this lockout]. Color from
-  /// result.reps[i].good when the counts line up, else rep_just_finished.
+  static String? _feedbackStr(dynamic f) {
+    if (f == null) return null;
+    if (f is List) {
+      final parts =
+          f.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
+      return parts.isEmpty ? null : parts.join('\n');
+    }
+    final s = f.toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  /// One segment per rep: [previous lockout, this lockout]. Verdict from
+  /// result.reps[i].good when present (bool), else rep_just_finished of the
+  /// lockout frame. Feedback from result.reps[i].feedback, else the lockout
+  /// frame's feedback.
   void _buildSegments(Map result) {
     final List<int> lockoutIdx = [];
     for (int i = 0; i < _telemetry.length; i++) {
@@ -200,20 +213,31 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
     double prev = 0.0;
     for (int i = 0; i < lockoutIdx.length; i++) {
       final f = _telemetry[lockoutIdx[i]];
-      bool good;
+      bool good = f.repJustFinished == 'good';
+      String? fb;
       if (useReps && repsList[i] is Map) {
-        final g = (repsList[i] as Map)['good'];
-        good = g == true;
-      } else {
-        good = f.repJustFinished == 'good';
+        final m = repsList[i] as Map;
+        final g = m['good'];
+        if (g is bool) good = g;
+        fb = _feedbackStr(m['feedback']) ?? _feedbackStr(m['f']);
       }
-      segs.add(_RepSegment(prev, f.t, good, i + 1));
+      fb ??= _feedbackStr(f.feedback);
+      segs.add(_RepSegment(prev, f.t, good, i + 1, fb));
       prev = f.t;
     }
     final double end = _durationSec > 0 ? _durationSec : prev;
     if (end > prev + 0.05) segs.add(_RepSegment(prev, end, null, 0));
     _segments = segs;
     _totalReps = lockoutIdx.length;
+  }
+
+  _RepSegment? _segmentAt(double tSec) {
+    for (final s in _segments) {
+      if (tSec >= s.startT && tSec < s.endT) return s;
+    }
+    return _segments.isNotEmpty && tSec >= _segments.last.startT
+        ? _segments.last
+        : null;
   }
 
   // ---------------- tick: audio + haptics only (painting is driven by
@@ -591,6 +615,7 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
         final _FrameData? frame = _frameAtTime(tSec);
         final bool isPlaying = controller.value.isPlaying;
         final flash = _flashAt(tSec);
+        final _RepSegment? seg = _segmentAt(tSec);
 
         List<List<double>> lms = _interpolatedLandmarksAt(tSec);
         if (lms.length >= 25) {
@@ -639,7 +664,8 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
                             landmarks: lms,
                             flashColor: flash?.color,
                             flashIntensity: flash?.intensity ?? 0.0,
-                            flashGood: flash?.good,
+                            segGood: seg?.good,
+                            segFeedback: seg?.feedback,
                             goodColor: _good,
                             badColor: _bad,
                             accent: _accent,
@@ -953,7 +979,8 @@ class _OverlayPainterV2 extends CustomPainter {
     required this.landmarks,
     required this.flashColor,
     required this.flashIntensity,
-    required this.flashGood,
+    required this.segGood,
+    required this.segFeedback,
     required this.goodColor,
     required this.badColor,
     required this.accent,
@@ -966,7 +993,8 @@ class _OverlayPainterV2 extends CustomPainter {
   final List<List<double>> landmarks;
   final Color? flashColor;
   final double flashIntensity;
-  final bool? flashGood;
+  final bool? segGood; // verdict of the current rep segment (null = tail)
+  final String? segFeedback; // feedback of the current rep segment
   final Color goodColor;
   final Color badColor;
   final Color accent;
@@ -1012,7 +1040,7 @@ class _OverlayPainterV2 extends CustomPainter {
   ];
 
   TextPainter _tp(String text, double size, FontWeight weight, Color color,
-      {double? maxWidth, double letterSpacing = 0}) {
+      {double? maxWidth, double letterSpacing = 0, int maxLines = 2}) {
     final tp = TextPainter(
       text: TextSpan(
         text: text,
@@ -1021,11 +1049,11 @@ class _OverlayPainterV2 extends CustomPainter {
           fontSize: size,
           fontWeight: weight,
           letterSpacing: letterSpacing,
-          height: 1.0,
+          height: 1.15,
         ),
       ),
       textDirection: ui.TextDirection.ltr,
-      maxLines: 2,
+      maxLines: maxLines,
       ellipsis: '…',
     );
     tp.layout(maxWidth: maxWidth ?? double.infinity);
@@ -1112,7 +1140,7 @@ class _OverlayPainterV2 extends CustomPainter {
         Offset(
             pad + pad * 0.8 + num.width, numY + num.height - tot.height - 2));
 
-    // --- HEIGHT ring (top-right) ---
+    // --- metric ring (top-right) ---
     final double radius = math.max(22.0, h * 0.055);
     final double thick = math.max(3.5, radius * 0.18);
     final double cx = w - pad - radius;
@@ -1148,28 +1176,30 @@ class _OverlayPainterV2 extends CustomPainter {
     rl.paint(canvas, Offset(cx - rl.width / 2, cy - th / 2));
     rp.paint(canvas, Offset(cx - rp.width / 2, cy - th / 2 + rl.height + 2));
 
-    // --- bottom: verdict pill + feedback ---
-    final String? fb = frame.feedback;
-    final bool hasFb = fb != null && fb.trim().isNotEmpty;
-    final bool showPill = flashColor != null && flashGood != null;
+    // --- bottom: verdict pill + feedback, for the whole rep segment ---
+    // In a rep segment: pill always, feedback if the rep has any.
+    // In the tail (no segment): no pill, frame feedback if any.
+    final bool showPill = segGood != null;
+    final String? fbRaw = segGood != null ? segFeedback : frame.feedback;
+    final String fb = (fbRaw ?? '').trim();
+    final bool hasFb = fb.isNotEmpty;
     if (showPill || hasFb) {
       final double bottomSafe = math.max(44.0, h * 0.12); // above controls
       double y = h - bottomSafe;
       if (hasFb) {
-        final fbTp = _tp(fb!.trim(), math.max(13.0, h * 0.034), FontWeight.w700,
-            Colors.white,
-            maxWidth: w - pad * 2);
+        final double fbSize = math.max(12.0, h * 0.028);
+        final fbTp = _tp(fb, fbSize, FontWeight.w700, Colors.white,
+            maxWidth: w - pad * 2, maxLines: 3);
         y -= fbTp.height;
-        // text shadow for legibility
-        final shadow = _tp(fb.trim(), math.max(13.0, h * 0.034),
-            FontWeight.w700, Colors.black.withOpacity(0.6),
-            maxWidth: w - pad * 2);
+        final shadow = _tp(
+            fb, fbSize, FontWeight.w700, Colors.black.withOpacity(0.6),
+            maxWidth: w - pad * 2, maxLines: 3);
         shadow.paint(canvas, Offset(pad + 1, y + 1));
         fbTp.paint(canvas, Offset(pad, y));
         y -= 8;
       }
       if (showPill) {
-        final bool g = flashGood!;
+        final bool g = segGood!;
         final pillTp = _tp(g ? 'GOOD REP' : 'NEEDS WORK',
             math.max(10.0, h * 0.024), FontWeight.w800, Colors.white,
             letterSpacing: 1.0);
@@ -1181,7 +1211,7 @@ class _OverlayPainterV2 extends CustomPainter {
             pill,
             Paint()
               ..color = (g ? goodColor : badColor)
-                  .withOpacity(0.55 + 0.45 * flashIntensity.clamp(0, 1)));
+                  .withOpacity(0.78 + 0.22 * flashIntensity.clamp(0, 1)));
         pillTp.paint(canvas, Offset(pad + 10, y + 5));
       }
     }
@@ -1193,6 +1223,8 @@ class _OverlayPainterV2 extends CustomPainter {
       old.landmarks != landmarks ||
       old.flashColor != flashColor ||
       old.flashIntensity != flashIntensity ||
+      old.segGood != segGood ||
+      old.segFeedback != segFeedback ||
       old.totalReps != totalReps;
 }
 // Set your widget name, define your parameter, and then add the

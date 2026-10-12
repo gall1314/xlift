@@ -227,7 +227,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                 iconPadding: EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 0.0),
                                 color: FFAppState().isKg
-                                    ? FlutterFlowTheme.of(context).secondary
+                                    ? FlutterFlowTheme.of(context).primary
                                     : FlutterFlowTheme.of(context)
                                         .secondaryBackground,
                                 textStyle: FlutterFlowTheme.of(context)
@@ -257,7 +257,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                 elevation: 0.0,
                                 borderSide: BorderSide(
                                   color: FFAppState().isKg
-                                      ? FlutterFlowTheme.of(context).secondary
+                                      ? FlutterFlowTheme.of(context).primary
                                       : FlutterFlowTheme.of(context).alternate,
                                 ),
                                 borderRadius: BorderRadius.only(
@@ -284,7 +284,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                 iconPadding: EdgeInsetsDirectional.fromSTEB(
                                     0.0, 0.0, 0.0, 0.0),
                                 color: !FFAppState().isKg
-                                    ? FlutterFlowTheme.of(context).secondary
+                                    ? FlutterFlowTheme.of(context).primary
                                     : FlutterFlowTheme.of(context)
                                         .secondaryBackground,
                                 textStyle: FlutterFlowTheme.of(context)
@@ -314,7 +314,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                 elevation: 0.0,
                                 borderSide: BorderSide(
                                   color: !FFAppState().isKg
-                                      ? FlutterFlowTheme.of(context).secondary
+                                      ? FlutterFlowTheme.of(context).primary
                                       : FlutterFlowTheme.of(context).alternate,
                                 ),
                                 borderRadius: BorderRadius.only(
@@ -391,7 +391,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     iconPadding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
                                     color: FFAppState().heightIsCm
-                                        ? FlutterFlowTheme.of(context).secondary
+                                        ? FlutterFlowTheme.of(context).primary
                                         : FlutterFlowTheme.of(context)
                                             .secondaryBackground,
                                     textStyle: FlutterFlowTheme.of(context)
@@ -425,8 +425,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     elevation: 0.0,
                                     borderSide: BorderSide(
                                       color: FFAppState().heightIsCm
-                                          ? FlutterFlowTheme.of(context)
-                                              .secondary
+                                          ? FlutterFlowTheme.of(context).primary
                                           : FlutterFlowTheme.of(context)
                                               .alternate,
                                     ),
@@ -454,7 +453,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     iconPadding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
                                     color: !FFAppState().heightIsCm
-                                        ? FlutterFlowTheme.of(context).secondary
+                                        ? FlutterFlowTheme.of(context).primary
                                         : FlutterFlowTheme.of(context)
                                             .secondaryBackground,
                                     textStyle: FlutterFlowTheme.of(context)
@@ -488,8 +487,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     elevation: 0.0,
                                     borderSide: BorderSide(
                                       color: !FFAppState().heightIsCm
-                                          ? FlutterFlowTheme.of(context)
-                                              .secondary
+                                          ? FlutterFlowTheme.of(context).primary
                                           : FlutterFlowTheme.of(context)
                                               .alternate,
                                     ),
@@ -564,7 +562,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     iconPadding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
                                     color: FFAppState().bodyWeightIsKg
-                                        ? FlutterFlowTheme.of(context).secondary
+                                        ? FlutterFlowTheme.of(context).primary
                                         : FlutterFlowTheme.of(context)
                                             .secondaryBackground,
                                     textStyle: FlutterFlowTheme.of(context)
@@ -598,8 +596,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     elevation: 0.0,
                                     borderSide: BorderSide(
                                       color: FFAppState().bodyWeightIsKg
-                                          ? FlutterFlowTheme.of(context)
-                                              .secondary
+                                          ? FlutterFlowTheme.of(context).primary
                                           : FlutterFlowTheme.of(context)
                                               .alternate,
                                     ),
@@ -627,7 +624,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     iconPadding: EdgeInsetsDirectional.fromSTEB(
                                         0.0, 0.0, 0.0, 0.0),
                                     color: !FFAppState().bodyWeightIsKg
-                                        ? FlutterFlowTheme.of(context).secondary
+                                        ? FlutterFlowTheme.of(context).primary
                                         : FlutterFlowTheme.of(context)
                                             .secondaryBackground,
                                     textStyle: FlutterFlowTheme.of(context)
@@ -661,8 +658,7 @@ class _UpdateUnitsWidgetState extends State<UpdateUnitsWidget> {
                                     elevation: 0.0,
                                     borderSide: BorderSide(
                                       color: !FFAppState().bodyWeightIsKg
-                                          ? FlutterFlowTheme.of(context)
-                                              .secondary
+                                          ? FlutterFlowTheme.of(context).primary
                                           : FlutterFlowTheme.of(context)
                                               .alternate,
                                     ),

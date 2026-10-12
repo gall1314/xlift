@@ -388,7 +388,7 @@ class _Analyze2AppAfterWidgetState extends State<Analyze2AppAfterWidget> {
                       children: [
                         Icon(
                           Icons.lightbulb,
-                          color: FlutterFlowTheme.of(context).secondary,
+                          color: FlutterFlowTheme.of(context).primary,
                           size: 20.0,
                         ),
                         Expanded(

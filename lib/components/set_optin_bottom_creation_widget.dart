@@ -221,8 +221,8 @@ class _SetOptinBottomCreationWidgetState
                                   if (widget.isDropSet ?? true)
                                     Icon(
                                       Icons.check_outlined,
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondary,
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       size: 24.0,
                                     ),
                                 ].divide(SizedBox(width: 16.0)),

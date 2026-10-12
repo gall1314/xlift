@@ -283,7 +283,7 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                           EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                       iconPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).titleSmall.override(
                                 font: GoogleFonts.interTight(
@@ -373,7 +373,9 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                       ),
                       FFButtonWidget(
                         onPressed: () async {
-                          _model.prof = await actions.pickAndSaveProfilePhoto();
+                          _model.prof = await actions.pickAndSaveProfilePhoto(
+                            context,
+                          );
                           _model.tempProf = _model.prof;
                           safeSetState(() {});
 
@@ -389,23 +391,22 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                           iconPadding: EdgeInsetsDirectional.fromSTEB(
                               0.0, 0.0, 0.0, 0.0),
                           color: Colors.transparent,
-                          textStyle: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w500,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                                color: FlutterFlowTheme.of(context).secondary,
-                                fontSize: 16.0,
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
+                          textStyle:
+                              FlutterFlowTheme.of(context).bodyMedium.override(
+                                    font: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w500,
+                                      fontStyle: FlutterFlowTheme.of(context)
+                                          .bodyMedium
+                                          .fontStyle,
+                                    ),
+                                    color: FlutterFlowTheme.of(context).primary,
+                                    fontSize: 16.0,
+                                    letterSpacing: 0.0,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FlutterFlowTheme.of(context)
+                                        .bodyMedium
+                                        .fontStyle,
+                                  ),
                           elevation: 0.0,
                           borderSide: BorderSide(
                             color: Colors.transparent,

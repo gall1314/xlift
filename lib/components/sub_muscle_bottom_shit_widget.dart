@@ -344,7 +344,7 @@ class _SubMuscleBottomShitWidgetState extends State<SubMuscleBottomShitWidget> {
                                           Icon(
                                             Icons.check,
                                             color: FlutterFlowTheme.of(context)
-                                                .secondary,
+                                                .primary,
                                             size: 24.0,
                                           ),
                                       ].divide(SizedBox(width: 20.0)),

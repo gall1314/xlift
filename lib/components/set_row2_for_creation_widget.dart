@@ -9,10 +9,8 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'set_row2_for_creation_model.dart';
@@ -59,13 +57,6 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       safeSetState(() {});
     });
-
-    _model.repsFieldTextController ??= TextEditingController(
-        text: functions
-            .getInitialLoggedSetValue(FFAppState().loggedSetsCreation.toList(),
-                widget.exerciseId!, widget.setNumber!, 'reps')
-            ?.toString());
-    _model.repsFieldFocusNode ??= FocusNode();
   }
 
   @override
@@ -213,75 +204,6 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                           },
                         ),
                       ),
-                      Align(
-                        alignment: AlignmentDirectional(0.0, 0.0),
-                        child: FutureBuilder<List<CorrectedPreviosSetRow>>(
-                          future: SQLiteManager.instance.correctedPreviosSet(
-                            exerciseId: widget.exerciseId!,
-                            setNumber: widget.setNumber!,
-                            userId: currentUserUid,
-                          ),
-                          builder: (context, snapshot) {
-                            // Customize what your widget looks like when it's loading.
-                            if (!snapshot.hasData) {
-                              return Center(
-                                child: SizedBox(
-                                  width: 50.0,
-                                  height: 50.0,
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      FlutterFlowTheme.of(context).secondary,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            final containerCorrectedPreviosSetRowList =
-                                snapshot.data!;
-
-                            return Container(
-                              width: 80.0,
-                              decoration: BoxDecoration(),
-                              child: Text(
-                                functions.correctedFormatPreviousSet(
-                                    containerCorrectedPreviosSetRowList
-                                        .firstOrNull?.reps,
-                                    containerCorrectedPreviosSetRowList
-                                        .firstOrNull?.weight,
-                                    containerCorrectedPreviosSetRowList
-                                        .firstOrNull?.durationeconds,
-                                    containerCorrectedPreviosSetRowList
-                                                .firstOrNull?.isKg ==
-                                            0
-                                        ? false
-                                        : true),
-                                textAlign: TextAlign.center,
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
                       if (!functions.isSetDoneOffline(
                               FFAppState().loggedSets.toList(),
                               widget.exerciseId!,
@@ -305,8 +227,7 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                                 widget.setNumber!,
                                 0,
                                 0,
-                                int.tryParse(
-                                    _model.repsFieldTextController.text),
+                                0,
                                 ms,
                               );
                               FFAppState().loggedSetsCreation =
@@ -318,156 +239,126 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                             },
                           ),
                         ),
-                      if (!widget.timed)
-                        Expanded(
-                          child: Align(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            child: Padding(
-                              padding: EdgeInsets.all(5.0),
-                              child: Container(
-                                width: 80.0,
-                                child: TextFormField(
-                                  controller: _model.repsFieldTextController,
-                                  focusNode: _model.repsFieldFocusNode,
-                                  onChanged: (_) => EasyDebounce.debounce(
-                                    '_model.repsFieldTextController',
-                                    Duration(milliseconds: 0),
-                                    () async {
-                                      _model.updateReps = await actions
-                                          .updateLoggedSetForCreationV4(
-                                        FFAppState()
-                                            .loggedSetsCreation
-                                            .toList(),
-                                        widget.exerciseId!,
-                                        widget.setNumber!,
-                                        0,
-                                        0,
-                                        int.tryParse(_model
-                                            .repsFieldTextController.text),
-                                        _model.durationMs,
-                                      );
-                                      FFAppState().loggedSetsCreation = _model
-                                          .updateReps!
-                                          .toList()
-                                          .cast<dynamic>();
-                                      safeSetState(() {});
-
-                                      safeSetState(() {});
-                                    },
+                      FutureBuilder<List<CorrectedPreviosSetRow>>(
+                        future: SQLiteManager.instance.correctedPreviosSet(
+                          exerciseId: widget.exerciseId!,
+                          setNumber: widget.setNumber!,
+                          userId: currentUserUid,
+                        ),
+                        builder: (context, snapshot) {
+                          // Customize what your widget looks like when it's loading.
+                          if (!snapshot.hasData) {
+                            return Center(
+                              child: SizedBox(
+                                width: 50.0,
+                                height: 50.0,
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    FlutterFlowTheme.of(context).secondary,
                                   ),
-                                  autofocus: false,
-                                  obscureText: false,
-                                  decoration: InputDecoration(
-                                    isDense: true,
-                                    labelStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight: FontWeight.bold,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.bold,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    hintText: functions
-                                        .getHintFromPreviousSetForCreation(
-                                            FFAppState()
-                                                .loggedSetsCreation
-                                                .toList(),
-                                            widget.exerciseId!,
-                                            widget.setNumber!,
-                                            'reps')
-                                        .toString(),
-                                    hintStyle: FlutterFlowTheme.of(context)
-                                        .labelMedium
-                                        .override(
-                                          font: GoogleFonts.inter(
-                                            fontWeight: FontWeight.bold,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .labelMedium
-                                                    .fontStyle,
-                                          ),
-                                          letterSpacing: 0.0,
-                                          fontWeight: FontWeight.bold,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .labelMedium
-                                                  .fontStyle,
-                                        ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: Color(0x00000000),
-                                        width: 0.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10.0),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color: Color(0x00000000),
-                                        width: 0.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10.0),
-                                    ),
-                                    errorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 0.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10.0),
-                                    ),
-                                    focusedErrorBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        width: 0.0,
-                                      ),
-                                      borderRadius: BorderRadius.circular(10.0),
-                                    ),
-                                  ),
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight: FontWeight.bold,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        color: FlutterFlowTheme.of(context)
-                                            .primaryText,
-                                        fontSize: 14.0,
-                                        letterSpacing: 0.0,
-                                        fontWeight: FontWeight.bold,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                  textAlign: TextAlign.center,
-                                  keyboardType: TextInputType.number,
-                                  cursorColor:
-                                      FlutterFlowTheme.of(context).primaryText,
-                                  validator: _model
-                                      .repsFieldTextControllerValidator
-                                      .asValidator(context),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                        RegExp('[0-9]'))
-                                  ],
                                 ),
                               ),
+                            );
+                          }
+                          final previousSetButtonCorrectedPreviosSetRowList =
+                              snapshot.data!;
+
+                          return Container(
+                            width: 80.0,
+                            height: 45.0,
+                            child: custom_widgets.PreviousSetButton(
+                              width: 80.0,
+                              height: 45.0,
+                              text: functions.correctedFormatPreviousSet(
+                                  previousSetButtonCorrectedPreviosSetRowList
+                                      .firstOrNull?.reps,
+                                  previousSetButtonCorrectedPreviosSetRowList
+                                      .firstOrNull?.weight,
+                                  previousSetButtonCorrectedPreviosSetRowList
+                                      .firstOrNull?.durationeconds,
+                                  previousSetButtonCorrectedPreviosSetRowList
+                                              .firstOrNull?.isKg ==
+                                          0
+                                      ? false
+                                      : true),
+                              exerciseId: widget.exerciseId,
+                              setNumber: widget.setNumber,
+                              textColor:
+                                  FlutterFlowTheme.of(context).secondaryText,
+                              fontSize: 14.0,
+                              fontWeight: 400,
+                              loggedSets: FFAppState().loggedSetsCreation,
+                              onTap: () async {
+                                _model.updateRepsCopyCopy =
+                                    await actions.updateLoggedSetForCreationV4(
+                                  FFAppState().loggedSetsCreation.toList(),
+                                  widget.exerciseId!,
+                                  widget.setNumber!,
+                                  0,
+                                  0,
+                                  previousSetButtonCorrectedPreviosSetRowList
+                                      .firstOrNull?.reps,
+                                  _model.durationMs,
+                                );
+                                FFAppState().loggedSetsCreation = _model
+                                    .updateRepsCopyCopy!
+                                    .toList()
+                                    .cast<dynamic>();
+                                safeSetState(() {});
+
+                                safeSetState(() {});
+                              },
                             ),
-                          ),
+                          );
+                        },
+                      ),
+                      Container(
+                        width: 80.0,
+                        height: 45.0,
+                        child: custom_widgets.RepsField(
+                          width: 80.0,
+                          height: 45.0,
+                          exerciseId: widget.exerciseId,
+                          setNumber: widget.setNumber,
+                          value: functions.getInitialLoggedSetValue(
+                              FFAppState().loggedSetsCreation.toList(),
+                              widget.exerciseId!,
+                              widget.setNumber!,
+                              'reps'),
+                          fontSize: 14.0,
+                          fontWeight: 700,
+                          textColor: FlutterFlowTheme.of(context).primaryText,
+                          hintColor: FlutterFlowTheme.of(context).secondaryText,
+                          focusColor: FlutterFlowTheme.of(context).primary,
+                          isDark:
+                              Theme.of(context).brightness == Brightness.dark,
+                          hintText: functions
+                              .getHintFromPreviousSetForCreation(
+                                  FFAppState().loggedSetsCreation.toList(),
+                                  widget.exerciseId!,
+                                  widget.setNumber!,
+                                  'reps')
+                              .toString(),
+                          loggedSets: FFAppState().loggedSetsCreation,
+                          onValueCommitted: (value) async {
+                            _model.updateRepsCopy =
+                                await actions.updateLoggedSetForCreationV4(
+                              FFAppState().loggedSetsCreation.toList(),
+                              widget.exerciseId!,
+                              widget.setNumber!,
+                              0,
+                              0,
+                              value,
+                              _model.durationMs,
+                            );
+                            FFAppState().loggedSetsCreation =
+                                _model.updateRepsCopy!.toList().cast<dynamic>();
+                            safeSetState(() {});
+
+                            safeSetState(() {});
+                          },
                         ),
+                      ),
                       if (!widget.timed)
                         Expanded(
                           child: Container(

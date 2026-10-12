@@ -548,13 +548,13 @@ class _AddExercisesForWorklogEditWidgetState
                                         FlutterFlowIconButton(
                                           borderColor:
                                               FlutterFlowTheme.of(context)
-                                                  .secondary,
+                                                  .primary,
                                           borderRadius: 40.0,
                                           borderWidth: 2.0,
                                           buttonSize: 40.0,
                                           fillColor:
                                               FlutterFlowTheme.of(context)
-                                                  .secondary,
+                                                  .primary,
                                           icon: Icon(
                                             Icons.smart_toy_outlined,
                                             color: FlutterFlowTheme.of(context)
@@ -799,7 +799,7 @@ class _AddExercisesForWorklogEditWidgetState
                                                                         BoxDecoration(
                                                                       color: FlutterFlowTheme.of(
                                                                               context)
-                                                                          .secondary,
+                                                                          .primary,
                                                                       borderRadius:
                                                                           BorderRadius.circular(
                                                                               2.0),
@@ -869,7 +869,7 @@ class _AddExercisesForWorklogEditWidgetState
                                                                                 alignment: AlignmentDirectional(0.0, 0.0),
                                                                                 child: Icon(
                                                                                   Icons.smart_toy_outlined,
-                                                                                  color: FlutterFlowTheme.of(context).secondary,
+                                                                                  color: FlutterFlowTheme.of(context).primary,
                                                                                   size: 18.0,
                                                                                 ),
                                                                               ),
@@ -1192,7 +1192,7 @@ class _AddExercisesForWorklogEditWidgetState
                                                                                 width: 4.0,
                                                                                 height: 60.0,
                                                                                 decoration: BoxDecoration(
-                                                                                  color: FlutterFlowTheme.of(context).secondary,
+                                                                                  color: FlutterFlowTheme.of(context).primary,
                                                                                   borderRadius: BorderRadius.circular(2.0),
                                                                                 ),
                                                                               ),
@@ -1506,7 +1506,7 @@ class _AddExercisesForWorklogEditWidgetState
                                                                         decoration:
                                                                             BoxDecoration(
                                                                           color:
-                                                                              FlutterFlowTheme.of(context).secondary,
+                                                                              FlutterFlowTheme.of(context).primary,
                                                                           borderRadius:
                                                                               BorderRadius.circular(2.0),
                                                                         ),
@@ -1574,7 +1574,7 @@ class _AddExercisesForWorklogEditWidgetState
                                                                                     alignment: AlignmentDirectional(0.0, 0.0),
                                                                                     child: Icon(
                                                                                       Icons.smart_toy_outlined,
-                                                                                      color: FlutterFlowTheme.of(context).secondary,
+                                                                                      color: FlutterFlowTheme.of(context).primary,
                                                                                       size: 18.0,
                                                                                     ),
                                                                                   ),
@@ -1709,7 +1709,7 @@ class _AddExercisesForWorklogEditWidgetState
                       padding: EdgeInsets.all(8.0),
                       iconPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).titleSmall.override(
                                 font: GoogleFonts.interTight(

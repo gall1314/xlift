@@ -643,37 +643,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Hogar',
     },
   },
-  // afterWorkoutFixOffline
-  {
-    '1chgx15s': {
-      'en': '💪 Well done! Workout \ncomplete',
-      'es': '¡Bien hecho! Entrenamiento completo.',
-    },
-    '8d75z3tz': {
-      'en': 'Duration',
-      'es': 'Duración',
-    },
-    'sz5kk0pi': {
-      'en': 'Total Volume',
-      'es': 'Volumen total',
-    },
-    '48x3l0cr': {
-      'en': 'Exercises',
-      'es': 'Ceremonias',
-    },
-    'czy1kw6r': {
-      'en': 'Exercises Completed',
-      'es': 'Ejercicios completados',
-    },
-    'utn5ld4q': {
-      'en': 'Close',
-      'es': 'Cerca',
-    },
-    '2evxux6c': {
-      'en': 'Home',
-      'es': 'Hogar',
-    },
-  },
   // workoutComparison
   {
     'fddbo90a': {
@@ -1482,77 +1451,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // err
-  {
-    '4wtjhj9r': {
-      'en': 'Your Weekly Routine',
-      'es': '',
-    },
-    '5o7lva8c': {
-      'en': 'Mon',
-      'es': '',
-    },
-    '4n4sybtq': {
-      'en': '18',
-      'es': '',
-    },
-    'd6mdsf3r': {
-      'en': 'Tue',
-      'es': '',
-    },
-    'oid4z7j8': {
-      'en': '19',
-      'es': '',
-    },
-    'jonvodha': {
-      'en': 'Wed',
-      'es': '',
-    },
-    '130zc4t5': {
-      'en': '20',
-      'es': '',
-    },
-    '86kvu5m9': {
-      'en': 'Thu',
-      'es': '',
-    },
-    '6nqris5h': {
-      'en': '21',
-      'es': '',
-    },
-    'yyiczio0': {
-      'en': 'Fri',
-      'es': '',
-    },
-    'x7bo0qhs': {
-      'en': '22',
-      'es': '',
-    },
-    'jumsz4io': {
-      'en': 'Sat',
-      'es': '',
-    },
-    'bwwktamb': {
-      'en': '23',
-      'es': '',
-    },
-    '5m07ntdd': {
-      'en': 'Sun',
-      'es': '',
-    },
-    'igv8oun2': {
-      'en': '24',
-      'es': '',
-    },
-    '1g153l0i': {
-      'en': 'No workout scheduled',
-      'es': '',
-    },
-    '0lupkben': {
-      'en': 'Add workout',
-      'es': '',
-    },
-  },
   // exerciseHistoryCustom
   {
     'sumish25': {
@@ -1901,33 +1799,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // AfterGymWorkoutPage
-  {
-    '8yjg223k': {
-      'en': 'Workout Complete!',
-      'es': '',
-    },
-    '93lrapzr': {
-      'en': 'Morning Push Session • 45 mins',
-      'es': '',
-    },
-    'kj6ynw2g': {
-      'en': 'New Personal Record!',
-      'es': '',
-    },
-    'rbqtip7t': {
-      'en': 'You lifted 10kg more on Bench Press today.',
-      'es': '',
-    },
-    'rhygqsbu': {
-      'en': 'Exercise Summary',
-      'es': '',
-    },
-    'npt38z7g': {
-      'en': '6 Exercises',
-      'es': '',
-    },
-  },
   // test3
   {
     'zyxx1g8q': {
@@ -1957,45 +1828,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // EngagingModernHomePage
-  {
-    'zeckzel9': {
-      'en': 'Hello, Alex',
-      'es': '',
-    },
-    'odx3g5dj': {
-      'en': 'Push your limits',
-      'es': '',
-    },
-    'xx1z557b': {
-      'en': '12 DAY STREAK',
-      'es': '',
-    },
-    'xzqdd13u': {
-      'en': 'Current Volume',
-      'es': '',
-    },
-    'vjs28sq2': {
-      'en': '42.5',
-      'es': '',
-    },
-    '8dmq2slx': {
-      'en': 'tons',
-      'es': '',
-    },
-    '7mv5vq9h': {
-      'en': 'Strength Trend',
-      'es': '',
-    },
-    's3xgbcre': {
-      'en': 'Last 7 Days',
-      'es': '',
-    },
-    'l62p9a46': {
-      'en': 'Recent Analysis',
-      'es': '',
-    },
-  },
   // barbelll
   {
     'ebtzbrmx': {
@@ -2010,21 +1842,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   // camera
   {
     'bld8hx0k': {
-      'en': 'Home',
-      'es': '',
-    },
-  },
-  // buildworkout
-  {
-    '93trzben': {
-      'en': '',
-      'es': '',
-    },
-    'ymlek4px': {
-      'en': 'Step1 of 3',
-      'es': '',
-    },
-    'os2uhwmq': {
       'en': 'Home',
       'es': '',
     },
@@ -2292,26 +2109,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     '5xhghx2g': {
       'en': 'Home',
       'es': 'Hogar',
-    },
-  },
-  // RestyleTheExistingPage
-  {
-    'fvw7a5wp': {
-      'en': 'XLIFT',
-      'es': '',
-    },
-    'ha1lhuf6': {
-      'en': 'Your strength, quantified.',
-      'es': '',
-    },
-    '5o3ipctf': {
-      'en': 'Continue with email',
-      'es': '',
-    },
-    'tsx0v41r': {
-      'en':
-          'By continuing, you agree to our Terms of Service and Privacy Policy.',
-      'es': '',
     },
   },
   // SignInWelcomePage6
@@ -2727,33 +2524,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // SetRowData
-  {
-    '56rfwx44': {
-      'en': '0',
-      'es': '0',
-    },
-    'j5o9u12n': {
-      'en': '0',
-      'es': '0',
-    },
-    'ju8tzr5m': {
-      'en': ':',
-      'es': ':',
-    },
-    '56cwdc42': {
-      'en': '0',
-      'es': '0',
-    },
-    'klunmj47': {
-      'en': '0',
-      'es': '0',
-    },
-    '0l05y007': {
-      'en': '-- --',
-      'es': '-- --',
-    },
-  },
   // exerciseStatsPlaceHolder
   {
     'zekrnvm0': {
@@ -2997,10 +2767,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'Superset',
       'es': '',
     },
-    'a5q10uho': {
-      'en': 'Rest:',
-      'es': '',
-    },
     '1zuasebz': {
       'en': 'Previous',
       'es': '',
@@ -3125,21 +2891,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '%',
     },
   },
-  // supersetBottomShit
-  {
-    'b8ku8qol': {
-      'en': 'Choose Superset Partner',
-      'es': '',
-    },
-    'aexc1ufy': {
-      'en': 'in workout',
-      'es': '',
-    },
-    'ljsqf977': {
-      'en': 'Create Superset',
-      'es': '',
-    },
-  },
   // discardWorkout
   {
     'xfu8z0q6': {
@@ -3159,13 +2910,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     'tv7v5c6q': {
       'en': 'Discard',
       'es': 'Borrar',
-    },
-  },
-  // inprog
-  {
-    'k04x7zox': {
-      'en': 'Workout in Progress',
-      'es': '',
     },
   },
   // editDelte2
@@ -3321,10 +3065,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   {
     '9ymmex12': {
       'en': 'Superset',
-      'es': '',
-    },
-    '5s3cz0ne': {
-      'en': 'Rest:',
       'es': '',
     },
     'wmvw3w87': {
@@ -3487,41 +3227,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     'wleqw6qg': {
       'en': 'Search Muscle',
       'es': '',
-    },
-  },
-  // equipmentBotoomShit
-  {
-    'fmpo5xna': {
-      'en': 'Choose Equipment',
-      'es': 'Elija el grupo muscular',
-    },
-    '14qvqae7': {
-      'en': 'Search Equipment',
-      'es': '',
-    },
-    'y8d9pbpr': {
-      'en': 'Barbell',
-      'es': 'Pecho',
-    },
-    'r7eyunxd': {
-      'en': 'Bench',
-      'es': 'Atrás',
-    },
-    '0qfutkfa': {
-      'en': 'No equipment (bodyweight)',
-      'es': 'Espalda',
-    },
-    '4jnw7l8e': {
-      'en': 'Dumbbell',
-      'es': 'Bíceps',
-    },
-    'jd8n0hel': {
-      'en': 'Machine',
-      'es': 'Tríceps',
-    },
-    'coufep0x': {
-      'en': 'Resistance Band',
-      'es': 'Piernas',
     },
   },
   // exercyseTypeBottom
@@ -3739,27 +3444,8 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // reorder2
-  {
-    'w3otpui4': {
-      'en': 'Reorder Exercises',
-      'es': '',
-    },
-    '9fwy2w6p': {
-      'en': 'Use arrows to change the order',
-      'es': '',
-    },
-    '2zwm5fug': {
-      'en': 'Save Order',
-      'es': '',
-    },
-  },
   // exerciseComponetFornEdit2
   {
-    '4fyr28o7': {
-      'en': 'Rest:',
-      'es': '',
-    },
     'bgvd82s1': {
       'en': 'Previous',
       'es': '',
@@ -3855,36 +3541,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     },
     'sj0h47m0': {
       'en': 'Remove Exercise',
-      'es': '',
-    },
-  },
-  // reorder2Edit
-  {
-    'wqgg7q83': {
-      'en': 'Reorder Exercises',
-      'es': '',
-    },
-    'd9omzxn8': {
-      'en': 'Use arrows to change the order',
-      'es': '',
-    },
-    'ksrfyih9': {
-      'en': 'Save Order',
-      'es': '',
-    },
-  },
-  // supersetBottomCreation
-  {
-    'ldptdnmk': {
-      'en': 'Choose Superset Partner',
-      'es': '',
-    },
-    '4lrnou0e': {
-      'en': 'in workout',
-      'es': '',
-    },
-    'qlcge8gt': {
-      'en': 'Create Superset',
       'es': '',
     },
   },
@@ -4275,13 +3931,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // ExerciseRow
-  {
-    '6dx4xzrk': {
-      'en': 'Best Set',
-      'es': '',
-    },
-  },
   // deleteAccount
   {
     '0aknee49': {
@@ -4511,134 +4160,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'antebrazos',
     },
   },
-  // lastWorkout
-  {
-    '60qf7zoy': {
-      'en': 'Last Workout',
-      'es': '',
-    },
-    'dt3ix35w': {
-      'en': 'Chest , Shoulders ,Triceps',
-      'es': '',
-    },
-  },
-  // FullPromptGenerate
-  {
-    'ueu6qsif': {
-      'en': 'What are you training?',
-      'es': '',
-    },
-    'kzqh5gxo': {
-      'en': '10 exercises support AI analysis',
-      'es': '',
-    },
-    'yjihajct': {
-      'en': 'Squat',
-      'es': '',
-    },
-    'mjzmk5kr': {
-      'en': 'Deadlift',
-      'es': '',
-    },
-    'e8ybo33r': {
-      'en': 'Romanian Deadlift',
-      'es': '',
-    },
-    'wpn2tr10': {
-      'en': 'Overhead Press',
-      'es': '',
-    },
-    'tnfbwhcf': {
-      'en': 'Pull-up',
-      'es': '',
-    },
-    'ivi3ph3g': {
-      'en': 'Push-up',
-      'es': '',
-    },
-    'gdoi6eg0': {
-      'en': 'Dips',
-      'es': '',
-    },
-    'nu7qizlx': {
-      'en': 'Bicep Curl',
-      'es': '',
-    },
-    't5tijofm': {
-      'en': 'Bulgarian Split Squat',
-      'es': '',
-    },
-    '80sgyk7p': {
-      'en': 'Good Morning',
-      'es': '',
-    },
-  },
-  // FullPromptGenerate2
-  {
-    'ca01728v': {
-      'en': 'What are you training?',
-      'es': '',
-    },
-    'gapvpw6n': {
-      'en': '10 exercises support AI analysis',
-      'es': '',
-    },
-    'wibboikk': {
-      'en': 'Squat',
-      'es': '',
-    },
-    'f5gilulz': {
-      'en': 'Deadlift',
-      'es': '',
-    },
-    'quc832j6': {
-      'en': 'Romanian Deadlift',
-      'es': '',
-    },
-    '0o6l8jxt': {
-      'en': 'Overhead Press',
-      'es': '',
-    },
-    'wrwwlt8j': {
-      'en': 'Pull-up',
-      'es': '',
-    },
-    'kmykq7v5': {
-      'en': 'Push-up',
-      'es': '',
-    },
-    'yly5fdpi': {
-      'en': 'Dips',
-      'es': '',
-    },
-    'klxjib1y': {
-      'en': 'Bicep Curl',
-      'es': '',
-    },
-    'of59yc05': {
-      'en': 'Bulgarian Split Squat',
-      'es': '',
-    },
-    'i717qyg7': {
-      'en': 'Good Morning',
-      'es': '',
-    },
-  },
-  // FullPromptGenerate3
-  {
-    'c33fr310': {
-      'en': 'Exercise A',
-      'es': '',
-    },
-    'ag7yud4k': {
-      'en': 'Exercise B',
-      'es': '',
-    },
-    'f8k69xzp': {
-      'en': 'Exercise C',
-      'es': '',
-    },
-  },
   // chooseExercise2Analyze
   {
     'g5t98pf2': {
@@ -4687,89 +4208,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Borrar',
     },
   },
-  // LastWorkoutSummary
-  {
-    'd0vn4kqr': {
-      'en': 'LAST WORKOUT',
-      'es': '',
-    },
-    'ggg8mnfu': {
-      'en': '↑ PR day',
-      'es': '',
-    },
-    '9de3v11y': {
-      'en': 'Restart',
-      'es': '',
-    },
-    'a87lrlxb': {
-      'en': 'Duration',
-      'es': '',
-    },
-    'mrg4p6kd': {
-      'en': 'Volume kg',
-      'es': '',
-    },
-    'c0tdqwt8': {
-      'en': 'Sets',
-      'es': '',
-    },
-    '45lu7qed': {
-      'en': 'Muscle split',
-      'es': '',
-    },
-    '8u0xgkrk': {
-      'en': 'by volume',
-      'es': '',
-    },
-    'la2plflb': {
-      'en': 'Back · 58%',
-      'es': '',
-    },
-    '2ag5saax': {
-      'en': 'Biceps · 27%',
-      'es': '',
-    },
-    'jzvjew31': {
-      'en': 'Rear delts · 15%',
-      'es': '',
-    },
-    'r1kefrju': {
-      'en': 'Lat Pulldown',
-      'es': '',
-    },
-    'mfh8fij6': {
-      'en': 'PR',
-      'es': '',
-    },
-    '7kkr0w53': {
-      'en': '4 sets · best 70 kg × 8',
-      'es': '',
-    },
-    'mfho7h39': {
-      'en': 'Barbell Row',
-      'es': '',
-    },
-    'roxjrsgt': {
-      'en': '3 sets · best 85 kg × 6',
-      'es': '',
-    },
-    'x4var1g9': {
-      'en': 'Face Pull',
-      'es': '',
-    },
-    'ofkmrt61': {
-      'en': '3 sets · best 25 kg × 12',
-      'es': '',
-    },
-    'baw2hgs3': {
-      'en': 'Bicep Curl',
-      'es': '',
-    },
-    'z60s8ymx': {
-      'en': '3 sets · best 14 kg × 10',
-      'es': '',
-    },
-  },
   // timerCountUp
   {
     'g9116w2n': {
@@ -4785,21 +4223,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     },
     'nvnj0uic': {
       'en': 'Download Original Video',
-      'es': '',
-    },
-  },
-  // LastWorkoutCard
-  {
-    'kwm7i46h': {
-      'en': 'Last Workout',
-      'es': '',
-    },
-    '84i5mbw9': {
-      'en': 'Restart',
-      'es': '',
-    },
-    'a4pdster': {
-      'en': 'Tap to view summary →',
       'es': '',
     },
   },

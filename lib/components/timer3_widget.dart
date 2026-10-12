@@ -329,7 +329,7 @@ class _Timer3WidgetState extends State<Timer3Widget> {
                 lineHeight: 8.0,
                 animation: true,
                 animateFromLastPercent: true,
-                progressColor: FlutterFlowTheme.of(context).secondary,
+                progressColor: FlutterFlowTheme.of(context).primary,
                 backgroundColor: FlutterFlowTheme.of(context).accent4,
                 padding: EdgeInsets.zero,
               ),
@@ -436,7 +436,7 @@ class _Timer3WidgetState extends State<Timer3Widget> {
                             padding: EdgeInsets.all(8.0),
                             iconPadding: EdgeInsetsDirectional.fromSTEB(
                                 0.0, 0.0, 0.0, 0.0),
-                            color: FlutterFlowTheme.of(context).secondary,
+                            color: FlutterFlowTheme.of(context).primary,
                             textStyle: FlutterFlowTheme.of(context)
                                 .titleMedium
                                 .override(

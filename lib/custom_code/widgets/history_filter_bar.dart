@@ -15,16 +15,18 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// History filter row: two pills side by side, aligned to the start. Both
-/// bottom sheets are built in.
+/// History filter row: two pills side by side, aligned to the start.
 ///
-/// Period pill: opens "Select Time Range" (Last 7 days, Last 30 days,
-/// Last 90 days, All time). When [isPremium] is false, "Last 90 days" and
-/// "All time" are locked: tapping one closes the sheet and fires
-/// [onLockedTap] (e.g. open the paywall). Picking an unlocked row fires
-/// [onPeriodChanged](period) with the row label.
-/// Default when [periodValue] is null/empty/"All": "All time" for premium,
-/// "Last 30 days" otherwise.
+/// Both bottom sheets are built in. Sheet surfaces run to the very bottom of
+/// the screen (no safe-area gap); content keeps a small inset above the home
+/// indicator.
+///
+/// Period pill: opens "Select Time Range" (Last 7 days, Last 30 days, Last 90
+/// days, All time). When [isPremium] is false, "Last 90 days" and "All time"
+/// are locked: tapping one closes the sheet and fires [onLockedTap] (e.g.
+/// open the paywall). Picking an unlocked row fires [onPeriodChanged](period)
+/// with the row label. Default when [periodValue] is null/empty/"All": "All
+/// time" for premium, "Last 30 days" otherwise.
 ///
 /// Muscle pill: opens "Choose Muscle group" (primary muscle groups read
 /// directly from SQLite table primary_muscle_group) and fires
@@ -55,6 +57,13 @@ class HistoryFilterBar extends StatefulWidget {
 
   @override
   State<HistoryFilterBar> createState() => _HistoryFilterBarState();
+}
+
+/// Bottom padding inside a sheet that reaches the screen edge: keeps the last
+/// row above the home indicator without leaving a visible gap.
+double _sheetBottomPad(BuildContext ctx) {
+  final double inset = MediaQuery.of(ctx).padding.bottom;
+  return inset > 0 ? inset - 4 : 8;
 }
 
 class _HistoryFilterBarState extends State<HistoryFilterBar> {
@@ -152,6 +161,7 @@ class _HistoryFilterBarState extends State<HistoryFilterBar> {
     final String? picked = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: false,
       backgroundColor: Colors.transparent,
       builder: (_) => _MuscleSheet(
         title: _muscleSheetTitle,
@@ -173,6 +183,7 @@ class _HistoryFilterBarState extends State<HistoryFilterBar> {
     final String? picked = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: false,
       backgroundColor: Colors.transparent,
       builder: (_) => _PeriodSheet(
         title: _periodSheetTitle,
@@ -356,49 +367,46 @@ class _PeriodSheet extends StatelessWidget {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color accent = isDark ? th.primary : const Color(0xFF0F766E);
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: th.secondaryBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: th.alternate,
-                borderRadius: BorderRadius.circular(3),
-              ),
+    return Container(
+      padding: EdgeInsets.only(bottom: _sheetBottomPad(context)),
+      decoration: BoxDecoration(
+        color: th.secondaryBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 48,
+            height: 5,
+            decoration: BoxDecoration(
+              color: th.alternate,
+              borderRadius: BorderRadius.circular(3),
             ),
-            const SizedBox(height: 22),
-            Text(
-              title,
-              style: th.headlineMedium.override(
-                fontFamily: th.headlineMediumFamily,
-                color: th.primaryText,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                useGoogleFonts:
-                    GoogleFonts.asMap().containsKey(th.headlineMediumFamily),
-              ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            title,
+            style: th.headlineMedium.override(
+              fontFamily: th.headlineMediumFamily,
+              color: th.primaryText,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              useGoogleFonts:
+                  GoogleFonts.asMap().containsKey(th.headlineMediumFamily),
             ),
-            const SizedBox(height: 10),
-            for (int i = 0; i < periods.length; i++) ...[
-              _row(context, th, accent, i),
-              if (i < periods.length - 1)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Divider(height: 1, color: th.alternate),
-                ),
-            ],
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < periods.length; i++) ...[
+            _row(context, th, accent, i),
+            if (i < periods.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Divider(height: 1, color: th.alternate),
+              ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -524,132 +532,128 @@ class _MuscleSheetState extends State<_MuscleSheet> {
       );
     }
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        constraints: BoxConstraints(maxHeight: maxH),
-        decoration: BoxDecoration(
-          color: th.secondaryBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 48,
-              height: 5,
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      decoration: BoxDecoration(
+        color: th.secondaryBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 48,
+            height: 5,
+            decoration: BoxDecoration(
+              color: th.alternate,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            widget.title,
+            style: th.headlineMedium.override(
+              fontFamily: th.headlineMediumFamily,
+              color: th.primaryText,
+              fontSize: 26,
+              fontWeight: FontWeight.w600,
+              useGoogleFonts:
+                  GoogleFonts.asMap().containsKey(th.headlineMediumFamily),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: th.alternate,
-                borderRadius: BorderRadius.circular(3),
+                color: th.secondaryBackground,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: th.alternate),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              widget.title,
-              style: th.headlineMedium.override(
-                fontFamily: th.headlineMediumFamily,
-                color: th.primaryText,
-                fontSize: 26,
-                fontWeight: FontWeight.w600,
-                useGoogleFonts:
-                    GoogleFonts.asMap().containsKey(th.headlineMediumFamily),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: th.secondaryBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: th.alternate),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search_rounded,
-                        size: 22, color: th.secondaryText),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _search,
-                        onChanged: (v) => setState(() => _q = v.trim()),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          hintText: 'Search Muscle',
-                          hintStyle: th.bodyMedium.override(
-                            fontFamily: th.bodyMediumFamily,
-                            color: th.secondaryText,
-                            fontSize: 16,
-                            useGoogleFonts: GoogleFonts.asMap()
-                                .containsKey(th.bodyMediumFamily),
-                          ),
-                        ),
-                        style: th.bodyMedium.override(
+              child: Row(
+                children: [
+                  Icon(Icons.search_rounded, size: 22, color: th.secondaryText),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (v) => setState(() => _q = v.trim()),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: 'Search Muscle',
+                        hintStyle: th.bodyMedium.override(
                           fontFamily: th.bodyMediumFamily,
-                          color: th.primaryText,
+                          color: th.secondaryText,
                           fontSize: 16,
                           useGoogleFonts: GoogleFonts.asMap()
                               .containsKey(th.bodyMediumFamily),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.only(bottom: 12),
-                children: [
-                  if (showAll) ...[
-                    row(
-                      leading: Icon(Icons.grid_view_rounded,
-                          size: 30, color: th.primaryText),
-                      text: widget.allLabel,
-                      selected: widget.selected == null,
-                      onTap: () => Navigator.of(context).pop(widget.allLabel),
-                    ),
-                    Divider(height: 1, color: th.alternate),
-                  ],
-                  for (int i = 0; i < filtered.length; i++) ...[
-                    row(
-                      leading: ExerciseAssetImage(
-                        width: 70,
-                        height: 70,
-                        exerciseName: exerciseImageName(filtered[i]),
-                        borderRadius: 8,
-                      ),
-                      text: filtered[i],
-                      selected: widget.selected == filtered[i],
-                      onTap: () => Navigator.of(context).pop(filtered[i]),
-                    ),
-                    if (i < filtered.length - 1)
-                      Divider(height: 1, color: th.alternate),
-                  ],
-                  if (!showAll && filtered.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text('No muscle groups found',
-                            style: th.bodyMedium.override(
-                              fontFamily: th.bodyMediumFamily,
-                              color: th.secondaryText,
-                              useGoogleFonts: GoogleFonts.asMap()
-                                  .containsKey(th.bodyMediumFamily),
-                            )),
+                      style: th.bodyMedium.override(
+                        fontFamily: th.bodyMediumFamily,
+                        color: th.primaryText,
+                        fontSize: 16,
+                        useGoogleFonts: GoogleFonts.asMap()
+                            .containsKey(th.bodyMediumFamily),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.only(bottom: _sheetBottomPad(context) + 4),
+              children: [
+                if (showAll) ...[
+                  row(
+                    leading: Icon(Icons.grid_view_rounded,
+                        size: 30, color: th.primaryText),
+                    text: widget.allLabel,
+                    selected: widget.selected == null,
+                    onTap: () => Navigator.of(context).pop(widget.allLabel),
+                  ),
+                  Divider(height: 1, color: th.alternate),
+                ],
+                for (int i = 0; i < filtered.length; i++) ...[
+                  row(
+                    leading: ExerciseAssetImage(
+                      width: 70,
+                      height: 70,
+                      exerciseName: exerciseImageName(filtered[i]),
+                      borderRadius: 8,
+                    ),
+                    text: filtered[i],
+                    selected: widget.selected == filtered[i],
+                    onTap: () => Navigator.of(context).pop(filtered[i]),
+                  ),
+                  if (i < filtered.length - 1)
+                    Divider(height: 1, color: th.alternate),
+                ],
+                if (!showAll && filtered.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text('No muscle groups found',
+                          style: th.bodyMedium.override(
+                            fontFamily: th.bodyMediumFamily,
+                            color: th.secondaryText,
+                            useGoogleFonts: GoogleFonts.asMap()
+                                .containsKey(th.bodyMediumFamily),
+                          )),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

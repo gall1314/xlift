@@ -1,6 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
-import '/components/equipment_botoom_shit_widget.dart';
+import '/components/eqypment_shit_widget.dart';
 import '/components/exercyse_type_bottom_widget.dart';
 import '/components/muscle_group_dropdown_widget.dart';
 import '/components/sub_muscle_bottom_shit_widget.dart';
@@ -214,7 +214,7 @@ class _CreateUserExerciseMidSessionWidgetState
                   padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                   iconPadding:
                       EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)
@@ -530,7 +530,7 @@ class _CreateUserExerciseMidSessionWidgetState
                                               ? FlutterFlowTheme.of(context)
                                                   .error
                                               : FlutterFlowTheme.of(context)
-                                                  .secondary,
+                                                  .primary,
                                           fontSize: 17.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.normal,
@@ -571,10 +571,9 @@ class _CreateUserExerciseMidSessionWidgetState
                                 },
                                 child: Padding(
                                   padding: MediaQuery.viewInsetsOf(context),
-                                  child: EquipmentBotoomShitWidget(
-                                    selected: _model.equipment,
-                                    equipment: (chosen) async {
-                                      _model.equipment = chosen;
+                                  child: EqypmentShitWidget(
+                                    callback: (selected) async {
+                                      _model.equipment = selected;
                                       safeSetState(() {});
                                     },
                                   ),
@@ -643,7 +642,7 @@ class _CreateUserExerciseMidSessionWidgetState
                                                     .fontStyle,
                                           ),
                                           color: FlutterFlowTheme.of(context)
-                                              .secondary,
+                                              .primary,
                                           fontSize: 17.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.normal,
@@ -751,7 +750,7 @@ class _CreateUserExerciseMidSessionWidgetState
                                               ),
                                               color:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               fontSize: 17.0,
                                               letterSpacing: 0.0,
                                               fontWeight: FontWeight.normal,
@@ -914,7 +913,7 @@ class _CreateUserExerciseMidSessionWidgetState
                                               ? FlutterFlowTheme.of(context)
                                                   .error
                                               : FlutterFlowTheme.of(context)
-                                                  .secondary,
+                                                  .primary,
                                           fontSize: 17.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.normal,
@@ -1042,8 +1041,7 @@ class _CreateUserExerciseMidSessionWidgetState
                                       activeColor: FlutterFlowTheme.of(context)
                                           .secondaryBackground,
                                       activeTrackColor:
-                                          FlutterFlowTheme.of(context)
-                                              .secondary,
+                                          FlutterFlowTheme.of(context).primary,
                                       inactiveTrackColor:
                                           FlutterFlowTheme.of(context)
                                               .alternate,

@@ -228,7 +228,7 @@ class _RestBottomShitWidgetState extends State<RestBottomShitWidget> {
                                   width: 60.0,
                                   height: 60.0,
                                   accentColor:
-                                      FlutterFlowTheme.of(context).secondary,
+                                      FlutterFlowTheme.of(context).primary,
                                   analysisList:
                                       FFAppState().workoutAnalysisState,
                                   exerciseId: widget.exerciseId,
@@ -361,7 +361,7 @@ class _RestBottomShitWidgetState extends State<RestBottomShitWidget> {
                               padding: EdgeInsets.all(8.0),
                               iconPadding: EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 0.0),
-                              color: FlutterFlowTheme.of(context).secondary,
+                              color: FlutterFlowTheme.of(context).primary,
                               textStyle: FlutterFlowTheme.of(context)
                                   .titleMedium
                                   .override(

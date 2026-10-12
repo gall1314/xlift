@@ -1,3 +1,4 @@
+import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class _AnalysisLottieWidgetState extends State<AnalysisLottieWidget> {
       child: custom_widgets.AiSparkleIndicator(
         width: 35.0,
         height: 35.0,
+        sparkleColor: FlutterFlowTheme.of(context).primary,
       ),
     );
   }

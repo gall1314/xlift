@@ -390,7 +390,7 @@ class _CreateWorkoutBottomWidgetState extends State<CreateWorkoutBottomWidget> {
                                 width: 48.0,
                                 height: 48.0,
                                 decoration: BoxDecoration(
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   borderRadius: BorderRadius.circular(16.0),
                                   shape: BoxShape.rectangle,
                                 ),
@@ -452,7 +452,7 @@ class _CreateWorkoutBottomWidgetState extends State<CreateWorkoutBottomWidget> {
                                             decoration: BoxDecoration(
                                               color:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               borderRadius:
                                                   BorderRadius.circular(9999.0),
                                               shape: BoxShape.rectangle,

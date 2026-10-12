@@ -431,7 +431,7 @@ class _SignInWelcomePage6WidgetState extends State<SignInWelcomePage6Widget>
                                     .bodyMedium
                                     .fontStyle,
                               ),
-                              color: Color(0xFF0F6E56),
+                              color: FlutterFlowTheme.of(context).primary,
                               fontSize: 15.0,
                               letterSpacing: 0.0,
                               fontWeight: FontWeight.w600,
@@ -504,7 +504,8 @@ class _SignInWelcomePage6WidgetState extends State<SignInWelcomePage6Widget>
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: Color(0xFF0F6E56),
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       fontSize: 12.0,
                                       letterSpacing: 0.0,
                                       fontWeight: FontWeight.w500,
@@ -564,7 +565,8 @@ class _SignInWelcomePage6WidgetState extends State<SignInWelcomePage6Widget>
                                             .bodyMedium
                                             .fontStyle,
                                       ),
-                                      color: Color(0xFF0F6E56),
+                                      color:
+                                          FlutterFlowTheme.of(context).primary,
                                       fontSize: 12.0,
                                       letterSpacing: 0.0,
                                       fontWeight: FontWeight.w500,

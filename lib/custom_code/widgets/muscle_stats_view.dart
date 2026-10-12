@@ -23,21 +23,22 @@ import 'package:google_fonts/google_fonts.dart';
 /// (ring fills over the 48h recovery window, hours left inside, check when
 /// ready), plus a panel for the selected muscle (last trained, status).
 /// Below: volume / sets / change tiles with a volume-over-time chart, top
-/// exercises and the sub-muscle breakdown for the selected muscle.
+/// exercises and the sub-muscle breakdown for the selected muscle (only when
+/// the group actually splits into more than one sub-muscle).
 ///
 /// Fully self-managed: runs its own SQLite queries, no FlutterFlow query
 /// needed. Recovery is always computed from the user's full history; the
 /// numbers below it follow [timeRange] and reload when it changes.
 ///
 /// [timeRange]: 'Last 7 days' | 'Last 30 days' | 'Last 90 days'; anything
-/// else ('All', 'All time', empty) means no limit.
-/// [isDark]: the app's dark-mode flag.
-/// [onExerciseTap](exerciseId, isPublic): a "Top exercises" row was tapped.
-/// [onRangeChange](range): the button in the "nothing in this time range"
-/// state, with the shortest range that contains the muscle's last workout.
+/// else ('All', 'All time', empty) means no limit. [isDark]: the app's
+/// dark-mode flag. [onExerciseTap](exerciseId, isPublic): a "Top exercises"
+/// row was tapped. [onRangeChange](range): the button in the "nothing in this
+/// time range" state, with the shortest range that contains the muscle's last
+/// workout.
 ///
-/// Recovery thresholds (minutes since last trained): < 1440 recovering,
-/// < 2880 almost ready, < 10080 ready, otherwise not trained lately.
+/// Recovery thresholds (minutes since last trained): < 1440 recovering, <
+/// 2880 almost ready, < 10080 ready, otherwise not trained lately.
 class MuscleStatsView extends StatefulWidget {
   const MuscleStatsView({
     super.key,
@@ -627,7 +628,9 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
           children.add(const SizedBox(height: 14));
           children.add(_topCard(context, p, d));
         }
-        if (d.subs.isNotEmpty) {
+        // Only meaningful when the group actually splits into sub-muscles
+        // (Chest -> just "Chest" = 100% says nothing).
+        if (d.subs.length > 1) {
           children.add(const SizedBox(height: 14));
           children.add(_subCard(context, p, d));
         }

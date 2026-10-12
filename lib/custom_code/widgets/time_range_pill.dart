@@ -15,8 +15,11 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Reusable time-range pill: calendar icon + current range + chevron. Opens
-/// the "Select Time Range" bottom sheet itself.
+/// Reusable time-range pill: calendar icon + current range + chevron.
+///
+/// Opens the "Select Time Range" bottom sheet itself. The sheet's surface
+/// runs to the very bottom of the screen (no safe-area gap); the rows keep a
+/// small inset above the home indicator.
 ///
 /// Options: Last 7 days, Last 30 days, Last 90 days, All time. When
 /// [isPremium] is false, "Last 90 days" and "All time" are locked: tapping
@@ -25,8 +28,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// exactly as written.
 ///
 /// [value] = current range (optional; null/empty/"All" = default, which is
-/// "All time" for premium and "Last 30 days" otherwise). The widget keeps
-/// its own selection, so binding [value] to page state is not required.
+/// "All time" for premium and "Last 30 days" otherwise). The widget keeps its
+/// own selection, so binding [value] to page state is not required.
 ///
 /// A non-default range gets a teal tint. [alignRight] pushes the pill to the
 /// end of the widget's box (e.g. in a page header).
@@ -129,6 +132,7 @@ class _TimeRangePillState extends State<TimeRangePill> {
     final String? picked = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: false,
       backgroundColor: Colors.transparent,
       builder: (_) => _RangeSheet(
         title: 'Select Time Range',
@@ -256,43 +260,43 @@ class _RangeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
     final Color accent = _accentOf(context);
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: th.secondaryBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: th.alternate,
-                borderRadius: BorderRadius.circular(3),
+    // No SafeArea: the sheet surface reaches the screen edge. The rows get a
+    // small inset so the last one isn't under the home indicator.
+    return Container(
+      padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset - 4 : 8),
+      decoration: BoxDecoration(
+        color: th.secondaryBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 48,
+            height: 5,
+            decoration: BoxDecoration(
+              color: th.alternate,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            title,
+            style: _ts(context, 20, FontWeight.w600, th.primaryText),
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < ranges.length; i++) ...[
+            _row(context, th, accent, i),
+            if (i < ranges.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Divider(height: 1, color: th.alternate),
               ),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              title,
-              style: _ts(context, 20, FontWeight.w600, th.primaryText),
-            ),
-            const SizedBox(height: 10),
-            for (int i = 0; i < ranges.length; i++) ...[
-              _row(context, th, accent, i),
-              if (i < ranges.length - 1)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Divider(height: 1, color: th.alternate),
-                ),
-            ],
-            const SizedBox(height: 8),
           ],
-        ),
+        ],
       ),
     );
   }

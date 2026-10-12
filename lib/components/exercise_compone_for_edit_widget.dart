@@ -9,6 +9,7 @@ import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
+import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -108,56 +109,6 @@ class _ExerciseComponeForEditWidgetState
                               mainAxisSize: MainAxisSize.max,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Container(
-                                      width: 45.0,
-                                      height: 45.0,
-                                      child: custom_widgets.ExerciseAssetImage(
-                                        width: 45.0,
-                                        height: 45.0,
-                                        exerciseName:
-                                            functions.exerciseImageName(
-                                                containerExercise2RowList
-                                                    .firstOrNull!.name),
-                                        borderRadius: 8.0,
-                                      ),
-                                    ),
-                                    Text(
-                                      valueOrDefault<String>(
-                                        containerExercise2RowList
-                                            .firstOrNull?.name,
-                                        'name',
-                                      ),
-                                      style: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .override(
-                                            font: GoogleFonts.interTight(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontStyle,
-                                          ),
-                                    ),
-                                  ].divide(SizedBox(width: 12.0)),
-                                ),
                                 if (functions.isExerciseSuperset(
                                     FFAppState().exercisesets.toList(),
                                     widget.exerciseId!))
@@ -206,6 +157,67 @@ class _ExerciseComponeForEditWidgetState
                                       ),
                                     ),
                                   ),
+                                Container(
+                                  width: MediaQuery.sizeOf(context).width * 1.0,
+                                  height: 45.0,
+                                  child: custom_widgets.ExerciseHeaderButton(
+                                    width:
+                                        MediaQuery.sizeOf(context).width * 1.0,
+                                    height: 45.0,
+                                    exerciseName: containerExercise2RowList
+                                        .firstOrNull!.name,
+                                    illustration: containerExercise2RowList
+                                        .firstOrNull?.illustration,
+                                    imageSize: 45.0,
+                                    imageRadius: 8.0,
+                                    gap: 12.0,
+                                    textColor: FlutterFlowTheme.of(context)
+                                        .primaryText,
+                                    fontSize: 16.0,
+                                    maxLines: 1,
+                                    onTap: () async {
+                                      if (containerExercise2RowList
+                                              .firstOrNull?.isPublic ==
+                                          1) {
+                                        context.pushNamed(
+                                          ExerciseHistoryWidget.routeName,
+                                          queryParameters: {
+                                            'exerciseId': serializeParam(
+                                              widget.exerciseId,
+                                              ParamType.int,
+                                            ),
+                                            'overview': serializeParam(
+                                              true,
+                                              ParamType.bool,
+                                            ),
+                                            'analytics': serializeParam(
+                                              false,
+                                              ParamType.bool,
+                                            ),
+                                          }.withoutNulls,
+                                        );
+                                      } else {
+                                        context.pushNamed(
+                                          ExerciseHistoryCustomWidget.routeName,
+                                          queryParameters: {
+                                            'exerciseId': serializeParam(
+                                              widget.exerciseId,
+                                              ParamType.int,
+                                            ),
+                                            'overview': serializeParam(
+                                              true,
+                                              ParamType.bool,
+                                            ),
+                                            'analytics': serializeParam(
+                                              false,
+                                              ParamType.bool,
+                                            ),
+                                          }.withoutNulls,
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
                               ].divide(SizedBox(height: 6.0)),
                             ),
                           ),
@@ -808,7 +820,7 @@ class _ExerciseComponeForEditWidgetState
                                                   .fontStyle,
                                         ),
                                         color: FlutterFlowTheme.of(context)
-                                            .secondary,
+                                            .primary,
                                         fontSize: 18.0,
                                         letterSpacing: 0.0,
                                         fontWeight: FlutterFlowTheme.of(context)
@@ -820,8 +832,7 @@ class _ExerciseComponeForEditWidgetState
                                       ),
                                   elevation: 0.0,
                                   borderSide: BorderSide(
-                                    color:
-                                        FlutterFlowTheme.of(context).secondary,
+                                    color: FlutterFlowTheme.of(context).primary,
                                     width: 1.5,
                                   ),
                                   borderRadius: BorderRadius.circular(30.0),

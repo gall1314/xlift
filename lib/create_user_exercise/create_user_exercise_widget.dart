@@ -213,7 +213,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                   padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                   iconPadding:
                       EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  color: FlutterFlowTheme.of(context).secondary,
+                  color: FlutterFlowTheme.of(context).primary,
                   textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                         font: GoogleFonts.interTight(
                           fontWeight: FlutterFlowTheme.of(context)
@@ -529,7 +529,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                                               ? FlutterFlowTheme.of(context)
                                                   .error
                                               : FlutterFlowTheme.of(context)
-                                                  .secondary,
+                                                  .primary,
                                           fontSize: 17.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.normal,
@@ -642,7 +642,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                                                     .fontStyle,
                                           ),
                                           color: FlutterFlowTheme.of(context)
-                                              .secondary,
+                                              .primary,
                                           fontSize: 17.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.normal,
@@ -750,7 +750,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                                               ),
                                               color:
                                                   FlutterFlowTheme.of(context)
-                                                      .secondary,
+                                                      .primary,
                                               fontSize: 17.0,
                                               letterSpacing: 0.0,
                                               fontWeight: FontWeight.normal,
@@ -913,7 +913,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                                               ? FlutterFlowTheme.of(context)
                                                   .error
                                               : FlutterFlowTheme.of(context)
-                                                  .secondary,
+                                                  .primary,
                                           fontSize: 17.0,
                                           letterSpacing: 0.0,
                                           fontWeight: FontWeight.normal,
@@ -1041,8 +1041,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                                       activeColor: FlutterFlowTheme.of(context)
                                           .secondaryBackground,
                                       activeTrackColor:
-                                          FlutterFlowTheme.of(context)
-                                              .secondary,
+                                          FlutterFlowTheme.of(context).primary,
                                       inactiveTrackColor:
                                           FlutterFlowTheme.of(context)
                                               .alternate,

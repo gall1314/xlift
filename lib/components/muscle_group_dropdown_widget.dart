@@ -301,7 +301,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Chest')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -379,7 +379,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Back')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -457,7 +457,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Shoulders')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -536,7 +536,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Biceps')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -613,7 +613,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Triceps')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -691,7 +691,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Legs')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -768,7 +768,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Core')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -845,7 +845,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Neck')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),
@@ -922,7 +922,7 @@ class _MuscleGroupDropdownWidgetState extends State<MuscleGroupDropdownWidget> {
                               if (_model.selected == 'Forearms')
                                 Icon(
                                   Icons.check,
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   size: 24.0,
                                 ),
                             ].divide(SizedBox(width: 20.0)),

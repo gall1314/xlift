@@ -128,7 +128,7 @@ class _TimeWidgetState extends State<TimeWidget> {
                                   alignment: AlignmentDirectional(0.0, 0.0),
                                   child: FlutterFlowIconButton(
                                     borderColor:
-                                        FlutterFlowTheme.of(context).secondary,
+                                        FlutterFlowTheme.of(context).primary,
                                     borderRadius: 30.0,
                                     borderWidth: 1.5,
                                     buttonSize: 30.0,
