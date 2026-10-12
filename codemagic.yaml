@@ -1,0 +1,83 @@
+workflows:
+  ios-release:
+    name: Xlift iOS (TestFlight)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: xlift
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        provisioning_profiles:
+          - xlift_appstore
+        certificates:
+          - xlift_dist
+      vars:
+        BUILD_OFFSET: 1543
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: flutterflow
+          include: true
+    scripts:
+      - name: Disable Swift Package Manager (global + project)
+        script: |
+          set -e
+          flutter config --no-enable-swift-package-manager
+          # If pubspec already has the key (FF writes it as true) -> force false
+          if grep -q "enable-swift-package-manager" pubspec.yaml; then
+            perl -pi -e 's/enable-swift-package-manager:\s*true/enable-swift-package-manager: false/' pubspec.yaml
+          else
+            perl -0pi -e 's/^flutter:[ \t]*\n/flutter:\n  config:\n    enable-swift-package-manager: false\n/m' pubspec.yaml
+          fi
+          echo "===== pubspec flutter section ====="
+          grep -n -A6 "^flutter:" pubspec.yaml
+          grep -n "enable-swift-package-manager: false" pubspec.yaml || { echo "PATCH FAILED"; exit 1; }
+      - name: Strip SPM from Xcode project
+        script: |
+          set -e
+          cd ios
+          if grep -q "FlutterGeneratedPluginSwiftPackage" Runner.xcodeproj/project.pbxproj; then
+            ruby - <<'RUBY'
+          require 'xcodeproj'
+          proj = Xcodeproj::Project.open('Runner.xcodeproj')
+          target = proj.targets.find { |t| t.name == 'Runner' }
+          target.package_product_dependencies.delete_if { |d| d.product_name.to_s.include?('FlutterGeneratedPluginSwiftPackage') }
+          target.frameworks_build_phase.files.delete_if { |f| f.respond_to?(:product_ref) && f.product_ref && f.product_ref.product_name.to_s.include?('FlutterGeneratedPluginSwiftPackage') }
+          proj.root_object.package_references.delete_if { |r| (r.respond_to?(:relative_path) ? r.relative_path.to_s : '').include?('FlutterGeneratedPluginSwiftPackage') }
+          target.shell_script_build_phases.delete_if { |p| p.name.to_s == 'Run Prepare Flutter Framework Script' }
+          proj.save
+          RUBY
+          fi
+          echo "SPM refs left: $(grep -c FlutterGeneratedPluginSwiftPackage Runner.xcodeproj/project.pbxproj || echo 0)"
+      - name: Pub get + fresh pods
+        script: |
+          set -e
+          flutter pub get
+          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks
+          cd ios && pod install
+          grep -n "audio_session" Podfile.lock || echo "audio_session NOT in Podfile.lock"
+      - name: Signing
+        script: |
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          set -e
+          flutter config --no-enable-swift-package-manager
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist \
+            --build-number=$((PROJECT_BUILD_NUMBER + BUILD_OFFSET))
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
