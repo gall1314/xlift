@@ -27,11 +27,15 @@ workflows:
         script: |
           set -e
           flutter config --no-enable-swift-package-manager
-          if ! grep -q "enable-swift-package-manager" pubspec.yaml; then
+          # If pubspec already has the key (FF writes it as true) -> force false
+          if grep -q "enable-swift-package-manager" pubspec.yaml; then
+            perl -pi -e 's/enable-swift-package-manager:\s*true/enable-swift-package-manager: false/' pubspec.yaml
+          else
             perl -0pi -e 's/^flutter:[ \t]*\n/flutter:\n  config:\n    enable-swift-package-manager: false\n/m' pubspec.yaml
           fi
-          grep -n -A3 "^flutter:" pubspec.yaml
-          flutter config
+          echo "===== pubspec flutter section ====="
+          grep -n -A6 "^flutter:" pubspec.yaml
+          grep -n "enable-swift-package-manager: false" pubspec.yaml || { echo "PATCH FAILED"; exit 1; }
       - name: Strip SPM from Xcode project
         script: |
           set -e
