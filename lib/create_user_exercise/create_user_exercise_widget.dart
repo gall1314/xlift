@@ -10,6 +10,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'package:flutter/material.dart';
@@ -138,6 +139,7 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                       isBodyweight: _model.isBodyweight,
                       isTimed: _model.isTimed,
                       allowsBodyweight: _model.allowBodyweight,
+                      illustration: _model.tempPhoto?.originalFilename,
                     );
                     _model.id2Copy = await actions.generateUniqueExerciseId();
                     await SQLiteManager.instance.userExerciseMuscleGroup(
@@ -248,56 +250,19 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
               children: [
                 Padding(
                   padding: EdgeInsetsDirectional.fromSTEB(0.0, 32.0, 0.0, 32.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.max,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 120.0,
-                        height: 120.0,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Color(0xFFE5E5E5),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Align(
-                          alignment: AlignmentDirectional(0.0, 0.0),
-                          child: Icon(
-                            Icons.camera_alt,
-                            color: Color(0xFFCCCCCC),
-                            size: 32.0,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
-                        child: Text(
-                          FFLocalizations.of(context).getText(
-                            'km1943p9' /* Add Asset */,
-                          ),
-                          style: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .override(
-                                font: GoogleFonts.inter(
-                                  fontWeight: FontWeight.normal,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
-                                ),
-                                color: FlutterFlowTheme.of(context).secondary,
-                                fontSize: 17.0,
-                                letterSpacing: 0.0,
-                                fontWeight: FontWeight.normal,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
-                        ),
-                      ),
-                    ],
+                  child: Container(
+                    width: 180.0,
+                    height: 180.0,
+                    child: custom_widgets.ExerciseImagePicker(
+                      width: 180.0,
+                      height: 180.0,
+                      size: 180.0,
+                      existingIllustration: '',
+                      onImagePicked: (image) async {
+                        _model.tempPhoto = image;
+                        safeSetState(() {});
+                      },
+                    ),
                   ),
                 ),
                 Expanded(

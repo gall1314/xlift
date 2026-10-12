@@ -137,15 +137,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
               FFAppState().loggedSetsCreation = [];
               safeSetState(() {});
 
-              context.goNamed(
-                LibraryWidget.routeName,
-                queryParameters: {
-                  'template': serializeParam(
-                    false,
-                    ParamType.bool,
-                  ),
-                }.withoutNulls,
-              );
+              context.goNamed(MasterPageWidget.routeName);
             },
           ),
           title: Text(

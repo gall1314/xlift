@@ -371,27 +371,7 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                       .loadOfferings();
                                                 }
 
-                                                if (isEntitled) {
-                                                  ScaffoldMessenger.of(context)
-                                                      .showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(
-                                                        'already premium',
-                                                        style: TextStyle(
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .primaryText,
-                                                        ),
-                                                      ),
-                                                      duration: Duration(
-                                                          milliseconds: 4000),
-                                                      backgroundColor:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .secondary,
-                                                    ),
-                                                  );
-                                                } else {
+                                                if (!isEntitled) {
                                                   _model.month =
                                                       await revenue_cat
                                                           .purchasePackage(

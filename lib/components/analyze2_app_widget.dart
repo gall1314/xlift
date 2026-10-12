@@ -159,7 +159,9 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                       buttonSize: 36.0,
                       fillColor: FlutterFlowTheme.of(context).primaryBackground,
                       icon: FaIcon(
-                        FaIconData(FontAwesomeIcons.trashAlt.data),
+                        FaIconData(const IconData(/* trashAlt */ 0xf2ed,
+                            fontFamily: 'FontAwesomeRegular',
+                            fontPackage: 'font_awesome_flutter')),
                         color: FlutterFlowTheme.of(context).primaryText,
                         size: 18.0,
                       ),

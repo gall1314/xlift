@@ -479,6 +479,82 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                               ),
                             ),
                           ),
+                        FutureBuilder<List<CorrectedPreviosSetRow>>(
+                          future: SQLiteManager.instance.correctedPreviosSet(
+                            exerciseId: widget.exerciseId!,
+                            setNumber: widget.setNumber!,
+                            userId: currentUserUid,
+                          ),
+                          builder: (context, snapshot) {
+                            // Customize what your widget looks like when it's loading.
+                            if (!snapshot.hasData) {
+                              return Center(
+                                child: SizedBox(
+                                  width: 50.0,
+                                  height: 50.0,
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      FlutterFlowTheme.of(context).secondary,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            final previousSetButtonCorrectedPreviosSetRowList =
+                                snapshot.data!;
+
+                            return Container(
+                              width: 80.0,
+                              height: 40.0,
+                              child: custom_widgets.PreviousSetButton(
+                                width: 80.0,
+                                height: 40.0,
+                                text: valueOrDefault<String>(
+                                  functions.correctedFormatPreviousSet(
+                                      previousSetButtonCorrectedPreviosSetRowList
+                                          .firstOrNull?.reps,
+                                      previousSetButtonCorrectedPreviosSetRowList
+                                          .firstOrNull?.weight,
+                                      previousSetButtonCorrectedPreviosSetRowList
+                                          .firstOrNull?.durationeconds,
+                                      previousSetButtonCorrectedPreviosSetRowList
+                                                  .firstOrNull?.isKg ==
+                                              0
+                                          ? false
+                                          : true),
+                                  '-',
+                                ),
+                                textColor:
+                                    FlutterFlowTheme.of(context).secondaryText,
+                                fontSize: 14.0,
+                                exerciseId: widget.exerciseId,
+                                setNumber: widget.setNumber,
+                                loggedSets: FFAppState().loggedSets,
+                                onTap: () async {
+                                  _model.update =
+                                      await actions.updateFlatSetValue(
+                                    FFAppState().loggedSets.toList(),
+                                    widget.exerciseId!,
+                                    widget.setNumber!,
+                                    previousSetButtonCorrectedPreviosSetRowList
+                                        .firstOrNull?.reps,
+                                    previousSetButtonCorrectedPreviosSetRowList
+                                        .firstOrNull?.weight,
+                                    previousSetButtonCorrectedPreviosSetRowList
+                                        .firstOrNull?.durationeconds,
+                                    false,
+                                    FFAppState().exercisesets.toList(),
+                                  );
+                                  FFAppState().loggedSets =
+                                      _model.update!.toList().cast<dynamic>();
+                                  safeSetState(() {});
+
+                                  safeSetState(() {});
+                                },
+                              ),
+                            );
+                          },
+                        ),
                         if (!widget.timed)
                           Expanded(
                             child: Container(
@@ -994,7 +1070,9 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                   borderWidth: 2.5,
                                   buttonSize: 35.0,
                                   icon: FaIcon(
-                                    FaIconData(FontAwesomeIcons.lock.data),
+                                    FaIconData(const IconData(/* lock */ 0xf023,
+                                        fontFamily: 'FontAwesomeSolid',
+                                        fontPackage: 'font_awesome_flutter')),
                                     color:
                                         FlutterFlowTheme.of(context).secondary,
                                     size: 18.0,

@@ -120,78 +120,25 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                             mainAxisSize: MainAxisSize.max,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.max,
-                                children: [
-                                  InkWell(
-                                    splashColor: Colors.transparent,
-                                    focusColor: Colors.transparent,
-                                    hoverColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    onTap: () async {
-                                      if (containerExercise2RowList
-                                              .firstOrNull?.isPublic ==
-                                          1) {
-                                        context.pushNamed(
-                                          ExerciseHistoryWidget.routeName,
-                                          queryParameters: {
-                                            'exerciseId': serializeParam(
-                                              widget.exerciseId,
-                                              ParamType.int,
-                                            ),
-                                            'overview': serializeParam(
-                                              true,
-                                              ParamType.bool,
-                                            ),
-                                            'analytics': serializeParam(
-                                              false,
-                                              ParamType.bool,
-                                            ),
-                                          }.withoutNulls,
-                                        );
-                                      } else {
-                                        context.pushNamed(
-                                          ExerciseHistoryCustomWidget.routeName,
-                                          queryParameters: {
-                                            'exerciseId': serializeParam(
-                                              widget.exerciseId,
-                                              ParamType.int,
-                                            ),
-                                            'overview': serializeParam(
-                                              true,
-                                              ParamType.bool,
-                                            ),
-                                            'analytics': serializeParam(
-                                              false,
-                                              ParamType.bool,
-                                            ),
-                                          }.withoutNulls,
-                                        );
-                                      }
-                                    },
-                                    child: Container(
-                                      width: 45.0,
-                                      height: 45.0,
-                                      child: custom_widgets.ExerciseAssetImage(
-                                        width: 45.0,
-                                        height: 45.0,
-                                        exerciseName:
-                                            functions.exerciseImageName(
-                                                valueOrDefault<String>(
-                                          containerExercise2RowList
-                                              .firstOrNull?.name,
-                                          '-',
-                                        )),
-                                        borderRadius: 8.0,
-                                      ),
-                                    ),
-                                  ),
-                                  InkWell(
-                                    splashColor: Colors.transparent,
-                                    focusColor: Colors.transparent,
-                                    hoverColor: Colors.transparent,
-                                    highlightColor: Colors.transparent,
-                                    onTap: () async {
+                              Container(
+                                width: double.infinity,
+                                height: 45.0,
+                                child: custom_widgets.ExerciseHeaderButton(
+                                  width: double.infinity,
+                                  height: 45.0,
+                                  exerciseName: widget.exerciseName!,
+                                  illustration: '',
+                                  imageSize: 45.0,
+                                  imageRadius: 8.0,
+                                  gap: 12.0,
+                                  textColor:
+                                      FlutterFlowTheme.of(context).primaryText,
+                                  fontSize: 16.0,
+                                  maxLines: 1,
+                                  onTap: () async {
+                                    if (containerExercise2RowList
+                                            .firstOrNull?.isPublic ==
+                                        1) {
                                       context.pushNamed(
                                         ExerciseHistoryWidget.routeName,
                                         queryParameters: {
@@ -209,41 +156,27 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                           ),
                                         }.withoutNulls,
                                       );
-                                    },
-                                    child: Text(
-                                      valueOrDefault<String>(
-                                        containerExercise2RowList
-                                            .firstOrNull?.name,
-                                        '-',
-                                      ),
-                                      style: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .override(
-                                            font: GoogleFonts.interTight(
-                                              fontWeight:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontWeight,
-                                              fontStyle:
-                                                  FlutterFlowTheme.of(context)
-                                                      .titleSmall
-                                                      .fontStyle,
-                                            ),
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                            letterSpacing: 0.0,
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontStyle,
+                                    } else {
+                                      context.pushNamed(
+                                        ExerciseHistoryCustomWidget.routeName,
+                                        queryParameters: {
+                                          'exerciseId': serializeParam(
+                                            widget.exerciseId,
+                                            ParamType.int,
                                           ),
-                                    ),
-                                  ),
-                                ].divide(SizedBox(width: 12.0)),
+                                          'overview': serializeParam(
+                                            true,
+                                            ParamType.bool,
+                                          ),
+                                          'analytics': serializeParam(
+                                            false,
+                                            ParamType.bool,
+                                          ),
+                                        }.withoutNulls,
+                                      );
+                                    }
+                                  },
+                                ),
                               ),
                               if (functions.isExerciseSuperset(
                                   FFAppState().exercisesets.toList(),

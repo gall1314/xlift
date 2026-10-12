@@ -228,7 +228,7 @@ class _BottomSheetNoFreeTemplatesWidgetState
               ),
               FFButtonWidget(
                 onPressed: () async {
-                  context.pushNamed(LibraryWidget.routeName);
+                  context.pushNamed(MasterPageWidget.routeName);
                 },
                 text: FFLocalizations.of(context).getText(
                   '7u8hn702' /* Manage my workouts */,

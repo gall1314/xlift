@@ -6,8 +6,8 @@ import '/components/time_for_creation_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
@@ -102,186 +102,116 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                     mainAxisSize: MainAxisSize.max,
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Stack(
-                        children: [
-                          Container(
-                            width: 40.0,
-                            height: 35.0,
-                            decoration: BoxDecoration(),
-                            child: Padding(
-                              padding: EdgeInsets.all(10.0),
-                              child: Text(
-                                valueOrDefault<String>(
-                                  widget.setNumber?.toString(),
-                                  '#',
-                                ),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          FFButtonWidget(
-                            onPressed: () async {
-                              await showModalBottomSheet(
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                enableDrag: false,
-                                context: context,
-                                builder: (context) {
-                                  return Padding(
-                                    padding: MediaQuery.viewInsetsOf(context),
-                                    child: SetOptinBottomCreationWidget(
-                                      exerciseId: widget.exerciseId!,
-                                      setNumber: widget.setNumber!,
-                                      isDropSet: false,
-                                      isTimed: widget.timed,
-                                      removeSet: () async {
-                                        var _shouldSetState = false;
-                                        _model.remove =
-                                            await actions.removeSetFromExercise(
-                                          FFAppState()
-                                              .exerciseSetsCretion
-                                              .toList(),
-                                          widget.exerciseId!,
-                                          widget.setNumber!,
-                                        );
-                                        _shouldSetState = true;
-                                        FFAppState().exerciseSetsCretion =
-                                            _model.remove!
-                                                .toList()
-                                                .cast<dynamic>();
-                                        safeSetState(() {});
-                                        if (_model.dropSet) {
-                                          _model.droplloged = await actions
-                                              .removeDropsetsFromLoggedSets(
-                                            FFAppState()
-                                                .loggedSetsCreation
-                                                .toList(),
-                                            widget.exerciseId!,
-                                          );
-                                          _shouldSetState = true;
-                                          _model.dropdrop3 = await actions
-                                              .removeDropSetsForExercise(
-                                            FFAppState()
-                                                .dropSetsCreation
-                                                .toList(),
-                                            widget.exerciseId!,
-                                          );
-                                          _shouldSetState = true;
-                                        } else {
-                                          return;
-                                        }
-
-                                        FFAppState().dropSetsCreation = _model
-                                            .dropdrop3!
-                                            .toList()
-                                            .cast<dynamic>();
-                                        FFAppState().loggedSetsCreation = _model
-                                            .droplloged!
-                                            .toList()
-                                            .cast<dynamic>();
-                                        safeSetState(() {});
-                                      },
-                                      addDropSet: () async {
-                                        _model.dropSet = true;
-                                        safeSetState(() {});
-                                      },
-                                      removeDropset: () async {
-                                        _model.dropSet = false;
-                                        safeSetState(() {});
-                                        _model.dropdrop = await actions
-                                            .removeDropSetsForExercise(
-                                          FFAppState()
-                                              .dropSetsCreation
-                                              .toList(),
-                                          widget.exerciseId!,
-                                        );
-                                        _model.remove2 = await actions
+                      Container(
+                        width: 40.0,
+                        height: 35.0,
+                        child: custom_widgets.SetNumberButton(
+                          width: 40.0,
+                          height: 35.0,
+                          label: widget.setNumber?.toString(),
+                          showChevron: true,
+                          enableHaptic: true,
+                          onTap: () async {
+                            await showModalBottomSheet(
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              enableDrag: false,
+                              context: context,
+                              builder: (context) {
+                                return Padding(
+                                  padding: MediaQuery.viewInsetsOf(context),
+                                  child: SetOptinBottomCreationWidget(
+                                    exerciseId: widget.exerciseId!,
+                                    setNumber: widget.setNumber!,
+                                    isDropSet: false,
+                                    isTimed: widget.timed,
+                                    removeSet: () async {
+                                      var _shouldSetState = false;
+                                      _model.removeCopy =
+                                          await actions.removeSetFromExercise(
+                                        FFAppState()
+                                            .exerciseSetsCretion
+                                            .toList(),
+                                        widget.exerciseId!,
+                                        widget.setNumber!,
+                                      );
+                                      _shouldSetState = true;
+                                      FFAppState().exerciseSetsCretion = _model
+                                          .removeCopy!
+                                          .toList()
+                                          .cast<dynamic>();
+                                      safeSetState(() {});
+                                      if (_model.dropSet) {
+                                        _model.dropllogedCopy = await actions
                                             .removeDropsetsFromLoggedSets(
                                           FFAppState()
                                               .loggedSetsCreation
                                               .toList(),
                                           widget.exerciseId!,
                                         );
-                                        FFAppState().dropSetsCreation = _model
-                                            .dropdrop!
-                                            .toList()
-                                            .cast<dynamic>();
-                                        FFAppState().loggedSetsCreation = _model
-                                            .remove2!
-                                            .toList()
-                                            .cast<dynamic>();
-                                        safeSetState(() {});
-                                      },
-                                      reset: () async {
-                                        safeSetState(() {});
-                                      },
-                                    ),
-                                  );
-                                },
-                              ).then((value) => safeSetState(() {}));
+                                        _shouldSetState = true;
+                                        _model.dropdrop3Copy = await actions
+                                            .removeDropSetsForExercise(
+                                          FFAppState()
+                                              .dropSetsCreation
+                                              .toList(),
+                                          widget.exerciseId!,
+                                        );
+                                        _shouldSetState = true;
+                                      } else {
+                                        return;
+                                      }
 
-                              safeSetState(() {});
-                            },
-                            text: widget.setNumber!.toString(),
-                            options: FFButtonOptions(
-                              width: 40.0,
-                              height: 35.0,
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  16.0, 0.0, 16.0, 0.0),
-                              iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 0.0, 0.0, 0.0),
-                              color: FlutterFlowTheme.of(context)
-                                  .secondaryBackground,
-                              textStyle: FlutterFlowTheme.of(context)
-                                  .titleSmall
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .primaryText,
-                                    fontSize: 2.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
+                                      FFAppState().dropSetsCreation = _model
+                                          .dropdrop3Copy!
+                                          .toList()
+                                          .cast<dynamic>();
+                                      FFAppState().loggedSetsCreation = _model
+                                          .dropllogedCopy!
+                                          .toList()
+                                          .cast<dynamic>();
+                                      safeSetState(() {});
+                                    },
+                                    addDropSet: () async {
+                                      _model.dropSet = true;
+                                      safeSetState(() {});
+                                    },
+                                    removeDropset: () async {
+                                      _model.dropSet = false;
+                                      safeSetState(() {});
+                                      _model.dropdropCopy = await actions
+                                          .removeDropSetsForExercise(
+                                        FFAppState().dropSetsCreation.toList(),
+                                        widget.exerciseId!,
+                                      );
+                                      _model.remove2Copy = await actions
+                                          .removeDropsetsFromLoggedSets(
+                                        FFAppState()
+                                            .loggedSetsCreation
+                                            .toList(),
+                                        widget.exerciseId!,
+                                      );
+                                      FFAppState().dropSetsCreation = _model
+                                          .dropdropCopy!
+                                          .toList()
+                                          .cast<dynamic>();
+                                      FFAppState().loggedSetsCreation = _model
+                                          .remove2Copy!
+                                          .toList()
+                                          .cast<dynamic>();
+                                      safeSetState(() {});
+                                    },
+                                    reset: () async {
+                                      safeSetState(() {});
+                                    },
                                   ),
-                              elevation: 0.0,
-                              borderSide: BorderSide(
-                                color: FlutterFlowTheme.of(context).alternate,
-                                width: 1.5,
-                              ),
-                              borderRadius: BorderRadius.circular(14.0),
-                            ),
-                            showLoadingIndicator: false,
-                          ),
-                        ],
+                                );
+                              },
+                            ).then((value) => safeSetState(() {}));
+
+                            safeSetState(() {});
+                          },
+                        ),
                       ),
                       Align(
                         alignment: AlignmentDirectional(0.0, 0.0),

@@ -80,7 +80,7 @@ class Analyze2AppAfterWidget extends StatefulWidget {
 
   final FFUploadedFile? videoUrl;
   final String? video;
-  final GetSetanalysisRow? anlysis;
+  final GetSetAnalysisRow? anlysis;
 
   @override
   State<Analyze2AppAfterWidget> createState() => _Analyze2AppAfterWidgetState();
@@ -148,7 +148,9 @@ class _Analyze2AppAfterWidgetState extends State<Analyze2AppAfterWidget> {
                       buttonSize: 36.0,
                       fillColor: FlutterFlowTheme.of(context).primaryBackground,
                       icon: FaIcon(
-                        FaIconData(FontAwesomeIcons.trashAlt.data),
+                        FaIconData(const IconData(/* trashAlt */ 0xf2ed,
+                            fontFamily: 'FontAwesomeRegular',
+                            fontPackage: 'font_awesome_flutter')),
                         color: FlutterFlowTheme.of(context).primaryText,
                         size: 18.0,
                       ),

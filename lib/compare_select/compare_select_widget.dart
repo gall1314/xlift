@@ -1078,8 +1078,11 @@ class _CompareSelectWidgetState extends State<CompareSelectWidget> {
                                       buttonSize: 48.0,
                                       fillColor: Color(0x33FFFFFF),
                                       icon: FaIcon(
-                                        FaIconData(
-                                            FontAwesomeIcons.arrowUp.data),
+                                        FaIconData(const IconData(
+                                            /* arrowUp */ 0xf062,
+                                            fontFamily: 'FontAwesomeSolid',
+                                            fontPackage:
+                                                'font_awesome_flutter')),
                                         color: Colors.white,
                                         size: 20.0,
                                       ),
@@ -1096,8 +1099,11 @@ class _CompareSelectWidgetState extends State<CompareSelectWidget> {
                                       buttonSize: 48.0,
                                       fillColor: Color(0x33FFFFFF),
                                       icon: FaIcon(
-                                        FaIconData(
-                                            FontAwesomeIcons.arrowDown.data),
+                                        FaIconData(const IconData(
+                                            /* arrowDown */ 0xf063,
+                                            fontFamily: 'FontAwesomeSolid',
+                                            fontPackage:
+                                                'font_awesome_flutter')),
                                         color: Colors.white,
                                         size: 20.0,
                                       ),

@@ -653,7 +653,7 @@ class _AiWorkoutViewWidgetState extends State<AiWorkoutViewWidget> {
                                   }
                                 }
 
-                                context.pushNamed(LibraryWidget.routeName);
+                                context.pushNamed(MasterPageWidget.routeName);
 
                                 safeSetState(() {});
                               },

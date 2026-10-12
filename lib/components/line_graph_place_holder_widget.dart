@@ -50,7 +50,9 @@ class _LineGraphPlaceHolderWidgetState
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           FaIcon(
-            FaIconData(FontAwesomeIcons.chartLine.data),
+            FaIconData(const IconData(/* chartLine */ 0xf201,
+                fontFamily: 'FontAwesomeSolid',
+                fontPackage: 'font_awesome_flutter')),
             color: FlutterFlowTheme.of(context).alternate,
             size: 60.0,
           ),

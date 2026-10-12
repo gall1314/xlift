@@ -27,18 +27,18 @@ class SetRowEditModel extends FlutterFlowModel<SetRowEditWidget> {
 
   ///  State fields for stateful widgets in this component.
 
-  // Stores action output result for [Custom Action - removeDropSetsForExercise] action in Button widget.
-  List<dynamic>? dropdrop3;
-  // Stores action output result for [Custom Action - removeDropsetsFromLoggedSets] action in Button widget.
-  List<dynamic>? droplloged;
-  // Stores action output result for [Custom Action - removeSetFromExercise] action in Button widget.
-  List<dynamic>? remove;
-  // Stores action output result for [Custom Action - removeDropsetsFromLoggedSets] action in Button widget.
-  List<dynamic>? remove2;
-  // Stores action output result for [Custom Action - removeDropSetsForExercise] action in Button widget.
-  List<dynamic>? dropdrop;
-  // Stores action output result for [Custom Action - updateFlatSetValue] action in Button widget.
-  List<dynamic>? doneTrueCopy;
+  // Stores action output result for [Custom Action - removeDropSetsForExercise] action in SetNumberButton widget.
+  List<dynamic>? dropdrop3Copy;
+  // Stores action output result for [Custom Action - removeDropsetsFromLoggedSets] action in SetNumberButton widget.
+  List<dynamic>? dropllogedCopy;
+  // Stores action output result for [Custom Action - removeSetFromExercise] action in SetNumberButton widget.
+  List<dynamic>? removeCopy;
+  // Stores action output result for [Custom Action - removeDropsetsFromLoggedSets] action in SetNumberButton widget.
+  List<dynamic>? remove2Copy;
+  // Stores action output result for [Custom Action - removeDropSetsForExercise] action in SetNumberButton widget.
+  List<dynamic>? dropdropCopy;
+  // Stores action output result for [Custom Action - updateFlatSetValue] action in SetNumberButton widget.
+  List<dynamic>? doneTrueCopyCopy;
   // Model for timeForCreation component.
   late TimeForCreationModel timeForCreationModel;
   // Stores action output result for [Custom Action - updateFlatSetValue] action in RepsField widget.

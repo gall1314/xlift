@@ -15,33 +15,33 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:provider/provider.dart';
-import 'workout_aftervies_model.dart';
-export 'workout_aftervies_model.dart';
+import 'workout_afterview_model.dart';
+export 'workout_afterview_model.dart';
 
-class WorkoutAfterviesWidget extends StatefulWidget {
-  const WorkoutAfterviesWidget({
+class WorkoutAfterviewWidget extends StatefulWidget {
+  const WorkoutAfterviewWidget({
     super.key,
     required this.workoutLogId,
   });
 
   final String? workoutLogId;
 
-  static String routeName = 'workoutAftervies';
-  static String routePath = '/workoutAftervies';
+  static String routeName = 'workoutAfterview';
+  static String routePath = '/workoutAfterview';
 
   @override
-  State<WorkoutAfterviesWidget> createState() => _WorkoutAfterviesWidgetState();
+  State<WorkoutAfterviewWidget> createState() => _WorkoutAfterviewWidgetState();
 }
 
-class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
-  late WorkoutAfterviesModel _model;
+class _WorkoutAfterviewWidgetState extends State<WorkoutAfterviewWidget> {
+  late WorkoutAfterviewModel _model;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => WorkoutAfterviesModel());
+    _model = createModel(context, () => WorkoutAfterviewModel());
 
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
@@ -104,7 +104,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
             ),
           );
         }
-        final workoutAfterviesHistory1RowList = snapshot.data!;
+        final workoutAfterviewHistory1RowList = snapshot.data!;
 
         return GestureDetector(
           onTap: () {
@@ -133,7 +133,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
               ),
               title: Text(
                 functions.formatNiceDate(valueOrDefault<String>(
-                  workoutAfterviesHistory1RowList.firstOrNull?.createdAt,
+                  workoutAfterviewHistory1RowList.firstOrNull?.createdAt,
                   '-',
                 )),
                 style: FlutterFlowTheme.of(context).headlineMedium.override(
@@ -225,7 +225,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                             children: [
                                               Text(
                                                 valueOrDefault<String>(
-                                                  workoutAfterviesHistory1RowList
+                                                  workoutAfterviewHistory1RowList
                                                       .firstOrNull?.workoutName,
                                                   '-',
                                                 ),
@@ -262,7 +262,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                               Text(
                                                 functions.formatNiceDate(
                                                     valueOrDefault<String>(
-                                                  workoutAfterviesHistory1RowList
+                                                  workoutAfterviewHistory1RowList
                                                       .firstOrNull?.createdAt,
                                                   '-',
                                                 )),
@@ -466,7 +466,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                 children: [
                                                   Text(
                                                     valueOrDefault<String>(
-                                                      workoutAfterviesHistory1RowList
+                                                      workoutAfterviewHistory1RowList
                                                           .firstOrNull
                                                           ?.totalSets
                                                           .toString(),
@@ -570,7 +570,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                 children: [
                                                   Text(
                                                     valueOrDefault<String>(
-                                                      workoutAfterviesHistory1RowList
+                                                      workoutAfterviewHistory1RowList
                                                           .firstOrNull
                                                           ?.exerciseCount
                                                           .toString(),
@@ -677,7 +677,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                           .formatDurationSmart(
                                                               valueOrDefault<
                                                                   int>(
-                                                        workoutAfterviesHistory1RowList
+                                                        workoutAfterviewHistory1RowList
                                                             .firstOrNull
                                                             ?.durationSeconds,
                                                         0,
@@ -785,7 +785,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                           .formatCompactNumber(
                                                               valueOrDefault<
                                                                   double>(
-                                                        workoutAfterviesHistory1RowList
+                                                        workoutAfterviewHistory1RowList
                                                             .firstOrNull?.volume
                                                             .toDouble(),
                                                         0.0,
@@ -871,7 +871,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                       ),
                                                       Text(
                                                         '(${valueOrDefault<String>(
-                                                          workoutAfterviesHistory1RowList
+                                                          workoutAfterviewHistory1RowList
                                                               .firstOrNull
                                                               ?.unitLabel,
                                                           '-',
@@ -1461,10 +1461,10 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                                       children:
                                                                           [
                                                                         FutureBuilder<
-                                                                            List<GetSetanalysisRow>>(
+                                                                            List<GetSetAnalysisRow>>(
                                                                           future: SQLiteManager
                                                                               .instance
-                                                                              .getSetanalysis(
+                                                                              .getSetAnalysis(
                                                                             setLogId:
                                                                                 listViewGetSetLogsRow.id,
                                                                           ),
@@ -1484,7 +1484,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                                                 ),
                                                                               );
                                                                             }
-                                                                            final containerGetSetanalysisRowList =
+                                                                            final containerGetSetAnalysisRowList =
                                                                                 snapshot.data!;
 
                                                                             return Container(
@@ -1554,7 +1554,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                                                         ),
                                                                                       ].divide(SizedBox(width: 16.0)),
                                                                                     ),
-                                                                                    if (containerGetSetanalysisRowList.firstOrNull?.setLogId != null && containerGetSetanalysisRowList.firstOrNull?.setLogId != '')
+                                                                                    if (containerGetSetAnalysisRowList.firstOrNull?.setLogId != null && containerGetSetAnalysisRowList.firstOrNull?.setLogId != '')
                                                                                       Builder(
                                                                                         builder: (context) => FlutterFlowIconButton(
                                                                                           borderRadius: 8.0,
@@ -1580,7 +1580,7 @@ class _WorkoutAfterviesWidgetState extends State<WorkoutAfterviesWidget> {
                                                                                                       FocusManager.instance.primaryFocus?.unfocus();
                                                                                                     },
                                                                                                     child: Analyze2AppAfterWidget(
-                                                                                                      anlysis: containerGetSetanalysisRowList.firstOrNull!,
+                                                                                                      anlysis: containerGetSetAnalysisRowList.firstOrNull!,
                                                                                                     ),
                                                                                                   ),
                                                                                                 );

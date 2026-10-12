@@ -35,6 +35,12 @@ import 'xlift_log_add.dart';
 /// positive duration - a regular set never stores 0 there, so downstream
 /// queries can rely on "NULL = not time-based".
 ///
+/// ANALYSIS EXTRAS (set_analysis.avg_depth, set_analysis.reps_json):
+/// derived from analysis['reps'] — avg of reps[i].depth_pct (NULL when no
+/// rep carries a depth) and a compact per-rep JSON list
+/// [{"s":score,"d":depth_pct,"f":[feedback...]}, ...]. form_tip is read
+/// from analysis['form_tip'] OR analysis['tip'] (the analyzers emit 'tip').
+///
 /// FIRST-ANALYSIS PROBE: the first set_analysis row is captured twice -
 /// the map handed to INSERT ("written") and the row read back from SQLite
 /// right after ("stored") - and returned as `firstAnalysisJson` for
@@ -524,9 +530,37 @@ Future<dynamic> saveWorkoutComplete(
             feedbackJson = fb;
           }
 
+          // ---- per-rep extras: avg_depth + reps_json ----
+          final List<dynamic> repsList =
+              analysis['reps'] is List ? analysis['reps'] as List : const [];
+          final List<Map<String, dynamic>> compactReps = [];
+          double depthSum = 0.0;
+          int depthCount = 0;
+          for (final r in repsList) {
+            if (r is! Map) continue;
+            final double? d = asDoubleOrNull(r['depth_pct']);
+            if (d != null) {
+              depthSum += d;
+              depthCount++;
+            }
+            final dynamic rf = r['feedback'];
+            compactReps.add({
+              's': asDouble(r['score']),
+              'd': d,
+              'f': rf is List
+                  ? rf.map((e) => e.toString()).toList()
+                  : <String>[],
+            });
+          }
+          final double? avgDepth =
+              depthCount == 0 ? null : depthSum / depthCount;
+          final String repsJson = jsonEncode(compactReps);
+
           final String analysisId = uuid();
           final double score = asDouble(analysis['technique_score']);
-          final int totalReps = asInt(analysis['squat_count']);
+          final int totalReps = asIntOrNull(analysis['squat_count']) ??
+              asIntOrNull(analysis['rep_count']) ??
+              repsList.length;
           final int properReps = asInt(analysis['good_reps']);
           final String label = analysis['technique_label'] == null
               ? ''
@@ -535,9 +569,9 @@ Future<dynamic> saveWorkoutComplete(
               analysis['technique_score_display'] == null
                   ? ''
                   : analysis['technique_score_display'].toString();
-          final String formTip = analysis['form_tip'] == null
-              ? ''
-              : analysis['form_tip'].toString();
+          // Analyzers emit 'tip'; accept both keys.
+          final dynamic tipRaw = analysis['form_tip'] ?? analysis['tip'];
+          final String formTip = tipRaw == null ? '' : tipRaw.toString();
           final String tag = 'analysis ex=$exerciseId n=$setNumber';
 
           final Map<String, dynamic> rowWritten = {
@@ -551,6 +585,8 @@ Future<dynamic> saveWorkoutComplete(
             'technique_label': label,
             'technique_score_display': scoreDisplay,
             'form_tip': formTip,
+            'avg_depth': avgDepth,
+            'reps_json': repsJson,
           };
 
           await guarded(
@@ -559,8 +595,8 @@ Future<dynamic> saveWorkoutComplete(
                     'INSERT OR REPLACE INTO set_analysis '
                     '(id, set_log_id, analyzed_at, score, total_reps, '
                     'proper_reps, feedback, technique_label, '
-                    'technique_score_display, form_tip) '
-                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    'technique_score_display, form_tip, avg_depth, reps_json) '
+                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                     [
                       analysisId,
                       linkedSetId,
@@ -572,6 +608,8 @@ Future<dynamic> saveWorkoutComplete(
                       label,
                       scoreDisplay,
                       formTip,
+                      avgDepth,
+                      repsJson,
                     ],
                   ));
           await guarded('hive-add-set_analysis($tag)',

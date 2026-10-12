@@ -144,229 +144,7 @@ bool _isSupportedLocale(Locale locale) {
 }
 
 final kTranslationsMap = <Map<String, Map<String, String>>>[
-  // history
-  {
-    '0bkqciqn': {
-      'en': 'Search',
-      'es': 'Buscar',
-    },
-    '4wh9bdr4': {
-      'en': 'All',
-      'es': 'Todo',
-    },
-    'vestofvv': {
-      'en': 'Select...',
-      'es': 'Seleccionar...',
-    },
-    'rprufy7z': {
-      'en': 'Search...',
-      'es': 'Buscar...',
-    },
-    'ezvdlfgh': {
-      'en': 'All',
-      'es': 'Todo',
-    },
-    'uzmryhsn': {
-      'en': 'Chest',
-      'es': 'Cuádriceps',
-    },
-    'n6v0qp0d': {
-      'en': 'Back',
-      'es': 'Glúteos',
-    },
-    'nrr35dx9': {
-      'en': 'Shoulders',
-      'es': 'Isquiotibiales',
-    },
-    '8uo5bd8k': {
-      'en': 'Biceps',
-      'es': 'Pecho',
-    },
-    'uy4or31h': {
-      'en': 'Triceps',
-      'es': 'Dorsales',
-    },
-    'u0yr6o44': {
-      'en': 'Legs',
-      'es': 'Deltoides laterales',
-    },
-    '5dhf4jwl': {
-      'en': 'Core',
-      'es': 'Deltoides posteriores',
-    },
-    '1peyhgbc': {
-      'en': 'Neck',
-      'es': 'Deltoides frontales',
-    },
-    'l7q46kux': {
-      'en': 'Forearms',
-      'es': 'Parte superior de la espalda',
-    },
-    'lk2od5c0': {
-      'en': 'View Summary',
-      'es': '',
-    },
-    'd1b1ovbq': {
-      'en': 'Workout in Progress',
-      'es': '',
-    },
-    '2cf5for3': {
-      'en': 'History',
-      'es': 'Historia',
-    },
-  },
-  // stats
-  {
-    'wc4i4fo5': {
-      'en': 'Statistics',
-      'es': 'Estadística',
-    },
-    'iq15ysjv': {
-      'en': 'Overview',
-      'es': 'Descripción general',
-    },
-    '05ats6je': {
-      'en': 'Volume Over Time',
-      'es': 'Volumen a lo largo del tiempo',
-    },
-    't19zhake': {
-      'en': 'Workouts',
-      'es': 'Entrenamientos',
-    },
-    'mhkn0jew': {
-      'en': 'Total Volume',
-      'es': 'Volumen total',
-    },
-    's181zwax': {
-      'en': 'Top Muscle',
-      'es': 'Músculo superior',
-    },
-    'pwv0yv9g': {
-      'en': 'Sets by Muscle Group',
-      'es': 'Series por grupo muscular',
-    },
-    '9w78mvqt': {
-      'en': 'Sets',
-      'es': 'Conjuntos',
-    },
-    'vbabiwln': {
-      'en': 'By Exercise',
-      'es': 'Por ejercicio',
-    },
-    'v2in277b': {
-      'en': 'Most Improved Exercise',
-      'es': '',
-    },
-    'x27vz392': {
-      'en': 'Most Frequent Exercise',
-      'es': '',
-    },
-    'wpls5z54': {
-      'en': 'Total Exercises Performed',
-      'es': '',
-    },
-    '2db0lucm': {
-      'en': 'Top Volume Exercise',
-      'es': '',
-    },
-    '6e0agc97': {
-      'en': 'Performance Summary',
-      'es': '',
-    },
-    'w8o07lz6': {
-      'en': 'Search exercises...',
-      'es': '',
-    },
-    'ejhb1vx1': {
-      'en': 'Last session: 4 sets',
-      'es': '',
-    },
-    'wcix2qx9': {
-      'en': 'By Muscle',
-      'es': '',
-    },
-    'venvr9v0': {
-      'en': 'Select Muscle',
-      'es': '',
-    },
-    'htienfj6': {
-      'en': 'Chest',
-      'es': '',
-    },
-    'tm62jr0m': {
-      'en': 'Select...',
-      'es': '',
-    },
-    'fh0lxgbh': {
-      'en': 'Search...',
-      'es': '',
-    },
-    '2mne1ys6': {
-      'en': 'Chest',
-      'es': '',
-    },
-    'jui9u9y9': {
-      'en': 'Back',
-      'es': '',
-    },
-    'fbug4yla': {
-      'en': 'Shoulders',
-      'es': '',
-    },
-    'mdcbeyer': {
-      'en': 'Biceps',
-      'es': '',
-    },
-    'pdgr3ly3': {
-      'en': 'Triceps',
-      'es': '',
-    },
-    'hqcek3u9': {
-      'en': 'Legs',
-      'es': '',
-    },
-    'zm9zxqdf': {
-      'en': 'Core',
-      'es': '',
-    },
-    'x7u6k52t': {
-      'en': 'Neck',
-      'es': '',
-    },
-    '30zizk2x': {
-      'en': 'Forearms',
-      'es': '',
-    },
-    'z2uqmkg0': {
-      'en': 'Total Volume',
-      'es': '',
-    },
-    'bz2dayhe': {
-      'en': 'Sets For Time ',
-      'es': '',
-    },
-    'xc2w8bf0': {
-      'en': 'Volume Over Time',
-      'es': '',
-    },
-    '9uen4z6o': {
-      'en': 'Top Exercises',
-      'es': '',
-    },
-    '1lff349y': {
-      'en': 'Sub Muscle Breakdown',
-      'es': '',
-    },
-    '2e9rqp7h': {
-      'en': 'Workout in Progress',
-      'es': '',
-    },
-    'jjbfzfkz': {
-      'en': 'Stats',
-      'es': 'Estadísticas',
-    },
-  },
-  // workoutAftervies
+  // workoutAfterview
   {
     'qxc0u2pp': {
       'en': 'Compare',
@@ -660,61 +438,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Hogar',
     },
   },
-  // HomePage
-  {
-    'muk8akno': {
-      'en': 'Create New  Workout',
-      'es': 'Crear nuevo entrenamiento',
-    },
-    'm5451n29': {
-      'en': 'Last Workout',
-      'es': '',
-    },
-    'uanki2ep': {
-      'en': 'Tap to view summary →',
-      'es': '',
-    },
-    'ianfr8gc': {
-      'en': 'Button',
-      'es': '',
-    },
-    '5sn08bd5': {
-      'en': 'This Week\'s Stats',
-      'es': 'Estadísticas de esta semana',
-    },
-    'ux78yyui': {
-      'en': 'Workouts',
-      'es': 'Entrenamientos',
-    },
-    '7p5slkqg': {
-      'en': 'Total Sets',
-      'es': 'Conjuntos totales',
-    },
-    'ujyscc75': {
-      'en': 'Tap to view full stats →',
-      'es': 'Toque para ver las estadísticas completas →',
-    },
-    'gbg0t57z': {
-      'en': 'My Workouts',
-      'es': 'Mis entrenamientos',
-    },
-    'y3submwa': {
-      'en': 'Start',
-      'es': 'Comenzar',
-    },
-    '56ctml5b': {
-      'en': 'Create New  Workout',
-      'es': '',
-    },
-    'm9zl15su': {
-      'en': 'Workout in Progress',
-      'es': '',
-    },
-    'muitovl7': {
-      'en': 'Home',
-      'es': 'Hogar',
-    },
-  },
   // settingss
   {
     '5jtsd6pb': {
@@ -784,145 +507,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     'lqu3vuzb': {
       'en': 'Home',
       'es': 'Hogar',
-    },
-  },
-  // library
-  {
-    'vedpkmje': {
-      'en': 'Your Workouts',
-      'es': 'Tus entrenamientos',
-    },
-    'hjf48yc6': {
-      'en': 'TextField',
-      'es': 'Campo de texto',
-    },
-    'z6etpog1': {
-      'en': 'All',
-      'es': '',
-    },
-    '3w5bxeji': {
-      'en': 'Select...',
-      'es': 'Seleccionar...',
-    },
-    'n830888a': {
-      'en': 'Search...',
-      'es': 'Buscar...',
-    },
-    'abt99cy1': {
-      'en': 'All',
-      'es': 'Opción 1',
-    },
-    'hxo4a093': {
-      'en': 'Chest',
-      'es': 'Opción 2',
-    },
-    'k97xeb7m': {
-      'en': 'Back',
-      'es': 'Opción 3',
-    },
-    '5fukm1u9': {
-      'en': 'Shoulders',
-      'es': '',
-    },
-    '2qidgze5': {
-      'en': 'Biceps',
-      'es': '',
-    },
-    '0g8kh61x': {
-      'en': 'Triceps',
-      'es': '',
-    },
-    'wzpizgpd': {
-      'en': 'Legs',
-      'es': '',
-    },
-    'iajtonpe': {
-      'en': 'Core',
-      'es': '',
-    },
-    '8yvqkhw4': {
-      'en': 'Forearms',
-      'es': '',
-    },
-    'z1w1d381': {
-      'en': 'Neck',
-      'es': '',
-    },
-    '6ugj1lk5': {
-      'en': 'Start',
-      'es': 'Comenzar',
-    },
-    '36krill4': {
-      'en': 'Create New  Workout',
-      'es': 'Crear nuevo entrenamiento',
-    },
-    'hafh6a6y': {
-      'en': 'Template',
-      'es': 'Plantilla',
-    },
-    'h4nns1nw': {
-      'en': 'All',
-      'es': '',
-    },
-    'cmgm2tpv': {
-      'en': 'Select...',
-      'es': 'Seleccionar...',
-    },
-    'z5ani3si': {
-      'en': 'Search...',
-      'es': 'Buscar...',
-    },
-    '15q6spqo': {
-      'en': 'All',
-      'es': 'Opción 1',
-    },
-    'ah3gzgxk': {
-      'en': 'Chest',
-      'es': 'Opción 2',
-    },
-    'r3ntuz10': {
-      'en': 'Back',
-      'es': 'Opción 3',
-    },
-    'qurphe76': {
-      'en': 'Shoulders',
-      'es': '',
-    },
-    'nvxuldvp': {
-      'en': 'Biceps',
-      'es': '',
-    },
-    '1s5466z3': {
-      'en': 'Triceps',
-      'es': '',
-    },
-    '2lvezs50': {
-      'en': 'Legs',
-      'es': '',
-    },
-    'xs4s14bl': {
-      'en': 'Core',
-      'es': '',
-    },
-    '1p2gt584': {
-      'en': 'Neck',
-      'es': '',
-    },
-    'bdds0j2k': {
-      'en': 'Forearms',
-      'es': '',
-    },
-    'lyrtf923': {
-      'en': 'Use',
-      'es': 'Usar',
-    },
-    'hn06tgt7': {
-      'en': 'Workout in Progress',
-      'es': '',
-    },
-    'y9p2pr50': {
-      'en': 'Library',
-      'es': 'Biblioteca',
     },
   },
   // templateWorkout
@@ -1287,10 +871,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     '72373tu5': {
       'en': 'Create',
       'es': 'Finalizar',
-    },
-    'km1943p9': {
-      'en': 'Add Asset',
-      'es': '',
     },
     'bsm5jymd': {
       'en': 'Primary Muscels',
@@ -1675,10 +1255,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     '83sgh0br': {
       'en': 'Create',
       'es': 'Finalizar',
-    },
-    '5m5ysqol': {
-      'en': 'Add Asset',
-      'es': '',
     },
     '83coa8bl': {
       'en': 'Primary Muscels',
@@ -2426,7 +2002,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'Page Title',
       'es': '',
     },
-    'hp68sewc': {
+    '66lg051x': {
       'en': 'Home',
       'es': '',
     },
@@ -2615,7 +2191,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // testAI
   {
-    'q9nuza7r': {
+    'aal9asnx': {
       'en': 'Page Title',
       'es': '',
     },
@@ -2821,66 +2397,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // masterPage
   {
-    '4mx1w8ny': {
-      'en': 'Search',
-      'es': 'Buscar',
-    },
-    'pq5vdzwx': {
-      'en': 'All',
-      'es': 'Todo',
-    },
-    '5z9bhpxh': {
-      'en': 'Select...',
-      'es': 'Seleccionar...',
-    },
-    '1vlu2752': {
-      'en': 'Search...',
-      'es': 'Buscar...',
-    },
-    'rraxt5ku': {
-      'en': 'All',
-      'es': 'Todo',
-    },
-    'qdksvuez': {
-      'en': 'Chest',
-      'es': 'Cuádriceps',
-    },
-    '106qjv7o': {
-      'en': 'Back',
-      'es': 'Glúteos',
-    },
-    '4linbqwy': {
-      'en': 'Shoulders',
-      'es': 'Isquiotibiales',
-    },
-    '31xws0jh': {
-      'en': 'Biceps',
-      'es': 'Pecho',
-    },
-    'c7sz1gx6': {
-      'en': 'Triceps',
-      'es': 'Dorsales',
-    },
-    '2vjeftke': {
-      'en': 'Legs',
-      'es': 'Deltoides laterales',
-    },
-    'ywhf4c6x': {
-      'en': 'Core',
-      'es': 'Deltoides posteriores',
-    },
-    '9qxuzksr': {
-      'en': 'Neck',
-      'es': 'Deltoides frontales',
-    },
-    'd4ebyzve': {
-      'en': 'Forearms',
-      'es': 'Parte superior de la espalda',
-    },
-    '4vfxes52': {
-      'en': 'View Summary',
-      'es': '',
-    },
     'e95uok47': {
       'en': 'Statistics',
       'es': 'Estadística',
@@ -2917,108 +2433,8 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'By Exercise',
       'es': 'Por ejercicio',
     },
-    'y14kck6t': {
-      'en': 'Most Improved Exercise',
-      'es': '',
-    },
-    '10tlbbuv': {
-      'en': 'Most Frequent Exercise',
-      'es': '',
-    },
-    '7j3z3v2v': {
-      'en': 'Total Exercises Performed',
-      'es': '',
-    },
-    'fdgf1q0d': {
-      'en': 'Top Volume Exercise',
-      'es': '',
-    },
-    'ldrr3sss': {
-      'en': 'Performance Summary',
-      'es': '',
-    },
-    '0g98u1qo': {
-      'en': 'Search exercises...',
-      'es': '',
-    },
-    'lkbhfydj': {
-      'en': 'Last session: 4 sets',
-      'es': '',
-    },
     '48qrhv5k': {
       'en': 'By Muscle',
-      'es': '',
-    },
-    'trxbxwed': {
-      'en': 'Select Muscle',
-      'es': '',
-    },
-    'nroxbunh': {
-      'en': 'Chest',
-      'es': '',
-    },
-    '7i1qp07g': {
-      'en': 'Select...',
-      'es': '',
-    },
-    'ftdppoqd': {
-      'en': 'Search...',
-      'es': '',
-    },
-    '6zz66rc0': {
-      'en': 'Chest',
-      'es': '',
-    },
-    '3ow2zglq': {
-      'en': 'Back',
-      'es': '',
-    },
-    'ztjpwnpz': {
-      'en': 'Shoulders',
-      'es': '',
-    },
-    'zxxeg3mt': {
-      'en': 'Biceps',
-      'es': '',
-    },
-    'fxb9ctxp': {
-      'en': 'Triceps',
-      'es': '',
-    },
-    'v4sqe6tw': {
-      'en': 'Legs',
-      'es': '',
-    },
-    '8ywtlbw9': {
-      'en': 'Core',
-      'es': '',
-    },
-    'efn7xlc6': {
-      'en': 'Neck',
-      'es': '',
-    },
-    '19n7ssae': {
-      'en': 'Forearms',
-      'es': '',
-    },
-    '6ums540t': {
-      'en': 'Total Volume',
-      'es': '',
-    },
-    'dkakb71s': {
-      'en': 'Sets For Time ',
-      'es': '',
-    },
-    'atidyatz': {
-      'en': 'Volume Over Time',
-      'es': '',
-    },
-    'nkkgoieu': {
-      'en': 'Top Exercises',
-      'es': '',
-    },
-    'hsugwg27': {
-      'en': 'Sub Muscle Breakdown',
       'es': '',
     },
     'xcaae697': {
@@ -3261,7 +2677,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'Workout in Progress',
       'es': '',
     },
-    'zhtz8dvz': {
+    '1w9l0zfj': {
       'en': 'Home',
       'es': '',
     },
@@ -3301,6 +2717,13 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     },
     'nxjer796': {
       'en': 'Done',
+      'es': '',
+    },
+  },
+  // workoutSummaryView
+  {
+    '50vb30be': {
+      'en': 'Home',
       'es': '',
     },
   },
@@ -5220,10 +4643,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   {
     'g5t98pf2': {
       'en': 'Pick an exercise to analyze',
-      'es': '',
-    },
-    '83gl0uon': {
-      'en': 'hint',
       'es': '',
     },
   },

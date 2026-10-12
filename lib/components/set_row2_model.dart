@@ -45,6 +45,8 @@ class SetRow2Model extends FlutterFlowModel<SetRow2Widget> {
   List<dynamic>? dropdrop4Copy;
   // Stores action output result for [Custom Action - removeDropsetsFromLoggedSets] action in SetNumberButton widget.
   List<dynamic>? droplloged2Copy;
+  // Stores action output result for [Custom Action - updateFlatSetValue] action in PreviousSetButton widget.
+  List<dynamic>? update;
   // Stores action output result for [Custom Action - updateFlatSetValue] action in RepsField widget.
   List<dynamic>? repsUpdateCopy;
   // Stores action output result for [Custom Action - updateFlatSetValue] action in WeightField widget.

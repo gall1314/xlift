@@ -1,5 +1,6 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
+import '/components/analyze2_app_after_widget.dart';
 import '/components/exercise_history_place_holder_widget.dart';
 import '/components/row_offline_widget.dart';
 import '/components/time_range_shit_widget.dart';
@@ -1387,7 +1388,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                               .transparent,
                                                           onTap: () async {
                                                             context.pushNamed(
-                                                              WorkoutAfterviesWidget
+                                                              WorkoutAfterviewWidget
                                                                   .routeName,
                                                               queryParameters: {
                                                                 'workoutLogId':
@@ -2608,6 +2609,63 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                 );
                                               },
                                             ),
+                                          Builder(
+                                            builder: (context) => Container(
+                                              width: MediaQuery.sizeOf(context)
+                                                      .width *
+                                                  1.0,
+                                              height: 300.0,
+                                              child: custom_widgets
+                                                  .FormAnalysisCard(
+                                                width:
+                                                    MediaQuery.sizeOf(context)
+                                                            .width *
+                                                        1.0,
+                                                height: 300.0,
+                                                exerciseId: widget.exerciseId!,
+                                                userId: currentUserUid,
+                                                exerciseName:
+                                                    exerciseHistoryExercise2RowList
+                                                        .firstOrNull?.name,
+                                                onSetTap:
+                                                    (setLogId, analysis) async {
+                                                  await showDialog(
+                                                    context: context,
+                                                    builder: (dialogContext) {
+                                                      return Dialog(
+                                                        elevation: 0,
+                                                        insetPadding:
+                                                            EdgeInsets.zero,
+                                                        backgroundColor:
+                                                            Colors.transparent,
+                                                        alignment:
+                                                            AlignmentDirectional(
+                                                                    0.0, 0.0)
+                                                                .resolve(
+                                                                    Directionality.of(
+                                                                        context)),
+                                                        child: GestureDetector(
+                                                          onTap: () {
+                                                            FocusScope.of(
+                                                                    dialogContext)
+                                                                .unfocus();
+                                                            FocusManager
+                                                                .instance
+                                                                .primaryFocus
+                                                                ?.unfocus();
+                                                          },
+                                                          child:
+                                                              Analyze2AppAfterWidget(
+                                                            anlysis: analysis,
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ),
                                           if (exerciseHistoryExercise2RowList
                                                   .firstOrNull?.isTimeBased ==
                                               1)
@@ -3798,9 +3856,12 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                             .center,
                                                                     children: [
                                                                       FaIcon(
-                                                                        FaIconData(FontAwesomeIcons
-                                                                            .chartLine
-                                                                            .data),
+                                                                        FaIconData(const IconData(
+                                                                            /* chartLine */ 0xf201,
+                                                                            fontFamily:
+                                                                                'FontAwesomeSolid',
+                                                                            fontPackage:
+                                                                                'font_awesome_flutter')),
                                                                         color: FlutterFlowTheme.of(context)
                                                                             .alternate,
                                                                         size:
@@ -4363,7 +4424,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                           children:
                                                                               [
                                                                             FaIcon(
-                                                                              FaIconData(FontAwesomeIcons.chartLine.data),
+                                                                              FaIconData(const IconData(/* chartLine */ 0xf201, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter')),
                                                                               color: FlutterFlowTheme.of(context).alternate,
                                                                               size: 60.0,
                                                                             ),
@@ -4834,9 +4895,12 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                           .center,
                                                                   children: [
                                                                     FaIcon(
-                                                                      FaIconData(FontAwesomeIcons
-                                                                          .chartLine
-                                                                          .data),
+                                                                      FaIconData(const IconData(
+                                                                          /* chartLine */ 0xf201,
+                                                                          fontFamily:
+                                                                              'FontAwesomeSolid',
+                                                                          fontPackage:
+                                                                              'font_awesome_flutter')),
                                                                       color: FlutterFlowTheme.of(
                                                                               context)
                                                                           .alternate,

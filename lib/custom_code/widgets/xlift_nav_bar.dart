@@ -20,6 +20,10 @@ import 'package:flutter/services.dart';
 /// currentPage: 'history' | 'stats' | 'home' | 'library' (highlights that
 /// tab). showFabLock: small lock badge on the FAB (free quota exhausted).
 /// isDark: null = auto from theme.
+///
+/// FAB icon (v2): "AI camera" - a camera whose lens is looking at a small
+/// standing figure. Subtle 3s loop: a thin scan arc sweeps around the lens
+/// and the figure breathes. On tap the lens blinks white (shutter).
 class XliftNavBar extends StatefulWidget {
   const XliftNavBar({
     super.key,
@@ -51,8 +55,9 @@ class XliftNavBar extends StatefulWidget {
 }
 
 class _XliftNavBarState extends State<XliftNavBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _sparkleCtrl;
+    with TickerProviderStateMixin {
+  late final AnimationController _loopCtrl;
+  late final AnimationController _shutterCtrl;
 
   static const double _fabSize = 60;
   static const double _fabLift = 28; // how much the FAB floats above the bar
@@ -64,15 +69,20 @@ class _XliftNavBarState extends State<XliftNavBar>
   @override
   void initState() {
     super.initState();
-    _sparkleCtrl = AnimationController(
+    _loopCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     )..repeat();
+    _shutterCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
   }
 
   @override
   void dispose() {
-    _sparkleCtrl.dispose();
+    _loopCtrl.dispose();
+    _shutterCtrl.dispose();
     super.dispose();
   }
 
@@ -142,6 +152,7 @@ class _XliftNavBarState extends State<XliftNavBar>
               onTapUp: (_) {
                 setState(() => _fabPressed = false);
                 HapticFeedback.mediumImpact();
+                _shutterCtrl.forward(from: 0);
                 widget.onFabTap?.call();
               },
               child: AnimatedScale(
@@ -149,8 +160,6 @@ class _XliftNavBarState extends State<XliftNavBar>
                 duration: const Duration(milliseconds: 110),
                 curve: Curves.easeOut,
                 child: Container(
-                  // Outer ring in page-background color: crisp separation
-                  // from the bar edge -> reads as truly floating.
                   width: fabOuter,
                   height: fabOuter,
                   decoration: BoxDecoration(
@@ -183,10 +192,15 @@ class _XliftNavBarState extends State<XliftNavBar>
                       alignment: Alignment.center,
                       children: [
                         AnimatedBuilder(
-                          animation: _sparkleCtrl,
+                          animation:
+                              Listenable.merge([_loopCtrl, _shutterCtrl]),
                           builder: (context, _) => CustomPaint(
-                            size: const Size(30, 30),
-                            painter: _SparklePainter(t: _sparkleCtrl.value),
+                            size: const Size(_fabSize, _fabSize),
+                            painter: _AiCameraGlyphPainter(
+                              t: _loopCtrl.value,
+                              shutter: _shutterCtrl.value,
+                              fg: Colors.white,
+                            ),
                           ),
                         ),
                         if (widget.showFabLock)
@@ -268,37 +282,104 @@ class _XliftNavBarState extends State<XliftNavBar>
   }
 }
 
-/// White 4-point AI sparkle with a gentle pulse + rock.
-class _SparklePainter extends CustomPainter {
-  _SparklePainter({required this.t});
-  final double t;
+/// "AI camera" glyph: camera outline whose lens frames a small standing
+/// figure. Scan arc sweeps around the lens; figure breathes; lens blinks
+/// white on tap (shutter). Drawn inside a [size] square (the FAB disc).
+class _AiCameraGlyphPainter extends CustomPainter {
+  _AiCameraGlyphPainter({
+    required this.t,
+    required this.shutter,
+    required this.fg,
+  });
+
+  final double t; // 0..1 loop
+  final double shutter; // 0..1 blink
+  final Color fg;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final double angle = t * 2 * math.pi;
-    final double pulse = 0.5 + 0.5 * math.sin(angle * 2);
-    final double r = size.width * (0.38 + 0.10 * pulse);
-    final double rot = math.sin(angle) * 0.15;
+    final Offset c = Offset(size.width / 2, size.height / 2);
+    final double r = size.width / 2; // disc radius
+    final double ang = t * 2 * math.pi;
 
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(rot);
+    // --- camera geometry (relative to disc radius) ---
+    final double bodyW = r * 1.06;
+    final double bodyH = r * 0.78;
+    final double bodyTop = c.dy - bodyH * 0.40;
+    final Rect body = Rect.fromCenter(
+        center: Offset(c.dx, bodyTop + bodyH / 2), width: bodyW, height: bodyH);
+    final double stroke = math.max(2.0, r * 0.075);
 
-    final double inner = r * 0.28;
-    final path = Path()..moveTo(0, -r);
-    path.quadraticBezierTo(inner * 0.4, -inner * 0.4, r, 0);
-    path.quadraticBezierTo(inner * 0.4, inner * 0.4, 0, r);
-    path.quadraticBezierTo(-inner * 0.4, inner * 0.4, -r, 0);
-    path.quadraticBezierTo(-inner * 0.4, -inner * 0.4, 0, -r);
-    path.close();
+    final Paint line = Paint()
+      ..color = fg
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    canvas.drawPath(path, Paint()..color = Colors.white);
-    canvas.restore();
+    // body
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(body, Radius.circular(r * 0.16)),
+      line,
+    );
+    // viewfinder bump
+    final Path bump = Path()
+      ..moveTo(c.dx - bodyW * 0.22, body.top)
+      ..lineTo(c.dx - bodyW * 0.14, body.top - r * 0.16)
+      ..lineTo(c.dx + bodyW * 0.14, body.top - r * 0.16)
+      ..lineTo(c.dx + bodyW * 0.22, body.top);
+    canvas.drawPath(bump, line);
+
+    // lens
+    final Offset lensC = Offset(c.dx, body.center.dy + r * 0.02);
+    final double lensR = r * 0.30;
+    canvas.drawCircle(lensC, lensR, line);
+
+    // scan arc sweeping around the lens
+    canvas.drawArc(
+      Rect.fromCircle(center: lensC, radius: lensR + stroke * 1.6),
+      ang,
+      math.pi * 0.55,
+      false,
+      Paint()
+        ..color = fg.withOpacity(0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke * 0.6
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // figure inside the lens (breathing)
+    final double fs = lensR * (0.92 + 0.05 * math.sin(ang * 2));
+    final Offset fc = lensC;
+    final Paint fig = Paint()
+      ..color = fg
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke * 0.75
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(
+        fc.translate(0, -fs * 0.55), fs * 0.16, Paint()..color = fg); // head
+    canvas.drawLine(
+        fc.translate(0, -fs * 0.34), fc.translate(0, fs * 0.12), fig); // torso
+    canvas.drawLine(fc.translate(0, -fs * 0.22),
+        fc.translate(-fs * 0.34, -fs * 0.02), fig); // arm L
+    canvas.drawLine(fc.translate(0, -fs * 0.22),
+        fc.translate(fs * 0.34, -fs * 0.02), fig); // arm R
+    canvas.drawLine(fc.translate(0, fs * 0.12),
+        fc.translate(-fs * 0.24, fs * 0.52), fig); // leg L
+    canvas.drawLine(fc.translate(0, fs * 0.12),
+        fc.translate(fs * 0.24, fs * 0.52), fig); // leg R
+
+    // shutter blink
+    if (shutter > 0) {
+      final double k = math.sin(shutter * math.pi); // 0 -> 1 -> 0
+      canvas.drawCircle(lensC, lensR - stroke / 2,
+          Paint()..color = Colors.white.withOpacity(0.85 * k));
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _SparklePainter old) => old.t != t;
+  bool shouldRepaint(covariant _AiCameraGlyphPainter old) =>
+      old.t != t || old.shutter != shutter || old.fg != fg;
 }
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

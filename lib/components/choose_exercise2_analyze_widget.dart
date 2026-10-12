@@ -194,32 +194,6 @@ class _ChooseExercise2AnalyzeWidgetState
                                     lineHeight: 1.4,
                                   ),
                             ),
-                            Text(
-                              FFLocalizations.of(context).getText(
-                                '83gl0uon' /* hint */,
-                              ),
-                              style: FlutterFlowTheme.of(context)
-                                  .labelSmall
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .labelSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelSmall
-                                          .fontStyle,
-                                    ),
-                                    color: Color(0xFF9CA3AF),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .labelSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .labelSmall
-                                        .fontStyle,
-                                    lineHeight: 1.4,
-                                  ),
-                            ),
                           ],
                         ),
                       ),

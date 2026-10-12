@@ -168,17 +168,18 @@ class _Video2WidgetState extends State<Video2Widget> {
             Container(
               width: 270.0,
               height: 488.0,
-              child: custom_widgets.SquatAnalyzedVideoPlayer(
+              child: custom_widgets.AnalyzedVideoPlayerV2(
                 width: 270.0,
                 height: 488.0,
                 showSkeleton: true,
-                videoVolume: 8.0,
+                showBarbellBox: false,
+                videoVolume: 0.7,
                 lockFeet: false,
+                autoplay: true,
                 analysisResult: functions.getSetByExerciseAndNumber(
                     FFAppState().workoutAnalysisState.toList(),
                     widget.exerciseId!,
                     widget.setNumber!),
-                showBarbellBox: true,
               ),
             ),
             FFButtonWidget(

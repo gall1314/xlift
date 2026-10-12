@@ -673,7 +673,7 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                       await actions.initHive();
 
                                                       context.pushNamedAuth(
-                                                          HomePageWidget
+                                                          MasterPageWidget
                                                               .routeName,
                                                           context.mounted);
                                                     },
@@ -1445,7 +1445,7 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                       await actions.initHive();
 
                                                       context.goNamedAuth(
-                                                          HomePageWidget
+                                                          MasterPageWidget
                                                               .routeName,
                                                           context.mounted);
 

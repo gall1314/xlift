@@ -1,13 +1,9 @@
 // Export pages
-export '/history/history_widget.dart' show HistoryWidget;
-export '/stats/stats_widget.dart' show StatsWidget;
-export '/workout_aftervies/workout_aftervies_widget.dart'
-    show WorkoutAfterviesWidget;
+export '/workout_afterview/workout_afterview_widget.dart'
+    show WorkoutAfterviewWidget;
 export '/exercise_history/exercise_history_widget.dart'
     show ExerciseHistoryWidget;
-export '/home_page/home_page_widget.dart' show HomePageWidget;
 export '/settingss/settingss_widget.dart' show SettingssWidget;
-export '/library/library_widget.dart' show LibraryWidget;
 export '/template_workout/template_workout_widget.dart'
     show TemplateWorkoutWidget;
 export '/signup_in/signup_in_widget.dart' show SignupInWidget;
@@ -92,3 +88,5 @@ export '/v2_pages/create_workout_v2/create_workout_v2_widget.dart'
     show CreateWorkoutV2Widget;
 export '/workout_complete/workout_complete_widget.dart'
     show WorkoutCompleteWidget;
+export '/workout_summary_view/workout_summary_view_widget.dart'
+    show WorkoutSummaryViewWidget;

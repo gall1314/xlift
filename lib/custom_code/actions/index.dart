@@ -172,3 +172,4 @@ export 'share_workout_poster.dart' show shareWorkoutPoster;
 export 'log_analysis_usage.dart' show logAnalysisUsage;
 export 'restore_analysis_quota.dart' show restoreAnalysisQuota;
 export 'restore_all_from_cloud.dart' show restoreAllFromCloud;
+export 'save_custom_exercise_image.dart' show saveCustomExerciseImage;

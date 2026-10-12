@@ -681,11 +681,11 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                   }
 
                                   context.pushNamed(
-                                    LibraryWidget.routeName,
+                                    MasterPageWidget.routeName,
                                     queryParameters: {
-                                      'template': serializeParam(
-                                        false,
-                                        ParamType.bool,
+                                      'initialTab': serializeParam(
+                                        3,
+                                        ParamType.int,
                                       ),
                                     }.withoutNulls,
                                   );

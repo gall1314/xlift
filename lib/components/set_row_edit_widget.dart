@@ -5,7 +5,6 @@ import '/components/set_optin_bottom_edit_widget.dart';
 import '/components/time_for_creation_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -120,308 +119,220 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                       mainAxisSize: MainAxisSize.max,
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        Stack(
-                          children: [
-                            Container(
+                        Builder(
+                          builder: (context) => Container(
+                            width: 40.0,
+                            height: 35.0,
+                            child: custom_widgets.SetNumberButton(
                               width: 40.0,
                               height: 35.0,
-                              decoration: BoxDecoration(),
-                              child: Padding(
-                                padding: EdgeInsets.all(10.0),
-                                child: Text(
-                                  valueOrDefault<String>(
-                                    widget.setNumber?.toString(),
-                                    '#',
-                                  ),
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        font: GoogleFonts.inter(
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .bodyMedium
-                                                  .fontStyle,
-                                        ),
-                                        letterSpacing: 0.0,
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                ),
-                              ),
-                            ),
-                            if (!functions.isSetDoneOffline(
-                                FFAppState().loggedSetsCreation.toList(),
-                                widget.exerciseId!,
-                                widget.setNumber!))
-                              Builder(
-                                builder: (context) => FFButtonWidget(
-                                  onPressed: () async {
-                                    await showModalBottomSheet(
-                                      isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
-                                      enableDrag: false,
-                                      context: context,
-                                      builder: (context) {
-                                        return Padding(
-                                          padding:
-                                              MediaQuery.viewInsetsOf(context),
-                                          child: SetOptinBottomEditWidget(
-                                            exerciseId: widget.exerciseId!,
-                                            setNumber: widget.setNumber!,
-                                            isDropSet: _model.dropSet,
-                                            isTimed: widget.timed,
-                                            removeSet: () async {
-                                              var _shouldSetState = false;
-                                              _model.remove = await actions
-                                                  .removeSetFromExercise(
-                                                FFAppState()
-                                                    .exerciseSetsCretion
-                                                    .toList(),
-                                                widget.exerciseId!,
-                                                widget.setNumber!,
-                                              );
-                                              _shouldSetState = true;
-                                              FFAppState().exerciseSetsCretion =
-                                                  _model.remove!
-                                                      .toList()
-                                                      .cast<dynamic>();
-                                              safeSetState(() {});
-                                              if (_model.dropSet) {
-                                                _model.droplloged = await actions
-                                                    .removeDropsetsFromLoggedSets(
-                                                  FFAppState()
-                                                      .loggedSetsCreation
-                                                      .toList(),
-                                                  widget.exerciseId!,
-                                                );
-                                                _shouldSetState = true;
-                                                _model.dropdrop3 = await actions
-                                                    .removeDropSetsForExercise(
-                                                  FFAppState()
-                                                      .dropSetsCreation
-                                                      .toList(),
-                                                  widget.exerciseId!,
-                                                );
-                                                _shouldSetState = true;
-                                              } else {
-                                                return;
-                                              }
+                              label: widget.setNumber?.toString(),
+                              showChevron: true,
+                              enableHaptic: true,
+                              onTap: () async {
+                                await showModalBottomSheet(
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  enableDrag: false,
+                                  context: context,
+                                  builder: (context) {
+                                    return Padding(
+                                      padding: MediaQuery.viewInsetsOf(context),
+                                      child: SetOptinBottomEditWidget(
+                                        exerciseId: widget.exerciseId!,
+                                        setNumber: widget.setNumber!,
+                                        isDropSet: _model.dropSet,
+                                        isTimed: widget.timed,
+                                        removeSet: () async {
+                                          var _shouldSetState = false;
+                                          _model.removeCopy = await actions
+                                              .removeSetFromExercise(
+                                            FFAppState()
+                                                .exerciseSetsCretion
+                                                .toList(),
+                                            widget.exerciseId!,
+                                            widget.setNumber!,
+                                          );
+                                          _shouldSetState = true;
+                                          FFAppState().exerciseSetsCretion =
+                                              _model.removeCopy!
+                                                  .toList()
+                                                  .cast<dynamic>();
+                                          safeSetState(() {});
+                                          if (_model.dropSet) {
+                                            _model.dropllogedCopy = await actions
+                                                .removeDropsetsFromLoggedSets(
+                                              FFAppState()
+                                                  .loggedSetsCreation
+                                                  .toList(),
+                                              widget.exerciseId!,
+                                            );
+                                            _shouldSetState = true;
+                                            _model.dropdrop3Copy = await actions
+                                                .removeDropSetsForExercise(
+                                              FFAppState()
+                                                  .dropSetsCreation
+                                                  .toList(),
+                                              widget.exerciseId!,
+                                            );
+                                            _shouldSetState = true;
+                                          } else {
+                                            return;
+                                          }
 
-                                              FFAppState().dropSetsCreation =
-                                                  _model.dropdrop3!
-                                                      .toList()
-                                                      .cast<dynamic>();
-                                              FFAppState().loggedSetsCreation =
-                                                  _model.droplloged!
-                                                      .toList()
-                                                      .cast<dynamic>();
-                                              safeSetState(() {});
-                                            },
-                                            addDropSet: () async {
-                                              _model.dropSet = true;
-                                              safeSetState(() {});
-                                            },
-                                            removeDropset: () async {
-                                              _model.dropSet = false;
-                                              safeSetState(() {});
-                                              _model.dropdrop = await actions
-                                                  .removeDropSetsForExercise(
-                                                FFAppState()
-                                                    .dropSetsCreation
-                                                    .toList(),
-                                                widget.exerciseId!,
-                                              );
-                                              _model.remove2 = await actions
-                                                  .removeDropsetsFromLoggedSets(
-                                                FFAppState()
-                                                    .loggedSetsCreation
-                                                    .toList(),
-                                                widget.exerciseId!,
-                                              );
-                                              FFAppState().dropSetsCreation =
-                                                  _model.dropdrop!
-                                                      .toList()
-                                                      .cast<dynamic>();
-                                              FFAppState().loggedSetsCreation =
-                                                  _model.remove2!
-                                                      .toList()
-                                                      .cast<dynamic>();
-                                              safeSetState(() {});
-                                            },
-                                            reset: () async {
-                                              safeSetState(() {});
-                                            },
-                                            markSet: () async {
-                                              if (functions
-                                                  .canCompleteSetFromState(
-                                                      FFAppState()
-                                                          .loggedSetsCreation
-                                                          .toList(),
-                                                      widget.exerciseId!,
-                                                      widget.setNumber!,
-                                                      _model.durationMs,
-                                                      FFAppState()
-                                                          .dropSetsCreation
-                                                          .toList(),
-                                                      FFAppState()
-                                                          .exerciseSetsCretion
-                                                          .toList(),
-                                                      widget.allowsBodyweight!,
-                                                      widget.timed)) {
-                                                _model.doneTrueCopy =
-                                                    await actions
-                                                        .updateFlatSetValue(
+                                          FFAppState().dropSetsCreation = _model
+                                              .dropdrop3Copy!
+                                              .toList()
+                                              .cast<dynamic>();
+                                          FFAppState().loggedSetsCreation =
+                                              _model.dropllogedCopy!
+                                                  .toList()
+                                                  .cast<dynamic>();
+                                          safeSetState(() {});
+                                        },
+                                        addDropSet: () async {
+                                          _model.dropSet = true;
+                                          safeSetState(() {});
+                                        },
+                                        removeDropset: () async {
+                                          _model.dropSet = false;
+                                          safeSetState(() {});
+                                          _model.dropdropCopy = await actions
+                                              .removeDropSetsForExercise(
+                                            FFAppState()
+                                                .dropSetsCreation
+                                                .toList(),
+                                            widget.exerciseId!,
+                                          );
+                                          _model.remove2Copy = await actions
+                                              .removeDropsetsFromLoggedSets(
+                                            FFAppState()
+                                                .loggedSetsCreation
+                                                .toList(),
+                                            widget.exerciseId!,
+                                          );
+                                          FFAppState().dropSetsCreation = _model
+                                              .dropdropCopy!
+                                              .toList()
+                                              .cast<dynamic>();
+                                          FFAppState().loggedSetsCreation =
+                                              _model.remove2Copy!
+                                                  .toList()
+                                                  .cast<dynamic>();
+                                          safeSetState(() {});
+                                        },
+                                        reset: () async {
+                                          safeSetState(() {});
+                                        },
+                                        markSet: () async {
+                                          if (functions.canCompleteSetFromState(
+                                              FFAppState()
+                                                  .loggedSetsCreation
+                                                  .toList(),
+                                              widget.exerciseId!,
+                                              widget.setNumber!,
+                                              _model.durationMs,
+                                              FFAppState()
+                                                  .dropSetsCreation
+                                                  .toList(),
+                                              FFAppState()
+                                                  .exerciseSetsCretion
+                                                  .toList(),
+                                              widget.allowsBodyweight!,
+                                              widget.timed)) {
+                                            _model.doneTrueCopyCopy =
+                                                await actions
+                                                    .updateFlatSetValue(
+                                              FFAppState()
+                                                  .loggedSetsCreation
+                                                  .toList(),
+                                              widget.exerciseId!,
+                                              widget.setNumber!,
+                                              functions.getRepsFromLoggedSetsV2(
                                                   FFAppState()
                                                       .loggedSetsCreation
                                                       .toList(),
                                                   widget.exerciseId!,
                                                   widget.setNumber!,
-                                                  functions
-                                                      .getRepsFromLoggedSetsV2(
-                                                          FFAppState()
-                                                              .loggedSetsCreation
-                                                              .toList(),
-                                                          widget.exerciseId!,
-                                                          widget.setNumber!,
-                                                          FFAppState()
-                                                              .exerciseSetsCretion
-                                                              .toList()),
-                                                  functions
-                                                      .getWeightFromLoggedSets(
-                                                          FFAppState()
-                                                              .loggedSets
-                                                              .toList(),
-                                                          widget.exerciseId!,
-                                                          widget.setNumber!),
-                                                  functions.resolveSetDurationMs(
-                                                      _model.durationMs,
-                                                      FFAppState()
-                                                          .exerciseSetsCretion
-                                                          .toList(),
-                                                      widget.exerciseId!,
-                                                      widget.setNumber!,
-                                                      FFAppState()
-                                                          .loggedSetsCreation
-                                                          .toList()),
-                                                  true,
+                                                  FFAppState()
+                                                      .exerciseSetsCretion
+                                                      .toList()),
+                                              functions.getWeightFromLoggedSets(
+                                                  FFAppState()
+                                                      .loggedSets
+                                                      .toList(),
+                                                  widget.exerciseId!,
+                                                  widget.setNumber!),
+                                              functions.resolveSetDurationMs(
+                                                  _model.durationMs,
                                                   FFAppState()
                                                       .exerciseSetsCretion
                                                       .toList(),
+                                                  widget.exerciseId!,
+                                                  widget.setNumber!,
+                                                  FFAppState()
+                                                      .loggedSetsCreation
+                                                      .toList()),
+                                              true,
+                                              FFAppState()
+                                                  .exerciseSetsCretion
+                                                  .toList(),
+                                            );
+                                            HapticFeedback.heavyImpact();
+                                            FFAppState().loggedSetsCreation =
+                                                _model.doneTrueCopyCopy!
+                                                    .toList()
+                                                    .cast<dynamic>();
+                                            safeSetState(() {});
+                                          } else {
+                                            HapticFeedback.vibrate();
+                                            await showDialog(
+                                              context: context,
+                                              builder: (dialogContext) {
+                                                return Dialog(
+                                                  elevation: 0,
+                                                  insetPadding: EdgeInsets.zero,
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  alignment:
+                                                      AlignmentDirectional(
+                                                              0.0, 0.0)
+                                                          .resolve(
+                                                              Directionality.of(
+                                                                  context)),
+                                                  child: SetAlert2Widget(
+                                                    errorMesseage: functions
+                                                        .buildSetErrorMessage(
+                                                            FFAppState()
+                                                                .loggedSetsCreation
+                                                                .toList(),
+                                                            FFAppState()
+                                                                .dropSetsCreation
+                                                                .toList(),
+                                                            widget.exerciseId!,
+                                                            widget.setNumber!,
+                                                            _model.durationMs,
+                                                            widget.timed,
+                                                            widget
+                                                                .allowsBodyweight!,
+                                                            FFAppState()
+                                                                .exercisesets
+                                                                .toList()),
+                                                  ),
                                                 );
-                                                HapticFeedback.heavyImpact();
-                                                FFAppState()
-                                                        .loggedSetsCreation =
-                                                    _model.doneTrueCopy!
-                                                        .toList()
-                                                        .cast<dynamic>();
-                                                safeSetState(() {});
-                                              } else {
-                                                HapticFeedback.vibrate();
-                                                await showDialog(
-                                                  context: context,
-                                                  builder: (dialogContext) {
-                                                    return Dialog(
-                                                      elevation: 0,
-                                                      insetPadding:
-                                                          EdgeInsets.zero,
-                                                      backgroundColor:
-                                                          Colors.transparent,
-                                                      alignment:
-                                                          AlignmentDirectional(
-                                                                  0.0, 0.0)
-                                                              .resolve(
-                                                                  Directionality.of(
-                                                                      context)),
-                                                      child: SetAlert2Widget(
-                                                        errorMesseage: functions
-                                                            .buildSetErrorMessage(
-                                                                FFAppState()
-                                                                    .loggedSetsCreation
-                                                                    .toList(),
-                                                                FFAppState()
-                                                                    .dropSetsCreation
-                                                                    .toList(),
-                                                                widget
-                                                                    .exerciseId!,
-                                                                widget
-                                                                    .setNumber!,
-                                                                _model
-                                                                    .durationMs,
-                                                                widget.timed,
-                                                                widget
-                                                                    .allowsBodyweight!,
-                                                                FFAppState()
-                                                                    .exercisesets
-                                                                    .toList()),
-                                                      ),
-                                                    );
-                                                  },
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        );
-                                      },
-                                    ).then((value) => safeSetState(() {}));
-
-                                    safeSetState(() {});
+                                              },
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    );
                                   },
-                                  text: widget.setNumber!.toString(),
-                                  options: FFButtonOptions(
-                                    width: 40.0,
-                                    height: 35.0,
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        16.0, 0.0, 16.0, 0.0),
-                                    iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 0.0, 0.0, 0.0),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    textStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .override(
-                                          font: GoogleFonts.interTight(
-                                            fontWeight:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontWeight,
-                                            fontStyle:
-                                                FlutterFlowTheme.of(context)
-                                                    .titleSmall
-                                                    .fontStyle,
-                                          ),
-                                          color: FlutterFlowTheme.of(context)
-                                              .primaryText,
-                                          fontSize: 2.0,
-                                          letterSpacing: 0.0,
-                                          fontWeight:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontWeight,
-                                          fontStyle:
-                                              FlutterFlowTheme.of(context)
-                                                  .titleSmall
-                                                  .fontStyle,
-                                        ),
-                                    elevation: 0.0,
-                                    borderSide: BorderSide(
-                                      color: FlutterFlowTheme.of(context)
-                                          .alternate,
-                                      width: 1.5,
-                                    ),
-                                    borderRadius: BorderRadius.circular(14.0),
-                                  ),
-                                  showLoadingIndicator: false,
-                                ),
-                              ),
-                          ],
+                                ).then((value) => safeSetState(() {}));
+
+                                safeSetState(() {});
+                              },
+                            ),
+                          ),
                         ),
                         Align(
                           alignment: AlignmentDirectional(0.0, 0.0),

@@ -403,7 +403,7 @@ class _ExerciseHistoryCustomWidgetState
                                                               .transparent,
                                                           onTap: () async {
                                                             context.pushNamed(
-                                                              WorkoutAfterviesWidget
+                                                              WorkoutAfterviewWidget
                                                                   .routeName,
                                                               queryParameters: {
                                                                 'workoutLogId':
@@ -2814,9 +2814,12 @@ class _ExerciseHistoryCustomWidgetState
                                                                             .center,
                                                                     children: [
                                                                       FaIcon(
-                                                                        FaIconData(FontAwesomeIcons
-                                                                            .chartLine
-                                                                            .data),
+                                                                        FaIconData(const IconData(
+                                                                            /* chartLine */ 0xf201,
+                                                                            fontFamily:
+                                                                                'FontAwesomeSolid',
+                                                                            fontPackage:
+                                                                                'font_awesome_flutter')),
                                                                         color: FlutterFlowTheme.of(context)
                                                                             .alternate,
                                                                         size:
@@ -3379,7 +3382,7 @@ class _ExerciseHistoryCustomWidgetState
                                                                           children:
                                                                               [
                                                                             FaIcon(
-                                                                              FaIconData(FontAwesomeIcons.chartLine.data),
+                                                                              FaIconData(const IconData(/* chartLine */ 0xf201, fontFamily: 'FontAwesomeSolid', fontPackage: 'font_awesome_flutter')),
                                                                               color: FlutterFlowTheme.of(context).alternate,
                                                                               size: 60.0,
                                                                             ),
@@ -3850,9 +3853,12 @@ class _ExerciseHistoryCustomWidgetState
                                                                           .center,
                                                                   children: [
                                                                     FaIcon(
-                                                                      FaIconData(FontAwesomeIcons
-                                                                          .chartLine
-                                                                          .data),
+                                                                      FaIconData(const IconData(
+                                                                          /* chartLine */ 0xf201,
+                                                                          fontFamily:
+                                                                              'FontAwesomeSolid',
+                                                                          fontPackage:
+                                                                              'font_awesome_flutter')),
                                                                       color: FlutterFlowTheme.of(
                                                                               context)
                                                                           .alternate,

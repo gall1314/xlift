@@ -91,6 +91,8 @@ class _ChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (yValues.isEmpty) return;
+
     final rect = Rect.fromLTWH(
       padding.left,
       padding.top,
@@ -101,24 +103,72 @@ class _ChartPainter extends CustomPainter {
     final minVal = yValues.reduce(min);
     final maxVal = yValues.reduce(max);
 
-    final minY = forceZeroMin ? 0.0 : minVal;
-    final maxY = maxVal == minVal ? minVal + 1 : maxVal;
+    final rawMinY = forceZeroMin ? 0.0 : minVal;
+    final rawMaxY = maxVal <= rawMinY ? rawMinY + 1 : maxVal;
 
-    _drawGrid(canvas, rect);
+    // Round the axis to "nice" values (e.g. 0, 2K, 4K, 6K).
+    final int targetTicks = max(2, min(maxYTicks, 4));
+    final double step = _niceStep(rawMaxY - rawMinY, targetTicks);
+    final double minY = (rawMinY / step).floorToDouble() * step;
+    final double maxY = (rawMaxY / step).ceilToDouble() * step;
+    final int tickCount = ((maxY - minY) / step).round() + 1;
+    final List<double> ticks = [
+      for (int i = 0; i < tickCount; i++) minY + step * i,
+    ];
+
+    _drawGrid(canvas, rect, minY, maxY, ticks);
     _drawAreaAndLine(canvas, rect, minY, maxY);
-    _drawYLabels(canvas, rect, minY, maxY);
+    _drawYLabels(canvas, rect, minY, maxY, ticks);
     _drawXLabels(canvas, rect);
   }
 
-  void _drawGrid(Canvas canvas, Rect rect) {
+  /// Step of 1, 2, 2.5 or 5 times a power of 10 that gives about
+  /// [targetTicks] ticks across [range].
+  double _niceStep(double range, int targetTicks) {
+    if (range <= 0) return 1;
+    final double rough = range / (targetTicks - 1);
+    final double mag = pow(10, (log(rough) / ln10).floor()).toDouble();
+    final double norm = rough / mag;
+    double nice;
+    if (norm <= 1) {
+      nice = 1;
+    } else if (norm <= 2) {
+      nice = 2;
+    } else if (norm <= 2.5) {
+      nice = 2.5;
+    } else if (norm <= 5) {
+      nice = 5;
+    } else {
+      nice = 10;
+    }
+    return nice * mag;
+  }
+
+  /// 0 -> "0", 2000 -> "2K", 2500 -> "2.5K", 1200000 -> "1.2M".
+  String _formatTick(double v) {
+    final double a = v.abs();
+    if (a >= 1000000) return '${_trimNumber(v / 1000000)}M';
+    if (a >= 1000) return '${_trimNumber(v / 1000)}K';
+    return _trimNumber(v);
+  }
+
+  String _trimNumber(double v) {
+    String s = v.toStringAsFixed(2);
+    if (s.contains('.')) {
+      s = s.replaceFirst(RegExp(r'0+$'), '');
+      s = s.replaceFirst(RegExp(r'\.$'), '');
+    }
+    return s;
+  }
+
+  void _drawGrid(
+      Canvas canvas, Rect rect, double minY, double maxY, List<double> ticks) {
     final paint = Paint()
       ..color = Colors.grey.withOpacity(0.08)
       ..strokeWidth = 1;
 
-    final count = min(maxYTicks, 4);
-
-    for (int i = 0; i < count; i++) {
-      final t = count == 1 ? 0.0 : i / (count - 1);
+    for (final value in ticks) {
+      final t = (value - minY) / (maxY - minY);
       final y = rect.bottom - rect.height * t;
       canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), paint);
     }
@@ -160,21 +210,20 @@ class _ChartPainter extends CustomPainter {
     canvas.drawPath(path, linePaint);
   }
 
-  void _drawYLabels(Canvas canvas, Rect rect, double minY, double maxY) {
+  void _drawYLabels(
+      Canvas canvas, Rect rect, double minY, double maxY, List<double> ticks) {
     final style = TextStyle(
       color: Colors.grey.withOpacity(0.6),
       fontSize: 11,
     );
 
-    final count = min(maxYTicks, 4);
-
-    for (int i = 0; i < count; i++) {
-      final t = count == 1 ? 0.0 : i / (count - 1);
-      final value = minY + (maxY - minY) * t;
+    for (int i = 0; i < ticks.length; i++) {
+      final value = ticks[i];
+      final t = (value - minY) / (maxY - minY);
       final y = rect.bottom - rect.height * t;
 
       final tp = TextPainter(
-        text: TextSpan(text: value.round().toString(), style: style),
+        text: TextSpan(text: _formatTick(value), style: style),
         textDirection: ui.TextDirection.ltr,
       )..layout();
 

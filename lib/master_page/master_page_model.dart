@@ -1,14 +1,12 @@
 import '/backend/sqlite/sqlite_manager.dart';
 import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
-import '/components/muscle_line_graph_plc_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
 import '/components/restyle_the_existing3_widget.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/index.dart';
 import 'master_page_widget.dart' show MasterPageWidget;
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 
 class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
@@ -34,13 +32,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
 
   ///  State fields for stateful widgets in this page.
 
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode1;
-  TextEditingController? textController1;
-  String? Function(BuildContext, String?)? textController1Validator;
-  // State field(s) for historyMuscle widget.
-  String? historyMuscleValue;
-  FormFieldController<String>? historyMuscleValueController;
   // State field(s) for TabBar widget.
   TabController? tabBarController1;
   int get tabBarCurrentIndex1 =>
@@ -52,21 +43,8 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
   late LineGraphPlaceHolderModel lineGraphPlaceHolderModel;
   // Model for pieGraphPlaceHolder component.
   late PieGraphPlaceHolderModel pieGraphPlaceHolderModel;
-  // State field(s) for Carousel widget.
-  CarouselSliderController? carouselController;
-  int carouselCurrentIndex = 1;
-
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode2;
-  TextEditingController? textController2;
-  String? Function(BuildContext, String?)? textController2Validator;
   // Model for exerciseStatsPlaceHolder component.
   late ExerciseStatsPlaceHolderModel exerciseStatsPlaceHolderModel;
-  // State field(s) for DropDownMuscle widget.
-  String? dropDownMuscleValue;
-  FormFieldController<String>? dropDownMuscleValueController;
-  // Model for muscleLineGraphPlc component.
-  late MuscleLineGraphPlcModel muscleLineGraphPlcModel;
   // Model for RestyleTheExisting3 component.
   late RestyleTheExisting3Model restyleTheExisting3Model;
   // Stores action output result for [Backend Call - SQLite (workoutNum)] action in Button widget.
@@ -169,9 +147,9 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
       tabBarController2 != null ? tabBarController2!.previousIndex : 0;
 
   // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode3;
-  TextEditingController? textController3;
-  String? Function(BuildContext, String?)? textController3Validator;
+  FocusNode? textFieldFocusNode;
+  TextEditingController? textController;
+  String? Function(BuildContext, String?)? textControllerValidator;
   // State field(s) for muscleDropdown widget.
   String? muscleDropdownValue;
   FormFieldController<String>? muscleDropdownValueController;
@@ -195,28 +173,19 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
         createModel(context, () => PieGraphPlaceHolderModel());
     exerciseStatsPlaceHolderModel =
         createModel(context, () => ExerciseStatsPlaceHolderModel());
-    muscleLineGraphPlcModel =
-        createModel(context, () => MuscleLineGraphPlcModel());
     restyleTheExisting3Model =
         createModel(context, () => RestyleTheExisting3Model());
   }
 
   @override
   void dispose() {
-    textFieldFocusNode1?.dispose();
-    textController1?.dispose();
-
     tabBarController1?.dispose();
     lineGraphPlaceHolderModel.dispose();
     pieGraphPlaceHolderModel.dispose();
-    textFieldFocusNode2?.dispose();
-    textController2?.dispose();
-
     exerciseStatsPlaceHolderModel.dispose();
-    muscleLineGraphPlcModel.dispose();
     restyleTheExisting3Model.dispose();
     tabBarController2?.dispose();
-    textFieldFocusNode3?.dispose();
-    textController3?.dispose();
+    textFieldFocusNode?.dispose();
+    textController?.dispose();
   }
 }

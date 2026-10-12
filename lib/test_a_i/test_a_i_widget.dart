@@ -13,7 +13,7 @@ class TestAIWidget extends StatefulWidget {
     required this.result,
   });
 
-  final GetSetanalysisRow? result;
+  final GetSetAnalysisRow? result;
 
   static String routeName = 'testAI';
   static String routePath = '/testAI';
@@ -69,7 +69,7 @@ class _TestAIWidgetState extends State<TestAIWidget> {
           ),
           title: Text(
             FFLocalizations.of(context).getText(
-              'q9nuza7r' /* Page Title */,
+              'aal9asnx' /* Page Title */,
             ),
             style: FlutterFlowTheme.of(context).headlineMedium.override(
                   font: GoogleFonts.interTight(

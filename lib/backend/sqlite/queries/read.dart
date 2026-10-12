@@ -862,8 +862,6 @@ prev_workout AS (
   ORDER BY wl.created_at DESC
   LIMIT 1
 ),
-
-/* ---------- אימון נוכחי ---------- */
 curr_base AS (
   SELECT
     s.exercise_id,
@@ -872,6 +870,13 @@ curr_base AS (
     e.is_bodyweight,
     COALESCE(e.is_assisted, 0) AS is_assisted,
     COALESCE(e.is_public, 1)   AS is_public,
+    e.equipment                AS equipment,        -- NEW
+    e.illustration             AS illustration,     -- NEW
+    (SELECT mg.name                                  -- NEW
+       FROM exercise_muscle_group emg
+       JOIN muscle_group mg ON mg.id = emg.muscle_group_id
+      WHERE emg.exercise_id = e.id AND COALESCE(emg.is_primary,1) = 1
+      LIMIT 1) AS muscle_group,
     COALESCE(s.reps, 0) AS reps,
     COALESCE(s.weight, 0) AS weight,
     COALESCE(s.duration_seconds, 0) AS dur_ms,
@@ -889,51 +894,38 @@ curr_agg AS (
     MAX(is_bodyweight) AS is_bodyweight,
     MAX(is_assisted)   AS is_assisted,
     MAX(is_public)     AS is_public,
-
+    MAX(equipment)     AS equipment,      -- NEW
+    MAX(illustration)  AS illustration,   -- NEW
+    MAX(muscle_group)  AS muscle_group,   -- NEW
     COUNT(CASE WHEN is_dropset = 0 THEN 1 END) AS exercise_sets_count,
     CASE WHEN SUM(CASE WHEN weight > 0 THEN 1 END) > 0 THEN 1 ELSE 0 END AS has_weighted_set,
     SUM(reps) AS sum_reps_all,
     SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END) AS sum_weighted_volume,
     SUM(dur_ms) AS sum_dur_ms,
-
     CASE
       WHEN SUM(CASE WHEN is_dropset = 0 AND is_kg = 1 THEN 1 ELSE 0 END)
          >= SUM(CASE WHEN is_dropset = 0 AND is_kg = 0 THEN 1 ELSE 0 END)
       THEN 'Kg' ELSE 'Lbs'
     END AS unit_label,
-
     AVG(CASE WHEN is_dropset = 0 AND weight > 0 THEN weight END) AS avg_assist
   FROM curr_base
   GROUP BY exercise_id
 ),
 curr_vals AS (
   SELECT
-    exercise_id,
-    exercise_name,
-    is_timed,
-    is_bodyweight,
-    is_assisted,
-    is_public,
-    exercise_sets_count,
-    has_weighted_set,
-    sum_reps_all,
-    sum_weighted_volume,
-    sum_dur_ms,
-    unit_label,
-    avg_assist,
-
+    exercise_id, exercise_name, is_timed, is_bodyweight, is_assisted, is_public,
+    equipment, illustration, muscle_group,   -- NEW
+    exercise_sets_count, has_weighted_set, sum_reps_all, sum_weighted_volume,
+    sum_dur_ms, unit_label, avg_assist,
     CASE
       WHEN is_timed = 1 THEN CAST(sum_dur_ms / 1000 AS INTEGER)
       WHEN is_assisted = 1 THEN sum_reps_all
       WHEN has_weighted_set = 0 THEN sum_reps_all
       ELSE CAST(sum_weighted_volume AS INTEGER)
     END AS curr_numeric,
-
     CAST(sum_weighted_volume AS REAL) AS curr_assist_volume
   FROM curr_agg
 ),
-
-/* ---------- אימון קודם ---------- */
 prev_base AS (
   SELECT
     s.exercise_id,
@@ -973,14 +965,14 @@ prev_vals AS (
     CAST(sum_weighted_volume_prev AS REAL) AS prev_assist_volume
   FROM prev_agg
 )
-
-/* ---------- תוצאה סופית ---------- */
 SELECT
   c.exercise_id,
   c.exercise_name,
   c.exercise_sets_count,
   c.is_public,
-
+  c.equipment,      -- NEW
+  c.illustration,   -- NEW
+  c.muscle_group,   -- NEW
   CASE
     WHEN c.is_timed = 1 THEN
       printf('%02d:%02d',
@@ -990,7 +982,6 @@ SELECT
     WHEN c.has_weighted_set = 0 THEN CAST(c.sum_reps_all AS TEXT) || ' Reps'
     ELSE CAST(CAST(c.sum_weighted_volume AS INTEGER) AS TEXT) || ' ' || c.unit_label
   END AS exercise_total,
-
   CASE
     WHEN c.is_assisted = 1 THEN
       CASE
@@ -1003,14 +994,12 @@ SELECT
         ELSE CAST(((c.curr_numeric - p.prev_numeric) * 100.0 / p.prev_numeric) AS INTEGER)
       END
   END AS exercise_percentage_change,
-
   c.is_timed,
   c.is_bodyweight,
   CASE
     WHEN c.is_timed = 0 AND c.is_assisted = 0 AND c.is_bodyweight = 0 THEN 1
     ELSE 0
   END AS is_weighted
-
 FROM curr_vals c
 LEFT JOIN prev_vals p ON p.exercise_id = c.exercise_id
 ORDER BY c.exercise_id;
@@ -1031,6 +1020,9 @@ class WorkoutLogExercisesInfoByIdRow extends SqliteRow {
   int get isBodyweight => data['is_bodyweight'] as int;
   int get isWeighted => data['is_weighted'] as int;
   int get isPublic => data['is_public'] as int;
+  String get equipment => data['equipment'] as String;
+  String? get illustration => data['illustration'] as String?;
+  String get muscleGroup => data['muscle_group'] as String;
 }
 
 /// END WORKOUTLOGEXERCISESINFOBYID
@@ -1076,7 +1068,13 @@ SELECT
         AND COALESCE(sl.is_dropset, 0) = 0
       ORDER BY pmg.name
     )
-  ), '') AS main_muscle_groups
+  ), '') AS main_muscle_groups,
+  (
+    SELECT COALESCE(CAST(COUNT(DISTINCT sa.set_log_id) AS INTEGER), 0)
+    FROM set_analysis sa
+    JOIN set_log sl ON sl.id = sa.set_log_id
+    WHERE sl.workout_log_id = wl.id
+  ) AS analyzed_sets
 FROM workout_log wl
 LEFT JOIN workout w ON w.id = wl.workout_id
 WHERE wl.user_id = '${userId}'
@@ -1097,6 +1095,7 @@ class HistoryRow extends SqliteRow {
   String get mainMuscleGroups => data['main_muscle_groups'] as String;
   int get exerciseCount => data['exercise_count'] as int;
   String get workoutId => data['workout_id'] as String;
+  int get analyzedSets => data['analyzed_sets'] as int;
 }
 
 /// END HISTORY
@@ -6766,7 +6765,7 @@ class GetExerciseRow extends SqliteRow {
 /// END GETEXERCISE
 
 /// BEGIN GETSETANALYSIS
-Future<List<GetSetanalysisRow>> performGetSetanalysis(
+Future<List<GetSetAnalysisRow>> performGetSetAnalysis(
   Database database, {
   String? setLogId,
 }) {
@@ -6777,11 +6776,11 @@ WHERE set_log_id = '${setLogId}'
 ORDER BY analyzed_at DESC
 LIMIT 1;
 ''';
-  return _readQuery(database, query, (d) => GetSetanalysisRow(d));
+  return _readQuery(database, query, (d) => GetSetAnalysisRow(d));
 }
 
-class GetSetanalysisRow extends SqliteRow {
-  GetSetanalysisRow(Map<String, dynamic> data) : super(data);
+class GetSetAnalysisRow extends SqliteRow {
+  GetSetAnalysisRow(Map<String, dynamic> data) : super(data);
 
   String? get setLogId => data['set_log_id'] as String?;
   String? get analyzedAt => data['analyzed_at'] as String?;
@@ -7473,3 +7472,67 @@ class WeekWorkoutDaysRow extends SqliteRow {
 }
 
 /// END WEEKWORKOUTDAYS
+
+/// BEGIN GETEXERCISEANALYSES
+Future<List<GetExerciseAnalysesRow>> performGetExerciseAnalyses(
+  Database database, {
+  String? userId,
+  int? exerciseId,
+}) {
+  final query = '''
+SELECT
+  sa.id            AS analysis_id,
+  sa.set_log_id    AS set_log_id,
+  sa.analyzed_at   AS analyzed_at,
+  sa.score         AS score,
+  sa.total_reps    AS total_reps,
+  sa.proper_reps   AS proper_reps,
+  sa.feedback      AS feedback,
+  sa.technique_label AS technique_label,
+  sa.technique_score_display AS technique_score_display,
+  sa.form_tip      AS form_tip,
+  sl.set_number    AS set_number,
+  sl.weight        AS weight,
+  sl.reps          AS reps,
+  COALESCE(sl.is_kg, 1) AS is_kg,
+  wl.id            AS workout_log_id,
+  wl.created_at    AS workout_date
+FROM set_analysis sa
+JOIN set_log sl     ON sl.id = sa.set_log_id
+JOIN workout_log wl ON wl.id = sl.workout_log_id
+WHERE CAST(sl.exercise_id AS INTEGER) = ${exerciseId}
+  AND wl.user_id = '${userId}'
+  AND sa.analyzed_at = (
+    SELECT MAX(s2.analyzed_at) FROM set_analysis s2
+    WHERE s2.set_log_id = sa.set_log_id
+  )
+ORDER BY sa.analyzed_at ASC;
+''';
+  return _readQuery(database, query, (d) => GetExerciseAnalysesRow(d));
+}
+
+class GetExerciseAnalysesRow extends SqliteRow {
+  GetExerciseAnalysesRow(Map<String, dynamic> data) : super(data);
+
+  String get analysisId => data['analysis_id'] as String;
+  String get setLogId => data['set_log_id'] as String;
+  String get analyzedAt => data['analyzed_at'] as String;
+  double? get score => data['score'] as double?;
+  int? get totalReps => data['total_reps'] as int?;
+  int? get properReps => data['proper_reps'] as int?;
+  String? get feedback => data['feedback'] as String?;
+  String? get techniqueLabel => data['technique_label'] as String?;
+  String? get techniqueScoreDisplay =>
+      data['technique_score_display'] as String?;
+  String? get formTip => data['form_tip'] as String?;
+  double? get avgDepth => data['avg_depth'] as double?;
+  String? get repsJson => data['reps_json'] as String?;
+  int? get setNumber => data['set_number'] as int?;
+  double? get weight => data['weight'] as double?;
+  int? get reps => data['reps'] as int?;
+  int get isKg => data['is_kg'] as int;
+  String get workoutLogId => data['workout_log_id'] as String;
+  String? get workoutDate => data['workout_date'] as String?;
+}
+
+/// END GETEXERCISEANALYSES

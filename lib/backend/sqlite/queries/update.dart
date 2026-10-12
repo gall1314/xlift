@@ -543,6 +543,7 @@ Future performCreateUserExercise(
   int? isBodyweight,
   int? isTimed,
   int? allowsBodyweight,
+  String? illustration,
 }) {
   final query = '''
 INSERT INTO exercise (
@@ -554,7 +555,8 @@ INSERT INTO exercise (
   allows_bodyweight,
   is_time_based,
   is_public,
-  is_deleted
+  is_deleted,
+  illustration
 )
 VALUES (
   ${id},
@@ -565,9 +567,9 @@ VALUES (
   ${allowsBodyweight},
   ${isTimed},
   0,   -- user exercise: not public
-  0
+  0,
+  CASE WHEN '${illustration}' IN ('', 'null') THEN NULL ELSE '${illustration}' END
 );
-
 ''';
   return database.rawQuery(query);
 }

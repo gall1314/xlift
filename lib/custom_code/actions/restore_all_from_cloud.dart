@@ -17,35 +17,32 @@ import 'xlift_log_add.dart';
 
 /// ONE-SHOT CLOUD RESTORE: Supabase -> local SQLite, for one user.
 ///
-/// Order (FK-safe):
-///   users -> workout -> workout_exercise -> exercise_sets
-///   -> exercise (user's custom only) -> workout_log -> set_log
-///   -> set_analysis (best-effort, skipped silently if the mirror differs)
+/// Order (FK-safe): users -> workout -> workout_exercise -> exercise_sets ->
+/// exercise (user's custom only) -> workout_log -> set_log -> set_analysis
+/// (best-effort, skipped silently if the mirror differs)
 ///
-/// Rules
-///   - Every Supabase call has a 20s timeout. Never hangs, never throws.
-///   - Paged (no 1000-row cap, no IN-list URL limits except set_analysis,
-///     which is chunked by 100 ids).
-///   - INSERT OR IGNORE by id -> rows that already exist locally are kept
-///     as-is (restore never overwrites local edits). `users` is the one
-///     exception: it is UPSERTed, because the cloud profile is the source.
-///   - Safe to run again at any time (idempotent).
-///   - A failure in one table is recorded and the run CONTINUES with the
-///     next table (children of a failed parent simply won't match).
+/// Rules - Every Supabase call has a 20s timeout. Never hangs, never throws.
+/// - Paged (no 1000-row cap, no IN-list URL limits except set_analysis, which
+/// is chunked by 100 ids). - INSERT OR IGNORE by id -> rows that already
+/// exist locally are kept as-is (restore never overwrites local edits).
+/// `users` is the one exception: it is UPSERTed, because the cloud profile is
+/// the source. - Safe to run again at any time (idempotent). - A failure in
+/// one table is recorded and the run CONTINUES with the next table (children
+/// of a failed parent simply won't match).
 ///
-/// Column mapping (Supabase -> SQLite) handled here:
-///   users.is_kg bool -> 0/1; date_of_birth kept as ISO text
-///   exercise_sets.order_index -> set_number; target_reps text -> int;
-///     workout_id filled from the parent workout_exercise; target_weight dropped
-///   exercise.no_video_illustration -> no_video_ilustration (local typo);
-///     step_by_step / form_tips jsonb -> JSON text; is_assisted -> 0
-///   workout_log.duration (text, trigger-formatted) -> duration_seconds
-///     as MILLISECONDS (app convention): "h:mm:ss"/"mm:ss" parsed,
-///     numeric text taken as ms
-///   set_log: is_kg null -> 1, is_dropset null -> 0
+/// Column mapping (Supabase -> SQLite) handled here: users.is_kg bool -> 0/1;
+/// date_of_birth kept as ISO text exercise_sets.order_index -> set_number;
+/// target_reps text -> int; workout_id filled from the parent
+/// workout_exercise; target_weight dropped exercise.no_video_illustration ->
+/// no_video_ilustration (local typo); step_by_step / form_tips jsonb -> JSON
+/// text; is_assisted -> 0 workout_log.duration (text, trigger-formatted) ->
+/// duration_seconds as MILLISECONDS (app convention): "h:mm:ss"/"mm:ss"
+/// parsed, numeric text taken as ms set_log: is_kg null -> 1, is_dropset null
+/// -> 0 set_analysis: avg_depth (nullable real), reps_json (text; stored as
+/// JSON text locally whatever type the cloud column is)
 ///
 /// Returns: { success, counts:{table:{fetched,inserted,skipped}},
-///            errors:[...], ms, debug_string }
+/// errors:[...], ms, debug_string }
 Future<dynamic> restoreAllFromCloud(String? userId) async {
   final sw = Stopwatch()..start();
   const Duration callTimeout = Duration(seconds: 20);
@@ -486,6 +483,7 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
 
   // ================= 8. set_analysis (best-effort) =================
   // Supabase mirror has no user_id guarantee -> chunk by set_log ids.
+  // avg_depth / reps_json may be missing on old rows -> NULL.
   try {
     final List<List<dynamic>> saRows = [];
     int fetched = 0;
@@ -517,6 +515,8 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
           toStr(r['technique_label']),
           toStr(r['technique_score_display']),
           toStr(r['form_tip']),
+          toDouble(r['avg_depth']),
+          jsonText(r['reps_json']), // text or jsonb -> JSON text
         ]);
       }
     }
@@ -525,8 +525,9 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
         saRows,
         'INSERT OR IGNORE INTO set_analysis '
             '(id, set_log_id, analyzed_at, score, total_reps, proper_reps, '
-            ' feedback, technique_label, technique_score_display, form_tip) '
-            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            ' feedback, technique_label, technique_score_display, form_tip, '
+            ' avg_depth, reps_json) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     record('set_analysis', fetched, ins);
   } catch (e) {
     // Mirror may not exist / differ - not fatal.

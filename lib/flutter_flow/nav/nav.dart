@@ -8,7 +8,6 @@ import '/backend/schema/structs/index.dart';
 import '/backend/sqlite/sqlite_manager.dart';
 import '/auth/base_auth_user_provider.dart';
 
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 
 import '/index.dart';
@@ -90,19 +89,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               : SignInWelcomePage6Widget(),
         ),
         FFRoute(
-          name: HistoryWidget.routeName,
-          path: HistoryWidget.routePath,
-          builder: (context, params) => HistoryWidget(),
-        ),
-        FFRoute(
-          name: StatsWidget.routeName,
-          path: StatsWidget.routePath,
-          builder: (context, params) => StatsWidget(),
-        ),
-        FFRoute(
-          name: WorkoutAfterviesWidget.routeName,
-          path: WorkoutAfterviesWidget.routePath,
-          builder: (context, params) => WorkoutAfterviesWidget(
+          name: WorkoutAfterviewWidget.routeName,
+          path: WorkoutAfterviewWidget.routePath,
+          builder: (context, params) => WorkoutAfterviewWidget(
             workoutLogId: params.getParam(
               'workoutLogId',
               ParamType.String,
@@ -128,24 +117,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           ),
         ),
         FFRoute(
-          name: HomePageWidget.routeName,
-          path: HomePageWidget.routePath,
-          builder: (context, params) => HomePageWidget(),
-        ),
-        FFRoute(
           name: SettingssWidget.routeName,
           path: SettingssWidget.routePath,
           builder: (context, params) => SettingssWidget(),
-        ),
-        FFRoute(
-          name: LibraryWidget.routeName,
-          path: LibraryWidget.routePath,
-          builder: (context, params) => LibraryWidget(
-            template: params.getParam(
-              'template',
-              ParamType.bool,
-            ),
-          ),
         ),
         FFRoute(
           name: TemplateWorkoutWidget.routeName,
@@ -582,7 +556,7 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: TestAIWidget.routeName,
           path: TestAIWidget.routePath,
           builder: (context, params) => TestAIWidget(
-            result: params.getParam<GetSetanalysisRow>(
+            result: params.getParam<GetSetAnalysisRow>(
               'result',
               ParamType.SqliteRow,
             ),
@@ -718,6 +692,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: WorkoutCompleteWidget.routeName,
           path: WorkoutCompleteWidget.routePath,
           builder: (context, params) => WorkoutCompleteWidget(
+            workoutLogId: params.getParam(
+              'workoutLogId',
+              ParamType.String,
+            ),
+          ),
+        ),
+        FFRoute(
+          name: WorkoutSummaryViewWidget.routeName,
+          path: WorkoutSummaryViewWidget.routePath,
+          builder: (context, params) => WorkoutSummaryViewWidget(
             workoutLogId: params.getParam(
               'workoutLogId',
               ParamType.String,
@@ -907,15 +891,11 @@ class FFRoute {
                 )
               : builder(context, ffParams);
           final child = appStateNotifier.loading
-              ? Center(
-                  child: SizedBox(
-                    width: 50.0,
-                    height: 50.0,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        FlutterFlowTheme.of(context).secondary,
-                      ),
-                    ),
+              ? Container(
+                  color: Color(0xFF1E1E1E),
+                  child: Image.asset(
+                    'assets/images/logo_11.png',
+                    fit: BoxFit.contain,
                   ),
                 )
               : page;

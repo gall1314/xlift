@@ -875,10 +875,10 @@ class SQLiteManager {
         exerciseId: exerciseId,
       );
 
-  Future<List<GetSetanalysisRow>> getSetanalysis({
+  Future<List<GetSetAnalysisRow>> getSetAnalysis({
     String? setLogId,
   }) =>
-      performGetSetanalysis(
+      performGetSetAnalysis(
         _database,
         setLogId: setLogId,
       );
@@ -929,6 +929,16 @@ class SQLiteManager {
       performWeekWorkoutDays(
         _database,
         userId: userId,
+      );
+
+  Future<List<GetExerciseAnalysesRow>> getExerciseAnalyses({
+    String? userId,
+    int? exerciseId,
+  }) =>
+      performGetExerciseAnalyses(
+        _database,
+        userId: userId,
+        exerciseId: exerciseId,
       );
 
   /// END READ QUERY CALLS
@@ -1167,6 +1177,7 @@ class SQLiteManager {
     int? isBodyweight,
     int? isTimed,
     int? allowsBodyweight,
+    String? illustration,
   }) =>
       performCreateUserExercise(
         _database,
@@ -1177,6 +1188,7 @@ class SQLiteManager {
         isBodyweight: isBodyweight,
         isTimed: isTimed,
         allowsBodyweight: allowsBodyweight,
+        illustration: illustration,
       );
 
   Future insertWorkoutExercise1({

@@ -46,6 +46,8 @@ class CreateUserExerciseModel
 
   bool regular = false;
 
+  FFUploadedFile? tempPhoto;
+
   ///  State fields for stateful widgets in this page.
 
   // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.

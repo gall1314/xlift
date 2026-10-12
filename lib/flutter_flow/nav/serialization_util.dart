@@ -488,8 +488,8 @@ dynamic deserializeParam<T>(
             return GetMuscleRow(data);
           case GetExerciseRow:
             return GetExerciseRow(data);
-          case GetSetanalysisRow:
-            return GetSetanalysisRow(data);
+          case GetSetAnalysisRow:
+            return GetSetAnalysisRow(data);
           case WorkoutHomeRow:
             return WorkoutHomeRow(data);
           case GetUserRow:
@@ -502,6 +502,8 @@ dynamic deserializeParam<T>(
             return WorkoutBreakdownSetsRow(data);
           case WeekWorkoutDaysRow:
             return WeekWorkoutDaysRow(data);
+          case GetExerciseAnalysesRow:
+            return GetExerciseAnalysesRow(data);
           default:
             return null;
         }

@@ -712,6 +712,25 @@ class _BackViewParams {
   // instantly and drift back only slowly via EMA, so a held bottom never
   // redefines standing.
   static const double BASELINE_EMA = 0.08;
+
+  // ---------------------- [v20] TOP-OF-LIFT TIMING ----------------------
+  // The torso-compression signal returns to ~0 while the legs are still
+  // extending (the torso straightens BEFORE the knees do), so the signal
+  // alone declares "top" mid-ascent. That's where the pulse / color /
+  // counter / feedback all fired too early on front/back clips.
+  //
+  // We therefore refuse to call a frame "top" while the mid-shoulder is
+  // still moving UP on screen. TOP_RISE_EPS_PER_FRAME is the per-frame
+  // upward motion (as a fraction of shoulder→ankle span) above which we
+  // consider the body still rising. Ascent runs ~0.02-0.03 span/frame at
+  // 12fps and decays toward 0 at the top; 0.004 sits comfortably below.
+  //
+  // TOP_MAX_WAIT_SEC caps the wait: if the shoulders never "settle" (jitter,
+  // continuous cadence), we fall back to the old signal-only top after this
+  // long, so a pulse always fires. Counting / depth / scoring are untouched
+  // by any of this — only WHEN the already-captured rep is emitted.
+  static const double TOP_RISE_EPS_PER_FRAME = 0.004;
+  static const double TOP_MAX_WAIT_SEC = 1.0;
 }
 
 /// Returns the fraction (0..1) of usable frames that look front/back-facing.
@@ -788,6 +807,11 @@ Map<String, dynamic> detectBackViewReps(
   // signal from behind (the pelvis barely moves; the upper body collapses).
   final List<double?> signal = List<double?>.filled(n, null);
 
+  // [v20] Per-frame mid-shoulder Y and body span. Used ONLY to decide WHEN
+  // the top of the lift is reached (pulse timing) — never for counting.
+  final List<double?> shoulderY = List<double?>.filled(n, null);
+  final List<double?> bodySpanAt = List<double?>.filled(n, null);
+
   // Standing references, ratcheting toward "more upright":
   //   stdShoulderHipSpan = LARGEST shoulder→hip vertical span seen
   //   hipBaselineY       = SMALLEST mid-hip Y (highest hip) seen
@@ -858,6 +882,8 @@ Map<String, dynamic> detectBackViewReps(
     double sig = compression > hipDrop ? compression : hipDrop;
     if (sig < 0) sig = 0.0;
     signal[i] = sig;
+    shoulderY[i] = midShoulderY;
+    bodySpanAt[i] = bodySpan;
   }
 
   // ---- Pass 2: state machine over the hip-drop signal ----
@@ -883,6 +909,12 @@ Map<String, dynamic> detectBackViewReps(
   // the bottom is confirmed, but we hold them in a pendingRep and only emit
   // the rep event when the lifter reaches the top. This mirrors the side
   // pipeline's pendingRep/finishedRep timing precisely.
+  //
+  // [v20] "Signal near 0" alone is NOT the top from the front/back: the
+  // torso straightens before the knees finish extending, so the signal hits
+  // ~0 while the lifter is still in a half squat. We now additionally wait
+  // until the shoulders have stopped rising on screen (see
+  // shouldersStillRising below) before counting frames toward the top.
   String state = 'standing'; // 'standing' | 'descending' | 'ascending'
   int repStartFrame = -1;
   int lastRepEndFrame = -9999;
@@ -890,11 +922,30 @@ Map<String, dynamic> detectBackViewReps(
   int framesDescending = 0;
   int framesReturning = 0;
   int framesAtTop = 0;
+  int framesSinceFinish = 0; // [v20] frames since signal first hit FINISH
   Map<String, dynamic>? pendingRep; // filled at bottom, emitted at top
 
   final int minDur = _BackViewParams.MIN_REP_DURATION_FRAMES;
   final int minGap = _BackViewParams.MIN_FRAMES_BETWEEN_REPS;
   final int confirm = _BackViewParams.STATE_CONFIRM_FRAMES;
+  final int maxTopWait =
+      math.max(confirm, (_BackViewParams.TOP_MAX_WAIT_SEC * fps).round());
+
+  // [v20] Is the body still moving UP on screen at frame i? Compares the
+  // mid-shoulder Y against the previous usable frame, normalized by body
+  // span and by the frame gap. Smaller Y = higher on screen.
+  bool shouldersStillRising(int i) {
+    final double? yNow = shoulderY[i];
+    final double? span = bodySpanAt[i];
+    if (yNow == null || span == null || span <= 1e-6) return false;
+    int pi = i - 1;
+    while (pi >= 0 && shoulderY[pi] == null) {
+      pi -= 1;
+    }
+    if (pi < 0) return false;
+    final double vy = (yNow - shoulderY[pi]!) / span / (i - pi);
+    return vy < -_BackViewParams.TOP_RISE_EPS_PER_FRAME;
+  }
 
   // Helper: build a pending rep (metrics + score) from the just-finished
   // descent. Returns null if the rep is invalid (too short / too shallow).
@@ -1021,17 +1072,28 @@ Map<String, dynamic> detectBackViewReps(
         pendingRep = buildPendingRep(i, repMaxSig);
         state = 'ascending';
         framesAtTop = 0;
+        framesSinceFinish = 0;
         framesReturning = 0;
       }
     } else {
       // ascending — waiting for the true top of the lift.
-      // The top is when the signal has settled near baseline (~0) for a
-      // sustained moment. That's the highest point of the body = where the
-      // side pipeline fires its pulse.
+      // The top is when the signal has settled near baseline (~0) AND
+      // [v20] the shoulders have stopped rising on screen. That's the
+      // highest point of the body = where the side pipeline fires its pulse.
       if (d <= _BackViewParams.SIGNAL_FINISH) {
-        framesAtTop += 1;
+        framesSinceFinish += 1;
+        // [v20] The torso signal is already ~0 here, but the legs may still
+        // be extending. Don't count this frame toward "top" while the body
+        // is still moving up — unless we've waited too long, in which case
+        // fall back to the old signal-only behavior so a pulse always fires.
+        if (!shouldersStillRising(i) || framesSinceFinish > maxTopWait) {
+          framesAtTop += 1;
+        } else {
+          framesAtTop = 0;
+        }
       } else {
         framesAtTop = 0;
+        framesSinceFinish = 0;
         // If they dipped back down without reaching the top, fold it into
         // the current rep's depth rather than spawning a phantom.
         if (d > repMaxSig) repMaxSig = d;
@@ -1061,6 +1123,7 @@ Map<String, dynamic> detectBackViewReps(
         state = 'standing';
         repMaxSig = 0.0;
         framesAtTop = 0;
+        framesSinceFinish = 0;
         framesDescending = 0;
       }
     }
@@ -1142,6 +1205,14 @@ Map<String, dynamic> detectBackViewReps(
 ///      bubble can co-exist with the back-view bubble.
 ///  Also: the depth ring now reflects the back-view signal (it sat at 0%
 ///  before because calculateDepthRobust reads ~0 from behind).
+///
+/// v20 changes (this file) — back-view pulse timing only:
+///  - The v19 "top" was still too early on front/back clips: the torso
+///    signal returns to ~0 while the knees are still extending, so the
+///    pulse / color / counter / feedback fired at a half squat. The
+///    ascending state now also waits for the shoulders to stop rising on
+///    screen (with a 1s safety cap). Counting, depth and scoring unchanged;
+///    side pipeline untouched.
 Future<dynamic> analyzeSquatVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,

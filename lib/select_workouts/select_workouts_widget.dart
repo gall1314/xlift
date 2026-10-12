@@ -102,15 +102,7 @@ class _SelectWorkoutsWidgetState extends State<SelectWorkoutsWidget> {
               FFAppState().loggedSetsCreation = [];
               safeSetState(() {});
 
-              context.goNamed(
-                LibraryWidget.routeName,
-                queryParameters: {
-                  'template': serializeParam(
-                    false,
-                    ParamType.bool,
-                  ),
-                }.withoutNulls,
-              );
+              context.goNamed(MasterPageWidget.routeName);
             },
           ),
           title: Text(

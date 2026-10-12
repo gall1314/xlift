@@ -263,7 +263,9 @@ class _SignInWelcomePage6WidgetState extends State<SignInWelcomePage6Widget>
                                   't5l67562' /* Continue with Apple */,
                                 ),
                                 icon: FaIcon(
-                                  FaIconData(FontAwesomeIcons.apple.data),
+                                  FaIconData(const IconData(/* apple */ 0xf179,
+                                      fontFamily: 'FontAwesomeBrands',
+                                      fontPackage: 'font_awesome_flutter')),
                                   size: 20.0,
                                 ),
                                 options: FFButtonOptions(
@@ -354,7 +356,9 @@ class _SignInWelcomePage6WidgetState extends State<SignInWelcomePage6Widget>
                             'i1rz68vz' /* Continue with Google */,
                           ),
                           icon: FaIcon(
-                            FaIconData(FontAwesomeIcons.google.data),
+                            FaIconData(const IconData(/* google */ 0xf1a0,
+                                fontFamily: 'FontAwesomeBrands',
+                                fontPackage: 'font_awesome_flutter')),
                             size: 20.0,
                           ),
                           options: FFButtonOptions(
