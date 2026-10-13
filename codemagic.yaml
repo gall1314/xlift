@@ -27,6 +27,17 @@ workflows:
         - pattern: flutterflow
           include: true
     scripts:
+      - name: Overlay latest FlutterFlow code
+        script: |
+          set -e
+          git fetch origin flutterflow --depth=1
+          # Replace the working tree with the flutterflow branch, keep this yaml.
+          git checkout origin/flutterflow -- .
+          git checkout HEAD -- codemagic.yaml
+          # Remove files that exist on ci but were deleted on flutterflow.
+          git diff --name-only --diff-filter=D HEAD origin/flutterflow -- . ':!codemagic.yaml' | xargs -r rm -f
+          echo "===== Building flutterflow @ $(git rev-parse --short origin/flutterflow) ====="
+          git log -1 --format='%h %ad %s' --date=iso origin/flutterflow
       - name: Disable Swift Package Manager (global + project)
         script: |
           set -e
