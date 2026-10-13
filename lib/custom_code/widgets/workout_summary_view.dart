@@ -21,13 +21,13 @@ import 'package:google_fonts/google_fonts.dart';
 /// hero card muscleGroupSammary(workoutLogId)          -> muscle distribution
 /// workoutLogExercisesInfoById(workoutLogId) -> exercise cards
 /// getSetLogs(workoutLogId, exerciseId)      -> set rows per exercise
-/// getSetAnalysis(setLogId)                  -> AI badge per set
+/// getSetAnalysis(setLogId)                  -> AI score ring per set
 ///
 /// set_log.id and set_analysis.id are UUID strings.
 ///
 /// Callbacks: [onExerciseTap](exerciseId, isPublic) from the ↗ button;
-/// [onAnalysisTap](setLogId, analysisId, analysis) from the AI badge, where
-/// analysis is the raw GetSetAnalysisRow.
+/// [onAnalysisTap](setLogId, analysisId, analysis) from the AI score ring
+/// (AiScoreRing widget), where analysis is the raw GetSetAnalysisRow.
 class WorkoutSummaryView extends StatefulWidget {
   const WorkoutSummaryView({
     super.key,
@@ -132,6 +132,10 @@ class _PageData {
 class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   late Future<_PageData> _future;
 
+  // Width reserved at the end of each set row for the AI score ring.
+  static const double _aiColW = 48;
+  static const double _aiRingSize = 40;
+
   @override
   void initState() {
     super.initState();
@@ -185,6 +189,13 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     } catch (_) {}
     if (row is Map) return Map<String, dynamic>.from(row);
     return const {};
+  }
+
+  /// Form score (0-10) from a set_analysis row: the display value first,
+  /// then the raw score column.
+  static double? _scoreOf(Map<String, dynamic>? analysis) {
+    if (analysis == null) return null;
+    return _dN(analysis['technique_score_display']) ?? _dN(analysis['score']);
   }
 
   // ---------- SQLite ----------
@@ -706,7 +717,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                             ls: 1)),
                   ),
                 ),
-                if (anyAi) const SizedBox(width: 44),
+                if (anyAi) const SizedBox(width: _aiColW),
               ],
             ),
           ),
@@ -824,29 +835,25 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           Expanded(child: Center(child: right)),
           if (reserveAi)
             SizedBox(
-              width: 44,
+              width: _aiColW,
               child: s.analysisRow == null
                   ? null
                   : Align(
                       alignment: Alignment.centerRight,
-                      child: _Pressable(
+                      // AI score ring (same marker as everywhere in the app).
+                      // The score comes from the set_analysis row.
+                      child: AiScoreRing(
+                        width: _aiRingSize,
+                        height: _aiRingSize,
+                        size: _aiRingSize,
+                        score: _scoreOf(s.analysis),
                         onTap: widget.onAnalysisTap == null
                             ? null
-                            : () => widget.onAnalysisTap!(
+                            : () async => widget.onAnalysisTap!(
                                   s.id,
                                   _s(s.analysis?['id']),
                                   s.analysisRow!,
                                 ),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: th.primary.withOpacity(0.14),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(Icons.auto_awesome_rounded,
-                              size: 18, color: th.primary),
-                        ),
                       ),
                     ),
             ),

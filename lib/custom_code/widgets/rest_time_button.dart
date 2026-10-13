@@ -15,16 +15,17 @@ import 'package:flutter/material.dart' hide RepeatMode;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Tappable rest-time label ("02:00" / "Off").
+/// Rest-time button: a rounded, lightly tinted box holding [timer icon] Rest:
+/// 02:00  [chevron].
 ///
-/// Text is produced by the existing custom function
+/// The whole box is the tap target (min 44pt tall).
+///
+/// Time text comes from the existing custom function
 /// formatExerciseRestTime(exerciseRestTimes, exerciseId) — same ms → mm:ss
-/// logic, same "Off" for 0, same 1:30 default — so it matches the old Text
-/// exactly. Replaces ONLY the time text; the icon, "Rest:" and chevron stay
-/// as they are in FF.
+/// logic, same "Off" for 0, same 1:30 default.
 ///
-/// Press feedback: fade to ~40% + slight shrink while pressed. [onTap]
-/// fires on release (tap or long-press).
+/// Press feedback: background darkens + slight shrink. [onTap] fires on
+/// release (tap or long-press).
 class RestTimeButton extends StatefulWidget {
   const RestTimeButton({
     super.key,
@@ -65,50 +66,77 @@ class _RestTimeButtonState extends State<RestTimeButton> {
     }
   }
 
+  void _fire() {
+    _setPressed(false);
+    HapticFeedback.selectionClick();
+    widget.onTap?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final Color color = widget.textColor ?? theme.primary;
+    final double fs = widget.fontSize ?? 17;
 
-    final TextStyle style = theme.bodyLarge.override(
-      fontFamily: theme.bodyLargeFamily,
-      color: widget.textColor ?? theme.primary,
-      fontSize: widget.fontSize ?? 18,
-      fontWeight: FontWeight.w500,
-      useGoogleFonts: GoogleFonts.asMap().containsKey(theme.bodyLargeFamily),
+    TextStyle textStyle(FontWeight w) => theme.bodyLarge.override(
+          fontFamily: theme.bodyLargeFamily,
+          color: color,
+          fontSize: fs,
+          fontWeight: w,
+          useGoogleFonts:
+              GoogleFonts.asMap().containsKey(theme.bodyLargeFamily),
+        );
+
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(Icons.timer_outlined, size: fs + 4, color: color),
+        SizedBox(width: fs * 0.45),
+        Text('Rest:', style: textStyle(FontWeight.w400)),
+        SizedBox(width: fs * 0.5),
+        Text(
+          _label,
+          style: textStyle(FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+        ),
+        SizedBox(width: fs * 0.2),
+        Icon(Icons.keyboard_arrow_down_rounded, size: fs + 4, color: color),
+      ],
     );
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _setPressed(true),
-      onTapCancel: () => _setPressed(false),
-      onTapUp: (_) {
-        _setPressed(false);
-        HapticFeedback.selectionClick();
-        widget.onTap?.call();
-      },
-      onLongPressStart: (_) => _setPressed(true),
-      onLongPressEnd: (_) {
-        _setPressed(false);
-        HapticFeedback.selectionClick();
-        widget.onTap?.call();
-      },
-      onLongPressCancel: () => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: AnimatedOpacity(
-          opacity: _pressed ? 0.4 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          child: SizedBox(
-            width: widget.width,
-            height: widget.height,
-            child: Text(
-              _label,
-              style: style,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-            ),
+    final button = AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      constraints: BoxConstraints(minHeight: widget.height ?? 44),
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(_pressed ? 0.20 : 0.10),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: content,
+    );
+
+    return Semantics(
+      button: true,
+      label: 'Rest time $_label',
+      child: Align(
+        alignment: Alignment.centerLeft,
+        widthFactor: widget.width == null ? 1 : null,
+        heightFactor: 1,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) => _setPressed(true),
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _fire(),
+          onLongPressStart: (_) => _setPressed(true),
+          onLongPressEnd: (_) => _fire(),
+          onLongPressCancel: () => _setPressed(false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.97 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            child: button,
           ),
         ),
       ),

@@ -3,7 +3,10 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'add_exercises_mid_seission_widget.dart'
     show AddExercisesMidSeissionWidget;
+import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 class AddExercisesMidSeissionModel
     extends FlutterFlowModel<AddExercisesMidSeissionWidget> {

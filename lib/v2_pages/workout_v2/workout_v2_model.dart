@@ -6,6 +6,9 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart'
     show TutorialCoachMark;
 import 'workout_v2_widget.dart' show WorkoutV2Widget;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:percent_indicator/percent_indicator.dart';
+import 'package:provider/provider.dart';
 
 class WorkoutV2Model extends FlutterFlowModel<WorkoutV2Widget> {
   ///  Local state fields for this page.

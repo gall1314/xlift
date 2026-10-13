@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -242,7 +243,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     height: 40.0,
                                     exerciseId: widget.exerciseId!,
                                     textColor:
-                                        FlutterFlowTheme.of(context).secondary,
+                                        FlutterFlowTheme.of(context).primary,
                                     fontSize: 14.0,
                                     exerciseRestTimes: FFAppState().restTimers,
                                     onTap: () async {},

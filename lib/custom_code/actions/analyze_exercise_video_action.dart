@@ -19,13 +19,14 @@ import 'package:flutter/material.dart' hide RepeatMode;
 ///
 ///   Squat (bodyweight), Barbell Back Squat, Front Squat, Goblet Squat,
 ///   Sumo Squat, Zercher Squat, Smith Machine Squat, Bulgarian Split Squat,
-///   Push-up, Chest Dips, Pull-up, Barbell Bent-over Row, Barbell Bicep
-///   Curl, Deadlift, Romanian Deadlift, Military Press, Good Morning,
-///   Stiff-Leg Deadlift
+///   Push-up, Incline Push-up, Chest Dips, Pull-up, Chin-up,
+///   Neutral-Grip Pull-up, Barbell Bent-over Row, Barbell Bicep Curl,
+///   Deadlift, Sumo Deadlift, Trap Bar Deadlift, Romanian Deadlift,
+///   Military Press, Good Morning, Stiff-Leg Deadlift
 ///
-/// All squat variants share the squat analyzer; the variant name is passed
-/// through so the analyzer can apply its per-variant tweaks (unrack
-/// rejection, tempo gates, depth thresholds).
+/// Squat, deadlift, pull-up and push-up variants share their family's
+/// analyzer; the variant name is passed through so the analyzer can apply
+/// its per-variant tweaks.
 ///
 /// All of those map to a real translated action EXCEPT Barbell Bent-over
 /// Row, which is intentionally held back and returns a `not_implemented`
@@ -70,8 +71,13 @@ Future<dynamic> analyzeExerciseVideoAction(
     'zercher squat': 'squat',
     'smith machine squat': 'squat',
     'smith squat': 'squat',
-    // Deadlift
+    // Deadlift (conventional / sumo / trap bar share the deadlift analyzer)
     'deadlift': 'deadlift',
+    'conventional deadlift': 'deadlift',
+    'barbell deadlift': 'deadlift',
+    'sumo deadlift': 'deadlift',
+    'trap bar deadlift': 'deadlift',
+    'hex bar deadlift': 'deadlift',
     // Romanian deadlift
     'romanian deadlift': 'romanian_deadlift',
     'rdl': 'romanian_deadlift',
@@ -86,11 +92,19 @@ Future<dynamic> analyzeExerciseVideoAction(
     'bulgarian split squat': 'bulgarian',
     'split squat': 'bulgarian',
     'bulgarian': 'bulgarian',
-    // Pull-up
+    // Pull-up (regular / chin-up / neutral grip share the pull-up analyzer)
     'pull-up': 'pullup',
     'pull up': 'pullup',
     'pullups': 'pullup',
     'pullup': 'pullup',
+    'chin-up': 'pullup',
+    'chin up': 'pullup',
+    'chinup': 'pullup',
+    'chin-ups': 'pullup',
+    'neutral-grip pull-up': 'pullup',
+    'neutral grip pull-up': 'pullup',
+    'neutral-grip pullup': 'pullup',
+    'neutral grip pullup': 'pullup',
     // Bicep curl
     'barbell bicep curl': 'bicep_curl',
     'bicep curl': 'bicep_curl',
@@ -122,7 +136,7 @@ Future<dynamic> analyzeExerciseVideoAction(
     'standing press': 'overhead_press',
     'shoulder press': 'overhead_press',
     'strict press': 'overhead_press',
-    // Push-up
+    // Push-up (standard / incline share the push-up analyzer)
     'push-up': 'pushup',
     'push up': 'pushup',
     'pushups': 'pushup',
@@ -131,6 +145,9 @@ Future<dynamic> analyzeExerciseVideoAction(
     'pushup': 'pushup',
     'regular push-up': 'pushup',
     'standard push-up': 'pushup',
+    'incline push-up': 'pushup',
+    'incline push up': 'pushup',
+    'incline pushup': 'pushup',
   };
 
   // Squat variant resolved from the raw name. Anything not matched = back.
@@ -142,6 +159,26 @@ Future<dynamic> analyzeExerciseVideoAction(
     if (raw.contains('zercher')) return 'zercher';
     if (raw.contains('smith')) return 'smith';
     return 'back';
+  }
+
+  // Deadlift variant resolved from the raw name. Default = conventional.
+  String deadliftVariantOf(String raw) {
+    if (raw.contains('sumo')) return 'sumo';
+    if (raw.contains('trap') || raw.contains('hex')) return 'trap';
+    return 'conventional';
+  }
+
+  // Pull-up variant resolved from the raw name. Default = pullup.
+  String pullupVariantOf(String raw) {
+    if (raw.contains('chin')) return 'chinup';
+    if (raw.contains('neutral')) return 'neutral';
+    return 'pullup';
+  }
+
+  // Push-up variant resolved from the raw name. Default = standard.
+  String pushupVariantOf(String raw) {
+    if (raw.contains('incline')) return 'incline';
+    return 'standard';
   }
 
   Map<String, dynamic> errorPayload(String code, String detail, String exType) {
@@ -217,7 +254,11 @@ Future<dynamic> analyzeExerciseVideoAction(
       );
 
     case 'pushup':
-      return await analyzePushupVideoAction(videoFile, effectiveFps);
+      return await analyzePushupVideoAction(
+        videoFile,
+        effectiveFps,
+        pushupVariantOf(rawType),
+      );
 
     case 'bicep_curl':
       return await analyzeBicepCurlVideoAction(videoFile, effectiveFps);
@@ -232,10 +273,18 @@ Future<dynamic> analyzeExerciseVideoAction(
       return await analyzeRomanianDeadliftVideoAction(videoFile, effectiveFps);
 
     case 'deadlift':
-      return await analyzeDeadliftVideoAction(videoFile, effectiveFps);
+      return await analyzeDeadliftVideoAction(
+        videoFile,
+        effectiveFps,
+        deadliftVariantOf(rawType),
+      );
 
     case 'pullup':
-      return await analyzePullupVideoAction(videoFile, effectiveFps);
+      return await analyzePullupVideoAction(
+        videoFile,
+        effectiveFps,
+        pullupVariantOf(rawType),
+      );
 
     case 'stiff_leg_deadlift':
       return await analyzeStiffLegDeadliftVideoAction(videoFile, effectiveFps);

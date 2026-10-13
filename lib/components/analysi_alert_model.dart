@@ -1,7 +1,17 @@
+import '/components/analyze2_app_widget.dart';
+import '/components/camera_analyzer_widget.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import 'dart:async';
+import 'dart:ui';
+import '/custom_code/actions/index.dart' as actions;
+import '/flutter_flow/custom_functions.dart' as functions;
 import 'analysi_alert_widget.dart' show AnalysiAlertWidget;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:provider/provider.dart';
 
 class AnalysiAlertModel extends FlutterFlowModel<AnalysiAlertWidget> {
   ///  Local state fields for this component.

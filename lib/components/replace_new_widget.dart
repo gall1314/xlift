@@ -4,6 +4,7 @@ import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/index.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'replace_new_model.dart';
 export 'replace_new_model.dart';
@@ -50,10 +51,10 @@ class _ReplaceNewWidgetState extends State<ReplaceNewWidget> {
 
     return Container(
       width: MediaQuery.sizeOf(context).width * 1.0,
-      height: MediaQuery.sizeOf(context).height * 1.0,
+      height: MediaQuery.sizeOf(context).height * 0.8,
       child: custom_widgets.ReplaceExercisePicker(
         width: MediaQuery.sizeOf(context).width * 1.0,
-        height: MediaQuery.sizeOf(context).height * 1.0,
+        height: MediaQuery.sizeOf(context).height * 0.8,
         exerciseId: widget.exerciseId!,
         loggedSets: FFAppState().loggedSets,
         onReplace: (exerciseId, exerciseName, updatePlan) async {

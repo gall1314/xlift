@@ -22,6 +22,14 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 
 /// Analyze a pushup video locally using ML Kit Pose Detection.
 ///
+/// v20 — VARIANTS. New optional [variant]: 'standard' (default, null) |
+/// 'incline'. Incline (hands on a bench/bar) relaxes two plank-gate
+/// thresholds only: the body-angle max (26° → 45°, a waist-high bar sits
+/// around 30-35°) and the hands-below-shoulders margin (0.035 → 0.09,
+/// since at the bottom the shoulders drop to hand height). Counting,
+/// depth, lockout, hips and tempo logic are untouched; 'standard' is
+/// byte-for-byte the v19 behavior.
+///
 /// v19 — FEEDBACK SYNC. The returned `feedback` list is now derived
 /// from EXACTLY the set of errors that were displayed as in-video
 /// banners by the phase-2 post-process. Summary feedback and video
@@ -71,7 +79,12 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 Future<dynamic> analyzePushupVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
+  String? variant,
 ) async {
+  // ================ Variant ================
+  final String variantName = (variant ?? 'standard').trim().toLowerCase();
+  final bool isIncline = variantName == 'incline';
+
   // ================ Parameters ================
   const double ELBOW_BENT_ANGLE = 105.0;
   const double SHOULDER_MIN_DESCENT = 0.032;
@@ -85,6 +98,15 @@ Future<dynamic> analyzePushupVideoAction(
   const double VIS_THR_STRICT = 0.29;
   const double PLANK_BODY_ANGLE_MAX = 26.0;
   const double HANDS_BELOW_SHOULDERS = 0.035;
+  // [v20] Incline: a waist-high bar puts the shoulder→ankle line at
+  // ~30-35° from horizontal, and at the bottom the shoulders come down
+  // to hand height, so both plank-gate thresholds are relaxed.
+  const double PLANK_BODY_ANGLE_MAX_INCLINE = 45.0;
+  const double HANDS_BELOW_SHOULDERS_INCLINE = 0.09;
+  final double plankAngleMax =
+      isIncline ? PLANK_BODY_ANGLE_MAX_INCLINE : PLANK_BODY_ANGLE_MAX;
+  final double handsBelowShoulders =
+      isIncline ? HANDS_BELOW_SHOULDERS_INCLINE : HANDS_BELOW_SHOULDERS;
   const int ONPUSHUP_MIN_FRAMES = 2;
   const int OFFPUSHUP_MIN_FRAMES = 5;
   const double AUTO_STOP_AFTER_EXIT_SEC = 1.5;
@@ -941,10 +963,9 @@ Future<dynamic> analyzePushupVideoAction(
           .toDouble();
 
       final double bodyAngleDeg = calculateBodyAngle(nLsh, nRsh, nLa, nRa);
-      final bool handsPosition = (nLw[1] > nLsh[1] - HANDS_BELOW_SHOULDERS) &&
-          (nRw[1] > nRsh[1] - HANDS_BELOW_SHOULDERS);
-      final bool inPlank =
-          (bodyAngleDeg <= PLANK_BODY_ANGLE_MAX) && handsPosition;
+      final bool handsPosition = (nLw[1] > nLsh[1] - handsBelowShoulders) &&
+          (nRw[1] > nRsh[1] - handsBelowShoulders);
+      final bool inPlank = (bodyAngleDeg <= plankAngleMax) && handsPosition;
 
       if (visStrictOk && inPlank) {
         onpushupStreak += 1;
@@ -2020,6 +2041,7 @@ Future<dynamic> analyzePushupVideoAction(
     'tips': repCount == 0 ? <String>[] : perfTipsList,
     'reps': repReports,
     'exercise_type': 'pushup',
+    'pushup_variant': variantName,
     'video_path': fileUri,
     'analyzed_fps': fps,
     'frame_count': frameIdx,

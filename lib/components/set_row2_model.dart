@@ -1,10 +1,31 @@
+import '/auth/supabase_auth/auth_util.dart';
+import '/backend/sqlite/sqlite_manager.dart';
+import '/components/analysi_alert_widget.dart';
 import '/components/analysis_lottie_widget.dart';
+import '/components/analyze2_app_widget.dart';
+import '/components/camera_analyzer_widget.dart';
 import '/components/drop_set_widget.dart';
+import '/components/set_alert2_widget.dart';
+import '/components/set_optin_bottom_widget.dart';
 import '/components/time_widget.dart';
+import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import 'dart:async';
+import 'dart:ui';
+import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
+import '/flutter_flow/custom_functions.dart' as functions;
+import '/index.dart';
 import 'set_row2_widget.dart' show SetRow2Widget;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:provider/provider.dart';
 
 class SetRow2Model extends FlutterFlowModel<SetRow2Widget> {
   ///  Local state fields for this component.
@@ -60,19 +81,19 @@ class SetRow2Model extends FlutterFlowModel<SetRow2Widget> {
   dynamic result;
   // Stores action output result for [Custom Action - setExerciseLoadingState] action in IconButton widget.
   List<dynamic>? prosess2;
-  // Stores action output result for [Custom Action - updateSetAnalyzedVideo] action in IconButton widget.
-  List<dynamic>? vid;
-  // Stores action output result for [Custom Action - setExerciseLoadingState] action in IconButton widget.
-  List<dynamic>? prosesss;
-  // Stores action output result for [Custom Action - analyzeExerciseVideoAction] action in IconButton widget.
-  dynamic result3;
-  // Stores action output result for [Custom Action - updateSetAnalysisResult] action in IconButton widget.
-  List<dynamic>? res;
-  AudioPlayer? soundPlayer2;
-  // Stores action output result for [Custom Action - updateSetAnalysisError] action in IconButton widget.
-  List<dynamic>? error;
   // Model for analysisLottie component.
   late AnalysisLottieModel analysisLottieModel;
+  // Stores action output result for [Custom Action - setExerciseLoadingState] action in AiFormButton widget.
+  List<dynamic>? prosesssCopy;
+  // Stores action output result for [Custom Action - analyzeExerciseVideoAction] action in AiFormButton widget.
+  dynamic result3Copy;
+  // Stores action output result for [Custom Action - updateSetAnalysisResult] action in AiFormButton widget.
+  List<dynamic>? resCopy;
+  AudioPlayer? soundPlayer2;
+  // Stores action output result for [Custom Action - updateSetAnalysisError] action in AiFormButton widget.
+  List<dynamic>? errorCopy;
+  // Stores action output result for [Custom Action - updateSetAnalyzedVideo] action in AiScoreRing widget.
+  List<dynamic>? vidCopy;
   // Model for time component.
   late TimeModel timeModel;
   // Stores action output result for [Custom Action - updateFlatSetValue] action in time widget.

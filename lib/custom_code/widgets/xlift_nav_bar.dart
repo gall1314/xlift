@@ -21,9 +21,11 @@ import 'package:flutter/services.dart';
 /// tab). showFabLock: small lock badge on the FAB (free quota exhausted).
 /// isDark: null = auto from theme.
 ///
-/// FAB icon (v2): "AI camera" - a camera whose lens is looking at a small
-/// standing figure. Subtle 3s loop: a thin scan arc sweeps around the lens
-/// and the figure breathes. On tap the lens blinks white (shutter).
+/// FAB icon (v3): the app-wide "AI Form" glyph - a video camera with a
+/// sparkle inside (same drawing as AiFormBadge / AiFormButton).
+/// 3s loop: the sparkle twinkles (grows + quarter turn) and two small
+/// sparkles pop briefly next to the camera. On tap the camera body
+/// flashes white (shutter).
 class XliftNavBar extends StatefulWidget {
   const XliftNavBar({
     super.key,
@@ -282,9 +284,10 @@ class _XliftNavBarState extends State<XliftNavBar>
   }
 }
 
-/// "AI camera" glyph: camera outline whose lens frames a small standing
-/// figure. Scan arc sweeps around the lens; figure breathes; lens blinks
-/// white on tap (shutter). Drawn inside a [size] square (the FAB disc).
+/// App-wide "AI Form" glyph: video camera with a sparkle inside, drawn on
+/// a 24x24 grid and centered in the FAB disc at half the disc size.
+/// Loop: main sparkle twinkles, two small sparkles pop next to the camera.
+/// Tap: camera body flashes white (shutter).
 class _AiCameraGlyphPainter extends CustomPainter {
   _AiCameraGlyphPainter({
     required this.t,
@@ -296,85 +299,115 @@ class _AiCameraGlyphPainter extends CustomPainter {
   final double shutter; // 0..1 blink
   final Color fg;
 
+  // Four-point sparkle centered on (0,0) with radius r.
+  Path _sparkle(double r) {
+    final double c = r * 0.2;
+    return Path()
+      ..moveTo(0, -r)
+      ..cubicTo(c, -1.6 * c, 1.6 * c, -c, r, 0)
+      ..cubicTo(1.6 * c, c, c, 1.6 * c, 0, r)
+      ..cubicTo(-c, 1.6 * c, -1.6 * c, c, -r, 0)
+      ..cubicTo(-1.6 * c, -c, -c, -1.6 * c, 0, -r)
+      ..close();
+  }
+
+  // 0 -> 1 -> 0 while t goes from [start] to [end]; 0 outside.
+  double _pulse(double start, double end) {
+    if (t <= start || t >= end) return 0;
+    return math.sin(math.pi * (t - start) / (end - start));
+  }
+
+  void _drawSparkle(
+    Canvas canvas,
+    Offset center,
+    double r,
+    double scale,
+    double rotation,
+    double opacity,
+  ) {
+    if (opacity <= 0 || scale <= 0) return;
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+    canvas.scale(scale);
+    canvas.drawPath(
+      _sparkle(r),
+      Paint()
+        ..color = fg.withOpacity(opacity.clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true,
+    );
+    canvas.restore();
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
-    final Offset c = Offset(size.width / 2, size.height / 2);
-    final double r = size.width / 2; // disc radius
-    final double ang = t * 2 * math.pi;
+    // Glyph occupies half of the disc, centered.
+    final double glyph = size.shortestSide * 0.5;
+    final double k = glyph / 24.0;
+    if (k <= 0) return;
 
-    // --- camera geometry (relative to disc radius) ---
-    final double bodyW = r * 1.06;
-    final double bodyH = r * 0.78;
-    final double bodyTop = c.dy - bodyH * 0.40;
-    final Rect body = Rect.fromCenter(
-        center: Offset(c.dx, bodyTop + bodyH / 2), width: bodyW, height: bodyH);
-    final double stroke = math.max(2.0, r * 0.075);
+    canvas.save();
+    canvas.translate(
+      (size.width - glyph) / 2,
+      (size.height - glyph) / 2,
+    );
+    canvas.scale(k);
 
     final Paint line = Paint()
       ..color = fg
       ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
+      ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
 
-    // body
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(body, Radius.circular(r * 0.16)),
-      line,
-    );
-    // viewfinder bump
-    final Path bump = Path()
-      ..moveTo(c.dx - bodyW * 0.22, body.top)
-      ..lineTo(c.dx - bodyW * 0.14, body.top - r * 0.16)
-      ..lineTo(c.dx + bodyW * 0.14, body.top - r * 0.16)
-      ..lineTo(c.dx + bodyW * 0.22, body.top);
-    canvas.drawPath(bump, line);
-
-    // lens
-    final Offset lensC = Offset(c.dx, body.center.dy + r * 0.02);
-    final double lensR = r * 0.30;
-    canvas.drawCircle(lensC, lensR, line);
-
-    // scan arc sweeping around the lens
-    canvas.drawArc(
-      Rect.fromCircle(center: lensC, radius: lensR + stroke * 1.6),
-      ang,
-      math.pi * 0.55,
-      false,
-      Paint()
-        ..color = fg.withOpacity(0.55)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke * 0.6
-        ..strokeCap = StrokeCap.round,
+    final RRect body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(2.5, 6, 13.5, 12),
+      const Radius.circular(3),
     );
 
-    // figure inside the lens (breathing)
-    final double fs = lensR * (0.92 + 0.05 * math.sin(ang * 2));
-    final Offset fc = lensC;
-    final Paint fig = Paint()
-      ..color = fg
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke * 0.75
-      ..strokeCap = StrokeCap.round;
-    canvas.drawCircle(
-        fc.translate(0, -fs * 0.55), fs * 0.16, Paint()..color = fg); // head
-    canvas.drawLine(
-        fc.translate(0, -fs * 0.34), fc.translate(0, fs * 0.12), fig); // torso
-    canvas.drawLine(fc.translate(0, -fs * 0.22),
-        fc.translate(-fs * 0.34, -fs * 0.02), fig); // arm L
-    canvas.drawLine(fc.translate(0, -fs * 0.22),
-        fc.translate(fs * 0.34, -fs * 0.02), fig); // arm R
-    canvas.drawLine(fc.translate(0, fs * 0.12),
-        fc.translate(-fs * 0.24, fs * 0.52), fig); // leg L
-    canvas.drawLine(fc.translate(0, fs * 0.12),
-        fc.translate(fs * 0.24, fs * 0.52), fig); // leg R
-
-    // shutter blink
+    // Shutter flash behind the outline (on tap).
     if (shutter > 0) {
-      final double k = math.sin(shutter * math.pi); // 0 -> 1 -> 0
-      canvas.drawCircle(lensC, lensR - stroke / 2,
-          Paint()..color = Colors.white.withOpacity(0.85 * k));
+      final double f = math.sin(shutter * math.pi); // 0 -> 1 -> 0
+      canvas.drawRRect(
+        body,
+        Paint()..color = Colors.white.withOpacity(0.55 * f),
+      );
     }
+
+    // Camera body.
+    canvas.drawRRect(body, line);
+
+    // Camera wedge on the right.
+    final Path wedge = Path()
+      ..moveTo(16, 10.6)
+      ..lineTo(21.5, 7.6)
+      ..lineTo(21.5, 16.4)
+      ..lineTo(16, 13.4);
+    canvas.drawPath(wedge, line);
+
+    // Main sparkle: twinkle during the first 40% of the loop.
+    const double window = 0.4;
+    double mainScale = 1.0;
+    double mainRot = 0.0;
+    if (t < window) {
+      final double p = t / window;
+      mainScale = 1.0 + 0.35 * math.sin(math.pi * p);
+      mainRot = Curves.easeInOut.transform(p) * (math.pi / 2);
+    }
+    _drawSparkle(canvas, const Offset(9.25, 12), 3.6, mainScale, mainRot, 1.0);
+
+    // Two small sparkles popping outside the camera, slightly staggered.
+    final double a = _pulse(0.08, 0.42);
+    _drawSparkle(canvas, const Offset(19.6, 3.4), 2.3, 0.4 + 0.6 * a,
+        a * (math.pi / 4), a);
+
+    final double b = _pulse(0.20, 0.54);
+    _drawSparkle(canvas, const Offset(3.2, 21.2), 1.7, 0.4 + 0.6 * b,
+        b * (math.pi / 4), b);
+
+    canvas.restore();
   }
 
   @override

@@ -5,7 +5,9 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_timer.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/instant_timer.dart';
+import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -964,7 +966,7 @@ class _TimeWarmupWidgetState extends State<TimeWarmupWidget> {
               builder: (context) => FlutterFlowIconButton(
                 borderRadius: 30.0,
                 buttonSize: 35.0,
-                fillColor: FlutterFlowTheme.of(context).secondary,
+                fillColor: FlutterFlowTheme.of(context).primary,
                 icon: Icon(
                   Icons.more_vert,
                   color: FlutterFlowTheme.of(context).info,

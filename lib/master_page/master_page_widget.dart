@@ -21,6 +21,7 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/flutter_flow/upload_data.dart';
+import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -3718,6 +3719,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                       _model
                                                                           .uploadedLocalFile_uploadData5z7,
                                                                       12.0,
+                                                                      'deadlift',
                                                                     );
 
                                                                     context
@@ -4388,6 +4390,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                       _model
                                                                           .uploadedLocalFile_uploadDataUxg,
                                                                       15.0,
+                                                                      'push-up',
                                                                     );
 
                                                                     context
@@ -4657,6 +4660,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                       _model
                                                                           .uploadedLocalFile_uploadData5z8,
                                                                       10.0,
+                                                                      'pull-up',
                                                                     );
 
                                                                     context

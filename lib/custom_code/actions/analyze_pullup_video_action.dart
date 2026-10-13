@@ -28,6 +28,14 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 ///   - "Reduce body swing (no kipping)"   (FB_CUE_SWING)
 ///   - "Fully extend arms at bottom"      (FB_CUE_BOTTOM)
 ///
+/// [variant]: 'pullup' (default, null) | 'neutral' | 'chinup'.
+/// 'chinup' adds a fourth cue:
+///   - "Narrow your grip to shoulder width" (FB_CUE_GRIP)
+///   Measured as wrist-to-wrist span / shoulder-to-shoulder span (median
+///   over the rep cycle). Only evaluated when the shoulders are seen from
+///   the front/back (shoulder span wide enough) — a side view has no
+///   usable width information, so the check is silently skipped there.
+///
 /// [FEEDBACK-SYNC] The returned `feedback` list is derived from EXACTLY
 /// the set of cues that were displayed as in-video banners by the
 /// post-process pass. Summary and video can no longer diverge.
@@ -72,7 +80,12 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 Future<dynamic> analyzePullupVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
+  String? variant,
 ) async {
+  // ================ Variant ================
+  final String variantName = (variant ?? 'pullup').trim().toLowerCase();
+  final bool checkGripWidth = variantName == 'chinup';
+
   // ================ Parameters (1:1 from pullup_analysis.py) ================
   const double ELBOW_TOP_ANGLE = 100.0; // ≤100° at top
   const double HEAD_MIN_ASCENT = 0.0075; // ~0.75% of frame height
@@ -98,11 +111,13 @@ Future<dynamic> analyzePullupVideoAction(
   const String FB_CUE_HIGHER = 'Go a bit higher (chin over bar)';
   const String FB_CUE_SWING = 'Reduce body swing (no kipping)';
   const String FB_CUE_BOTTOM = 'Fully extend arms at bottom';
+  const String FB_CUE_GRIP = 'Narrow your grip to shoulder width';
 
   const Map<String, double> FB_WEIGHTS = {
     FB_CUE_HIGHER: 0.5,
     FB_CUE_SWING: 0.5,
     FB_CUE_BOTTOM: 0.5,
+    FB_CUE_GRIP: 0.5,
   };
   const double FB_DEFAULT_WEIGHT = 0.5;
   const double PENALTY_MIN_IF_ANY = 0.5;
@@ -112,6 +127,7 @@ Future<dynamic> analyzePullupVideoAction(
     FB_CUE_HIGHER,
     FB_CUE_BOTTOM,
     FB_CUE_SWING,
+    FB_CUE_GRIP,
   ];
 
   // Swing detection
@@ -122,6 +138,18 @@ Future<dynamic> analyzePullupVideoAction(
   const double BOTTOM_EXT_MIN_ANGLE = 155.0;
   const double BOTTOM_HYST_DEG = 3.0;
   const int BOTTOM_FAIL_MIN_REPS = 2;
+
+  // ---- Chin-up grip width check ----
+  // ratio = |wristL.x - wristR.x| / |shoulderL.x - shoulderR.x|.
+  // Supinated grip should sit at or inside shoulder width; wider loads
+  // the wrists/elbows. 1.3 leaves room for hand-vs-wrist landmark offset
+  // and a slightly-wider-than-shoulders grip that is still fine.
+  // Only measured when the shoulder span is wide enough to mean the
+  // camera sees the lifter from the front/back (side view -> skipped).
+  const double GRIP_WIDE_RATIO = 1.30;
+  const double GRIP_MIN_SHOULDER_SPAN = 0.06; // normalized frame width
+  const int GRIP_FAIL_MIN_REPS = 2;
+  const int GRIP_MIN_SAMPLES = 4;
 
   // ---- "Go a bit higher" tuning (relaxed vs Python) ----
   //
@@ -214,6 +242,13 @@ Future<dynamic> analyzePullupVideoAction(
     if (s >= 7.0) return 'Good';
     if (s >= 5.5) return 'Fair';
     return 'Needs work';
+  }
+
+  double medianOf(List<double> xs) {
+    if (xs.isEmpty) return 0.0;
+    final s = List<double>.from(xs)..sort();
+    final int m = s.length ~/ 2;
+    return s.length.isOdd ? s[m] : (s[m - 1] + s[m]) / 2.0;
   }
 
   Map<String, dynamic> errorPayload(String code, String detail) => {
@@ -373,10 +408,17 @@ Future<dynamic> analyzePullupVideoAction(
   final List<bool> repShallowFlags = []; // index parallel to pulseEvents
   final List<bool> repSwingFlags = [];
   final List<bool> repBottomFlags = [];
+  final List<bool> repGripFlags = [];
   // Per-cycle "did we see swing since this rep was counted" — gets
   // attached to the rep at reset/next-count time.
   bool currentRepHadSwing = false;
   bool currentRepHadBottomMiss = false;
+
+  // Per-cycle grip-width samples (chin-up only). Collected on every
+  // on-bar frame with a usable front/back view; evaluated at reset.
+  final List<double> cycleGripSamples = [];
+  int gripFailCount = 0;
+  bool gripAlreadyReported = false;
 
   // Per-cycle bottom-phase max elbow extension (raw, both arms). When the
   // user is descending after a counted rep, we keep widening this to track
@@ -805,6 +847,7 @@ Future<dynamic> analyzePullupVideoAction(
         allowNewPeak = true;
         swingStreak = 0;
         bottomPhaseMaxElbow = null;
+        cycleGripSamples.clear();
       }
 
       if (onbar && offbarStreak >= OFFBAR_MIN_FRAMES) {
@@ -819,6 +862,18 @@ Future<dynamic> analyzePullupVideoAction(
         // the loop run to the end of the video so frameTelemetry covers
         // every frame. The widget keeps showing the last counter value
         // and an empty (or last-seen) skeleton until pose returns.
+      }
+
+      // ---- Chin-up grip width sample (on-bar, front/back view only) ----
+      if (checkGripWidth &&
+          onbar &&
+          lw.likelihood >= WRIST_VIS_THR &&
+          rw.likelihood >= WRIST_VIS_THR) {
+        final double shoulderSpan = (nLsh[0] - nRsh[0]).abs();
+        if (shoulderSpan >= GRIP_MIN_SHOULDER_SPAN) {
+          final double wristSpan = (nLw[0] - nRw[0]).abs();
+          cycleGripSamples.add(wristSpan / shoulderSpan);
+        }
       }
 
       // ---- Counting (only ON-BAR) ----
@@ -884,6 +939,7 @@ Future<dynamic> analyzePullupVideoAction(
           repShallowFlags.add(false);
           repSwingFlags.add(false);
           repBottomFlags.add(false);
+          repGripFlags.add(false);
         }
 
         // Track maximum elbow extension during the descent until reset.
@@ -961,6 +1017,28 @@ Future<dynamic> analyzePullupVideoAction(
             }
           }
 
+          // ---- GRIP width evaluation (chin-up only) ----
+          // Median of the cycle's wrist/shoulder span ratios. Evaluated
+          // only when a rep was actually counted in this cycle and we
+          // have enough front/back-view samples.
+          bool repGripWide = false;
+          if (checkGripWidth &&
+              currentRepCountFrameIdx != null &&
+              cycleGripSamples.length >= GRIP_MIN_SAMPLES) {
+            final double ratio = medianOf(cycleGripSamples);
+            if (ratio > GRIP_WIDE_RATIO) {
+              repGripWide = true;
+              gripFailCount += 1;
+              if (gripFailCount >= GRIP_FAIL_MIN_REPS && !gripAlreadyReported) {
+                sessionFeedback.add(FB_CUE_GRIP);
+                gripAlreadyReported = true;
+              }
+            } else {
+              gripFailCount = math.max(0, gripFailCount - 1);
+            }
+          }
+          cycleGripSamples.clear();
+
           // ---- Attach per-rep flags to the rep that just finished ----
           // pulseEvents and repShallowFlags / repSwingFlags / repBottomFlags
           // are kept in lock-step. The last-pushed rep is always the one
@@ -970,6 +1048,7 @@ Future<dynamic> analyzePullupVideoAction(
             repShallowFlags[lastIdx] = repWasShallow;
             repSwingFlags[lastIdx] = currentRepHadSwing;
             repBottomFlags[lastIdx] = currentRepHadBottomMiss;
+            repGripFlags[lastIdx] = repGripWide;
           }
 
           // ---- Donut calibration: handled in post-process ----
@@ -1103,10 +1182,24 @@ Future<dynamic> analyzePullupVideoAction(
           }
         }
       }
+      // Grip check for the final (unreset) rep.
+      bool repGripWide = false;
+      if (checkGripWidth && cycleGripSamples.length >= GRIP_MIN_SAMPLES) {
+        final double ratio = medianOf(cycleGripSamples);
+        if (ratio > GRIP_WIDE_RATIO) {
+          repGripWide = true;
+          gripFailCount += 1;
+          if (gripFailCount >= GRIP_FAIL_MIN_REPS && !gripAlreadyReported) {
+            sessionFeedback.add(FB_CUE_GRIP);
+            gripAlreadyReported = true;
+          }
+        }
+      }
       final int lastIdx = pulseEvents.length - 1;
       repShallowFlags[lastIdx] = repWasShallow;
       repSwingFlags[lastIdx] = currentRepHadSwing;
       repBottomFlags[lastIdx] = repHadBottomMiss;
+      repGripFlags[lastIdx] = repGripWide;
     }
   } finally {
     await poseDetector.close();
@@ -1351,6 +1444,7 @@ Future<dynamic> analyzePullupVideoAction(
     final bool hadSwing = e < repSwingFlags.length ? repSwingFlags[e] : false;
     final bool hadBottomMiss =
         e < repBottomFlags.length ? repBottomFlags[e] : false;
+    final bool hadWideGrip = e < repGripFlags.length ? repGripFlags[e] : false;
 
     if (wasShallow && sessionFeedback.contains(FB_CUE_HIGHER)) {
       repCues.add(FB_CUE_HIGHER);
@@ -1360,6 +1454,9 @@ Future<dynamic> analyzePullupVideoAction(
     }
     if (hadSwing && sessionFeedback.contains(FB_CUE_SWING)) {
       repCues.add(FB_CUE_SWING);
+    }
+    if (hadWideGrip && sessionFeedback.contains(FB_CUE_GRIP)) {
+      repCues.add(FB_CUE_GRIP);
     }
 
     final bool isBad = repCues.isNotEmpty;
@@ -1466,6 +1563,7 @@ Future<dynamic> analyzePullupVideoAction(
     'tips': <String>[],
     'reps': repReports,
     'exercise_type': 'pullup',
+    'pullup_variant': variantName,
     'video_path': fileUri,
     'analyzed_fps': fps,
     'frame_count': frameIdx,

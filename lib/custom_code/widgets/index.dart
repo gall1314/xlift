@@ -54,3 +54,6 @@ export 'history_view.dart' show HistoryView;
 export 'time_range_pill.dart' show TimeRangePill;
 export 'exercise_stats_view.dart' show ExerciseStatsView;
 export 'muscle_stats_view.dart' show MuscleStatsView;
+export 'ai_form_button.dart' show AiFormButton;
+export 'ai_form_badge.dart' show AiFormBadge;
+export 'ai_score_ring.dart' show AiScoreRing;

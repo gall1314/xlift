@@ -7,7 +7,11 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/index.dart';
 import 'master_page_widget.dart' show MasterPageWidget;
+import 'package:aligned_dialog/aligned_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
   ///  Local state fields for this page.

@@ -8,6 +8,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/walkthroughs/workout_first.dart';
+import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -266,7 +267,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                     color: functions.shouldDisableFinishButton(
                             FFAppState().loggedSets.toList())
                         ? FlutterFlowTheme.of(context).alternate
-                        : FlutterFlowTheme.of(context).secondary,
+                        : FlutterFlowTheme.of(context).primary,
                     width: 1.5,
                   ),
                   borderRadius: BorderRadius.circular(8.0),
@@ -287,7 +288,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               lineHeight: 4.0,
               animation: true,
               animateFromLastPercent: true,
-              progressColor: FlutterFlowTheme.of(context).secondary,
+              progressColor: FlutterFlowTheme.of(context).primary,
               backgroundColor: FlutterFlowTheme.of(context).accent4,
               padding: EdgeInsets.zero,
             ),
@@ -479,7 +480,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                               iconPadding: EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 0.0),
                               iconColor: FlutterFlowTheme.of(context).info,
-                              color: FlutterFlowTheme.of(context).secondary,
+                              color: FlutterFlowTheme.of(context).primary,
                               textStyle: FlutterFlowTheme.of(context)
                                   .titleSmall
                                   .override(

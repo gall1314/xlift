@@ -1062,43 +1062,43 @@ class _PeriodSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
     final Color accent = _accent(context);
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: th.secondaryBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: th.alternate,
-                borderRadius: BorderRadius.circular(3),
+    // No SafeArea: the sheet background runs to the screen edge; the
+    // home-indicator space is added as padding inside it.
+    return Container(
+      decoration: BoxDecoration(
+        color: th.secondaryBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 48,
+            height: 5,
+            decoration: BoxDecoration(
+              color: th.alternate,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            title,
+            style: _hs(context, 20, FontWeight.w600, th.primaryText),
+          ),
+          const SizedBox(height: 10),
+          for (int i = 0; i < periods.length; i++) ...[
+            _row(context, th, accent, i),
+            if (i < periods.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Divider(height: 1, color: th.alternate),
               ),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              title,
-              style: _hs(context, 20, FontWeight.w600, th.primaryText),
-            ),
-            const SizedBox(height: 10),
-            for (int i = 0; i < periods.length; i++) ...[
-              _row(context, th, accent, i),
-              if (i < periods.length - 1)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Divider(height: 1, color: th.alternate),
-                ),
-            ],
-            const SizedBox(height: 8),
           ],
-        ),
+          SizedBox(height: 8 + bottomInset),
+        ],
       ),
     );
   }
@@ -1176,6 +1176,7 @@ class _MuscleSheetState extends State<_MuscleSheet> {
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
     final double maxH = MediaQuery.of(context).size.height * 0.85;
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
     final List<String> filtered = _q.isEmpty
         ? widget.muscles
         : widget.muscles
@@ -1213,113 +1214,111 @@ class _MuscleSheetState extends State<_MuscleSheet> {
       );
     }
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        constraints: BoxConstraints(maxHeight: maxH),
-        decoration: BoxDecoration(
-          color: th.secondaryBackground,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 48,
-              height: 5,
+    // No SafeArea: the sheet background runs to the screen edge; the
+    // home-indicator space is part of the list's bottom padding so the last
+    // row can still scroll clear of it.
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      decoration: BoxDecoration(
+        color: th.secondaryBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 48,
+            height: 5,
+            decoration: BoxDecoration(
+              color: th.alternate,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            widget.title,
+            style: _hs(context, 26, FontWeight.w600, th.primaryText),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: th.alternate,
-                borderRadius: BorderRadius.circular(3),
+                color: th.secondaryBackground,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: th.alternate),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              widget.title,
-              style: _hs(context, 26, FontWeight.w600, th.primaryText),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: th.secondaryBackground,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: th.alternate),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search_rounded,
-                        size: 22, color: th.secondaryText),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _search,
-                        onChanged: (v) => setState(() => _q = v.trim()),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          hintText: 'Search Muscle',
-                          hintStyle: _hs(
-                              context, 16, FontWeight.w400, th.secondaryText),
-                        ),
-                        style:
-                            _hs(context, 16, FontWeight.w400, th.primaryText),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
                 children: [
-                  if (showAll) ...[
-                    row(
-                      leading: Icon(Icons.grid_view_rounded,
-                          size: 30, color: th.primaryText),
-                      text: widget.allLabel,
-                      selected: widget.selected == null,
-                      onTap: () => Navigator.of(context).pop(widget.allLabel),
-                    ),
-                    Divider(height: 1, color: th.alternate),
-                  ],
-                  for (int i = 0; i < filtered.length; i++) ...[
-                    row(
-                      leading: ExerciseAssetImage(
-                        width: 70,
-                        height: 70,
-                        exerciseName: exerciseImageName(filtered[i]),
-                        borderRadius: 8,
+                  Icon(Icons.search_rounded, size: 22, color: th.secondaryText),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (v) => setState(() => _q = v.trim()),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: 'Search Muscle',
+                        hintStyle:
+                            _hs(context, 16, FontWeight.w400, th.secondaryText),
                       ),
-                      text: filtered[i],
-                      selected: widget.selected == filtered[i],
-                      onTap: () => Navigator.of(context).pop(filtered[i]),
+                      style: _hs(context, 16, FontWeight.w400, th.primaryText),
                     ),
-                    if (i < filtered.length - 1)
-                      Divider(height: 1, color: th.alternate),
-                  ],
-                  if (!showAll && filtered.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Text(
-                          'No muscle groups found',
-                          style: _hs(
-                              context, 14, FontWeight.w400, th.secondaryText),
-                        ),
-                      ),
-                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.only(bottom: 12 + bottomInset),
+              children: [
+                if (showAll) ...[
+                  row(
+                    leading: Icon(Icons.grid_view_rounded,
+                        size: 30, color: th.primaryText),
+                    text: widget.allLabel,
+                    selected: widget.selected == null,
+                    onTap: () => Navigator.of(context).pop(widget.allLabel),
+                  ),
+                  Divider(height: 1, color: th.alternate),
+                ],
+                for (int i = 0; i < filtered.length; i++) ...[
+                  row(
+                    leading: ExerciseAssetImage(
+                      width: 70,
+                      height: 70,
+                      exerciseName: exerciseImageName(filtered[i]),
+                      borderRadius: 8,
+                    ),
+                    text: filtered[i],
+                    selected: widget.selected == filtered[i],
+                    onTap: () => Navigator.of(context).pop(filtered[i]),
+                  ),
+                  if (i < filtered.length - 1)
+                    Divider(height: 1, color: th.alternate),
+                ],
+                if (!showAll && filtered.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No muscle groups found',
+                        style:
+                            _hs(context, 14, FontWeight.w400, th.secondaryText),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

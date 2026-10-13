@@ -2,10 +2,13 @@ import '/backend/sqlite/sqlite_manager.dart';
 import '/components/delete_alert_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
+import '/flutter_flow/flutter_flow_widgets.dart';
+import 'dart:ui';
 import '/index.dart';
 import 'package:aligned_dialog/aligned_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'edit_or_delete_model.dart';
 export 'edit_or_delete_model.dart';
 

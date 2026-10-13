@@ -20,9 +20,18 @@ import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 
 /// Analyze a deadlift video locally using ML Kit Pose Detection.
+///
+/// [variant]: 'conventional' (default, null) | 'trap' | 'sumo'.
+/// Detection is self-calibrated per video so all variants count the same.
+/// The only per-variant tweak is the per-rep ROM scoring: sumo has a short
+/// hip travel and, from the side, a foreshortened knee bend, so its
+/// KNEE_DROP_* / HIP_DESC_* thresholds are scaled by 0.7 — otherwise a
+/// perfect sumo rep caps at 9 and never shows as GOOD REP. Trap bar needs
+/// nothing (more knee bend passes everything easily).
 Future<dynamic> analyzeDeadliftVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
+  String? variant,
 ) async {
   // [DIAG] Diagnostic data attached to result['debug'].
   final List<Map<String, dynamic>> diagCandidates = [];
@@ -30,6 +39,10 @@ Future<dynamic> analyzeDeadliftVideoAction(
   Map<String, dynamic>? diagWalkout;
   Map<String, dynamic>? diagOutlier;
   Map<String, dynamic>? diagFinal;
+
+  // ================ Variant ================
+  final String variantName = (variant ?? 'conventional').trim().toLowerCase();
+  final double romScale = variantName == 'sumo' ? 0.7 : 1.0;
 
   // ================ Parameters ================
   final double fps = (targetFps ?? 10.0).clamp(4.0, 30.0);
@@ -102,12 +115,13 @@ Future<dynamic> analyzeDeadliftVideoAction(
   const double DEPTH_EXCELLENT_PEAK = 0.85;
   const double DEPTH_GOOD_PEAK = 0.70;
   const double DEPTH_FAIR_PEAK = 0.55;
-  const double KNEE_DROP_EXCELLENT = 60.0;
-  const double KNEE_DROP_GOOD = 40.0;
-  const double KNEE_DROP_FAIR = 25.0;
-  const double HIP_DESC_EXCELLENT = 0.10;
-  const double HIP_DESC_GOOD = 0.05;
-  const double HIP_DESC_FAIR = 0.02;
+  // ROM thresholds scaled per variant (sumo: 0.7).
+  final double KNEE_DROP_EXCELLENT = 60.0 * romScale;
+  final double KNEE_DROP_GOOD = 40.0 * romScale;
+  final double KNEE_DROP_FAIR = 25.0 * romScale;
+  final double HIP_DESC_EXCELLENT = 0.10 * romScale;
+  final double HIP_DESC_GOOD = 0.05 * romScale;
+  final double HIP_DESC_FAIR = 0.02 * romScale;
 
   const String FB_ERROR_DEPTH = 'Go deeper into the hinge';
   const String FB_ERROR_LOCKOUT = 'Stand all the way up at the top';
@@ -548,6 +562,7 @@ Future<dynamic> analyzeDeadliftVideoAction(
       'tips': <String>[],
       'reps': <dynamic>[],
       'exercise_type': 'deadlift',
+      'deadlift_variant': variantName,
       'video_path': fileUri,
       'analyzed_fps': fps,
       'frame_count': frameIdx,
@@ -1371,6 +1386,7 @@ Future<dynamic> analyzeDeadliftVideoAction(
 
   // [DIAG] Single-string summary for binding to a UI Text widget.
   final StringBuffer dbgStr = StringBuffer();
+  dbgStr.write('variant=$variantName ');
   dbgStr.write('reps=$repCount ');
   dbgStr.write('scaleGated=$scaleGatedFrames ');
   if (diagCalib != null) {
@@ -1425,6 +1441,7 @@ Future<dynamic> analyzeDeadliftVideoAction(
     'tips': repCount == 0 ? <String>[] : perfTipsList,
     'reps': repReports,
     'exercise_type': 'deadlift',
+    'deadlift_variant': variantName,
     'video_path': fileUri,
     'analyzed_fps': fps,
     'frame_count': frameIdx,

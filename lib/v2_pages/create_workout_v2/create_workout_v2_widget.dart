@@ -6,6 +6,7 @@ import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/index.dart';
 import 'package:easy_debounce/easy_debounce.dart';
@@ -150,6 +151,12 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                           FFAppState().warmUpCreation.toList(),
                           FFAppState().restTimerCreation,
                         );
+                        FFAppState().warmUpCreation = [];
+                        FFAppState().restTimerCreation = null;
+                        FFAppState().dropSetsCreation = [];
+                        FFAppState().loggedSetsCreation = [];
+                        FFAppState().exerciseSetsCretion = [];
+                        safeSetState(() {});
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -430,7 +437,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                         EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
                     iconPadding:
                         EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                    color: FlutterFlowTheme.of(context).secondary,
+                    color: FlutterFlowTheme.of(context).primary,
                     textStyle: FlutterFlowTheme.of(context).titleSmall.override(
                           font: GoogleFonts.interTight(
                             fontWeight: FlutterFlowTheme.of(context)

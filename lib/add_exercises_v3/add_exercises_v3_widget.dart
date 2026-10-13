@@ -8,6 +8,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/instant_timer.dart';
+import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -950,17 +951,25 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                       if (recentItem
                                                                               .aiFormAnalysis ==
                                                                           1)
-                                                                        Align(
-                                                                          alignment: AlignmentDirectional(
-                                                                              0.0,
-                                                                              0.0),
+                                                                        Container(
+                                                                          width:
+                                                                              40.0,
+                                                                          height:
+                                                                              22.0,
                                                                           child:
-                                                                              Icon(
-                                                                            Icons.smart_toy_outlined,
+                                                                              custom_widgets.AiFormBadge(
+                                                                            width:
+                                                                                40.0,
+                                                                            height:
+                                                                                22.0,
+                                                                            showLabel:
+                                                                                true,
+                                                                            isDark:
+                                                                                Theme.of(context).brightness == Brightness.dark,
+                                                                            iconSize:
+                                                                                18.0,
                                                                             color:
                                                                                 FlutterFlowTheme.of(context).primary,
-                                                                            size:
-                                                                                18.0,
                                                                           ),
                                                                         ),
                                                                     ].divide(SizedBox(
@@ -1700,12 +1709,16 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                             ),
                                                                             if (columnGetAllExercisesRow.aiFormAnalysis ==
                                                                                 1)
-                                                                              Align(
-                                                                                alignment: AlignmentDirectional(0.0, 0.0),
-                                                                                child: Icon(
-                                                                                  Icons.smart_toy_outlined,
+                                                                              Container(
+                                                                                width: 40.0,
+                                                                                height: 22.0,
+                                                                                child: custom_widgets.AiFormBadge(
+                                                                                  width: 40.0,
+                                                                                  height: 22.0,
+                                                                                  showLabel: true,
+                                                                                  isDark: Theme.of(context).brightness == Brightness.dark,
+                                                                                  iconSize: 18.0,
                                                                                   color: FlutterFlowTheme.of(context).primary,
-                                                                                  size: 18.0,
                                                                                 ),
                                                                               ),
                                                                           ].divide(SizedBox(width: 8.0)),
@@ -1864,7 +1877,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                       padding: EdgeInsets.all(8.0),
                       iconPadding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).secondary,
+                      color: FlutterFlowTheme.of(context).primary,
                       textStyle:
                           FlutterFlowTheme.of(context).titleSmall.override(
                                 font: GoogleFonts.interTight(
