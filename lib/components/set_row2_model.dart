@@ -1,31 +1,10 @@
-import '/auth/supabase_auth/auth_util.dart';
-import '/backend/sqlite/sqlite_manager.dart';
-import '/components/analysi_alert_widget.dart';
 import '/components/analysis_lottie_widget.dart';
-import '/components/analyze2_app_widget.dart';
-import '/components/camera_analyzer_widget.dart';
 import '/components/drop_set_widget.dart';
-import '/components/set_alert2_widget.dart';
-import '/components/set_optin_bottom_widget.dart';
 import '/components/time_widget.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:async';
-import 'dart:ui';
-import '/custom_code/actions/index.dart' as actions;
-import '/custom_code/widgets/index.dart' as custom_widgets;
-import '/flutter_flow/custom_functions.dart' as functions;
-import '/index.dart';
 import 'set_row2_widget.dart' show SetRow2Widget;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:provider/provider.dart';
 
 class SetRow2Model extends FlutterFlowModel<SetRow2Widget> {
   ///  Local state fields for this component.

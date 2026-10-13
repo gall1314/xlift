@@ -1,8 +1,6 @@
 import '/flutter_flow/flutter_flow_util.dart';
 import 'rest_shit_creation_widget.dart' show RestShitCreationWidget;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 class RestShitCreationModel extends FlutterFlowModel<RestShitCreationWidget> {
   ///  Local state fields for this component.

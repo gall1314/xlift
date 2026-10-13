@@ -17,8 +17,9 @@ import 'package:flutter/services.dart';
 
 /// Round button with the AI Form icon (video camera + sparkle).
 ///
-/// The sparkle twinkles briefly every few seconds. Every visual property is
-/// optional and falls back to the default teal gradient style.
+/// Default look (nothing set): white circle, primary-colored ring,
+/// primary-colored icon, no gradient, no shadow.
+/// The sparkle twinkles briefly every few seconds (animate).
 class AiFormButton extends StatefulWidget {
   const AiFormButton({
     super.key,
@@ -42,37 +43,39 @@ class AiFormButton extends StatefulWidget {
   final double? width;
   final double? height;
 
-  /// Button diameter. Default 52.
+  /// Button diameter. Default 44.
   final double? size;
 
-  /// Icon size. Default 46% of the button size.
+  /// Icon size. Default 50% of the button size.
   final double? iconSize;
 
-  /// Fill color. If null, the default teal gradient is used.
+  /// Fill color. Default: theme secondaryBackground (white in light mode).
   final Color? backgroundColor;
 
-  /// Optional second color: fill becomes a gradient from
-  /// backgroundColor (top-left) to this color (bottom-right).
+  /// Optional. Only if set (together with backgroundColor) the fill
+  /// becomes a gradient. Leave empty for a solid fill.
   final Color? gradientEndColor;
 
-  /// Icon color. Default white.
+  /// Icon color. Default: theme primary.
   final Color? iconColor;
 
   /// Corner radius. Default = full circle.
   final double? borderRadius;
 
+  /// Ring color. Default: theme primary.
   final Color? borderColor;
 
-  /// Border width. Default 0 (no border).
+  /// Ring width. Default 2.5. Pass 0 for no ring.
   final double? borderWidth;
 
-  /// Shadow color. Default soft teal.
+  /// Shadow color. Used only when shadowBlur > 0.
   final Color? shadowColor;
 
-  /// Shadow blur. Default 14. Pass 0 for no shadow.
+  /// Shadow blur. Default 0 (no shadow).
   final double? shadowBlur;
 
-  /// When false the button is dimmed and does not respond. Default true.
+  /// When false the button is dimmed and does NOT respond to taps.
+  /// Leave empty unless you really want a disabled button.
   final bool? enabled;
 
   /// Sparkle twinkle animation. Default true.
@@ -149,36 +152,32 @@ class _AiFormButtonState extends State<AiFormButton>
 
   @override
   Widget build(BuildContext context) {
-    final double size = widget.size ?? 52;
-    final double iconSize = widget.iconSize ?? size * 0.46;
+    final th = FlutterFlowTheme.of(context);
+
+    final double size = widget.size ?? 44;
+    final double iconSize = widget.iconSize ?? size * 0.5;
     final double radius = widget.borderRadius ?? size / 2;
-    final double borderWidth = widget.borderWidth ?? 0;
-    final double blur = widget.shadowBlur ?? 14;
+    final double borderWidth = widget.borderWidth ?? 2.5;
+    final double blur = widget.shadowBlur ?? 0;
 
-    final Color iconColor = widget.iconColor ?? Colors.white;
-    final Color shadowColor = widget.shadowColor ?? const Color(0x590F766E);
+    final Color fill = widget.backgroundColor ?? th.secondaryBackground;
+    final Color ringColor = widget.borderColor ?? th.primary;
+    final Color iconColor = widget.iconColor ?? th.primary;
+    final Color shadowColor =
+        widget.shadowColor ?? th.primary.withOpacity(0.30);
 
-    // Fill: default gradient, custom gradient, or solid color.
-    Color? solid;
-    Gradient? gradient;
-    if (widget.backgroundColor == null) {
-      gradient = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFF14B8A6), Color(0xFF0F766E)],
-      );
-    } else if (widget.gradientEndColor != null) {
-      gradient = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [widget.backgroundColor!, widget.gradientEndColor!],
-      );
-    } else {
-      solid = widget.backgroundColor;
-    }
+    // Solid fill by default; gradient only when both colors are given.
+    final Gradient? gradient =
+        (widget.backgroundColor != null && widget.gradientEndColor != null)
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [widget.backgroundColor!, widget.gradientEndColor!],
+              )
+            : null;
 
     final button = AnimatedScale(
-      scale: _pressed ? 0.93 : 1.0,
+      scale: _pressed ? 0.92 : 1.0,
       duration: const Duration(milliseconds: 110),
       curve: Curves.easeOut,
       child: AnimatedOpacity(
@@ -188,11 +187,11 @@ class _AiFormButtonState extends State<AiFormButton>
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: solid,
+            color: gradient == null ? fill : null,
             gradient: gradient,
             borderRadius: BorderRadius.circular(radius),
-            border: (borderWidth > 0 && widget.borderColor != null)
-                ? Border.all(color: widget.borderColor!, width: borderWidth)
+            border: borderWidth > 0
+                ? Border.all(color: ringColor, width: borderWidth)
                 : null,
             boxShadow: (blur > 0 && _enabled)
                 ? [

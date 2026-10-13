@@ -544,53 +544,55 @@ class _AddExercisesForWorklogEditWidgetState
                                     ),
                                   Stack(
                                     children: [
-                                      Container(
-                                        width: 40.0,
-                                        height: 40.0,
-                                        child: custom_widgets.AiFormButton(
+                                      if (!_model.aiOnly!)
+                                        Container(
                                           width: 40.0,
                                           height: 40.0,
-                                          size: 40.0,
-                                          iconSize: 24.0,
-                                          gradientEndColor: Color(0xFF90969C),
-                                          iconColor: Color(0xFF90969C),
-                                          borderColor: Color(0xFF90969C),
-                                          borderWidth: 2.0,
-                                          enabled: true,
-                                          onTap: () async {
-                                            _model.aiOnly = true;
-                                            safeSetState(() {});
-                                          },
+                                          child: custom_widgets.AiFormButton(
+                                            width: 40.0,
+                                            height: 40.0,
+                                            size: 40.0,
+                                            iconSize: 24.0,
+                                            gradientEndColor: Color(0xFF90969C),
+                                            iconColor: Color(0xFF90969C),
+                                            borderColor: Color(0xFF90969C),
+                                            borderWidth: 2.0,
+                                            enabled: true,
+                                            onTap: () async {
+                                              _model.aiOnly = true;
+                                              safeSetState(() {});
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                      Container(
-                                        width: 40.0,
-                                        height: 40.0,
-                                        child: custom_widgets.AiFormButton(
+                                      if (_model.aiOnly ?? true)
+                                        Container(
                                           width: 40.0,
                                           height: 40.0,
-                                          size: 40.0,
-                                          iconSize: 24.0,
-                                          backgroundColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
-                                          gradientEndColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .tertiary,
-                                          iconColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .secondaryBackground,
-                                          borderColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .primary,
-                                          borderWidth: 2.0,
-                                          enabled: true,
-                                          onTap: () async {
-                                            _model.aiOnly = false;
-                                            safeSetState(() {});
-                                          },
+                                          child: custom_widgets.AiFormButton(
+                                            width: 40.0,
+                                            height: 40.0,
+                                            size: 40.0,
+                                            iconSize: 24.0,
+                                            backgroundColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .primary,
+                                            gradientEndColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .tertiary,
+                                            iconColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .secondaryBackground,
+                                            borderColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .primary,
+                                            borderWidth: 2.0,
+                                            enabled: true,
+                                            onTap: () async {
+                                              _model.aiOnly = false;
+                                              safeSetState(() {});
+                                            },
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ].divide(SizedBox(width: 10.0)),
@@ -875,11 +877,11 @@ class _AddExercisesForWorklogEditWidgetState
                                                                             if (recentsItem.aiFormAnalysis ==
                                                                                 1)
                                                                               Container(
-                                                                                width: 40.0,
-                                                                                height: 22.0,
+                                                                                width: 50.0,
+                                                                                height: 28.0,
                                                                                 child: custom_widgets.AiFormBadge(
-                                                                                  width: 40.0,
-                                                                                  height: 22.0,
+                                                                                  width: 50.0,
+                                                                                  height: 28.0,
                                                                                   showLabel: true,
                                                                                   isDark: Theme.of(context).brightness == Brightness.dark,
                                                                                   iconSize: 18.0,
@@ -1584,11 +1586,11 @@ class _AddExercisesForWorklogEditWidgetState
                                                                                 ),
                                                                                 if (listViewGetAllExercisesRow.aiFormAnalysis == 1)
                                                                                   Container(
-                                                                                    width: 40.0,
-                                                                                    height: 22.0,
+                                                                                    width: 50.0,
+                                                                                    height: 28.0,
                                                                                     child: custom_widgets.AiFormBadge(
-                                                                                      width: 40.0,
-                                                                                      height: 22.0,
+                                                                                      width: 50.0,
+                                                                                      height: 28.0,
                                                                                       showLabel: true,
                                                                                       isDark: Theme.of(context).brightness == Brightness.dark,
                                                                                       iconSize: 18.0,

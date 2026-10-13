@@ -11,9 +11,7 @@ import '/components/time_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import 'dart:async';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -828,14 +826,8 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                       height: 35.0,
                                       size: 35.0,
                                       iconSize: 18.0,
-                                      gradientEndColor:
-                                          FlutterFlowTheme.of(context).primary,
-                                      iconColor:
-                                          FlutterFlowTheme.of(context).primary,
-                                      borderColor:
-                                          FlutterFlowTheme.of(context).primary,
                                       borderWidth: 2.5,
-                                      enabled: false,
+                                      enabled: true,
                                       animate: false,
                                       onTap: () async {
                                         await showDialog(

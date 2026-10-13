@@ -3,8 +3,6 @@ import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'ai_workout_loading_widget.dart' show AiWorkoutLoadingWidget;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 class AiWorkoutLoadingModel extends FlutterFlowModel<AiWorkoutLoadingWidget> {
   ///  Local state fields for this page.

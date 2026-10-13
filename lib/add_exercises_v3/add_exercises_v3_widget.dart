@@ -8,7 +8,6 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/instant_timer.dart';
-import 'dart:ui';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -648,50 +647,60 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                     ),
                                   Column(
                                     mainAxisSize: MainAxisSize.max,
+                                    children: [],
+                                  ),
+                                  Stack(
                                     children: [
-                                      Stack(
-                                        children: [
-                                          if (_model.aiOnly)
-                                            FlutterFlowIconButton(
-                                              borderColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                              borderRadius: 40.0,
-                                              borderWidth: 2.0,
-                                              buttonSize: 40.0,
-                                              fillColor:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                              icon: Icon(
-                                                Icons.smart_toy_outlined,
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryBackground,
-                                                size: 24.0,
-                                              ),
-                                              onPressed: () async {
-                                                _model.aiOnly = false;
-                                                safeSetState(() {});
-                                              },
-                                            ),
-                                          if (!_model.aiOnly)
-                                            FlutterFlowIconButton(
-                                              borderColor: Color(0xFF90969C),
-                                              borderRadius: 40.0,
-                                              borderWidth: 2.0,
-                                              buttonSize: 40.0,
-                                              icon: Icon(
-                                                Icons.smart_toy_outlined,
-                                                color: Color(0xFF90969C),
-                                                size: 24.0,
-                                              ),
-                                              onPressed: () async {
-                                                _model.aiOnly = true;
-                                                safeSetState(() {});
-                                              },
-                                            ),
-                                        ],
-                                      ),
+                                      if (!_model.aiOnly)
+                                        Container(
+                                          width: 40.0,
+                                          height: 40.0,
+                                          child: custom_widgets.AiFormButton(
+                                            width: 40.0,
+                                            height: 40.0,
+                                            size: 40.0,
+                                            iconSize: 24.0,
+                                            gradientEndColor: Color(0xFF90969C),
+                                            iconColor: Color(0xFF90969C),
+                                            borderColor: Color(0xFF90969C),
+                                            borderWidth: 2.0,
+                                            enabled: true,
+                                            animate: false,
+                                            onTap: () async {
+                                              _model.aiOnly = true;
+                                              safeSetState(() {});
+                                            },
+                                          ),
+                                        ),
+                                      if (_model.aiOnly)
+                                        Container(
+                                          width: 40.0,
+                                          height: 40.0,
+                                          child: custom_widgets.AiFormButton(
+                                            width: 40.0,
+                                            height: 40.0,
+                                            size: 40.0,
+                                            iconSize: 24.0,
+                                            backgroundColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .primary,
+                                            gradientEndColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .tertiary,
+                                            iconColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .secondaryBackground,
+                                            borderColor:
+                                                FlutterFlowTheme.of(context)
+                                                    .primary,
+                                            borderWidth: 2.0,
+                                            enabled: true,
+                                            onTap: () async {
+                                              _model.aiOnly = false;
+                                              safeSetState(() {});
+                                            },
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ].divide(SizedBox(width: 10.0)),
