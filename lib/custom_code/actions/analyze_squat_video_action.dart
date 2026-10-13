@@ -169,6 +169,83 @@ class TuningParams {
 // ============================================================================
 
 // ============================================================================
+// [v21] PER-VARIANT CONFIG
+//
+// One analyzer, small per-variant tweaks. Everything not listed here is
+// identical across variants.
+//
+//   unrackRejection : run the v15 first-rep unrack check (bar pickup).
+//   tempoGates      : require a near-still hip at rep start (softStart) and
+//                     MIN_REP_DURATION_FRAMES. Off for bodyweight — people
+//                     move fast without load and the gates start the rep late
+//                     (depth under-read) or drop it entirely.
+//   minRepFrames    : min rep duration when tempoGates is off. 2, not 0, so a
+//                     single noisy frame can never count as a rep.
+//   depthScale      : multiplier on the side-view DEPTH_* thresholds.
+//   backViewScale   : multiplier on the back-view DEPTH_* thresholds.
+//                     Sumo: the wide stance shortens the projected thigh from
+//                     the side and keeps the torso upright from behind, so
+//                     depth under-reads a bit in both views; relax both.
+// ============================================================================
+class _SquatVariant {
+  final bool unrackRejection;
+  final bool tempoGates;
+  final int minRepFrames;
+  final double depthScale;
+  final double backViewScale;
+  const _SquatVariant({
+    required this.unrackRejection,
+    required this.tempoGates,
+    required this.minRepFrames,
+    required this.depthScale,
+    required this.backViewScale,
+  });
+
+  static const _SquatVariant back = _SquatVariant(
+    unrackRejection: true,
+    tempoGates: true,
+    minRepFrames: TuningParams.MIN_REP_DURATION_FRAMES,
+    depthScale: 1.0,
+    backViewScale: 1.0,
+  );
+  static const _SquatVariant bodyweight = _SquatVariant(
+    unrackRejection: false,
+    tempoGates: false,
+    minRepFrames: 2,
+    depthScale: 1.0,
+    backViewScale: 1.0,
+  );
+  static const _SquatVariant goblet = _SquatVariant(
+    unrackRejection: false,
+    tempoGates: true,
+    minRepFrames: TuningParams.MIN_REP_DURATION_FRAMES,
+    depthScale: 1.0,
+    backViewScale: 1.0,
+  );
+  static const _SquatVariant sumo = _SquatVariant(
+    unrackRejection: true,
+    tempoGates: true,
+    minRepFrames: TuningParams.MIN_REP_DURATION_FRAMES,
+    depthScale: 0.90,
+    backViewScale: 0.85,
+  );
+
+  static _SquatVariant of(String? name) {
+    switch ((name ?? '').trim().toLowerCase()) {
+      case 'bodyweight':
+        return bodyweight;
+      case 'goblet':
+        return goblet;
+      case 'sumo':
+        return sumo;
+      // front / zercher / smith / back / unknown → unchanged behavior
+      default:
+        return back;
+    }
+  }
+}
+
+// ============================================================================
 // Savitzky-Golay filter — zero-phase offline smoothing.
 // ============================================================================
 
@@ -770,16 +847,24 @@ double computeFrontBackViewScore(List<List<List<double>>> frames) {
 /// drop it in: { 'count', 'good', 'bad', 'scores', 'reps', 'feedbackByCat',
 /// 'rep_events' } where rep_events is a list of
 /// { 'end_frame', 'tag', 'feedback' } for telemetry patching.
+///
+/// [depthScale] multiplies the DEPTH_* scoring thresholds (1.0 = default;
+/// sumo uses < 1 because its upright torso compresses less).
 Map<String, dynamic> detectBackViewReps(
   List<List<List<double>>> frames,
   List<bool> frameRejected,
-  double fps,
-) {
+  double fps, {
+  double depthScale = 1.0,
+}) {
   const Map<String, int> FB_SEVERITY = {
     'Try to squat deeper': 3,
     'Almost there — go a bit lower': 2,
     'Looking good — just a bit more depth': 1,
   };
+
+  final double depthGood = _BackViewParams.DEPTH_GOOD * depthScale;
+  final double depthAlmost = _BackViewParams.DEPTH_ALMOST * depthScale;
+  final double depthFair = _BackViewParams.DEPTH_FAIR * depthScale;
 
   String scoreLabel(double s) {
     if (s >= 9.5) return 'Excellent';
@@ -957,13 +1042,13 @@ Map<String, dynamic> detectBackViewReps(
 
     final List<String> fb = [];
     double penalty = 0.0;
-    if (maxSig < _BackViewParams.DEPTH_FAIR) {
+    if (maxSig < depthFair) {
       fb.add('Try to squat deeper');
       penalty += 3.0;
-    } else if (maxSig < _BackViewParams.DEPTH_ALMOST) {
+    } else if (maxSig < depthAlmost) {
       fb.add('Almost there — go a bit lower');
       penalty += 2.0;
-    } else if (maxSig < _BackViewParams.DEPTH_GOOD) {
+    } else if (maxSig < depthGood) {
       fb.add('Looking good — just a bit more depth');
       penalty += 1.0;
     }
@@ -1213,9 +1298,16 @@ Map<String, dynamic> detectBackViewReps(
 ///    ascending state now also waits for the shoulders to stop rising on
 ///    screen (with a 1s safety cap). Counting, depth and scoring unchanged;
 ///    side pipeline untouched.
+///
+/// v21 changes (this file) — squat variants:
+///  - New optional [variant] argument ('back' | 'front' | 'zercher' |
+///    'smith' | 'goblet' | 'bodyweight' | 'sumo'; null = back). See
+///    _SquatVariant for the per-variant tweaks. back/front/zercher/smith are
+///    byte-for-byte the previous behavior.
 Future<dynamic> analyzeSquatVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
+  String? variant,
 ) async {
   const Map<String, int> FB_SEVERITY = {
     'Try to squat deeper': 3,
@@ -1231,6 +1323,13 @@ Future<dynamic> analyzeSquatVideoAction(
     'Try to keep your back a bit straighter': 'back',
     'Avoid knee collapse': 'knees',
   };
+
+  // [v21] Per-variant config.
+  final _SquatVariant cfg = _SquatVariant.of(variant);
+  final double DEPTH_GOOD = TuningParams.DEPTH_GOOD_THRESHOLD * cfg.depthScale;
+  final double DEPTH_ALMOST =
+      TuningParams.DEPTH_ALMOST_THRESHOLD * cfg.depthScale;
+  final double DEPTH_FAIR = TuningParams.DEPTH_FAIR_THRESHOLD * cfg.depthScale;
 
   final double fps = (targetFps ?? TuningParams.DEFAULT_FPS).clamp(2.0, 30.0);
   final double dt = 1.0 / fps;
@@ -1789,10 +1888,14 @@ Future<dynamic> analyzeSquatVideoAction(
       [0.0, -1.0],
     );
 
-    final bool softStartOk = (hipVelEma <
-            TuningParams.HIP_VEL_THRESH_PCT * TuningParams.SOFT_START_MARGIN) &&
-        (ankleVelEma <
-            TuningParams.ANKLE_VEL_THRESH_PCT * TuningParams.SOFT_START_MARGIN);
+    // [v21] Bodyweight: no tempo gate at rep start.
+    final bool softStartOk = !cfg.tempoGates ||
+        ((hipVelEma <
+                TuningParams.HIP_VEL_THRESH_PCT *
+                    TuningParams.SOFT_START_MARGIN) &&
+            (ankleVelEma <
+                TuningParams.ANKLE_VEL_THRESH_PCT *
+                    TuningParams.SOFT_START_MARGIN));
     final bool kneeGoingDown = (stage != 'down');
 
     final bool inRecovery = jumpRecoverCountdown > 0;
@@ -1892,8 +1995,8 @@ Future<dynamic> analyzeSquatVideoAction(
     if (repFinishedPosture && stage == 'down' && repFinishGateOk) {
       final int repDuration =
           (repStartFrame != null) ? (frameIdx1Based - repStartFrame!) : 0;
-      final bool durationOk =
-          repDuration >= TuningParams.MIN_REP_DURATION_FRAMES;
+      // [v21] Per-variant min duration (bodyweight: 2 frames).
+      final bool durationOk = repDuration >= cfg.minRepFrames;
 
       if (!isValidRep || !durationOk) {
         abortRep();
@@ -1914,13 +2017,13 @@ Future<dynamic> analyzeSquatVideoAction(
       double penalty = 0.0;
       final double depthPct = repMaxDepth;
 
-      if (depthPct < TuningParams.DEPTH_FAIR_THRESHOLD) {
+      if (depthPct < DEPTH_FAIR) {
         feedbacks.add('Try to squat deeper');
         penalty += TuningParams.PENALTY_DEPTH_SEVERE;
-      } else if (depthPct < TuningParams.DEPTH_ALMOST_THRESHOLD) {
+      } else if (depthPct < DEPTH_ALMOST) {
         feedbacks.add('Almost there — go a bit lower');
         penalty += TuningParams.PENALTY_DEPTH_MODERATE;
-      } else if (depthPct < TuningParams.DEPTH_GOOD_THRESHOLD) {
+      } else if (depthPct < DEPTH_GOOD) {
         feedbacks.add('Looking good — just a bit more depth');
         penalty += TuningParams.PENALTY_DEPTH_MINOR;
       }
@@ -2068,8 +2171,11 @@ Future<dynamic> analyzeSquatVideoAction(
   // order of magnitude. Requiring rep 1 to be less than 50% of the
   // median catches unrack motion confidently while leaving normal
   // warm-up reps alone.
+  //
+  // [v21] Skipped for variants without a bar pickup (bodyweight, goblet).
   // ============================================================
-  if (repReports.length >= TuningParams.UNRACK_MIN_REPS_FOR_CHECK) {
+  if (cfg.unrackRejection &&
+      repReports.length >= TuningParams.UNRACK_MIN_REPS_FOR_CHECK) {
     final double firstRepDepth =
         (repReports[0]['depth_pct'] as num?)?.toDouble() ?? 0.0;
 
@@ -2229,6 +2335,7 @@ Future<dynamic> analyzeSquatVideoAction(
         allSmoothedLandmarks,
         frameRejected,
         fps,
+        depthScale: cfg.backViewScale,
       );
       final int bvCount = bv['count'] as int;
 
@@ -2303,9 +2410,10 @@ Future<dynamic> analyzeSquatVideoAction(
           sigByFrame[m['frame'] as int] = (m['sig'] as num).toDouble();
         }
         // Map a raw signal value (0..~0.45) to a 0..1 ring fill. DEPTH_GOOD
-        // reads as a full ring; below that scales linearly.
+        // (scaled per variant) reads as a full ring; below that scales
+        // linearly.
         double sigToRing(double sig) {
-          final double full = _BackViewParams.DEPTH_GOOD;
+          final double full = _BackViewParams.DEPTH_GOOD * cfg.backViewScale;
           if (full <= 1e-6) return 0.0;
           final double r = sig / full;
           return r < 0.0 ? 0.0 : (r > 1.0 ? 1.0 : r);
@@ -2439,6 +2547,7 @@ Future<dynamic> analyzeSquatVideoAction(
     'frame_count': frameIdx,
     '_source_video_uri': fileUri,
     '_frame_telemetry': frameTelemetry,
+    'squat_variant': variant ?? 'back',
     // [v18] Back-view calibration debug (null on normal side videos).
     '_backview_debug': backViewDebug,
   };

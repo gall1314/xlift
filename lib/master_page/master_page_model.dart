@@ -53,8 +53,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
   List<WorkoutNumRow>? workoutsCopy;
   // Stores action output result for [Custom Action - callWorkoutBuilder] action in Button widget.
   dynamic result;
-  // Stores action output result for [Custom Action - analyzeSquatVideoAction] action in Button widget.
-  dynamic squat2;
   bool isDataUploading_uploadDataNme = false;
   FFUploadedFile uploadedLocalFile_uploadDataNme =
       FFUploadedFile(bytes: Uint8List.fromList([]), originalFilename: '');

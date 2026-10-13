@@ -17,9 +17,15 @@ import 'package:flutter/material.dart' hide RepeatMode;
 /// from the database), routes to the matching specialized analyzer action,
 /// and returns the result. The DB labels currently in use are:
 ///
-///   Barbell Back Squat, Bulgarian Split Squat, Push-up, Chest Dips,
-///   Pull-up, Barbell Bent-over Row, Barbell Bicep Curl, Deadlift,
-///   Romanian Deadlift, Military Press, Good Morning, Stiff-Leg Deadlift
+///   Squat (bodyweight), Barbell Back Squat, Front Squat, Goblet Squat,
+///   Sumo Squat, Zercher Squat, Smith Machine Squat, Bulgarian Split Squat,
+///   Push-up, Chest Dips, Pull-up, Barbell Bent-over Row, Barbell Bicep
+///   Curl, Deadlift, Romanian Deadlift, Military Press, Good Morning,
+///   Stiff-Leg Deadlift
+///
+/// All squat variants share the squat analyzer; the variant name is passed
+/// through so the analyzer can apply its per-variant tweaks (unrack
+/// rejection, tempo gates, depth thresholds).
 ///
 /// All of those map to a real translated action EXCEPT Barbell Bent-over
 /// Row, which is intentionally held back and returns a `not_implemented`
@@ -49,10 +55,21 @@ Future<dynamic> analyzeExerciseVideoAction(
   // Includes both the exact DB labels and common alternative spellings
   // so the dispatcher is forgiving if labels evolve.
   const Map<String, String> EXERCISE_MAP = {
-    // Squat
+    // Squat (all bilateral variants share the squat analyzer)
     'barbell squat': 'squat',
     'barbell back squat': 'squat',
+    'back squat': 'squat',
     'squat': 'squat',
+    'squat (bodyweight)': 'squat',
+    'bodyweight squat': 'squat',
+    'air squat': 'squat',
+    'front squat': 'squat',
+    'barbell front squat': 'squat',
+    'goblet squat': 'squat',
+    'sumo squat': 'squat',
+    'zercher squat': 'squat',
+    'smith machine squat': 'squat',
+    'smith squat': 'squat',
     // Deadlift
     'deadlift': 'deadlift',
     // Romanian deadlift
@@ -115,6 +132,17 @@ Future<dynamic> analyzeExerciseVideoAction(
     'regular push-up': 'pushup',
     'standard push-up': 'pushup',
   };
+
+  // Squat variant resolved from the raw name. Anything not matched = back.
+  String squatVariantOf(String raw) {
+    if (raw.contains('bodyweight') || raw.contains('air')) return 'bodyweight';
+    if (raw.contains('goblet')) return 'goblet';
+    if (raw.contains('sumo')) return 'sumo';
+    if (raw.contains('front')) return 'front';
+    if (raw.contains('zercher')) return 'zercher';
+    if (raw.contains('smith')) return 'smith';
+    return 'back';
+  }
 
   Map<String, dynamic> errorPayload(String code, String detail, String exType) {
     return {
@@ -182,7 +210,11 @@ Future<dynamic> analyzeExerciseVideoAction(
   switch (resolvedType) {
     // ===== TRANSLATED & EXPOSED =====
     case 'squat':
-      return await analyzeSquatVideoAction(videoFile, effectiveFps);
+      return await analyzeSquatVideoAction(
+        videoFile,
+        effectiveFps,
+        squatVariantOf(rawType),
+      );
 
     case 'pushup':
       return await analyzePushupVideoAction(videoFile, effectiveFps);

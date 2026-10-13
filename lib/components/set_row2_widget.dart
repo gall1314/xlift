@@ -871,6 +871,8 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                                     Directionality.of(context)),
                                             child: CameraAnalyzerWidget(
                                               exerciseId: widget.exerciseId!,
+                                              exerciseName:
+                                                  widget.exerciseName!,
                                               analyze: (video) async {
                                                 _model.videoUrl = video;
                                                 safeSetState(() {});

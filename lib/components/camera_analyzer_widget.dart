@@ -9,10 +9,12 @@ class CameraAnalyzerWidget extends StatefulWidget {
     super.key,
     required this.exerciseId,
     required this.analyze,
+    required this.exerciseName,
   });
 
   final int? exerciseId;
   final Future Function(FFUploadedFile video)? analyze;
+  final String? exerciseName;
 
   @override
   State<CameraAnalyzerWidget> createState() => _CameraAnalyzerWidgetState();
@@ -48,6 +50,8 @@ class _CameraAnalyzerWidgetState extends State<CameraAnalyzerWidget> {
       child: custom_widgets.XliftCameraRecorder(
         width: MediaQuery.sizeOf(context).width * 1.0,
         height: MediaQuery.sizeOf(context).height * 1.0,
+        exerciseName: widget.exerciseName,
+        showGuidance: true,
         onVideoRecorded: (videoFile) async {
           await widget.analyze?.call(
             videoFile,
@@ -57,6 +61,7 @@ class _CameraAnalyzerWidgetState extends State<CameraAnalyzerWidget> {
         onClose: () async {
           Navigator.pop(context);
         },
+        onDontShowAgain: () async {},
       ),
     );
   }

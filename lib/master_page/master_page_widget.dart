@@ -2,7 +2,6 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
 import '/components/bottom_sheet_no_free_templates_widget.dart';
-import '/components/camera_analyzer_widget.dart';
 import '/components/choose_exercise2_analyze_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
 import '/components/discard_and_start_new_widget.dart';
@@ -2988,97 +2987,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                             8.0),
                                                                   ),
                                                                 ),
-                                                                Builder(
-                                                                  builder:
-                                                                      (context) =>
-                                                                          FFButtonWidget(
-                                                                    onPressed:
-                                                                        () async {
-                                                                      await showDialog(
-                                                                        context:
-                                                                            context,
-                                                                        builder:
-                                                                            (dialogContext) {
-                                                                          return Dialog(
-                                                                            elevation:
-                                                                                0,
-                                                                            insetPadding:
-                                                                                EdgeInsets.zero,
-                                                                            backgroundColor:
-                                                                                Colors.transparent,
-                                                                            alignment:
-                                                                                AlignmentDirectional(0.0, 0.0).resolve(Directionality.of(context)),
-                                                                            child:
-                                                                                GestureDetector(
-                                                                              onTap: () {
-                                                                                FocusScope.of(dialogContext).unfocus();
-                                                                                FocusManager.instance.primaryFocus?.unfocus();
-                                                                              },
-                                                                              child: CameraAnalyzerWidget(
-                                                                                exerciseId: 1,
-                                                                                analyze: (video) async {
-                                                                                  _model.squat2 = await actions.analyzeSquatVideoAction(
-                                                                                    video,
-                                                                                    10.0,
-                                                                                  );
-                                                                                },
-                                                                              ),
-                                                                            ),
-                                                                          );
-                                                                        },
-                                                                      );
-
-                                                                      safeSetState(
-                                                                          () {});
-                                                                    },
-                                                                    text: FFLocalizations.of(
-                                                                            context)
-                                                                        .getText(
-                                                                      '0tiwmwy3' /* custom */,
-                                                                    ),
-                                                                    options:
-                                                                        FFButtonOptions(
-                                                                      height:
-                                                                          40.0,
-                                                                      padding: EdgeInsetsDirectional.fromSTEB(
-                                                                          16.0,
-                                                                          0.0,
-                                                                          16.0,
-                                                                          0.0),
-                                                                      iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0,
-                                                                          0.0),
-                                                                      color: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .primary,
-                                                                      textStyle: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleSmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.interTight(
-                                                                              fontWeight: FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                Colors.white,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                      elevation:
-                                                                          0.0,
-                                                                      borderRadius:
-                                                                          BorderRadius.circular(
-                                                                              8.0),
-                                                                    ),
-                                                                  ),
-                                                                ),
                                                                 FFButtonWidget(
                                                                   onPressed:
                                                                       () async {
@@ -4614,6 +4522,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                       _model
                                                                           .uploadedLocalFile_uploadData,
                                                                       15.0,
+                                                                      'back squat',
                                                                     );
 
                                                                     context

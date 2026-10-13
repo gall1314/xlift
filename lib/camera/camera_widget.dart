@@ -59,6 +59,7 @@ class _CameraWidgetState extends State<CameraWidget> {
                 height: MediaQuery.sizeOf(context).height * 1.0,
                 onVideoRecorded: (videoFile) async {},
                 onClose: () async {},
+                onDontShowAgain: () async {},
               ),
             ),
           ],

@@ -2282,10 +2282,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'AI',
       'es': '',
     },
-    '0tiwmwy3': {
-      'en': 'custom',
-      'es': '',
-    },
     'c5eotijq': {
       'en': 'deadBarbell',
       'es': '',

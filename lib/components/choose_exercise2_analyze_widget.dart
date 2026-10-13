@@ -248,6 +248,7 @@ class _ChooseExercise2AnalyzeWidgetState
                                                     Directionality.of(context)),
                                         child: CameraAnalyzerWidget(
                                           exerciseId: aiExItem.id,
+                                          exerciseName: aiExItem.name,
                                           analyze: (video) async {
                                             context.pushNamed(
                                               FullAnalyzingStatePageWidget
