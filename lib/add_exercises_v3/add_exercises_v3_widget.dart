@@ -645,10 +645,6 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                         ),
                                       ),
                                     ),
-                                  Column(
-                                    mainAxisSize: MainAxisSize.max,
-                                    children: [],
-                                  ),
                                   Stack(
                                     children: [
                                       if (!_model.aiOnly)

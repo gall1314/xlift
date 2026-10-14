@@ -30,6 +30,14 @@ import 'package:video_player/video_player.dart';
 /// pill + that rep's feedback (if any). - Fullscreen button: opens a black
 /// full-screen route on the SAME controller (no reload), X to close.
 ///
+/// v2.1: ONE verdict per rep, taken from the telemetry pulse
+/// (rep_just_finished), which is what the analyzers count as good_reps /
+/// bad_reps. result.reps[i].good is only a fallback when the pulse has no tag
+/// (analyzers also store a stricter score-based flag there, which used to
+/// make the pill disagree with the summary and the skeleton flash). Rep
+/// segments end AFTER the lockout flash, so the flash of rep i is shown while
+/// the pill still says rep i.
+///
 /// Parameter names are compatible with the old widget so it can be swapped in
 /// place. New: autoplay, goodColor, badColor, accentColor.
 class AnalyzedVideoPlayerV2 extends StatefulWidget {
@@ -81,6 +89,10 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
 
   List<_FrameData> _telemetry = [];
   List<_RepSegment> _segments = [];
+  // Telemetry index of each lockout pulse, in rep order, and the single
+  // verdict per rep that every visual / audio cue uses.
+  List<int> _lockoutIdx = [];
+  List<bool> _lockoutGood = [];
   int _totalReps = 0;
   double _durationSec = 0;
 
@@ -197,10 +209,36 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
     return s.isEmpty ? null : s;
   }
 
-  /// One segment per rep: [previous lockout, this lockout]. Verdict from
-  /// result.reps[i].good when present (bool), else rep_just_finished of the
-  /// lockout frame. Feedback from result.reps[i].feedback, else the lockout
-  /// frame's feedback.
+  /// How long the lockout flash of telemetry frame [flashIdx] is held.
+  /// flash_duration_sec when stamped, else half the gap to the next pulse.
+  double _holdOf(int flashIdx) {
+    final f = _telemetry[flashIdx];
+    double d = f.flashDurationSec;
+    if (d <= 0) {
+      double nextPulseT = double.infinity;
+      for (int i = flashIdx + 1; i < _telemetry.length; i++) {
+        if (_telemetry[i].repJustFinished != null) {
+          nextPulseT = _telemetry[i].t;
+          break;
+        }
+      }
+      final double gap = nextPulseT - f.t;
+      d = gap.isInfinite ? 0.6 : (gap * 0.5).clamp(0.25, 0.6);
+    }
+    return d;
+  }
+
+  /// Verdict of the rep whose lockout pulse is telemetry frame [flashIdx].
+  bool _verdictOfPulse(int flashIdx) {
+    final int ord = _lockoutIdx.indexOf(flashIdx);
+    if (ord >= 0 && ord < _lockoutGood.length) return _lockoutGood[ord];
+    return _telemetry[flashIdx].repJustFinished != 'bad';
+  }
+
+  /// One segment per rep: [end of previous flash, lockout + flash hold].
+  /// Verdict: the telemetry pulse tag ('good' / 'bad'); result.reps[i].good
+  /// only when the tag is something else. Feedback from
+  /// result.reps[i].feedback, else the lockout frame's feedback.
   void _buildSegments(Map result) {
     final List<int> lockoutIdx = [];
     for (int i = 0; i < _telemetry.length; i++) {
@@ -210,24 +248,37 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
     final bool useReps = repsList.length == lockoutIdx.length;
 
     final segs = <_RepSegment>[];
+    final goods = <bool>[];
     double prev = 0.0;
     for (int i = 0; i < lockoutIdx.length; i++) {
       final f = _telemetry[lockoutIdx[i]];
-      bool good = f.repJustFinished == 'good';
+      final String tag = (f.repJustFinished ?? '').toLowerCase();
+      bool good = tag != 'bad';
       String? fb;
       if (useReps && repsList[i] is Map) {
         final m = repsList[i] as Map;
-        final g = m['good'];
-        if (g is bool) good = g;
+        if (tag != 'good' && tag != 'bad') {
+          final g = m['good'];
+          if (g is bool) good = g;
+        }
         fb = _feedbackStr(m['feedback']) ?? _feedbackStr(m['f']);
       }
       fb ??= _feedbackStr(f.feedback);
-      segs.add(_RepSegment(prev, f.t, good, i + 1, fb));
-      prev = f.t;
+
+      // The segment ends after the flash, so the flash belongs to this rep.
+      double end = f.t + _holdOf(lockoutIdx[i]);
+      if (_durationSec > 0) end = math.min(end, _durationSec);
+      if (end <= prev) end = prev + 0.01;
+
+      segs.add(_RepSegment(prev, end, good, i + 1, fb));
+      goods.add(good);
+      prev = end;
     }
     final double end = _durationSec > 0 ? _durationSec : prev;
     if (end > prev + 0.05) segs.add(_RepSegment(prev, end, null, 0));
     _segments = segs;
+    _lockoutIdx = lockoutIdx;
+    _lockoutGood = goods;
     _totalReps = lockoutIdx.length;
   }
 
@@ -273,7 +324,7 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
       _audioFiredFor.add(i);
       final now = DateTime.now();
       final canHaptic = now.difference(_lastHapticAt).inMilliseconds >= 80;
-      if (f.repJustFinished == 'good') {
+      if (_verdictOfPulse(i)) {
         if (canHaptic) {
           _lastHapticAt = now;
           HapticFeedback.mediumImpact();
@@ -465,21 +516,10 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
       }
     }
     if (flashFrame == null) return null;
-    double durationSec = flashFrame.flashDurationSec;
-    if (durationSec <= 0) {
-      double nextPulseT = double.infinity;
-      for (int i = flashIdx + 1; i < tele.length; i++) {
-        if (tele[i].repJustFinished != null) {
-          nextPulseT = tele[i].t;
-          break;
-        }
-      }
-      final double gap = nextPulseT - flashFrame.t;
-      durationSec = gap.isInfinite ? 0.6 : (gap * 0.5).clamp(0.25, 0.6);
-    }
+    final double durationSec = _holdOf(flashIdx);
     final double age = tSec - flashFrame.t;
     if (age < 0 || age > durationSec) return null;
-    final bool good = flashFrame.repJustFinished == 'good';
+    final bool good = _verdictOfPulse(flashIdx);
     return (
       color: good ? _good : _bad,
       intensity: 1.0 - (age / durationSec),
@@ -954,7 +994,7 @@ class _FrameData {
       metricValue: mv,
       metricLabel: (m['metric_label'] as String?) ?? 'DEPTH',
       feedback: m['feedback'] as String?,
-      repJustFinished: m['rep_just_finished'] as String?,
+      repJustFinished: m['rep_just_finished']?.toString(),
       landmarks: lm,
       flashDurationSec: (m['flash_duration_sec'] as num?)?.toDouble() ?? 0.0,
       poseReliable: (m['pose_reliable'] as bool?) ?? true,

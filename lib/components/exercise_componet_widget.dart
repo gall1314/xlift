@@ -226,29 +226,33 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     ),
                                   ),
                                 ),
-                              InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
-                                  await widget.selectRest?.call();
-                                },
-                                child: Container(
-                                  width: 150.0,
-                                  height: 40.0,
-                                  child: custom_widgets.RestTimeButton(
+                              if (!functions.isExerciseComplete(
+                                  FFAppState().completedExercises.toList(),
+                                  widget.exerciseId!))
+                                InkWell(
+                                  splashColor: Colors.transparent,
+                                  focusColor: Colors.transparent,
+                                  hoverColor: Colors.transparent,
+                                  highlightColor: Colors.transparent,
+                                  onTap: () async {
+                                    await widget.selectRest?.call();
+                                  },
+                                  child: Container(
                                     width: 150.0,
                                     height: 40.0,
-                                    exerciseId: widget.exerciseId!,
-                                    textColor:
-                                        FlutterFlowTheme.of(context).primary,
-                                    fontSize: 14.0,
-                                    exerciseRestTimes: FFAppState().restTimers,
-                                    onTap: () async {},
+                                    child: custom_widgets.RestTimeButton(
+                                      width: 150.0,
+                                      height: 40.0,
+                                      exerciseId: widget.exerciseId!,
+                                      textColor:
+                                          FlutterFlowTheme.of(context).primary,
+                                      fontSize: 14.0,
+                                      exerciseRestTimes:
+                                          FFAppState().restTimers,
+                                      onTap: () async {},
+                                    ),
                                   ),
                                 ),
-                              ),
                             ].divide(SizedBox(height: 6.0)),
                           ),
                         ],

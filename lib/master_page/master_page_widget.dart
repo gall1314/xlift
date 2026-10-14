@@ -1886,7 +1886,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               0.0,
                                                                               0.0),
                                                                           color:
-                                                                              FlutterFlowTheme.of(context).secondary,
+                                                                              FlutterFlowTheme.of(context).primary,
                                                                           textStyle: FlutterFlowTheme.of(context)
                                                                               .titleMedium
                                                                               .override(

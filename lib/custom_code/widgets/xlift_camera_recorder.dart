@@ -15,31 +15,18 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // ============================================================================
 // XliftCameraRecorder  —  FlutterFlow Custom Widget
 // ----------------------------------------------------------------------------
-// A self-contained analyzer camera:
-//   1. Optional briefing panel on start (HUD style): an animated setup
-//      diagram with a stick figure performing the chosen exercise, plus four
-//      tips tuned per exercise. "Got it" dismisses it; "Don't show this
-//      again" dismisses it and fires onDontShowAgain.
-//   2. Records at 1080p with no audio — exactly the quality the analysis
-//      pipeline expects (FRAME_MAX_WIDTH = 1080).
-//   3. Returns an FFUploadedFile via onVideoRecorded (recorded or picked from
-//      the gallery).
+// v7 — Calm redesign (built on the v5 camera logic, which is unchanged):
+//   * Clean camera: thin rule-of-thirds grid + large corner frame, one hint
+//     line, native-style controls. No scan line, glow or ghost figure.
+//   * Setup tips are a centered card with a small animated figure of the
+//     actual exercise (20 supported exercises, matched by name).
+//   * Full bleed: the widget paints over the whole screen egven if the host
+//     page keeps its safe area.
+//   * Gallery button, ".5x | 1x" lens pill, REC timer.
 //
-// v2 — Camera-permission overlay with Open Settings / Not now.
-// v3 — Screen wakelock while the camera is open.
-// v4 — Gallery upload button next to the record button.
-// v5 — Lifecycle like the native Camera app (see _onBackgrounded/_onResumed).
-//
-// v6 — HUD redesign:
-//   * exerciseName picks the stick-figure animation and the tip wording.
-//   * showGuidance decides whether the briefing appears at all.
-//   * onDontShowAgain callback.
-//   * Full-bleed: the widget measures where it sits on screen and paints
-//     itself across the WHOLE screen, even when its host applies a Safe
-//     Area. (If an ancestor clips its children, e.g. a rounded bottom sheet,
-//     the clip still wins.) Controls are placed using the real device
-//     insets, so nothing sits under the notch or the home indicator.
-//   * Lens pill (.5x / 1x), gallery button, REC timer, recording glow.
+// Camera behaviour kept from v2-v5: permission overlay, wakelock, gallery
+// upload, native-camera-like lifecycle (inactive = ignore, paused = stop and
+// keep the clip, deliver on resume), hidden status bar, guarded stop.
 //
 // ----------------------------------------------------------------------------
 // FlutterFlow setup
@@ -56,8 +43,8 @@ import 'package:flutter/material.dart' hide RepeatMode;
 //
 // 3) Custom Widget parameters:
 //        width / height   : double (set both to Infinite)
-//        exerciseName     : String  (e.g. "Barbell Back Squat")
-//        showGuidance     : bool    (false = skip the briefing)
+//        exerciseName     : String  (optional) picks the animation + tips
+//        showGuidance     : Boolean (optional, default true) show tips first
 //        onVideoRecorded  : Action with Callback Parameter
 //                           name = videoFile, type = Uploaded File
 //        onClose          : Action (no parameters)
@@ -66,11 +53,9 @@ import 'package:flutter/material.dart' hide RepeatMode;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 import 'dart:ui' as ui; // Flutter's TextDirection (avoids the intl collision)
 import 'package:camera/camera.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -90,10 +75,10 @@ class XliftCameraRecorder extends StatefulWidget {
   final double? width;
   final double? height;
 
-  /// Exercise being recorded. Picks the animation and the tip wording.
+  /// Exercise name, used for the title, the animation and the tips.
   final String? exerciseName;
 
-  /// Whether to show the briefing panel on start. Defaults to true.
+  /// Show the setup tips when the camera opens. Default true.
   final bool? showGuidance;
 
   /// Called with the recorded (or picked) file.
@@ -102,7 +87,7 @@ class XliftCameraRecorder extends StatefulWidget {
   /// Called when the user taps the camera's close (X) button.
   final Future Function()? onClose;
 
-  /// Called when the user taps "Don't show this again" on the briefing.
+  /// Called when the user taps "Don't show this again" on the tips card.
   final Future Function()? onDontShowAgain;
 
   @override
@@ -110,51 +95,40 @@ class XliftCameraRecorder extends StatefulWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Palette
+// Design tokens
 // ---------------------------------------------------------------------------
 
-const Color _kTeal = Color(0xFF2CE6C8);
-const Color _kBg = Color(0xFF060B0C);
-const Color _kPanel = Color(0xF0091112);
+const Color _kTeal = Color(0xFF14B8A6);
 const Color _kRed = Color(0xFFF0453F);
-const Color _kMuted = Color(0xFFB8C7C5);
-const Color _kTealInk = Color(0xFF06211D);
-
-TextStyle _mono(double size, FontWeight w, Color c, {double ls = 0}) {
-  return GoogleFonts.jetBrainsMono(
-    fontSize: size,
-    fontWeight: w,
-    color: c,
-    letterSpacing: ls,
-    decoration: TextDecoration.none,
-  );
-}
+const Color _kCard = Color(0xFF181B1E);
 
 // ---------------------------------------------------------------------------
-// Exercises: which animation + which tips
+// Exercise animations (side view, figure faces right, unit square, y down)
 // ---------------------------------------------------------------------------
 
 enum _Ex {
-  squat,
+  bodySquat,
+  backSquat,
+  frontSquat,
+  gobletSquat,
+  sumoSquat,
+  zercherSquat,
   bulgarian,
   pushup,
+  inclinePushup,
   dips,
   pullup,
   curl,
   deadlift,
   rdl,
-  stiffLeg,
-  press,
   goodMorning,
-  generic,
+  press,
 }
 
 _Ex _exOf(String? name) {
   final String n = (name ?? '').toLowerCase();
-  if (n.contains('bulgarian') || n.contains('split squat')) {
-    return _Ex.bulgarian;
-  }
-  if (n.contains('squat')) return _Ex.squat;
+  if (n.contains('bulgarian')) return _Ex.bulgarian;
+  if (n.contains('incline') && n.contains('push')) return _Ex.inclinePushup;
   if (n.contains('push-up') || n.contains('push up') || n.contains('pushup')) {
     return _Ex.pushup;
   }
@@ -166,355 +140,326 @@ _Ex _exOf(String? name) {
     return _Ex.pullup;
   }
   if (n.contains('curl')) return _Ex.curl;
-  if (n.contains('romanian') || n.contains('rdl')) return _Ex.rdl;
-  if (n.contains('stiff')) return _Ex.stiffLeg;
-  if (n.contains('deadlift')) return _Ex.deadlift;
+  if (n.contains('romanian') || n.contains('stiff') || n.contains('rdl')) {
+    return _Ex.rdl;
+  }
   if (n.contains('good morning')) return _Ex.goodMorning;
-  if (n.contains('press')) return _Ex.press;
-  return _Ex.generic;
+  if (n.contains('deadlift')) return _Ex.deadlift; // incl. sumo, trap bar
+  if (n.contains('military') ||
+      n.contains('overhead press') ||
+      n.contains('shoulder press')) {
+    return _Ex.press;
+  }
+  if (n.contains('front squat')) return _Ex.frontSquat;
+  if (n.contains('goblet')) return _Ex.gobletSquat;
+  if (n.contains('zercher')) return _Ex.zercherSquat;
+  if (n.contains('sumo')) return _Ex.sumoSquat;
+  if (n.contains('back squat') || n.contains('smith')) return _Ex.backSquat;
+  return _Ex.bodySquat;
 }
 
-enum _Prop { none, pullBar, dipBars, bench }
+enum _Prop { none, barWrist, barBack, barFront, barElbow, weightWrist }
 
-/// A side-on stick figure in a unit box (x right, y down), facing right.
+enum _Fixture { none, pullBar, dipBars, bench, box }
+
 class _Pose {
   const _Pose({
     required this.head,
     required this.sh,
+    required this.elbow,
+    required this.wrist,
     required this.hip,
     required this.knee,
     required this.ankle,
     required this.toe,
-    required this.elbow,
-    required this.wrist,
     this.knee2,
     this.ankle2,
   });
 
-  final Offset head, sh, hip, knee, ankle, toe, elbow, wrist;
-  final Offset? knee2, ankle2; // rear leg (Bulgarian split squat)
+  final Offset head, sh, elbow, wrist, hip, knee, ankle, toe;
+  final Offset? knee2, ankle2; // rear leg (only when it is visible)
 
-  static _Pose lerp(_Pose a, _Pose b, double t) {
-    return _Pose(
-      head: Offset.lerp(a.head, b.head, t)!,
-      sh: Offset.lerp(a.sh, b.sh, t)!,
-      hip: Offset.lerp(a.hip, b.hip, t)!,
-      knee: Offset.lerp(a.knee, b.knee, t)!,
-      ankle: Offset.lerp(a.ankle, b.ankle, t)!,
-      toe: Offset.lerp(a.toe, b.toe, t)!,
-      elbow: Offset.lerp(a.elbow, b.elbow, t)!,
-      wrist: Offset.lerp(a.wrist, b.wrist, t)!,
-      knee2: (a.knee2 == null || b.knee2 == null)
-          ? null
-          : Offset.lerp(a.knee2, b.knee2, t),
-      ankle2: (a.ankle2 == null || b.ankle2 == null)
-          ? null
-          : Offset.lerp(a.ankle2, b.ankle2, t),
-    );
-  }
+  static Offset _l(Offset a, Offset b, double t) =>
+      Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
+
+  static _Pose lerp(_Pose a, _Pose b, double t) => _Pose(
+        head: _l(a.head, b.head, t),
+        sh: _l(a.sh, b.sh, t),
+        elbow: _l(a.elbow, b.elbow, t),
+        wrist: _l(a.wrist, b.wrist, t),
+        hip: _l(a.hip, b.hip, t),
+        knee: _l(a.knee, b.knee, t),
+        ankle: _l(a.ankle, b.ankle, t),
+        toe: _l(a.toe, b.toe, t),
+        knee2: (a.knee2 != null && b.knee2 != null)
+            ? _l(a.knee2!, b.knee2!, t)
+            : null,
+        ankle2: (a.ankle2 != null && b.ankle2 != null)
+            ? _l(a.ankle2!, b.ankle2!, t)
+            : null,
+      );
 }
 
 class _ExAnim {
-  const _ExAnim({
-    required this.a,
-    required this.b,
-    this.plate = false,
-    this.prop = _Prop.none,
-  });
-
-  final _Pose a; // start position
-  final _Pose b; // end position
-  final bool plate; // draw a barbell plate at the wrist
+  const _ExAnim(this.a, this.b,
+      {this.prop = _Prop.none, this.fixture = _Fixture.none});
+  final _Pose a, b;
   final _Prop prop;
+  final _Fixture fixture;
 }
 
-// Standing reference used by several exercises.
-const _Pose _standBarAtHips = _Pose(
-  head: Offset(0.50, 0.225),
-  sh: Offset(0.50, 0.33),
-  hip: Offset(0.50, 0.56),
-  knee: Offset(0.50, 0.75),
-  ankle: Offset(0.50, 0.94),
-  toe: Offset(0.58, 0.95),
-  elbow: Offset(0.50, 0.46),
-  wrist: Offset(0.51, 0.58),
-);
+// Body "cores": head, shoulder, hip, knee, ankle, toe as x,y pairs.
+const List<double> _cStand = [
+  0.50, 0.15, 0.50, 0.27, 0.49, 0.55, 0.50, 0.75, 0.49, 0.93, 0.57, 0.94 //
+];
+const List<double> _cSquat = [
+  0.55, 0.36, 0.51, 0.47, 0.39, 0.72, 0.58, 0.74, 0.50, 0.93, 0.58, 0.94 //
+];
+const List<double> _cHinge = [
+  0.70, 0.42, 0.62, 0.46, 0.42, 0.56, 0.48, 0.75, 0.49, 0.93, 0.57, 0.94 //
+];
+const List<double> _cDeadlift = [
+  0.66, 0.43, 0.60, 0.53, 0.40, 0.66, 0.54, 0.77, 0.49, 0.93, 0.57, 0.94 //
+];
 
-const _Pose _standBarOnBack = _Pose(
-  head: Offset(0.50, 0.225),
-  sh: Offset(0.50, 0.33),
-  hip: Offset(0.50, 0.56),
-  knee: Offset(0.50, 0.75),
-  ankle: Offset(0.50, 0.94),
-  toe: Offset(0.58, 0.95),
-  elbow: Offset(0.46, 0.44),
-  wrist: Offset(0.47, 0.33),
-);
+/// Builds a pose from a core plus arm offsets relative to the shoulder.
+_Pose _mk(List<double> c, Offset eOff, Offset wOff) {
+  final Offset sh = Offset(c[2], c[3]);
+  return _Pose(
+    head: Offset(c[0], c[1]),
+    sh: sh,
+    elbow: sh + eOff,
+    wrist: sh + wOff,
+    hip: Offset(c[4], c[5]),
+    knee: Offset(c[6], c[7]),
+    ankle: Offset(c[8], c[9]),
+    toe: Offset(c[10], c[11]),
+  );
+}
 
-_ExAnim _animOf(_Ex e) {
-  switch (e) {
-    case _Ex.squat:
-      return const _ExAnim(
-        plate: true,
-        a: _standBarOnBack,
-        b: _Pose(
-          head: Offset(0.56, 0.47),
-          sh: Offset(0.52, 0.57),
-          hip: Offset(0.39, 0.76),
-          knee: Offset(0.58, 0.77),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.47, 0.66),
-          wrist: Offset(0.50, 0.56),
-        ),
+_ExAnim _squatAnim(
+        Offset eTop, Offset wTop, Offset eBot, Offset wBot, _Prop prop) =>
+    _ExAnim(_mk(_cStand, eTop, wTop), _mk(_cSquat, eBot, wBot), prop: prop);
+
+_ExAnim _animOf(_Ex ex) {
+  switch (ex) {
+    case _Ex.bodySquat:
+      return _squatAnim(const Offset(0.02, 0.13), const Offset(0.05, 0.25),
+          const Offset(0.10, 0.03), const Offset(0.21, 0.00), _Prop.none);
+    case _Ex.backSquat:
+      return _squatAnim(const Offset(-0.04, 0.10), const Offset(-0.03, 0.01),
+          const Offset(-0.04, 0.10), const Offset(-0.03, 0.01), _Prop.barBack);
+    case _Ex.frontSquat:
+      return _squatAnim(const Offset(0.08, 0.03), const Offset(0.03, -0.02),
+          const Offset(0.08, 0.03), const Offset(0.03, -0.02), _Prop.barFront);
+    case _Ex.gobletSquat:
+      return _squatAnim(
+          const Offset(0.03, 0.13),
+          const Offset(0.05, 0.04),
+          const Offset(0.03, 0.13),
+          const Offset(0.05, 0.04),
+          _Prop.weightWrist);
+    case _Ex.sumoSquat:
+      return _squatAnim(
+          const Offset(0.01, 0.14),
+          const Offset(0.02, 0.27),
+          const Offset(0.01, 0.14),
+          const Offset(0.02, 0.27),
+          _Prop.weightWrist);
+    case _Ex.zercherSquat:
+      return _squatAnim(const Offset(0.05, 0.15), const Offset(0.07, 0.06),
+          const Offset(0.05, 0.15), const Offset(0.07, 0.06), _Prop.barElbow);
+    case _Ex.deadlift:
+      return _ExAnim(
+        _mk(_cStand, const Offset(0.01, 0.15), const Offset(0.02, 0.29)),
+        _mk(_cDeadlift, const Offset(-0.01, 0.15), const Offset(-0.02, 0.30)),
+        prop: _Prop.barWrist,
       );
-    case _Ex.bulgarian:
-      return const _ExAnim(
-        prop: _Prop.bench,
-        a: _Pose(
-          head: Offset(0.50, 0.235),
-          sh: Offset(0.50, 0.34),
-          hip: Offset(0.50, 0.57),
-          knee: Offset(0.60, 0.75),
-          ankle: Offset(0.60, 0.94),
-          toe: Offset(0.68, 0.95),
-          elbow: Offset(0.50, 0.47),
-          wrist: Offset(0.51, 0.59),
-          knee2: Offset(0.38, 0.76),
-          ankle2: Offset(0.24, 0.72),
-        ),
-        b: _Pose(
-          head: Offset(0.48, 0.375),
-          sh: Offset(0.47, 0.48),
-          hip: Offset(0.45, 0.71),
-          knee: Offset(0.62, 0.75),
-          ankle: Offset(0.60, 0.94),
-          toe: Offset(0.68, 0.95),
-          elbow: Offset(0.47, 0.61),
-          wrist: Offset(0.48, 0.73),
-          knee2: Offset(0.36, 0.88),
-          ankle2: Offset(0.24, 0.72),
-        ),
+    case _Ex.rdl:
+      return _ExAnim(
+        _mk(_cStand, const Offset(0.01, 0.15), const Offset(0.02, 0.29)),
+        _mk(_cHinge, const Offset(-0.01, 0.14), const Offset(-0.02, 0.28)),
+        prop: _Prop.barWrist,
       );
-    case _Ex.pushup:
-      return const _ExAnim(
-        a: _Pose(
-          head: Offset(0.82, 0.62),
-          sh: Offset(0.72, 0.66),
-          hip: Offset(0.50, 0.75),
-          knee: Offset(0.33, 0.82),
-          ankle: Offset(0.15, 0.88),
-          toe: Offset(0.13, 0.94),
-          elbow: Offset(0.72, 0.80),
-          wrist: Offset(0.72, 0.94),
-        ),
-        b: _Pose(
-          head: Offset(0.82, 0.80),
-          sh: Offset(0.72, 0.83),
-          hip: Offset(0.50, 0.84),
-          knee: Offset(0.33, 0.87),
-          ankle: Offset(0.15, 0.89),
-          toe: Offset(0.13, 0.94),
-          elbow: Offset(0.62, 0.78),
-          wrist: Offset(0.72, 0.94),
-        ),
+    case _Ex.goodMorning:
+      return _ExAnim(
+        _mk(_cStand, const Offset(-0.04, 0.10), const Offset(-0.03, 0.01)),
+        _mk(_cHinge, const Offset(-0.04, 0.10), const Offset(-0.03, 0.01)),
+        prop: _Prop.barBack,
       );
-    case _Ex.dips:
-      return const _ExAnim(
-        prop: _Prop.dipBars,
-        a: _Pose(
-          head: Offset(0.50, 0.215),
-          sh: Offset(0.50, 0.32),
-          hip: Offset(0.50, 0.55),
-          knee: Offset(0.50, 0.74),
-          ankle: Offset(0.38, 0.82),
-          toe: Offset(0.34, 0.80),
-          elbow: Offset(0.50, 0.44),
-          wrist: Offset(0.50, 0.56),
-        ),
-        b: _Pose(
-          head: Offset(0.57, 0.37),
-          sh: Offset(0.54, 0.47),
-          hip: Offset(0.48, 0.69),
-          knee: Offset(0.50, 0.87),
-          ankle: Offset(0.38, 0.93),
-          toe: Offset(0.34, 0.91),
-          elbow: Offset(0.42, 0.45),
-          wrist: Offset(0.50, 0.56),
-        ),
+    case _Ex.curl:
+      return _ExAnim(
+        _mk(_cStand, const Offset(0.00, 0.14), const Offset(0.03, 0.28)),
+        _mk(_cStand, const Offset(0.01, 0.14), const Offset(0.08, 0.03)),
+        prop: _Prop.barWrist,
+      );
+    case _Ex.press:
+      return _ExAnim(
+        _mk(_cStand, const Offset(0.05, 0.11), const Offset(0.04, -0.01)),
+        _mk(_cStand, const Offset(0.02, -0.13), const Offset(0.01, -0.25)),
+        prop: _Prop.barWrist,
       );
     case _Ex.pullup:
       return const _ExAnim(
-        prop: _Prop.pullBar,
-        a: _Pose(
-          head: Offset(0.53, 0.26),
-          sh: Offset(0.50, 0.35),
-          hip: Offset(0.50, 0.58),
-          knee: Offset(0.51, 0.76),
-          ankle: Offset(0.46, 0.93),
-          toe: Offset(0.50, 0.96),
-          elbow: Offset(0.50, 0.23),
-          wrist: Offset(0.50, 0.11),
+        _Pose(
+          head: Offset(0.51, 0.32),
+          sh: Offset(0.50, 0.43),
+          elbow: Offset(0.50, 0.30),
+          wrist: Offset(0.50, 0.17),
+          hip: Offset(0.50, 0.68),
+          knee: Offset(0.52, 0.82),
+          ankle: Offset(0.42, 0.90),
+          toe: Offset(0.40, 0.95),
         ),
-        b: _Pose(
-          head: Offset(0.54, 0.07),
-          sh: Offset(0.50, 0.17),
-          hip: Offset(0.49, 0.40),
-          knee: Offset(0.51, 0.58),
-          ankle: Offset(0.46, 0.75),
-          toe: Offset(0.50, 0.78),
-          elbow: Offset(0.46, 0.28),
-          wrist: Offset(0.50, 0.11),
+        _Pose(
+          head: Offset(0.46, 0.12),
+          sh: Offset(0.48, 0.25),
+          elbow: Offset(0.53, 0.36),
+          wrist: Offset(0.50, 0.17),
+          hip: Offset(0.49, 0.50),
+          knee: Offset(0.51, 0.64),
+          ankle: Offset(0.41, 0.72),
+          toe: Offset(0.39, 0.77),
         ),
+        fixture: _Fixture.pullBar,
       );
-    case _Ex.curl:
+    case _Ex.dips:
       return const _ExAnim(
-        plate: true,
-        a: _standBarAtHips,
-        b: _Pose(
-          head: Offset(0.50, 0.225),
-          sh: Offset(0.50, 0.33),
-          hip: Offset(0.50, 0.56),
-          knee: Offset(0.50, 0.75),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.50, 0.46),
-          wrist: Offset(0.58, 0.37),
+        _Pose(
+          head: Offset(0.52, 0.13),
+          sh: Offset(0.50, 0.25),
+          elbow: Offset(0.50, 0.38),
+          wrist: Offset(0.50, 0.50),
+          hip: Offset(0.48, 0.52),
+          knee: Offset(0.50, 0.70),
+          ankle: Offset(0.40, 0.78),
+          toe: Offset(0.38, 0.83),
         ),
+        _Pose(
+          head: Offset(0.60, 0.30),
+          sh: Offset(0.55, 0.41),
+          elbow: Offset(0.42, 0.38),
+          wrist: Offset(0.50, 0.50),
+          hip: Offset(0.48, 0.66),
+          knee: Offset(0.50, 0.82),
+          ankle: Offset(0.40, 0.88),
+          toe: Offset(0.38, 0.93),
+        ),
+        fixture: _Fixture.dipBars,
       );
-    case _Ex.deadlift:
+    case _Ex.pushup:
       return const _ExAnim(
-        plate: true,
-        a: _Pose(
-          head: Offset(0.65, 0.49),
-          sh: Offset(0.58, 0.56),
-          hip: Offset(0.38, 0.68),
-          knee: Offset(0.56, 0.76),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.58, 0.69),
-          wrist: Offset(0.57, 0.81),
+        _Pose(
+          head: Offset(0.78, 0.62),
+          sh: Offset(0.68, 0.67),
+          elbow: Offset(0.68, 0.80),
+          wrist: Offset(0.68, 0.93),
+          hip: Offset(0.44, 0.78),
+          knee: Offset(0.30, 0.86),
+          ankle: Offset(0.18, 0.91),
+          toe: Offset(0.16, 0.95),
         ),
-        b: _standBarAtHips,
+        _Pose(
+          head: Offset(0.78, 0.82),
+          sh: Offset(0.68, 0.85),
+          elbow: Offset(0.58, 0.80),
+          wrist: Offset(0.68, 0.93),
+          hip: Offset(0.44, 0.88),
+          knee: Offset(0.30, 0.90),
+          ankle: Offset(0.18, 0.92),
+          toe: Offset(0.16, 0.95),
+        ),
       );
-    case _Ex.rdl:
+    case _Ex.inclinePushup:
       return const _ExAnim(
-        plate: true,
-        a: _standBarAtHips,
-        b: _Pose(
-          head: Offset(0.69, 0.42),
-          sh: Offset(0.61, 0.47),
-          hip: Offset(0.41, 0.57),
-          knee: Offset(0.51, 0.75),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.61, 0.60),
-          wrist: Offset(0.60, 0.72),
+        _Pose(
+          head: Offset(0.72, 0.38),
+          sh: Offset(0.64, 0.45),
+          elbow: Offset(0.65, 0.58),
+          wrist: Offset(0.66, 0.70),
+          hip: Offset(0.42, 0.66),
+          knee: Offset(0.30, 0.79),
+          ankle: Offset(0.18, 0.91),
+          toe: Offset(0.16, 0.95),
         ),
+        _Pose(
+          head: Offset(0.71, 0.57),
+          sh: Offset(0.63, 0.62),
+          elbow: Offset(0.55, 0.60),
+          wrist: Offset(0.66, 0.70),
+          hip: Offset(0.42, 0.76),
+          knee: Offset(0.30, 0.84),
+          ankle: Offset(0.18, 0.92),
+          toe: Offset(0.16, 0.95),
+        ),
+        fixture: _Fixture.box,
       );
-    case _Ex.stiffLeg:
+    case _Ex.bulgarian:
       return const _ExAnim(
-        plate: true,
-        a: _standBarAtHips,
-        b: _Pose(
-          head: Offset(0.74, 0.49),
-          sh: Offset(0.65, 0.52),
-          hip: Offset(0.43, 0.57),
-          knee: Offset(0.48, 0.75),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.65, 0.65),
-          wrist: Offset(0.64, 0.77),
+        _Pose(
+          head: Offset(0.48, 0.13),
+          sh: Offset(0.47, 0.25),
+          elbow: Offset(0.47, 0.39),
+          wrist: Offset(0.48, 0.52),
+          hip: Offset(0.46, 0.52),
+          knee: Offset(0.56, 0.73),
+          ankle: Offset(0.56, 0.93),
+          toe: Offset(0.64, 0.94),
+          knee2: Offset(0.36, 0.74),
+          ankle2: Offset(0.25, 0.69),
         ),
+        _Pose(
+          head: Offset(0.49, 0.29),
+          sh: Offset(0.47, 0.41),
+          elbow: Offset(0.47, 0.55),
+          wrist: Offset(0.48, 0.68),
+          hip: Offset(0.44, 0.68),
+          knee: Offset(0.62, 0.72),
+          ankle: Offset(0.56, 0.93),
+          toe: Offset(0.64, 0.94),
+          knee2: Offset(0.36, 0.88),
+          ankle2: Offset(0.25, 0.70),
+        ),
+        fixture: _Fixture.bench,
       );
-    case _Ex.press:
-      return const _ExAnim(
-        plate: true,
-        a: _Pose(
-          head: Offset(0.50, 0.225),
-          sh: Offset(0.50, 0.33),
-          hip: Offset(0.50, 0.56),
-          knee: Offset(0.50, 0.75),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.54, 0.45),
-          wrist: Offset(0.55, 0.32),
-        ),
-        b: _Pose(
-          head: Offset(0.50, 0.225),
-          sh: Offset(0.50, 0.33),
-          hip: Offset(0.50, 0.56),
-          knee: Offset(0.50, 0.75),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.52, 0.20),
-          wrist: Offset(0.52, 0.08),
-        ),
-      );
-    case _Ex.goodMorning:
-      return const _ExAnim(
-        plate: true,
-        a: _standBarOnBack,
-        b: _Pose(
-          head: Offset(0.69, 0.42),
-          sh: Offset(0.61, 0.47),
-          hip: Offset(0.41, 0.57),
-          knee: Offset(0.51, 0.75),
-          ankle: Offset(0.50, 0.94),
-          toe: Offset(0.58, 0.95),
-          elbow: Offset(0.56, 0.57),
-          wrist: Offset(0.59, 0.47),
-        ),
-      );
-    case _Ex.generic:
-      return const _ExAnim(a: _standBarAtHips, b: _standBarAtHips);
   }
 }
 
-/// [title, detail] x 4, tuned to how the analyzer for that exercise works.
-List<List<String>> _tipsOf(_Ex e) {
-  List<String> view = const [
-    'Film from the side',
-    'Phone at 90° to your body. Other angles are less accurate.',
-  ];
-  List<String> frame = const [
-    'Whole body in frame',
-    'Head to feet at every point of the rep, top and bottom.',
-  ];
-  if (e == _Ex.pullup) {
-    view = const [
-      'Film from the side or front',
-      'Both work for pull-ups. From the side it also catches swinging.',
-    ];
-    frame = const [
-      'Whole body in frame',
-      'From the bar down to your feet, for the entire rep.',
-    ];
-  } else if (e == _Ex.press) {
-    view = const [
-      'Film from the side',
-      'Front works for counting, but the side gives full form feedback.',
-    ];
-    frame = const [
-      'Whole body in frame',
-      'Include your hands at the very top of the press.',
-    ];
+// ---------------------------------------------------------------------------
+// Tips
+// ---------------------------------------------------------------------------
+
+class _Tip {
+  const _Tip(this.icon, this.title, this.sub);
+  final IconData icon;
+  final String title, sub;
+}
+
+List<_Tip> _tipsOf(_Ex ex) {
+  final _Tip angle;
+  if (ex == _Ex.pullup) {
+    angle = const _Tip(Icons.swap_horiz_rounded, 'Film from the side or front',
+        'Both angles work for pull-ups.');
+  } else if (ex == _Ex.press) {
+    angle = const _Tip(Icons.swap_horiz_rounded, 'Film from the side',
+        'Front works for counting, side gives full feedback.');
+  } else {
+    angle = const _Tip(Icons.swap_horiz_rounded, 'Film from the side',
+        'Phone at 90° to your body.');
   }
   return [
-    view,
-    frame,
-    const [
-      'About 3 m away, phone still',
-      "Prop it up, don't hand-hold. No room? Switch to .5x.",
-    ],
-    const [
-      'Only you, well lit',
-      'The AI follows one body, so keep others out of the shot.',
-    ],
+    angle,
+    const _Tip(Icons.crop_free_rounded, 'Whole body in frame',
+        'Head to feet, through the whole rep.'),
+    const _Tip(Icons.stay_current_portrait_rounded,
+        'About 3 m away, phone still', 'Prop it up. No room? Switch to .5x.'),
+    const _Tip(Icons.wb_sunny_outlined, 'Only you, well lit',
+        'Keep other people out of the shot.'),
   ];
 }
 
-String _viewLabel(_Ex e) => e == _Ex.pullup ? 'SIDE OR FRONT' : 'SIDE ON';
+String _angleLabel(_Ex ex) =>
+    ex == _Ex.pullup ? 'Film from the side or front' : 'Film from the side';
 
 // ---------------------------------------------------------------------------
 // State
@@ -549,88 +494,73 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   // [v4] Gallery picker.
   final ImagePicker _picker = ImagePicker();
 
-  // [v6] Animation clocks. _loop drives every looping effect (scan line,
-  // pulses, spinning ring, the exercise figure); _intro staggers the tips.
-  late final AnimationController _loop;
-  late final AnimationController _intro;
-  static const double _loopSeconds = 60.0;
-
-  // [v6] Recording timer.
+  // [v7] UI animation + recording timer + full-bleed origin.
+  late final AnimationController _loop; // figure + REC dot
+  late final AnimationController _intro; // tips card entrance
   Timer? _recTimer;
   int _recSeconds = 0;
-
-  // [v6] Full-bleed: where this widget's top-left sits on screen.
   Offset _origin = Offset.zero;
-  Animation<double>? _routeAnim;
+  final List<Timer> _measureTimers = [];
+
+  _Ex get _ex => _exOf(widget.exerciseName);
 
   @override
   void initState() {
     super.initState();
-    _showGuidance = widget.showGuidance ?? true;
-    _loop = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 60),
-    )..repeat();
-    _intro = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1700),
-    )..forward();
-
     WidgetsBinding.instance.addObserver(this);
     // [v3] Keep the screen awake while the camera is open.
     WakelockPlus.enable();
     // [v5] Full screen: hide status bar while the camera is open.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    _showGuidance = widget.showGuidance ?? true;
+    _loop = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (_showGuidance) _intro.forward();
+
+    // [v7] The page transition moves this widget; re-measure a few times.
+    for (final int ms in const [120, 400, 900]) {
+      _measureTimers.add(Timer(Duration(milliseconds: ms), _measure));
+    }
+
     _setupCamera();
-
-    // [v6] The host may still be sliding in; re-measure a few times.
-    for (final ms in const [120, 350, 700, 1200]) {
-      Timer(Duration(milliseconds: ms), _measure);
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // [v6] Follow the host route's transition so the full-bleed offset stays
-    // right while a page or sheet animates in.
-    final Animation<double>? a = ModalRoute.of(context)?.animation;
-    if (a != _routeAnim) {
-      _routeAnim?.removeListener(_measure);
-      _routeAnim = a;
-      _routeAnim?.addListener(_measure);
-    }
   }
 
   @override
   void dispose() {
-    _routeAnim?.removeListener(_measure);
-    _recTimer?.cancel();
-    _loop.dispose();
-    _intro.dispose();
     WidgetsBinding.instance.removeObserver(this);
     WakelockPlus.disable();
     // [v5] Restore the normal system UI.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    for (final t in _measureTimers) {
+      t.cancel();
+    }
+    _recTimer?.cancel();
+    _loop.dispose();
+    _intro.dispose();
     _controller?.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeMetrics() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-  }
-
-  /// [v6] Reads this widget's position on screen. Only rebuilds on change.
+  // [v7] Where this widget sits on the screen, so it can paint full bleed.
   void _measure() {
     if (!mounted) return;
     final ro = context.findRenderObject();
     if (ro is RenderBox && ro.attached && ro.hasSize) {
       final Offset o = ro.localToGlobal(Offset.zero);
-      if ((o - _origin).distance > 0.5) {
-        setState(() => _origin = o);
-      }
+      if ((o - _origin).distance > 0.5) setState(() => _origin = o);
     }
+  }
+
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
   }
 
   // [v5] Lifecycle like the native Camera app.
@@ -758,17 +688,18 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     _controller = controller;
   }
 
-  Future<void> _toggleWide() async {
-    if (!_wideAvailable || _busy || _isRecording) return;
-    final CameraDescription? target = _isWide ? _mainCam : _ultraWideCam;
+  Future<void> _setWide(bool wide) async {
+    if (!_wideAvailable || _busy || _isRecording || wide == _isWide) return;
+    final CameraDescription? target = wide ? _ultraWideCam : _mainCam;
     if (target == null) return;
 
+    HapticFeedback.selectionClick();
     setState(() => _busy = true);
     try {
       await _openController(target);
       if (mounted) {
         setState(() {
-          _isWide = !_isWide;
+          _isWide = wide;
           _initialized = true;
           _busy = false;
         });
@@ -799,15 +730,16 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   Future<void> _startRecording() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized || _isRecording || _busy) return;
+    HapticFeedback.mediumImpact();
     setState(() => _busy = true);
     try {
       await c.startVideoRecording();
       if (mounted) {
+        _startRecTimer();
         setState(() {
           _isRecording = true;
           _busy = false;
         });
-        _startRecTimer();
       }
     } catch (e) {
       if (mounted) {
@@ -828,6 +760,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
       if (mounted) setState(() => _isRecording = false);
       return;
     }
+    HapticFeedback.mediumImpact();
     setState(() => _busy = true);
     try {
       final XFile file = await c.stopVideoRecording();
@@ -909,68 +842,38 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     }
   }
 
-  void _dismissGuidance({required bool forever}) {
+  // [v7] Tips card open / close.
+  void _openGuidance() {
+    if (_isRecording) return;
+    setState(() => _showGuidance = true);
+    _intro.forward(from: 0);
+  }
+
+  void _closeGuidance() {
     HapticFeedback.selectionClick();
     setState(() => _showGuidance = false);
-    if (forever) widget.onDontShowAgain?.call();
   }
 
-  // ---------- text ----------
-  TextStyle _sans(double size, FontWeight w, Color c, {double? height}) {
-    final th = FlutterFlowTheme.of(context);
-    return th.bodyMedium.override(
-      fontFamily: th.bodyMediumFamily,
-      color: c,
-      fontSize: size,
-      fontWeight: w,
-      letterSpacing: 0,
-      lineHeight: height,
-      useGoogleFonts: GoogleFonts.asMap().containsKey(th.bodyMediumFamily),
-    );
+  Future<void> _dontShowAgain() async {
+    _closeGuidance();
+    await widget.onDontShowAgain?.call();
   }
 
-  double get _t => _loop.value * _loopSeconds; // seconds on the loop clock
+  // -------------------------------------------------------------------------
+  // Build
+  // -------------------------------------------------------------------------
 
-  // ---------- build ----------
   @override
   Widget build(BuildContext context) {
-    // [v6] Keep the full-bleed offset fresh after every rebuild.
+    // [v7] Full bleed: lay out against the real screen, not the host box.
+    final MediaQueryData mq = MediaQueryData.fromView(View.of(context));
+    final Size screen = mq.size;
+    final EdgeInsets insets = mq.viewPadding;
     WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
 
-    final ui.FlutterView view = View.of(context);
-    final double dpr = view.devicePixelRatio;
-    final Size screen = view.physicalSize / dpr;
-    final EdgeInsets safe = EdgeInsets.fromViewPadding(view.padding, dpr);
+    final bool camUi = !_permissionDenied && _error == null;
+    final bool liveUi = camUi && !_showGuidance;
 
-    final _Ex ex = _exOf(widget.exerciseName);
-    final bool cameraUi = !_permissionDenied && _error == null;
-    final bool hud = cameraUi && !_showGuidance;
-
-    final Widget content = Directionality(
-      textDirection: ui.TextDirection.ltr,
-      child: Material(
-        type: MaterialType.transparency,
-        child: SizedBox(
-          width: screen.width,
-          height: screen.height,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(color: _kBg),
-              if (!_permissionDenied) _cameraLayer(),
-              if (_permissionDenied) _permissionOverlay(),
-              if (hud) _hudLayer(screen, safe, ex),
-              if (cameraUi) _topBar(safe, ex),
-              if (hud) _bottomArea(screen, safe, ex),
-              if (cameraUi && _showGuidance) _guidanceOverlay(screen, safe, ex),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    // [v6] Full-bleed: paint across the whole screen from wherever the host
-    // put this widget.
     return SizedBox(
       width: widget.width ?? double.infinity,
       height: widget.height ?? double.infinity,
@@ -981,8 +884,28 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
         minHeight: screen.height,
         maxHeight: screen.height,
         child: Transform.translate(
-          offset: Offset(-_origin.dx, -_origin.dy),
-          child: content,
+          offset: -_origin,
+          child: SizedBox(
+            width: screen.width,
+            height: screen.height,
+            child: Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(color: Colors.black),
+                  if (!_permissionDenied) _cameraLayer(),
+                  if (camUi) _frameLayer(insets),
+                  if (liveUi) _topInfo(insets),
+                  if (liveUi) _hint(insets),
+                  if (liveUi) _controls(insets),
+                  if (camUi && _showGuidance) _guidanceOverlay(insets),
+                  if (_permissionDenied) _permissionOverlay(),
+                  if (!_permissionDenied) _closeButton(insets),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -996,11 +919,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
           child: Text(
             _error!,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              decoration: TextDecoration.none,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 15),
           ),
         ),
       );
@@ -1008,13 +927,13 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     final c = _controller;
     if (c == null || !_initialized || !c.value.isInitialized) {
       return const Center(
-        child: CircularProgressIndicator(color: _kTeal),
+        child: CircularProgressIndicator(color: Colors.white),
       );
     }
     final previewSize = c.value.previewSize;
     if (previewSize == null) {
       return const Center(
-        child: CircularProgressIndicator(color: _kTeal),
+        child: CircularProgressIndicator(color: Colors.white),
       );
     }
     return ClipRect(
@@ -1029,387 +948,385 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     );
   }
 
-  /// Frame the user should stand in, in screen coordinates.
-  Rect _frameRect(Size screen, EdgeInsets safe) {
-    final double top = safe.top + 108;
-    final double bottom = screen.height - safe.bottom - 262;
-    return Rect.fromLTRB(
-      screen.width * 0.145,
-      top,
-      screen.width * 0.855,
-      math.max(top + 160, bottom),
-    );
-  }
-
-  // ---------- HUD over the camera ----------
-  Widget _hudLayer(Size screen, EdgeInsets safe, _Ex ex) {
-    final Rect frame = _frameRect(screen, safe);
-    final _ExAnim anim = _animOf(ex);
-    final double side = math.min(frame.width, frame.height) * 0.92;
-    final Rect ghost = Rect.fromCenter(
-      center: frame.center,
-      width: side,
-      height: side,
-    );
+  // Rule-of-thirds grid + large corner frame. Never blocks touches.
+  Widget _frameLayer(EdgeInsets insets) {
+    final double target = _showGuidance ? 0.25 : (_isRecording ? 0.4 : 0.75);
     return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _loop,
-        builder: (_, __) => CustomPaint(
-          painter: _HudPainter(
-            t: _t,
-            frame: frame,
-            recording: _isRecording,
-            ghostBox: ghost,
-            ghostPose: anim.a,
-            anim: anim,
-          ),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: target),
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        builder: (context, v, _) => CustomPaint(
+          painter: _FramePainter(opacity: v, insets: insets),
         ),
       ),
     );
   }
 
-  // ---------- top bar ----------
-  Widget _topBar(EdgeInsets safe, _Ex ex) {
-    final String name = (widget.exerciseName ?? '').trim().toUpperCase();
-    final String mm = (_recSeconds ~/ 60).toString().padLeft(2, '0');
-    final String ss = (_recSeconds % 60).toString().padLeft(2, '0');
+  Widget _roundButton({
+    required Widget child,
+    required VoidCallback? onTap,
+    required String label,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.black.withOpacity(0.35),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(width: 44, height: 44, child: Center(child: child)),
+        ),
+      ),
+    );
+  }
 
+  Widget _closeButton(EdgeInsets insets) {
     return Positioned(
       left: 12,
-      right: 12,
-      top: safe.top + 8,
-      child: Row(
-        children: [
-          _roundButton(Icons.close_rounded, _handleClose),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Center(
-              child: _isRecording
-                  ? Text('$mm:$ss',
-                      style: _mono(26, FontWeight.w700, Colors.white, ls: 1))
-                  : (name.isEmpty
-                      ? const SizedBox.shrink()
-                      : Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _kBg.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: _kTeal.withOpacity(0.5), width: 1),
-                          ),
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _mono(11, FontWeight.w700, _kTeal, ls: 1.4),
-                          ),
-                        )),
+      top: insets.top + 8,
+      child: _roundButton(
+        label: 'Close camera',
+        onTap: _handleClose,
+        child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+      ),
+    );
+  }
+
+  String _mmss(int s) =>
+      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+
+  // Title (ready) or REC timer (recording), plus the "?" tips button.
+  Widget _topInfo(EdgeInsets insets) {
+    final String name = (widget.exerciseName ?? '').trim();
+    final Widget center = _isRecording
+        ? Container(
+            key: const ValueKey('rec'),
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: _kRed,
+              borderRadius: BorderRadius.circular(999),
             ),
-          ),
-          const SizedBox(width: 10),
-          AnimatedBuilder(
-            animation: _loop,
-            builder: (_, __) {
-              final double blink =
-                  0.25 + 0.75 * (math.sin(_t * math.pi / 0.7)).abs();
-              final Color dot = _isRecording ? _kRed : _kTeal;
-              return Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _isRecording
-                      ? _kRed.withOpacity(0.18)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Opacity(
-                      opacity: blink,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: dot,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                                color: dot.withOpacity(0.9), blurRadius: 8),
-                          ],
-                        ),
-                      ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FadeTransition(
+                  opacity: Tween<double>(begin: 1.0, end: 0.3).animate(_loop),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _isRecording ? 'REC' : 'AI READY',
-                      style: _mono(11, FontWeight.w700, Colors.white, ls: 1.2),
-                    ),
-                  ],
+                  ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _roundButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.45),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: Colors.white, size: 22),
-      ),
-    );
-  }
-
-  // ---------- bottom: hints + controls ----------
-  Widget _bottomArea(Size screen, EdgeInsets safe, _Ex ex) {
-    final List<String> chips = [
-      ex == _Ex.pullup ? 'Side or front' : 'Side on, 90°',
-      'Head to feet',
-      'About 3 m away',
-    ];
+                const SizedBox(width: 8),
+                Text(
+                  _mmss(_recSeconds),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: [ui.FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          )
+        : Column(
+            key: const ValueKey('title'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name.isEmpty ? 'AI Form Check' : name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  shadows: [Shadow(color: Colors.black54, blurRadius: 6)],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _angleLabel(_ex),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.75),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+                ),
+              ),
+            ],
+          );
 
     return Positioned(
       left: 0,
       right: 0,
-      bottom: safe.bottom + 26,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _isRecording
-                ? 'KEEP YOUR WHOLE BODY IN THE FRAME'
-                : 'MATCH YOUR BODY TO THE GUIDE',
-            textAlign: TextAlign.center,
-            style: _mono(11, FontWeight.w700, _kTeal, ls: 1.4),
-          ),
-          const SizedBox(height: 12),
-          if (_isRecording)
-            Text('Finish your set, then tap stop.',
-                style: _sans(13, FontWeight.w400, _kMuted))
-          else
+      top: insets.top + 8,
+      child: SizedBox(
+        height: 44,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final c in chips)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.45),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(c,
-                          style: _sans(
-                              12, FontWeight.w500, const Color(0xFFE6F3F1))),
-                    ),
-                ],
+              padding: const EdgeInsets.symmetric(horizontal: 64),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: center,
               ),
             ),
-          const SizedBox(height: 22),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Gallery (hidden while recording)
-              SizedBox(
-                width: 92,
-                height: 52,
-                child: _isRecording
-                    ? null
-                    : Align(
-                        alignment: Alignment.centerRight,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _busy ? null : _pickFromGallery,
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.45),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                  color: Colors.white.withOpacity(0.35)),
-                            ),
-                            child: const Icon(Icons.photo_library_rounded,
-                                color: Colors.white, size: 22),
-                          ),
-                        ),
-                      ),
+            if (!_isRecording)
+              Positioned(
+                right: 12,
+                child: _roundButton(
+                  label: 'Show filming tips',
+                  onTap: _openGuidance,
+                  child: const Text(
+                    '?',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
-              const SizedBox(width: 26),
-              _recordButton(),
-              const SizedBox(width: 26),
-              // Lens pill (hidden while recording / when there is no 0.5x)
-              SizedBox(
-                width: 92,
-                height: 52,
-                child: (_isRecording || !_wideAvailable)
-                    ? null
-                    : Align(
-                        alignment: Alignment.centerLeft,
-                        child: _lensPill(),
-                      ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _recordButton() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _busy ? null : (_isRecording ? _stopRecording : _startRecording),
-      child: SizedBox(
-        width: 92,
-        height: 92,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _loop,
-                builder: (_, __) => CustomPaint(
-                  painter: _RecordRingPainter(
-                    t: _t,
-                    recording: _isRecording,
-                    seconds: _recSeconds,
-                  ),
+  Widget _hint(EdgeInsets insets) {
+    final String text = _isRecording
+        ? 'Finish your set, then tap stop'
+        : 'Keep your whole body in view';
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: insets.bottom + 120,
+      child: IgnorePointer(
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: Container(
+              key: ValueKey(text),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.45),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            Container(
-              width: 74,
-              height: 74,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
-              ),
-            ),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: _isRecording ? 30 : 54,
-              height: _isRecording ? 30 : 54,
-              decoration: BoxDecoration(
-                color: _kRed,
-                borderRadius: BorderRadius.circular(_isRecording ? 8 : 40),
-                boxShadow: [
-                  BoxShadow(color: _kRed.withOpacity(0.55), blurRadius: 22),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _lensPill() {
-    Widget seg(String label, bool active) {
+    Widget seg(String label, bool wide) {
+      final bool on = _isWide == wide;
       return GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: active ? null : _toggleWide,
-        child: Container(
-          height: 36,
+        onTap: () => _setWide(wide),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: active ? _kTeal : Colors.transparent,
+            color: on ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
             label,
-            style: _mono(12, FontWeight.w700, active ? _kTealInk : _kMuted),
+            style: TextStyle(
+              color:
+                  on ? const Color(0xFF101315) : Colors.white.withOpacity(0.8),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       );
     }
 
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 3),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.white.withOpacity(0.16),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        children: [seg('.5x', true), seg('1x', false)],
+      ),
+    );
+  }
+
+  Widget _controls(EdgeInsets insets) {
+    final bool side = !_isRecording;
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: insets.bottom + 14,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          seg('.5x', _isWide),
-          seg('1x', !_isWide),
+          // [v4] Gallery - hidden while recording.
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 36),
+                child: IgnorePointer(
+                  ignoring: !side,
+                  child: AnimatedOpacity(
+                    opacity: side ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Semantics(
+                      button: true,
+                      label: 'Pick a video from your library',
+                      child: GestureDetector(
+                        onTap: _busy ? null : _pickFromGallery,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.photo_library_outlined,
+                              color: Colors.white, size: 22),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Semantics(
+            button: true,
+            label: _isRecording ? 'Stop recording' : 'Start recording',
+            child: GestureDetector(
+              onTap: _busy
+                  ? null
+                  : (_isRecording ? _stopRecording : _startRecording),
+              child: Container(
+                width: 78,
+                height: 78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 4),
+                ),
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    width: _isRecording ? 28 : 60,
+                    height: _isRecording ? 28 : 60,
+                    decoration: BoxDecoration(
+                      color: _kRed,
+                      borderRadius:
+                          BorderRadius.circular(_isRecording ? 7 : 40),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 28),
+                child: IgnorePointer(
+                  ignoring: !side || !_wideAvailable,
+                  child: AnimatedOpacity(
+                    opacity: (side && _wideAvailable) ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: _lensPill(),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // ---------- briefing ----------
-  Widget _guidanceOverlay(Size screen, EdgeInsets safe, _Ex ex) {
-    final _ExAnim anim = _animOf(ex);
-    final List<List<String>> tips = _tipsOf(ex);
-    final String name = (widget.exerciseName ?? '').trim().toUpperCase();
-    final double maxH = screen.height - safe.top - safe.bottom - 84;
+  // -------------------------------------------------------------------------
+  // Tips card (centered)
+  // -------------------------------------------------------------------------
+
+  Widget _guidanceOverlay(EdgeInsets insets) {
+    final List<_Tip> tips = _tipsOf(_ex);
+    final String name = (widget.exerciseName ?? '').trim();
 
     Widget tipRow(int i) {
-      return AnimatedBuilder(
-        animation: _intro,
-        builder: (_, child) {
-          final double start = 0.12 + 0.17 * i;
-          final double o =
-              ((_intro.value - start) / 0.22).clamp(0.0, 1.0).toDouble();
-          return Opacity(
-            opacity: o,
-            child: Transform.translate(
-              offset: Offset(0, 10 * (1 - o)),
-              child: child,
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+      final double start = 0.30 + i * 0.12;
+      final Animation<double> a = CurvedAnimation(
+        parent: _intro,
+        curve: Interval(start, (start + 0.30).clamp(0.0, 1.0),
+            curve: Curves.easeOut),
+      );
+      return FadeTransition(
+        opacity: a,
+        child: SlideTransition(
+          position:
+              Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
+                  .animate(a),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: _kTeal.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.08),
+                  shape: BoxShape.circle,
                 ),
-                child: Text('0${i + 1}',
-                    style: _mono(12, FontWeight.w700, _kTeal)),
+                child: Icon(tips[i].icon, size: 18, color: Colors.white),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(tips[i][0],
-                        style: _sans(15, FontWeight.w600, Colors.white)),
+                    Text(
+                      tips[i].title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(tips[i][1],
-                        style:
-                            _sans(13, FontWeight.w400, _kMuted, height: 1.35)),
+                    Text(
+                      tips[i].sub,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.65),
+                        fontSize: 13,
+                        height: 1.35,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1419,209 +1336,92 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
       );
     }
 
-    final Widget panel = Container(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+    final Widget card = Container(
+      constraints: const BoxConstraints(maxWidth: 380),
       decoration: BoxDecoration(
-        color: _kPanel,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _kTeal.withOpacity(0.4)),
-        boxShadow: [
-          BoxShadow(color: _kTeal.withOpacity(0.12), blurRadius: 40),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('BEFORE YOU RECORD',
-                        style: _mono(11, FontWeight.w700, _kTeal, ls: 2)),
-                    const SizedBox(height: 4),
-                    Text('Set up your shot',
-                        style: _sans(20, FontWeight.w700, Colors.white)),
-                  ],
-                ),
-              ),
-              if (name.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _kTeal.withOpacity(0.5)),
-                    ),
-                    child: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _mono(11, FontWeight.w700, _kTeal, ls: 1.2),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Setup diagram with the animated exercise figure
-          Container(
-            height: 136,
-            decoration: BoxDecoration(
-              color: _kTeal.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: AnimatedBuilder(
-              animation: _loop,
-              builder: (_, __) {
-                // Smooth there-and-back between the two key poses.
-                final double phase = (_t / 2.6) % 1.0;
-                final double s = 0.5 - 0.5 * math.cos(2 * math.pi * phase);
-                return CustomPaint(
-                  painter: _SetupPainter(
-                    t: _t,
-                    pose: _Pose.lerp(anim.a, anim.b, s),
-                    anim: anim,
-                    label: _viewLabel(ex),
-                    labelStyle: _mono(10, FontWeight.w700, _kTeal),
-                    distStyle: _mono(12, FontWeight.w700, Colors.white),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 14),
-          for (int i = 0; i < tips.length; i++) tipRow(i),
-          const SizedBox(height: 2),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _dismissGuidance(forever: false),
-            child: Container(
-              height: 52,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _kTeal,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(color: _kTeal.withOpacity(0.35), blurRadius: 24),
-                ],
-              ),
-              child: Text("Got it, let's go",
-                  style: _sans(16, FontWeight.w700, _kTealInk)),
-            ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _dismissGuidance(forever: true),
-            child: Container(
-              height: 44,
-              alignment: Alignment.center,
-              child: Text("Don't show this again",
-                  style: _sans(13, FontWeight.w500, _kMuted)),
-            ),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x80000000),
+            blurRadius: 60,
+            offset: Offset(0, 20),
           ),
         ],
       ),
-    );
-
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withOpacity(0.55),
-        padding: EdgeInsets.fromLTRB(16, safe.top + 64, 16, safe.bottom + 16),
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 420, maxHeight: maxH),
-          child: SingleChildScrollView(child: panel),
-        ),
-      ),
-    );
-  }
-
-  // [v2] Shown when camera permission is denied.
-  Widget _permissionOverlay() {
-    return Container(
-      color: Colors.black,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 360),
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const Text(
+              'Set up your shot',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            if (name.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                name,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.65),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
             Container(
-              width: 56,
-              height: 56,
-              alignment: Alignment.center,
+              height: 140,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF1D9E75).withOpacity(0.12),
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: const Icon(Icons.no_photography_rounded,
-                  size: 28, color: Color(0xFF1D9E75)),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Camera access needed',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1A1A1A),
-                decoration: TextDecoration.none,
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'To record and analyze your form, allow camera access in Settings.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.4,
-                color: Color(0xFF6B6B6B),
-                decoration: TextDecoration.none,
+              child: RepaintBoundary(
+                child: CustomPaint(
+                  painter: _SetupPainter(anim: _animOf(_ex), loop: _loop),
+                ),
               ),
             ),
             const SizedBox(height: 20),
+            for (int i = 0; i < tips.length; i++) ...[
+              tipRow(i),
+              if (i < tips.length - 1) const SizedBox(height: 18),
+            ],
+            const SizedBox(height: 24),
             SizedBox(
-              height: 48,
+              height: 52,
               child: ElevatedButton(
-                onPressed: () async {
-                  await openAppSettings();
-                },
+                onPressed: _closeGuidance,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1D9E75),
+                  backgroundColor: _kTeal,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: const Text(
-                  'Open Settings',
+                  'Got it',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
-            const SizedBox(height: 6),
             SizedBox(
               height: 44,
               child: TextButton(
-                onPressed: _handleClose,
-                child: const Text(
-                  'Not now',
-                  style: TextStyle(fontSize: 14, color: Color(0xFF6B6B6B)),
+                onPressed: _dontShowAgain,
+                child: Text(
+                  "Don't show this again",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.65),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),
@@ -1629,442 +1429,413 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
         ),
       ),
     );
+
+    return AnimatedBuilder(
+      animation: _intro,
+      builder: (context, child) {
+        final double v = Curves.easeOutCubic
+            .transform((_intro.value / 0.45).clamp(0.0, 1.0));
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // Scrim: also swallows taps so the camera controls stay inert.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {},
+              child: Container(color: Colors.black.withOpacity(0.55 * v)),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                  16, insets.top + 60, 16, insets.bottom + 16),
+              child: Center(
+                child: Opacity(
+                  opacity: v,
+                  child: Transform.translate(
+                    offset: Offset(0, 16 * (1 - v)),
+                    child: Transform.scale(
+                      scale: 0.97 + 0.03 * v,
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      child: card,
+    );
+  }
+
+  // [v2] Shown when camera permission is denied.
+  Widget _permissionOverlay() {
+    return Directionality(
+      textDirection: ui.TextDirection.ltr,
+      child: Container(
+        color: Colors.black,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 360),
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF1D9E75).withOpacity(0.12),
+                ),
+                child: const Icon(Icons.no_photography_rounded,
+                    size: 28, color: Color(0xFF1D9E75)),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Camera access needed',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'To record and analyze your form, allow camera access in Settings.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 14, height: 1.4, color: Color(0xFF6B6B6B)),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await openAppSettings();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1D9E75),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Open Settings',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 44,
+                child: TextButton(
+                  onPressed: _handleClose,
+                  child: const Text(
+                    'Not now',
+                    style: TextStyle(fontSize: 14, color: Color(0xFF6B6B6B)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Painting
+// Painters
 // ---------------------------------------------------------------------------
 
-/// Draws the stick figure for [p] inside [box] (a square works best).
-void _paintFigure(
-  Canvas canvas,
-  Rect box,
-  _Pose p,
-  _ExAnim anim, {
-  required Color bone,
-  required Color accent,
-  double stroke = 2.5,
-  bool floor = true,
-}) {
-  Offset m(Offset u) =>
-      Offset(box.left + u.dx * box.width, box.top + u.dy * box.height);
+/// Thin rule-of-thirds grid + four large corner brackets.
+class _FramePainter extends CustomPainter {
+  _FramePainter({required this.opacity, required this.insets});
 
-  final Paint bonePaint = Paint()
-    ..color = bone
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = stroke
-    ..strokeCap = StrokeCap.round;
-  final Paint faint = Paint()
-    ..color = bone.withOpacity(bone.opacity * 0.3)
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.2
-    ..strokeCap = StrokeCap.round;
-  final Paint accentPaint = Paint()
-    ..color = accent
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = stroke
-    ..strokeCap = StrokeCap.round;
-
-  if (floor) {
-    canvas.drawLine(
-        m(const Offset(0.04, 0.965)), m(const Offset(0.96, 0.965)), faint);
-  }
-
-  // Props
-  switch (anim.prop) {
-    case _Prop.pullBar:
-      canvas.drawLine(m(const Offset(0.36, 0.10)), m(const Offset(0.64, 0.10)),
-          accentPaint);
-      break;
-    case _Prop.dipBars:
-      canvas.drawLine(m(const Offset(0.30, 0.56)), m(const Offset(0.70, 0.56)),
-          accentPaint);
-      canvas.drawLine(
-          m(const Offset(0.33, 0.56)), m(const Offset(0.33, 0.965)), faint);
-      canvas.drawLine(
-          m(const Offset(0.67, 0.56)), m(const Offset(0.67, 0.965)), faint);
-      break;
-    case _Prop.bench:
-      canvas.drawLine(m(const Offset(0.10, 0.74)), m(const Offset(0.32, 0.74)),
-          accentPaint);
-      canvas.drawLine(
-          m(const Offset(0.13, 0.74)), m(const Offset(0.13, 0.965)), faint);
-      canvas.drawLine(
-          m(const Offset(0.29, 0.74)), m(const Offset(0.29, 0.965)), faint);
-      break;
-    case _Prop.none:
-      break;
-  }
-
-  // Rear leg first, dimmer, so the front leg reads on top.
-  if (p.knee2 != null && p.ankle2 != null) {
-    final Paint rear = Paint()
-      ..color = bone.withOpacity(bone.opacity * 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(m(p.hip), m(p.knee2!), rear);
-    canvas.drawLine(m(p.knee2!), m(p.ankle2!), rear);
-  }
-
-  // Bones
-  canvas.drawLine(m(p.sh), m(p.hip), bonePaint);
-  canvas.drawLine(m(p.hip), m(p.knee), bonePaint);
-  canvas.drawLine(m(p.knee), m(p.ankle), bonePaint);
-  canvas.drawLine(m(p.ankle), m(p.toe), bonePaint);
-  canvas.drawLine(m(p.sh), m(p.elbow), bonePaint);
-  canvas.drawLine(m(p.elbow), m(p.wrist), bonePaint);
-
-  // Head + neck
-  final double headR = 0.052 * box.width;
-  final Offset head = m(p.head);
-  final Offset sh = m(p.sh);
-  final Offset d = sh - head;
-  if (d.distance > headR) {
-    canvas.drawLine(head + d / d.distance * headR, sh, bonePaint);
-  }
-  canvas.drawCircle(head, headR, bonePaint);
-
-  // Joints
-  final Paint jointPaint = Paint()..color = bone;
-  for (final j in [p.sh, p.hip, p.knee, p.ankle, p.elbow, p.wrist]) {
-    canvas.drawCircle(m(j), stroke * 0.95, jointPaint);
-  }
-
-  // Barbell plate, seen end-on
-  if (anim.plate) {
-    final Offset w = m(p.wrist);
-    canvas.drawCircle(
-        w,
-        0.062 * box.width,
-        Paint()
-          ..color = accent
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    canvas.drawCircle(w, 2, Paint()..color = accent);
-  }
-}
-
-void _paintBrackets(Canvas canvas, Rect r, Paint paint, double len) {
-  canvas.drawPath(
-    Path()
-      ..moveTo(r.left, r.top + len)
-      ..lineTo(r.left, r.top)
-      ..lineTo(r.left + len, r.top)
-      ..moveTo(r.right - len, r.top)
-      ..lineTo(r.right, r.top)
-      ..lineTo(r.right, r.top + len)
-      ..moveTo(r.left, r.bottom - len)
-      ..lineTo(r.left, r.bottom)
-      ..lineTo(r.left + len, r.bottom)
-      ..moveTo(r.right - len, r.bottom)
-      ..lineTo(r.right, r.bottom)
-      ..lineTo(r.right, r.bottom - len),
-    paint,
-  );
-}
-
-/// Briefing diagram: phone on a stand, distance line, framed lifter.
-class _SetupPainter extends CustomPainter {
-  _SetupPainter({
-    required this.t,
-    required this.pose,
-    required this.anim,
-    required this.label,
-    required this.labelStyle,
-    required this.distStyle,
-  });
-
-  final double t;
-  final _Pose pose;
-  final _ExAnim anim;
-  final String label;
-  final TextStyle labelStyle, distStyle;
+  final double opacity; // bracket opacity
+  final EdgeInsets insets;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double groundY = size.height - 22;
-    final double figSide = math.min(size.height - 34, size.width * 0.34);
-    final Rect figBox = Rect.fromLTWH(
-      size.width - figSide - 20,
-      groundY - figSide * 0.965,
-      figSide,
-      figSide,
-    );
+    final double w = size.width, h = size.height;
 
-    // Ground
-    canvas.drawLine(
-      Offset(14, groundY),
-      Offset(size.width - 14, groundY),
-      Paint()
-        ..color = Colors.white.withOpacity(0.18)
-        ..strokeWidth = 1,
-    );
+    // Grid.
+    final Paint grid = Paint()
+      ..color = Colors.white.withOpacity(0.10)
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(w / 3, 0), Offset(w / 3, h), grid);
+    canvas.drawLine(Offset(2 * w / 3, 0), Offset(2 * w / 3, h), grid);
+    canvas.drawLine(Offset(0, h / 3), Offset(w, h / 3), grid);
+    canvas.drawLine(Offset(0, 2 * h / 3), Offset(w, 2 * h / 3), grid);
 
-    // Phone on a stand
+    // Brackets: almost the whole screen, between the title and the hint.
+    final Rect r = Rect.fromLTRB(
+      20,
+      insets.top + 72,
+      w - 20,
+      h - insets.bottom - 174,
+    );
+    if (r.height < 120) return;
+
+    const double arm = 20, rad = 12;
+    final Paint p = Paint()
+      ..color = Colors.white.withOpacity(opacity.clamp(0.0, 1.0))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final Path path = Path()
+      // top-left
+      ..moveTo(r.left, r.top + rad + arm)
+      ..lineTo(r.left, r.top + rad)
+      ..arcToPoint(Offset(r.left + rad, r.top),
+          radius: const Radius.circular(rad))
+      ..lineTo(r.left + rad + arm, r.top)
+      // top-right
+      ..moveTo(r.right - rad - arm, r.top)
+      ..lineTo(r.right - rad, r.top)
+      ..arcToPoint(Offset(r.right, r.top + rad),
+          radius: const Radius.circular(rad))
+      ..lineTo(r.right, r.top + rad + arm)
+      // bottom-right
+      ..moveTo(r.right, r.bottom - rad - arm)
+      ..lineTo(r.right, r.bottom - rad)
+      ..arcToPoint(Offset(r.right - rad, r.bottom),
+          radius: const Radius.circular(rad))
+      ..lineTo(r.right - rad - arm, r.bottom)
+      // bottom-left
+      ..moveTo(r.left + rad + arm, r.bottom)
+      ..lineTo(r.left + rad, r.bottom)
+      ..arcToPoint(Offset(r.left, r.bottom - rad),
+          radius: const Radius.circular(rad))
+      ..lineTo(r.left, r.bottom - rad - arm);
+    canvas.drawPath(path, p);
+  }
+
+  @override
+  bool shouldRepaint(covariant _FramePainter old) =>
+      old.opacity != opacity || old.insets != insets;
+}
+
+/// Setup illustration: phone on a stand, "about 3 m", and the animated
+/// exercise figure inside a small teal frame.
+class _SetupPainter extends CustomPainter {
+  _SetupPainter({required this.anim, required this.loop})
+      : super(repaint: loop);
+
+  final _ExAnim anim;
+  final Animation<double> loop;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double w = size.width, h = size.height;
+    if (w <= 0 || h <= 0) return;
+
+    // Figure box: a square on the right.
+    final double side = h - 20;
+    final Rect box = Rect.fromLTWH(w - 18 - side, 6, side, side);
+
+    Offset m(Offset p) => Offset(
+          box.left + (0.05 + p.dx * 0.90) * box.width,
+          box.top + (0.07 + p.dy * 0.90) * box.height,
+        );
+    final double u = box.height * 0.90; // unit length in pixels
+    final double groundY = m(const Offset(0, 0.95)).dy;
+
+    final Paint faint = Paint()
+      ..color = Colors.white.withOpacity(0.16)
+      ..strokeWidth = 1;
     final Paint white = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final Paint dim = Paint()
+      ..color = Colors.white.withOpacity(0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    final Paint gear = Paint()
+      ..color = Colors.white.withOpacity(0.30)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final Paint teal = Paint()
+      ..color = _kTeal
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    // Ground.
+    canvas.drawLine(Offset(14, groundY), Offset(w - 14, groundY), faint);
+
+    // Phone on a stand.
+    const double px = 26, pw = 16, ph = 30;
+    final Rect phone = Rect.fromLTWH(px, groundY - 14 - ph, pw, ph);
+    final Paint phonePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
-    final Rect phone = Rect.fromLTWH(28, groundY - 50, 18, 34);
     canvas.drawRRect(
-        RRect.fromRectAndRadius(phone, const Radius.circular(4)), white);
-    canvas.drawCircle(
-        Offset(phone.center.dx, phone.top + 8), 2.2, Paint()..color = _kTeal);
-    canvas.drawLine(Offset(phone.center.dx, phone.bottom),
-        Offset(phone.center.dx, groundY), white);
-    canvas.drawLine(
-        Offset(phone.left, groundY), Offset(phone.right, groundY), white);
+        RRect.fromRectAndRadius(phone, const Radius.circular(4)), phonePaint);
+    canvas.drawLine(Offset(px + pw / 2, phone.bottom),
+        Offset(px + pw / 2, groundY), phonePaint);
+    canvas.drawLine(Offset(px, groundY), Offset(px + pw, groundY), phonePaint);
 
-    // Field of view, breathing
-    final double sweep = 0.25 + 0.6 * (0.5 + 0.5 * math.sin(t * 2.6));
-    final Paint fov = Paint()
-      ..color = _kTeal.withOpacity(sweep)
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(phone.right, phone.top + 10),
-        Offset(figBox.left - 6, figBox.top), fov);
-    canvas.drawLine(Offset(phone.right, phone.top + 16),
-        Offset(figBox.left - 6, groundY), fov);
-
-    // Distance line with marching dashes
-    final double y = groundY + 10;
-    final double x0 = phone.right + 8;
-    final double x1 = figBox.left + 4;
-    final Paint dash = Paint()
-      ..color = _kTeal
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-    const double seg = 6, gap = 6;
-    final double offset = (t * 14) % (seg + gap);
-    for (double x = x0 - offset; x < x1; x += seg + gap) {
-      final double a = math.max(x, x0);
-      final double b = math.min(x + seg, x1);
-      if (b > a) canvas.drawLine(Offset(a, y), Offset(b, y), dash);
-    }
-    canvas.drawLine(Offset(x0, y - 5), Offset(x0, y + 5), dash);
-    canvas.drawLine(Offset(x1, y - 5), Offset(x1, y + 5), dash);
-
-    final tp = TextPainter(
-      text: TextSpan(text: '3 m', style: distStyle),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    final Offset mid = Offset((x0 + x1) / 2, y);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-            center: mid, width: tp.width + 14, height: tp.height + 4),
-        const Radius.circular(5),
-      ),
-      Paint()..color = const Color(0xFF0B1516),
-    );
-    tp.paint(canvas, mid - Offset(tp.width / 2, tp.height / 2));
-
-    // Frame + animated figure
-    final Rect frame = figBox.inflate(6);
-    _paintBrackets(
-      canvas,
-      Rect.fromLTRB(frame.left, frame.top + 10, frame.right, groundY),
-      Paint()
-        ..color = _kTeal
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-      10,
-    );
-    _paintFigure(canvas, figBox, pose, anim,
-        bone: Colors.white, accent: _kTeal, stroke: 2.2, floor: false);
-
-    final lp = TextPainter(
-      text: TextSpan(text: label, style: labelStyle),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    lp.paint(canvas, Offset(frame.center.dx - lp.width / 2, 4));
-  }
-
-  @override
-  bool shouldRepaint(covariant _SetupPainter old) => true;
-}
-
-/// Camera HUD: grid, frame brackets, scan line, ghost start pose, and the
-/// red glow while recording.
-class _HudPainter extends CustomPainter {
-  _HudPainter({
-    required this.t,
-    required this.frame,
-    required this.recording,
-    required this.ghostBox,
-    required this.ghostPose,
-    required this.anim,
-  });
-
-  final double t;
-  final Rect frame;
-  final bool recording;
-  final Rect ghostBox;
-  final _Pose ghostPose;
-  final _ExAnim anim;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Faint grid
-    final Paint grid = Paint()
-      ..color = _kTeal.withOpacity(0.05)
-      ..strokeWidth = 1;
-    const double step = 39;
-    for (double x = step; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
-    }
-    for (double y = step; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    // Distance: dashed line + label.
+    final double dx0 = px + pw + 14, dx1 = box.left - 10;
+    if (dx1 - dx0 > 30) {
+      final Paint dash = Paint()
+        ..color = Colors.white.withOpacity(0.40)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+      final double dy = groundY + 8;
+      for (double x = dx0; x < dx1; x += 9) {
+        canvas.drawLine(
+            Offset(x, dy), Offset((x + 3).clamp(dx0, dx1), dy), dash);
+      }
+      final TextPainter tp = TextPainter(
+        text: TextSpan(
+          text: 'about 3 m',
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.75),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      if (tp.width < dx1 - dx0) {
+        tp.paint(
+          canvas,
+          Offset((dx0 + dx1) / 2 - tp.width / 2, groundY - 12 - tp.height),
+        );
+      }
     }
 
-    final double pulse = 0.5 + 0.5 * math.sin(t * 2 * math.pi / 2.0);
+    // Teal frame around the figure.
+    const double fa = 8;
+    final Rect fr =
+        Rect.fromLTRB(box.left - 2, box.top + 2, box.right + 2, groundY + 3);
+    final Path frame = Path()
+      ..moveTo(fr.left, fr.top + fa)
+      ..lineTo(fr.left, fr.top)
+      ..lineTo(fr.left + fa, fr.top)
+      ..moveTo(fr.right - fa, fr.top)
+      ..lineTo(fr.right, fr.top)
+      ..lineTo(fr.right, fr.top + fa)
+      ..moveTo(fr.right, fr.bottom - fa)
+      ..lineTo(fr.right, fr.bottom)
+      ..lineTo(fr.right - fa, fr.bottom)
+      ..moveTo(fr.left + fa, fr.bottom)
+      ..lineTo(fr.left, fr.bottom)
+      ..lineTo(fr.left, fr.bottom - fa);
+    canvas.drawPath(frame, teal);
 
-    // Recording glow around the whole screen
-    if (recording) {
-      final Rect r = Offset.zero & size;
-      canvas.drawRect(
-        r.deflate(1),
-        Paint()
-          ..color = _kRed.withOpacity(0.25 + 0.3 * pulse)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 26
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22),
-      );
-      canvas.drawRect(
-        r.deflate(1),
-        Paint()
-          ..color = _kRed.withOpacity(0.55 + 0.4 * pulse)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
+    // Fixtures (bar, bench, box).
+    switch (anim.fixture) {
+      case _Fixture.none:
+        break;
+      case _Fixture.pullBar:
+        canvas.drawLine(
+            m(const Offset(0.36, 0.16)), m(const Offset(0.64, 0.16)), gear);
+        break;
+      case _Fixture.dipBars:
+        canvas.drawLine(
+            m(const Offset(0.36, 0.51)), m(const Offset(0.64, 0.51)), gear);
+        canvas.drawLine(
+            m(const Offset(0.40, 0.51)), m(const Offset(0.40, 0.95)), gear);
+        canvas.drawLine(
+            m(const Offset(0.60, 0.51)), m(const Offset(0.60, 0.95)), gear);
+        break;
+      case _Fixture.bench:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromPoints(
+                m(const Offset(0.14, 0.73)), m(const Offset(0.30, 0.95))),
+            const Radius.circular(3),
+          ),
+          gear,
+        );
+        break;
+      case _Fixture.box:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromPoints(
+                m(const Offset(0.60, 0.72)), m(const Offset(0.80, 0.95))),
+            const Radius.circular(3),
+          ),
+          gear,
+        );
+        break;
     }
 
-    // Frame brackets
-    _paintBrackets(
-      canvas,
-      frame,
-      Paint()
-        ..color = _kTeal.withOpacity(recording ? 0.55 + 0.45 * pulse : 1.0)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-      28,
-    );
+    // Pose: ease, with a short hold at both ends.
+    final double raw = ((loop.value - 0.12) / 0.76).clamp(0.0, 1.0);
+    final _Pose p = _Pose.lerp(anim.a, anim.b, Curves.easeInOut.transform(raw));
 
-    // Centre ticks
-    final Paint tick = Paint()
-      ..color = _kTeal.withOpacity(0.45)
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(frame.left - 16, frame.center.dy),
-        Offset(frame.left - 4, frame.center.dy), tick);
-    canvas.drawLine(Offset(frame.right + 4, frame.center.dy),
-        Offset(frame.right + 16, frame.center.dy), tick);
-    canvas.drawLine(Offset(frame.center.dx, frame.top - 16),
-        Offset(frame.center.dx, frame.top - 4), tick);
-    canvas.drawLine(Offset(frame.center.dx, frame.bottom + 4),
-        Offset(frame.center.dx, frame.bottom + 16), tick);
-
-    if (recording) return;
-
-    // Ghost of the start position, breathing
-    _paintFigure(
-      canvas,
-      ghostBox,
-      ghostPose,
-      anim,
-      bone: _kTeal.withOpacity(0.30 + 0.35 * pulse),
-      accent: _kTeal.withOpacity(0.30 + 0.35 * pulse),
-      stroke: 2.5,
-      floor: false,
-    );
-
-    // Scan line
-    final double phase = (t / 3.0) % 1.0;
-    final double fade =
-        phase < 0.08 ? phase / 0.08 : (phase > 0.92 ? (1 - phase) / 0.08 : 1.0);
-    final double y = frame.top + frame.height * phase;
-    canvas.drawLine(
-      Offset(frame.left, y),
-      Offset(frame.right, y),
-      Paint()
-        ..color = _kTeal.withOpacity(0.7 * fade)
-        ..strokeWidth = 6
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-    );
-    canvas.drawLine(
-      Offset(frame.left, y),
-      Offset(frame.right, y),
-      Paint()
-        ..color = _kTeal.withOpacity(fade)
-        ..strokeWidth = 2,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _HudPainter old) => true;
-}
-
-/// Ring around the record button: spinning dashes when idle, a red ring
-/// that fills over 60 seconds while recording.
-class _RecordRingPainter extends CustomPainter {
-  _RecordRingPainter({
-    required this.t,
-    required this.recording,
-    required this.seconds,
-  });
-
-  final double t;
-  final bool recording;
-  final int seconds;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset c = size.center(Offset.zero);
-    final double r = size.width / 2 - 2;
-    final Rect rect = Rect.fromCircle(center: c, radius: r);
-
-    if (recording) {
-      canvas.drawCircle(
-        c,
-        r,
-        Paint()
-          ..color = Colors.white.withOpacity(0.22)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3,
-      );
-      final double f = ((seconds % 60) / 60.0);
-      canvas.drawArc(
-        rect,
-        -math.pi / 2,
-        2 * math.pi * math.max(f, 0.01),
-        false,
-        Paint()
-          ..color = _kRed
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round,
-      );
-      return;
+    // Rear leg first (dimmer).
+    if (p.knee2 != null && p.ankle2 != null) {
+      canvas.drawLine(m(p.hip), m(p.knee2!), dim);
+      canvas.drawLine(m(p.knee2!), m(p.ankle2!), dim);
     }
 
-    final Paint dash = Paint()
-      ..color = _kTeal
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
-    const int n = 24;
-    final double rot = (t / 9.0) * 2 * math.pi;
-    for (int i = 0; i < n; i++) {
-      final double a = rot + i * 2 * math.pi / n;
-      canvas.drawArc(rect, a, 0.07, false, dash);
+    // Body.
+    canvas.drawLine(m(p.sh), m(p.hip), white);
+    canvas.drawLine(m(p.hip), m(p.knee), white);
+    canvas.drawLine(m(p.knee), m(p.ankle), white);
+    canvas.drawLine(m(p.ankle), m(p.toe), white);
+    canvas.drawLine(m(p.sh), m(p.elbow), white);
+    canvas.drawLine(m(p.elbow), m(p.wrist), white);
+    canvas.drawCircle(m(p.head), u * 0.06, white);
+
+    // Equipment.
+    Offset? at;
+    double r = u * 0.065;
+    switch (anim.prop) {
+      case _Prop.none:
+        break;
+      case _Prop.barWrist:
+        at = p.wrist;
+        break;
+      case _Prop.barBack:
+        at = p.sh + const Offset(-0.03, -0.01);
+        break;
+      case _Prop.barFront:
+        at = p.sh + const Offset(0.04, -0.01);
+        break;
+      case _Prop.barElbow:
+        at = p.elbow;
+        break;
+      case _Prop.weightWrist:
+        at = p.wrist;
+        r = u * 0.045;
+        break;
+    }
+    if (at != null) {
+      final Offset c = m(at);
+      canvas.drawCircle(c, r, Paint()..color = _kCard);
+      canvas.drawCircle(c, r, teal);
+      canvas.drawCircle(c, 1.6, Paint()..color = _kTeal);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RecordRingPainter old) => true;
+  bool shouldRepaint(covariant _SetupPainter old) =>
+      old.anim != anim || old.loop != loop;
 }

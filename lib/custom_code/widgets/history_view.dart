@@ -16,7 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Full History page body: search field, period + muscle filter pills (both
-/// bottom sheets built in), workout cardhs and emfpty states.
+/// bottom sheets built in), workout cards and empty states.
 ///
 /// Fully self-managed, no page state needed: loads from the SQLite query
 /// history(userId) and filters in memory, so search / period / muscle always
@@ -547,8 +547,10 @@ class _WorkoutCardState extends State<_WorkoutCard> {
     return n < 0 ? '-$buf' : buf.toString();
   }
 
-  // Returns [value, unit]
-  static List<String> _formatDuration(int seconds) {
+  // The history query's duration_seconds column is stored in MILLISECONDS
+  // (same as WorkoutSummaryView reads it). Returns [value, unit].
+  static List<String> _formatDuration(int ms) {
+    final int seconds = (ms / 1000).round();
     if (seconds < 60) return ['$seconds', 'sec'];
     final int minutes = (seconds / 60).round();
     if (minutes < 60) return ['$minutes', 'min'];
