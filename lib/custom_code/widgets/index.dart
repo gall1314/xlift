@@ -57,3 +57,4 @@ export 'muscle_stats_view.dart' show MuscleStatsView;
 export 'ai_form_button.dart' show AiFormButton;
 export 'ai_form_badge.dart' show AiFormBadge;
 export 'ai_score_ring.dart' show AiScoreRing;
+export 'vision_pose_test_button.dart' show VisionPoseTestButton;

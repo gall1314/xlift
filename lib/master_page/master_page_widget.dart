@@ -2826,7 +2826,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                         if (currentUserUid ==
                                                             '6880a3ee-0e24-42eb-adbb-ec167c12c089')
                                                           Container(
-                                                            width: 100.0,
                                                             decoration:
                                                                 BoxDecoration(
                                                               color: FlutterFlowTheme
@@ -2896,6 +2895,17 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                     borderRadius:
                                                                         BorderRadius.circular(
                                                                             8.0),
+                                                                  ),
+                                                                ),
+                                                                Container(
+                                                                  width: 300.0,
+                                                                  height: 40.0,
+                                                                  child: custom_widgets
+                                                                      .VisionPoseTestButton(
+                                                                    width:
+                                                                        300.0,
+                                                                    height:
+                                                                        40.0,
                                                                   ),
                                                                 ),
                                                                 FFButtonWidget(

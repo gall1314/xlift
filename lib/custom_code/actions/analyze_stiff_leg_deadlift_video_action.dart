@@ -113,13 +113,18 @@ class _PoseSmoother {
 //                your legs straighter".
 //
 // Everything else is shared with the RDL analyzer at the SAME numerical
-// values: rep detection state machine, depth thresholds, too-deep check,
-// position lock, shape validation, side-hysteresis, skeleton persistence,
-// upright confirmation, v22 semantic enrichment (hip displacement, tempo,
-// symmetry, confidence), back-to-back rep handling, and so on. The same
-// threshold (156°, 27°) is used in the OPPOSITE direction from the knee
-// check perspective — see comments near _KNEE_TOO_BENT for the exact
-// mirror logic.
+// values: rep detection state machine, depth thresholds, position lock,
+// shape validation, side-hysteresis, skeleton persistence, upright
+// confirmation, v22 semantic enrichment (hip displacement, tempo,
+// symmetry, confidence), back-to-back rep handling, and so on.
+//
+// [v34 SL-CAL] Two checks diverge from the RDL mirror after calibration
+// on a real stiff-leg set (10 reps to the floor, side/oblique camera):
+//   1. KNEE: measured AT THE BOTTOM of the hinge (median over the bottom
+//      plateau), in aspect-corrected degrees — no longer min/range over
+//      the whole rep. See _KNEE_TOO_BENT.
+//   2. TOO-DEEP: the smoothed-angle trigger is dormant (90°); only the
+//      past-horizontal geometric trigger fires. See _TORSO_TOO_DEEP.
 //
 // [TOO-DEEP-PORT] Ported from RDL v33 at Gal's request, same values:
 //   - _TORSO_OVEREXTEND (95°, -1.0, "torso too far forward") replaced by
@@ -150,29 +155,45 @@ const Map<String, String> _FB_CATEGORY = {
 // Eval thresholds (mirror Python intent)
 const double _GOOD_DEPTH_TORSO_ANGLE =
     55.0; // torso angle at bottom must reach this
-const double _KNEE_TOO_BENT =
-    156.0; // [v32 LOOSENED] threshold for rMinKnee. Was 160° (direct mirror of RDL). Real stiff-legs allow some knee bend at the bottom (5-15°), so 160° was triggering on legitimate stiff-leg reps. Lowered to 156° to give that natural margin while still catching clear RDL patterns (rMinKnee well below 150°).
-// [STIFF-LEG MIRROR] / [v32 LOOSENED]
-// Maximum allowed knee movement during the rep.
+// [v34 SL-CAL] KNEE CHECK REWORKED — "knee angle at the bottom of the
+// hinge", not "min knee anywhere in the rep".
 //
-// Originally a direct mirror of the RDL analyzer's _KNEE_MIN_RANGE
-// at 23°, but in practice stiff-leg deadlifts show more natural knee
-// movement than the strict mirror allowed — even trained lifters
-// holding "locked" knees have 15-25° of movement across a rep due to
-// natural soft bend at the bottom + ML Kit measurement noise. The
-// mirror's 23° threshold flagged legitimate stiff-legs as RDLs.
+// What the v32 logic (rMinKnee < 156° OR max-min > 27°) actually did on
+// a real stiff-leg set (10 reps, bar to the floor, legs visibly
+// straight): flagged 10/10 reps. Two reasons, both measurable:
+//   (a) The per-frame knee angle has a "W" shape inside every rep: it
+//       dips to ~135-150° mid-descent / mid-ascent and returns to
+//       160-180° AT THE BOTTOM. rMinKnee grabbed the mid-rep dip, which
+//       is not the RDL pattern — an RDL keeps the knee bent at the
+//       bottom. max-min over the rep (20-40°) was dominated by the same
+//       dip plus ML Kit frame noise (the far-side knee jumps ±15° between
+//       adjacent frames), so the range check always fired too.
+//   (b) Angles were computed on NORMALIZED coords. On portrait video
+//       that stretches x by ~1.78, so a leg with 15° of true flexion
+//       read ~154° (26° flexion) — the 156° threshold was in "stretched
+//       degrees" and allowed only ~14° of true flexion.
 //
-// [v32] Raised to 27° to allow normal stiff-leg variation. The
-// asymmetry with the RDL threshold is intentional and reflects
-// real-world data: the "stiff-leg pattern" and "RDL pattern" don't
-// meet at exactly the same numerical point — there's a band in the
-// middle where both can look similar. Each analyzer is now calibrated
-// to flag only clear-cut cases of the OTHER pattern.
+// New metric: kneeAngleTrue (pixel-space, aspect-corrected) on the
+// dominant side, sampled on reliable 'rising' frames; at peak
+// confirmation take the MEDIAN over the bottom plateau (frames whose
+// smoothed torso is within _KNEE_BOTTOM_WINDOW_DEG of the peak).
+// Flag if that median < _KNEE_TOO_BENT.
 //
-// Final logic:
-//   RDL flags when:  rMinKnee >  160°  OR  range <  23°
-//   Stiff-leg flags: rMinKnee <  156°  OR  range >  27°
-const double _KNEE_MAX_RANGE = 27.0;
+// Calibration data (true degrees, bottom-plateau median, dominant side):
+//   10 legit stiff-leg reps → 163-178°  (4-17° of soft-knee flexion)
+//   at 20fps and 12fps alike; the metric moved <2° between the two.
+// 155° = 25° of flexion at the bottom: flags a clear RDL-style bottom
+// (typically 25-35° flexion), leaves soft-knee stiff-legs alone with
+// an 8° margin on the tightest calibration rep. If device logs show
+// RDL-pattern reps slipping through, raise toward 158-160°; do not go
+// above 160° without a stiff-leg log showing the margin holds.
+const double _KNEE_TOO_BENT = 155.0;
+// Bottom plateau = frames whose smoothed torso angle is within this many
+// degrees of the rep's peak. ~0.6-1.0s of a normal 3s rep at 20fps.
+const double _KNEE_BOTTOM_WINDOW_DEG = 8.0;
+// Fewer reliable samples than this in the plateau → no knee verdict for
+// the rep (bottom_knee = -1, no flag). Conservative by design.
+const int _KNEE_BOTTOM_MIN_SAMPLES = 3;
 // [TOO-DEEP-PORT from RDL v33] Replaces _TORSO_OVEREXTEND (was 95.0,
 // penalty -1.0, message "Your torso is going too far forward").
 // Two triggers, either fires (see evalRep):
@@ -189,7 +210,20 @@ const double _KNEE_MAX_RANGE = 27.0;
 //      skeletons don't count. Immune to EMA lag and the saturation
 //      ceiling.
 // Penalty -2.0 so a too-deep rep scores 8.0 and counts as a bad rep.
-const double _TORSO_TOO_DEEP = 85.0;
+//
+// [v34 SL-CAL] 85 → 90. On the calibration set (bar to the floor, true
+// torso 78-83° at the bottom, shoulder never below hip: past_horiz = 0
+// on every rep) the smoothed signal read 83.8-85.9° and tripped 85° on
+// 3 of 10 reps. The smoothed signal is computed on normalized coords
+// (x stretched ~1.78x on portrait → reads ~5° high near parallel) and
+// is capped below 90° by construction (shape validation rejects every
+// shoulder-at/below-hip frame), so it cannot tell "at parallel" from
+// "past parallel" — and at parallel is NORMAL for a stiff-leg to the
+// floor. At 90.0 trigger (1) and the real-time during-descent banner
+// are dormant; the past-horizontal geometric trigger (2) is the
+// too-deep check for this exercise. Kept in place rather than deleted
+// so the structure stays a 1:1 mirror of the RDL analyzer.
+const double _TORSO_TOO_DEEP = 90.0;
 // [TOO-DEEP-PORT] Frames with shoulder at/below hip level needed to
 // flag too-deep via the geometric trigger. [CAL-1 LOOSENED 2→3] 3 frames = 150ms at 20fps —
 // a real past-horizontal bottom spends far longer there; a single
@@ -497,6 +531,10 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
   // shape-validation reject branch since hipOrderOk rejects exactly
   // these frames.
   int rPastHorizFrames = 0;
+  // [v34 SL-CAL] Per-rep samples of [smoothedTorso, kneeAngleTrue] on
+  // reliable 'rising' frames. Reduced to a bottom-plateau median at peak
+  // confirmation (see _KNEE_TOO_BENT). ≤ MAX_REP_DURATION_FRAMES entries.
+  final List<List<double>> rKneeSamples = <List<double>>[];
 
   // ============ [v22 SEMANTIC-ENRICHMENT] ============
   // Multi-signal validation and confidence scoring. All ADDITIVE — does
@@ -658,6 +696,7 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
     rBadFrames = 0;
     rTotalFrames = 0;
     rPastHorizFrames = 0; // [TOO-DEEP-PORT]
+    rKneeSamples.clear(); // [v34 SL-CAL]
     peakTorsoAngle = 0.0;
     peakFrameIdx = -1;
     framesAscending = 0;
@@ -683,8 +722,6 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
     double sc = _MAX_SCORE;
     final double snapMaxTorso = rep['max_torso'] as double;
     final double snapPeakTorso = rep['peak_torso'] as double;
-    final double snapMinKnee = rep['min_knee'] as double;
-    final double snapMaxKnee = rep['max_knee'] as double;
     // Deepest torso angle seen in this rep. peak_torso is tracked on all
     // shape-valid frames (even poseReliable=false), max_torso only on
     // reliable ones — take the max so deep bottoms with low ML Kit
@@ -694,27 +731,14 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
       fb.add('Go deeper - hinge more at the hips');
       sc -= 2.0;
     }
-    // [STIFF-LEG MIRROR] / [v27 KNEE-CHECK-FIX] / [v28 KNEE-RANGE-CHECK]
-    // Two independent signals — either fires the flag. These are the
-    // EXACT MIRROR of the RDL analyzer's checks:
-    //  1. minKnee < _KNEE_TOO_BENT: the knee bent past the threshold at
-    //     the deepest moment of the rep. A stiff-leg deadlift should
-    //     hold near-locked knees throughout; if the knee dropped
-    //     clearly below it, the user was doing an RDL-style soft bend
-    //     instead.
-    //  2. (maxKnee - minKnee) > _KNEE_MAX_RANGE: the knee moved more
-    //     than allowed across the rep. In a real stiff-leg the knee
-    //     stays near-constant (3-10° of natural micro-movement). A
-    //     larger range means the user was actively extending and
-    //     flexing the knee — that's an RDL pattern.
-    // Range-based check is the more reliable signal because it's robust
-    // to ML Kit's per-user measurement bias (only within-rep variation
-    // matters, not absolute calibration).
-    bool kneeTooBent = false;
-    if (snapMinKnee < 998.0 && snapMaxKnee > 0.0) {
-      if (snapMinKnee < _KNEE_TOO_BENT) kneeTooBent = true;
-      if ((snapMaxKnee - snapMinKnee) > _KNEE_MAX_RANGE) kneeTooBent = true;
-    }
+    // [v34 SL-CAL] Single signal: the aspect-corrected knee angle at the
+    // bottom of the hinge (bottom-plateau median, see _KNEE_TOO_BENT).
+    // -1.0 = not enough reliable samples in the plateau → no verdict.
+    // The old min-over-rep / range-over-rep checks are gone: both fired
+    // on the mid-rep knee dip + frame noise of legitimate stiff-legs.
+    final double snapBottomKnee = (rep['bottom_knee'] as double?) ?? -1.0;
+    final bool kneeTooBent =
+        snapBottomKnee > 0.0 && snapBottomKnee < _KNEE_TOO_BENT;
     if (kneeTooBent) {
       fb.add('Keep your legs straighter - this is a stiff leg deadlift');
       sc -= 1.5;
@@ -722,11 +746,13 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
     // [TOO-DEEP-PORT from RDL v33] Torso at/past ~parallel = excessive
     // range; the extra motion comes from lumbar flexion and the load
     // shifts onto the lower back. Two triggers, either fires:
-    //  1. deepest > 85 (smoothed) [CAL-1 LOOSENED 82→85] — approaching parallel.
-    //  2. past_horiz_frames ≥ 2 — direct geometric evidence the
+    //  1. deepest > _TORSO_TOO_DEEP (smoothed). [v34 SL-CAL] Dormant at
+    //     90° — the smoothed signal cannot exceed 90 (see the constant).
+    //  2. past_horiz_frames ≥ 3 — direct geometric evidence the
     //     shoulder dropped to/below hip level (≥ 90° true), immune to
-    //     EMA lag and to the shape-validation saturation ceiling.
-    // Mutually exclusive with the "Go deeper" check above (85 > 55).
+    //     EMA lag and to the shape-validation saturation ceiling. This
+    //     is THE too-deep check for stiff-leg.
+    // Mutually exclusive with the "Go deeper" check above (90 > 55).
     final int snapPastHoriz = (rep['past_horiz_frames'] as int?) ?? 0;
     if (deepest > _TORSO_TOO_DEEP || snapPastHoriz >= _PAST_HORIZ_MIN_FRAMES) {
       fb.add('You\'re going too deep - hinge a bit less');
@@ -1104,6 +1130,13 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
       // ============ Compute torso angle (THE signal) ============
       final double torsoAngle = torsoAngleVertical(hi, sh);
       final double kneeAngle = angleDeg(hi, kn, an);
+      // [v34 SL-CAL] Aspect-corrected knee angle: same three landmarks
+      // in PIXEL space, so a 9:16 portrait frame doesn't stretch x by
+      // ~1.78 and make a softly-bent leg read 10-15° more bent than it
+      // is. Only the knee verdict uses this; torsoAngle and every
+      // threshold built on it stay in the calibrated normalized space.
+      final double kneeAngleTrue = angleDeg([hi[0] * fw, hi[1] * fh],
+          [kn[0] * fw, kn[1] * fh], [an[0] * fw, an[1] * fh]);
 
       // Light smoothing of torso angle for state machine
       currentSmoothedTorso = 0.5 * currentSmoothedTorso + 0.5 * torsoAngle;
@@ -1205,6 +1238,8 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
         if (poseReliable) {
           if (kneeAngle > rMaxKnee) rMaxKnee = kneeAngle;
           if (kneeAngle < rMinKnee) rMinKnee = kneeAngle;
+          // [v34 SL-CAL] Sample for the bottom-plateau knee median.
+          rKneeSamples.add([currentSmoothedTorso, kneeAngleTrue]);
           // [TOO-DEEP-PORT] Threshold 95 → 82 and message reworded.
           // Fires in real time DURING the descent, the moment the torso
           // passes ~parallel — when the user can still correct it.
@@ -1369,6 +1404,24 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
                 rTotalFrames > 0 ? (rBadFrames / rTotalFrames) : 1.0;
             final bool qualityEnough = badFrac <= 0.50;
             if (depthEnough && durationEnough && qualityEnough) {
+              // [v34 SL-CAL] Knee at the bottom: median of kneeAngleTrue
+              // over the reliable frames whose smoothed torso sits within
+              // _KNEE_BOTTOM_WINDOW_DEG of the peak. -1.0 if too few.
+              double bottomKnee = -1.0;
+              int bottomKneeN = 0;
+              {
+                final List<double> bot = <double>[];
+                for (final s in rKneeSamples) {
+                  if (s[0] >= peakTorsoAngle - _KNEE_BOTTOM_WINDOW_DEG) {
+                    bot.add(s[1]);
+                  }
+                }
+                bottomKneeN = bot.length;
+                if (bot.length >= _KNEE_BOTTOM_MIN_SAMPLES) {
+                  bot.sort();
+                  bottomKnee = bot[bot.length ~/ 2];
+                }
+              }
               // [v22] Capture descent end frame BEFORE we lose peakFrameIdx
               // to the next rep. Ascent time will be computed at rep count.
               rDescentEndFrame = peakFrameIdx;
@@ -1379,6 +1432,9 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
                 'good_depth': peakTorsoAngle >= _GOOD_DEPTH_TORSO_ANGLE,
                 'min_knee': rMinKnee,
                 'max_knee': rMaxKnee,
+                // [v34 SL-CAL] Drives the knee verdict (true degrees).
+                'bottom_knee': bottomKnee,
+                'bottom_knee_samples': bottomKneeN,
                 'max_torso': rMaxTorso,
                 'back_issue': rBackIssue,
                 'back_angle': rBackAngle,
@@ -1403,12 +1459,10 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
               // ML Kit confidence dropped and the rising-phase check
               // couldn't fire.)
               // [STIFF-LEG MIRROR] Same logic structure as RDL analyzer's
-              // real-time feedback, but the knee check is inverted (see
-              // evalRep comments above for the full reasoning).
-              final bool kneeBent = rMinKnee < 998.0 &&
-                  rMaxKnee > 0.0 &&
-                  (rMinKnee < _KNEE_TOO_BENT ||
-                      (rMaxKnee - rMinKnee) > _KNEE_MAX_RANGE);
+              // real-time feedback, but the knee check is inverted.
+              // [v34 SL-CAL] Same bottom-plateau verdict evalRep will use.
+              final bool kneeBent =
+                  bottomKnee > 0.0 && bottomKnee < _KNEE_TOO_BENT;
               if (peakTorsoAngle > _TORSO_TOO_DEEP ||
                   rPastHorizFrames >= _PAST_HORIZ_MIN_FRAMES) {
                 rtMsg = 'You\'re going too deep - hinge a bit less';
@@ -1620,10 +1674,19 @@ Future<dynamic> analyzeStiffLegDeadliftVideoAction(
                 (finishedRep['peak_torso'] as double).toStringAsFixed(2)),
             'max_torso_angle': double.parse(
                 (finishedRep['max_torso'] as double).toStringAsFixed(2)),
+            // min/max knee are telemetry only now (normalized-space
+            // degrees, same units as older device logs).
             'min_knee_angle': double.parse(
                 (finishedRep['min_knee'] as double).toStringAsFixed(2)),
             'max_knee_angle': double.parse(
                 (finishedRep['max_knee'] as double).toStringAsFixed(2)),
+            // [v34 SL-CAL] The value the knee verdict is made on:
+            // aspect-corrected degrees at the bottom plateau (-1 = n/a).
+            'bottom_knee_angle': double.parse(
+                ((finishedRep['bottom_knee'] as double?) ?? -1.0)
+                    .toStringAsFixed(2)),
+            'bottom_knee_samples':
+                (finishedRep['bottom_knee_samples'] as int?) ?? 0,
             'back_angle': double.parse(
                 (finishedRep['back_angle'] as double).toStringAsFixed(2)),
             // [v22] New enriched metrics

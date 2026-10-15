@@ -28,7 +28,9 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 ///   1. Extract frames at target FPS via ffmpeg.
 ///   2. Run ML Kit pose detection per frame.
 ///   3. Reject frames with bad pose (low visibility, partial body, jumps).
-///   4. Apply EMA smoothing to active-leg knee angle.
+///   4. Apply EMA smoothing to the FRONT-leg knee angle. The front leg is
+///      picked per frame from geometry (the ankle lower on screen is on the
+///      floor), which is immune to ML Kit left/right label swaps.
 ///   5. Detect reps via local-minima in knee angle (descent + rise gates).
 ///   6. Score form during descent (torso lean, valgus, knee-over-toe, depth).
 ///   7. Post-process: locate the actual visual peak frame between each
@@ -380,7 +382,16 @@ Future<dynamic> analyzeBulgarianVideoAction(
         continue;
       }
 
-      final bool isRight = activeLeg == 'right';
+      final lAnkleLm = lm[PoseLandmarkType.leftAnkle];
+      final rAnkleLm = lm[PoseLandmarkType.rightAnkle];
+
+      // Front (active) leg — picked PER FRAME from geometry: the ankle that is
+      // lower on screen (larger y) is on the floor, so that leg is the front
+      // leg. Label-swap invariant: an ML Kit left/right swap moves the labels,
+      // not the pixels. Falls back to the voted activeLeg if an ankle is missing.
+      final bool isRight = (lAnkleLm != null && rAnkleLm != null)
+          ? (rAnkleLm.y > lAnkleLm.y)
+          : (activeLeg == 'right');
       final PoseLandmarkType hipT =
           isRight ? PoseLandmarkType.rightHip : PoseLandmarkType.leftHip;
       final PoseLandmarkType kneeT =
@@ -395,8 +406,6 @@ Future<dynamic> analyzeBulgarianVideoAction(
       final kneeLm = lm[kneeT];
       final ankleLm = lm[ankleT];
       final shldrLm = lm[shldrT];
-      final lAnkleLm = lm[PoseLandmarkType.leftAnkle];
-      final rAnkleLm = lm[PoseLandmarkType.rightAnkle];
 
       if (hipLm == null ||
           kneeLm == null ||
@@ -498,48 +507,16 @@ Future<dynamic> analyzeBulgarianVideoAction(
       final List<double> hipPx = [hipLm.x, hipLm.y];
       final List<double> shldrPx = [shldrLm.x, shldrLm.y];
 
-      // min(L_knee, R_knee) — swap-invariant. The active (front) leg is
-      // always the more-bent one, so its angle is the smaller of the two.
-      final lHipLm = lm[PoseLandmarkType.leftHip];
-      final lKneeLm = lm[PoseLandmarkType.leftKnee];
-      final rHipLm = lm[PoseLandmarkType.rightHip];
-      final rKneeLm = lm[PoseLandmarkType.rightKnee];
-
-      double activeKneeAngleRaw = 999.0;
-      if (lHipLm != null &&
-          lKneeLm != null &&
-          lAnkleLm != null &&
-          lHipLm.likelihood >= HIP_ANK_MIN_VIS &&
-          lKneeLm.likelihood >= KNEE_MIN_VIS &&
-          lAnkleLm.likelihood >= HIP_ANK_MIN_VIS) {
-        final double L = calcAngle([lHipLm.x, lHipLm.y], [lKneeLm.x, lKneeLm.y],
-            [lAnkleLm.x, lAnkleLm.y]);
-        if (L >= KNEE_HARD_MIN &&
-            L <= KNEE_HARD_MAX &&
-            L < activeKneeAngleRaw) {
-          activeKneeAngleRaw = L;
-        }
-      }
-      if (rHipLm != null &&
-          rKneeLm != null &&
-          rAnkleLm != null &&
-          rHipLm.likelihood >= HIP_ANK_MIN_VIS &&
-          rKneeLm.likelihood >= KNEE_MIN_VIS &&
-          rAnkleLm.likelihood >= HIP_ANK_MIN_VIS) {
-        final double R = calcAngle([rHipLm.x, rHipLm.y], [rKneeLm.x, rKneeLm.y],
-            [rAnkleLm.x, rAnkleLm.y]);
-        if (R >= KNEE_HARD_MIN &&
-            R <= KNEE_HARD_MAX &&
-            R < activeKneeAngleRaw) {
-          activeKneeAngleRaw = R;
-        }
-      }
-      if (activeKneeAngleRaw >= 900.0) {
-        noteGap();
-        addEmptyFrame(tSec);
-        continue;
-      }
-      final double kneeAngleRaw = activeKneeAngleRaw;
+      // Knee angle of the FRONT leg (hip–knee–ankle) — the leg that actually
+      // squats (~170° at the top → ~70° at the bottom).
+      //
+      // NOTE: never use min(L, R) here. In a Bulgarian split squat the REAR
+      // leg (on the bench) is always the MORE bent one (~40–80°), so min()
+      // silently tracks the bench leg: a ~40° range that bottoms out right on
+      // KNEE_HARD_MIN and then flips to the front leg mid-rep, which kills
+      // local-minima detection on fast reps.
+      final double kneeAngleRaw = calcAngle(
+          [hipLm.x, hipLm.y], [kneeLm.x, kneeLm.y], [ankleLm.x, ankleLm.y]);
 
       // Torso angle from vertical: 0° = upright, 90° = horizontal.
       final double torsoFromVerticalRaw = (math.atan2(

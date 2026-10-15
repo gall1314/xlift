@@ -162,6 +162,10 @@ dependencies:
     git:
       url: https://github.com/gall1314/xlift_models.git
       ref: main
+  xlift_vision_pose:
+    git:
+      url: https://github.com/gall1314/xlift_vision_pose.git
+      ref: main
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
