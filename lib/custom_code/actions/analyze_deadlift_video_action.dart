@@ -28,6 +28,20 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 /// KNEE_DROP_* / HIP_DESC_* thresholds are scaled by 0.7 — otherwise a
 /// perfect sumo rep caps at 9 and never shows as GOOD REP. Trap bar needs
 /// nothing (more knee bend passes everything easily).
+///
+/// v13 — LOCKOUT-BASED REP CLOSING (see the [LOCKOUT] block below):
+///  * a rep is closed only at a confirmed lockout (the EMA's local minimum
+///    after the bottom), never "30% of the way up" as before;
+///  * the count marker is placed at the ARRIVAL at the top (no 2-second cap
+///    after the bottom, so long pauses at the floor no longer fire the count
+///    mid-ascent or at the bottom);
+///  * the HEIGHT meter follows a faster EMA and is rescaled by the median
+///    lockout level (a single bad lockout can no longer pin it at 100%);
+///  * rep metrics are measured over the rep's frames [start, lockout]
+///    (valid frames only) instead of running accumulators;
+///  * [POSE-JUMP] gate against the detector switching to a passer-by;
+///  * torso-compression fallback for the "not a deadlift" video gate
+///    (front-view deadlifts have a small 2-D knee range).
 Future<dynamic> analyzeDeadliftVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
@@ -56,11 +70,46 @@ Future<dynamic> analyzeDeadliftVideoAction(
   const double MIN_BETWEEN_REPS_SEC = 0.8;
   const double BASELINE_LOOKBACK_SEC = 2.0;
   // [DUR-FILTER] A real deadlift rep — even a fast one — runs at least
-  // ~1s end-to-end above T_RESET. Sub-second "reps" are pose-detection
-  // noise spikes that briefly cross T_DEEP and drop back. The hold-deep
-  // gate (MIN_HOLD_DEEP_SEC=0.3) is too short to filter these out, so
-  // we add a TOTAL rep duration gate of 0.7s.
+  // ~1s from the start of the descent to the lockout. Sub-second "reps"
+  // are pose-detection noise spikes that briefly cross T_DEEP and drop
+  // back. The hold-deep gate (MIN_HOLD_DEEP_SEC=0.3) is too short to filter
+  // these out, so we add a TOTAL rep duration gate of 0.7s (measured from
+  // the rep start to the lockout frame).
   const double MIN_REP_DURATION_SEC = 0.7;
+
+  // [LOCKOUT] How a rep candidate is closed.
+  //
+  // The old rule closed a candidate as soon as the EMA had dropped 30% of
+  // the way from its peak toward T_RESET — i.e. with the bar barely off the
+  // floor — and a post-process then looked for the lockout within 2 s after
+  // the EMA peak. Two things broke: (1) a lifter who pauses at the floor
+  // for > 2 s got the count fired mid-ascent or even at the bottom; (2) a
+  // "lower the bar, wiggle, stand up without it" sequence was split into
+  // two candidates and the wiggle was counted as a (good!) rep.
+  //
+  // Now the candidate tracks the running minimum of the EMA after the
+  // bottom (peak). That minimum is a LOCKOUT only if it is low enough
+  // (<= LOCKOUT_EMA_MAX — a wiggle at the bottom never qualifies) and it
+  // is confirmed once the EMA has risen LOCKOUT_RISE_HYST above it (the
+  // next descent started) or the video ends. The rep is then evaluated over
+  // its frames [start, lockout] and the count marker goes to the ARRIVAL at
+  // the lockout: the first frame after the bottom whose EMA is within
+  // ARRIVE_TOL of the minimum (the EMA keeps creeping down while the
+  // lifter stands still, so the raw minimum can be a second late).
+  const double LOCKOUT_EMA_MAX = 0.45;
+  const double LOCKOUT_RISE_HYST = 0.08;
+  // The rise must hold for this many consecutive frames, so a one-frame
+  // glitch in the EMA during the ascent cannot close the rep early.
+  const int LOCKOUT_RISE_FRAMES = 2;
+  const double ARRIVE_TOL_ABS = 0.04;
+  const double ARRIVE_TOL_FRAC = 0.10;
+  // Extra display delay after the arrival frame (0 = none; the EMA lag
+  // already puts the arrival ~0.1 s after the visual top).
+  const double LOCKOUT_VISUAL_DELAY_SEC = 0.0;
+
+  // [DISPLAY] The HEIGHT meter follows its own, faster EMA so it does not
+  // lag the lifter by half a second like the detection EMA (alpha 0.4).
+  const double DISP_EMA_ALPHA = 0.6;
 
   const double MAX_HIPX_RANGE_WALK = 0.15;
   const double LATERAL_GATE_PEAK_TH = 0.80;
@@ -80,30 +129,50 @@ Future<dynamic> analyzeDeadliftVideoAction(
   const double SCALE_GATE_MIN_MEDIAN = 0.05;
   const int SCALE_GATE_MIN_FRAMES = 10;
 
+  // [POSE-JUMP] In a crowded gym the detector sometimes locks onto a
+  // passer-by for a few frames. The lifter's hips cannot jump more than
+  // POSE_JUMP_MAX of the frame between two consecutive accepted frames, so
+  // such frames are invalidated (they used to poison the EMA and the
+  // hip-x "walking" range of the rep). After POSE_JUMP_REACQUIRE_FRAMES
+  // consecutive jumping frames the new position is accepted (the lifter
+  // really moved while we were not tracking).
+  const double POSE_JUMP_MAX = 0.15;
+  const int POSE_JUMP_REACQUIRE_FRAMES = 5;
+
   // [KNEE-BOTTOM] A real deadlift bottom has the knees at least this
   // bent. Was hipRange-dependent (120/125/140) but hipRange is a poor
   // proxy for that (and was easily inflated) — a hip-dominant lifter
   // with less knee bend got rejected. Now a single loose constant.
   const double KNEE_BOTTOM_MAX_ANGLE = 140.0;
 
-  // [LAST-REP WALK-OUT v2] Runs on the LAST committed rep only, and only
+  // [NOT-A-DEADLIFT] A video whose 2-D knee range is below
+  // NOT_DEADLIFT_KNEE_RANGE used to be rejected outright. From the FRONT
+  // the knee angle is foreshortened and a hip-dominant lifter can stay
+  // under 50 degrees for a whole set, so the torso compression
+  // (1 - min/max of the hip-shoulder vertical distance over the video) is
+  // accepted as an alternative proof of a hinge.
+  const double NOT_DEADLIFT_KNEE_RANGE = 50.0;
+  const double TORSO_COMPRESS_MIN = 0.35;
+
+  // [LAST-REP WALK-OUT v3] Runs on the LAST committed rep only, and only
   // when there are >= 2 committed reps (never wipes a one-rep video).
   //
   // The pattern it targets: the bar is already on the floor, the lifter
   // stands up WITHOUT it and walks away. That "rise" looks like a rep.
   // What separates it from a real last rep: after a real last rep the
-  // lifter LOWERS the bar (a descent -> EMA climbs again), and only then
-  // walks. After the fake rise there is NO descent - just walking.
+  // lifter LOWERS the bar (a descent) and only then walks. After the fake
+  // rise there is NO descent - just walking.
   //
-  // So: in a window after the last rep's lockout, if there is no descent
-  // (no valid frame with EMA >= WALKOUT_DESCENT_EMA) AND there is walking
-  // (hipX range over valid frames >= WALKOUT_HIPX_RANGE, or >=
-  // WALKOUT_GATED_FRACTION of the window's frames were scale-gated /
-  // pose-less, i.e. the person moved toward the camera or out of frame)
-  // -> the last rep is removed. A video that ends right after the rep has
-  // no window -> nothing happens.
+  // So: in a window after the last rep's lockout ARRIVAL, if there is no
+  // descent (no valid frame whose raw combined signal >= WALKOUT_DESCENT_C;
+  // the raw signal, not the EMA, so that a quick bar drop still counts)
+  // AND there is walking (hipX range over valid frames >=
+  // WALKOUT_HIPX_RANGE, or >= WALKOUT_GATED_FRACTION of the window's frames
+  // were scale-gated / pose-less, i.e. the person moved toward the camera
+  // or out of frame) -> the last rep is removed. A video that ends right
+  // after the rep has no window -> nothing happens.
   const double WALKOUT_WINDOW_SEC = 2.5;
-  const double WALKOUT_DESCENT_EMA = 0.45;
+  const double WALKOUT_DESCENT_C = 0.40;
   const double WALKOUT_HIPX_RANGE = 0.12;
   const double WALKOUT_GATED_FRACTION = 0.35;
   const int WALKOUT_MIN_REPS = 2;
@@ -156,6 +225,9 @@ Future<dynamic> analyzeDeadliftVideoAction(
       math.max(1, (MIN_BETWEEN_REPS_SEC * fps).round());
   final int baselineLookbackFrames =
       math.max(1, (BASELINE_LOOKBACK_SEC * fps).round());
+  final int backfillFrames = math.max(1, (0.7 * fps).round());
+  final int lockoutVisualDelayFrames =
+      math.max(0, (LOCKOUT_VISUAL_DELAY_SEC * fps).round());
 
   _cachedW = -1;
   _cachedH = -1;
@@ -526,6 +598,37 @@ Future<dynamic> analyzeDeadliftVideoAction(
     }
   }
 
+  // ================ 3c) Pose-jump gate ================
+  // See [POSE-JUMP]. Sequential over the frames that survived the scale
+  // gate: a frame whose hips are far from the last accepted frame is
+  // another person / a detector glitch.
+  int poseJumpFrames = 0;
+  {
+    double? refX;
+    double? refY;
+    int jumpStreak = 0;
+    for (final r in raw) {
+      if (!r.valid || r.hipX == null || r.hipY == null) continue;
+      final double hx = r.hipX!;
+      final double hy = r.hipY!;
+      if (refX != null &&
+          refY != null &&
+          ((hx - refX).abs() > POSE_JUMP_MAX ||
+              (hy - refY).abs() > POSE_JUMP_MAX)) {
+        jumpStreak++;
+        if (jumpStreak < POSE_JUMP_REACQUIRE_FRAMES) {
+          r.valid = false;
+          r.poseJump = true;
+          poseJumpFrames++;
+          continue;
+        }
+      }
+      jumpStreak = 0;
+      refX = hx;
+      refY = hy;
+    }
+  }
+
   // ================ 4) Calibration ================
   final validHipY =
       raw.where((r) => r.valid && r.hipY != null).map((r) => r.hipY!).toList();
@@ -571,6 +674,7 @@ Future<dynamic> analyzeDeadliftVideoAction(
       'debug': {
         'aborted_at': 'calibration_insufficient_data',
         'scaleGatedFrames': scaleGatedFrames,
+        'poseJumpFrames': poseJumpFrames,
         'scaleMedian': scaleMedian != null ? rd(scaleMedian, 4) : null,
       },
     };
@@ -586,10 +690,21 @@ Future<dynamic> analyzeDeadliftVideoAction(
   final kneeRng = math.max(15.0, kneeTop - kneeBot);
   final kneeRange = kneeTop - kneeBot;
 
+  // [NOT-A-DEADLIFT] torso compression over the valid frames.
+  final List<double> validBodyH = raw
+      .where((r) => r.valid && r.hipY != null && r.shY != null)
+      .map((r) => r.hipY! - r.shY!)
+      .toList();
+  final double bodyHTop = percentile(validBodyH, 98);
+  final double bodyHBot = percentile(validBodyH, 2);
+  final double torsoCompression =
+      bodyHTop > 1e-6 ? (1.0 - bodyHBot / bodyHTop) : 0.0;
+
   diagCalib = {
     'totalFrames': raw.length,
     'validFrames': validHipY.length,
     'scaleGatedFrames': scaleGatedFrames,
+    'poseJumpFrames': poseJumpFrames,
     'scaleMedian': scaleMedian != null ? rd(scaleMedian, 4) : null,
     'fps': rd(fps, 1),
     'hipTop': rd(hipTop, 4),
@@ -598,12 +713,13 @@ Future<dynamic> analyzeDeadliftVideoAction(
     'kneeTop': rd(kneeTop, 2),
     'kneeBot': rd(kneeBot, 2),
     'kneeRange': rd(kneeRange, 2),
+    'torsoCompression': rd(torsoCompression, 3),
   };
 
   const double STATIC_VIDEO_HIP_RANGE = 0.04;
   final bool videoIsStatic = hipRange < STATIC_VIDEO_HIP_RANGE;
-  const double NOT_DEADLIFT_KNEE_RANGE = 50.0;
-  final bool videoNotADeadliftByKnee = kneeRange < NOT_DEADLIFT_KNEE_RANGE;
+  final bool videoNotADeadliftByKnee = kneeRange < NOT_DEADLIFT_KNEE_RANGE &&
+      torsoCompression < TORSO_COMPRESS_MIN;
   final bool videoIsOverhead = false;
   final bool videoNotADeadlift = videoNotADeadliftByKnee || videoIsOverhead;
 
@@ -637,24 +753,22 @@ Future<dynamic> analyzeDeadliftVideoAction(
   int repCount = 0;
   int lastRepFrame = -9999;
   String state = 'STANDING';
+
+  // Open candidate (meaningful while state == 'HINGED').
+  int repStartI = -1; // index into raw
   double peakInRep = 0.0;
+  int bottomI = -1; // index (into raw) of the EMA peak
+  double ascMinEma = 1.0; // running EMA minimum after the peak
+  int ascMinI = -1; // its frame index (into raw)
+  int riseFrames = 0; // consecutive frames with EMA >= ascMinEma + hyst
   int deepCount = 0;
-  int repStartFrame = -1;
   double? repBaselineHipY;
-  double? repMaxHipY;
-  double? repMinHipY;
-  double? repMaxShY;
-  double? repMinShY;
   double? repBaselineKnee;
-  double? repMinKnee;
-  double? repHipxMin, repHipxMax;
-  double? repMaxWristDy;
 
   double? ema;
+  double? dispEma;
   double? kneeEma;
   const double KNEE_EMA_ALPHA = 0.5;
-  int consecutiveStandingFrames = 0;
-  final int minStableStandingFrames = math.max(1, (0.5 * fps).round());
 
   bool firstRepStartedMidRep = false;
   bool seenFirstValidFrame = false;
@@ -663,311 +777,87 @@ Future<dynamic> analyzeDeadliftVideoAction(
   final kneeBuf = <double>[];
 
   final List<double> emaByFrame = [];
-  int? curRepBottomI;
+  final List<double> dispByFrame = [];
+  final List<double?> cByFrame = []; // raw combined signal (valid frames)
 
   final List<_RepInfo> committedReps = [];
-  final List<String?> repFinishedAtFrame = [];
 
-  for (int i = 0; i < raw.length; i++) {
-    final r = raw[i];
-
-    double? hipBaseline;
-    double? kneeBaseline;
-    double curEma = ema ?? 0.0;
-
-    if (r.valid && r.hipY != null) {
-      final h = ((r.hipY! - hipTop) / hipRng).clamp(0.0, 1.0);
-      double? kSmoothed;
-      if (r.kneeAng != null) {
-        kneeEma = (kneeEma == null)
-            ? r.kneeAng
-            : KNEE_EMA_ALPHA * r.kneeAng! + (1 - KNEE_EMA_ALPHA) * kneeEma!;
-        kSmoothed = kneeEma;
-      } else if (kneeEma != null) {
-        kSmoothed = kneeEma;
+  // Evaluate the open candidate with its lockout at raw[lockI]; endI is the
+  // frame that closed it (the confirmation frame or the last frame).
+  // Metrics are measured over the valid frames of [start - backfill, lockI]
+  // (the backfill window only contributes frames that were already below
+  // standing, exactly like the old backfill).
+  bool finalizeCandidate(int lockI, int endI, bool endOfVideo) {
+    final int lo = repStartI;
+    double? maxHipY;
+    double? minHipY;
+    double? minKnee;
+    double? xMin;
+    double? xMax;
+    double? maxShY;
+    double? minShY;
+    final int bf0 = math.max(0, lo - backfillFrames);
+    for (int j = bf0; j <= lockI; j++) {
+      final pj = raw[j];
+      if (!pj.valid) continue;
+      if (j < lo && emaByFrame[j] < T_RESET) continue;
+      final double? hy = pj.hipY;
+      if (hy != null) {
+        if (maxHipY == null || hy > maxHipY) maxHipY = hy;
+        if (minHipY == null || hy < minHipY) minHipY = hy;
       }
-      final k = kSmoothed != null
-          ? ((kneeTop - kSmoothed) / kneeRng).clamp(0.0, 1.0)
-          : 0.0;
-      final c = wHip * h + wKnee * k;
-      ema = (ema == null) ? c : 0.4 * c + 0.6 * ema!;
-      curEma = ema!;
-
-      hipBuf.add(r.hipY!);
-      if (hipBuf.length > baselineLookbackFrames) hipBuf.removeAt(0);
-      if (r.kneeAng != null) {
-        kneeBuf.add(r.kneeAng!);
-        if (kneeBuf.length > baselineLookbackFrames) kneeBuf.removeAt(0);
+      final double? ka = pj.kneeAng;
+      if (ka != null) {
+        if (minKnee == null || ka < minKnee) minKnee = ka;
       }
-      hipBaseline = hipBuf.reduce(math.min);
-      kneeBaseline = kneeBuf.isEmpty ? null : kneeBuf.reduce(math.max);
-    } else {
-      hipBaseline = hipBuf.isEmpty ? null : hipBuf.reduce(math.min);
-      kneeBaseline = kneeBuf.isEmpty ? null : kneeBuf.reduce(math.max);
-    }
-    emaByFrame.add(curEma);
-
-    final bool isStandingNow = curEma < T_RESET;
-    if (isStandingNow) {
-      consecutiveStandingFrames++;
-    }
-
-    String? repJustFinished;
-
-    if (r.valid && r.hipY != null && !seenFirstValidFrame) {
-      seenFirstValidFrame = true;
-      if (state == 'STANDING' && curEma >= T_DEEP) {
-        state = 'HINGED';
-        peakInRep = curEma;
-        deepCount = 1;
-        repStartFrame = r.idx;
-        repBaselineHipY = hipTop;
-        repMaxHipY = r.hipY;
-        repMinHipY = r.hipY;
-        repMaxShY = r.shY;
-        repMinShY = r.shY;
-        repBaselineKnee = kneeTop;
-        repMinKnee = r.kneeAng;
-        repHipxMin = r.hipX;
-        repHipxMax = r.hipX;
-        repMaxWristDy = r.wristHipDy;
-        curRepBottomI = i;
-        firstRepStartedMidRep = true;
-      }
-    }
-
-    if (state == 'STANDING') {
-      if (curEma >= T_DEEP &&
-          (r.idx - lastRepFrame) >= minBetweenRepsFrames &&
-          r.valid) {
-        state = 'HINGED';
-        peakInRep = curEma;
-        deepCount = 1;
-        repStartFrame = r.idx;
-        repBaselineHipY = hipBaseline;
-        repMaxHipY = r.hipY;
-        repMinHipY = r.hipY;
-        repMaxShY = r.shY;
-        repMinShY = r.shY;
-        repBaselineKnee = kneeBaseline;
-        repMinKnee = r.kneeAng;
-        repHipxMin = r.hipX;
-        repHipxMax = r.hipX;
-        repMaxWristDy = r.wristHipDy;
-        curRepBottomI = i;
-
-        final int backfillFrames = math.max(1, (0.7 * fps).round());
-        final int backfillStart = math.max(0, i - backfillFrames);
-        for (int j = backfillStart; j < i; j++) {
-          final pj = raw[j];
-          if (!pj.valid) continue;
-          if (j < emaByFrame.length && emaByFrame[j] < T_RESET) continue;
-          if (pj.kneeAng != null &&
-              (repMinKnee == null || pj.kneeAng! < repMinKnee!)) {
-            repMinKnee = pj.kneeAng;
-          }
-          if (pj.hipY != null && repMaxHipY != null && pj.hipY! > repMaxHipY!) {
-            repMaxHipY = pj.hipY;
-          }
-          if (pj.hipY != null && repMinHipY != null && pj.hipY! < repMinHipY!) {
-            repMinHipY = pj.hipY;
-          }
+      if (j >= lo) {
+        final double? hx = pj.hipX;
+        if (hx != null) {
+          if (xMin == null || hx < xMin) xMin = hx;
+          if (xMax == null || hx > xMax) xMax = hx;
+        }
+        final double? sy = pj.shY;
+        if (sy != null) {
+          if (maxShY == null || sy > maxShY) maxShY = sy;
+          if (minShY == null || sy < minShY) minShY = sy;
         }
       }
-    } else {
-      if (curEma >= T_DEEP) deepCount++;
-      if (curEma > peakInRep) {
-        peakInRep = curEma;
-        curRepBottomI = i;
-      }
-      if (r.hipY != null && repMaxHipY != null && r.hipY! > repMaxHipY!) {
-        repMaxHipY = r.hipY;
-      }
-      if (r.hipY != null && repMinHipY != null && r.hipY! < repMinHipY!) {
-        repMinHipY = r.hipY;
-      }
-      if (r.shY != null) {
-        if (repMaxShY == null || r.shY! > repMaxShY!) repMaxShY = r.shY;
-        if (repMinShY == null || r.shY! < repMinShY!) repMinShY = r.shY;
-      }
-      if (r.kneeAng != null && repMinKnee != null && r.kneeAng! < repMinKnee!) {
-        repMinKnee = r.kneeAng;
-      }
-      if (r.hipX != null) {
-        if (repHipxMin == null || r.hipX! < repHipxMin!) repHipxMin = r.hipX;
-        if (repHipxMax == null || r.hipX! > repHipxMax!) repHipxMax = r.hipX;
-      }
-      if (r.wristHipDy != null) {
-        if (repMaxWristDy == null || r.wristHipDy! > repMaxWristDy!) {
-          repMaxWristDy = r.wristHipDy;
-        }
-      }
-
-      double peakDropDelta = 0.0;
-      if (peakInRep >= 0.65) {
-        peakDropDelta = (peakInRep - T_RESET) * 0.30;
-      }
-      final bool emaDroppedFromPeak =
-          peakInRep >= 0.65 && curEma <= (peakInRep - peakDropDelta);
-      if (curEma < T_RESET || emaDroppedFromPeak) {
-        final hipDesc = (repMaxHipY != null && repBaselineHipY != null)
-            ? (repMaxHipY! - repBaselineHipY!)
-            : 0.0;
-        final kneeDrop = (repBaselineKnee != null && repMinKnee != null)
-            ? (repBaselineKnee! - repMinKnee!)
-            : 0.0;
-        final hipxRng = (repHipxMax != null && repHipxMin != null)
-            ? (repHipxMax! - repHipxMin!)
-            : 0.0;
-
-        final holdOk = deepCount >= minHoldDeepFrames;
-        final double repDurSec = (r.idx - repStartFrame) / fps;
-        final bool durOk = repDurSec >= MIN_REP_DURATION_SEC;
-        final hipOk = hipDesc >= reqHipDescent;
-        final kneeOk = kneeDrop >= reqKneeDrop;
-        final double walkXThresh = hipRange > 0.10 ? 0.20 : 0.15;
-        final bool walkOk = hipxRng <= walkXThresh;
-        final bool isFirstMidRep =
-            committedReps.isEmpty && firstRepStartedMidRep;
-        final bool peakOk = !isFirstMidRep || peakInRep >= FIRST_REP_MIN_PEAK;
-        final double repHipYRange = (repMaxHipY != null && repMinHipY != null)
-            ? (repMaxHipY! - repMinHipY!)
-            : 0.0;
-        const double MIN_REP_HIPY_RANGE = 0.015;
-        final bool hipMotionOk = repHipYRange >= MIN_REP_HIPY_RANGE;
-        final bool kneeBottomOk =
-            repMinKnee == null || repMinKnee! <= KNEE_BOTTOM_MAX_ANGLE;
-
-        final double lateralVertRatio =
-            repHipYRange > 0.001 ? hipxRng / repHipYRange : 0.0;
-        final bool lateralOk = peakInRep >= LATERAL_GATE_PEAK_TH ||
-            lateralVertRatio <= LATERAL_GATE_RATIO_TH;
-
-        final bool committed = !videoIsStatic &&
-            !videoNotADeadlift &&
-            holdOk &&
-            durOk &&
-            (hipOk || kneeOk) &&
-            walkOk &&
-            peakOk &&
-            hipMotionOk &&
-            kneeBottomOk &&
-            lateralOk;
-
-        final List<String> failedGates = [];
-        if (!holdOk) failedGates.add('holdOk');
-        if (!durOk) failedGates.add('durOk');
-        if (!(hipOk || kneeOk)) failedGates.add('hipOrKneeOk');
-        if (!walkOk) failedGates.add('walkOk');
-        if (!peakOk) failedGates.add('peakOk');
-        if (!hipMotionOk) failedGates.add('hipMotionOk');
-        if (!kneeBottomOk) failedGates.add('kneeBottomOk');
-        if (!lateralOk) failedGates.add('lateralOk');
-        diagCandidates.add({
-          'tStart': rd(repStartFrame / fps, 2),
-          'tEnd': rd(r.idx / fps, 2),
-          'peakSig': rd(peakInRep, 3),
-          'deepCt': deepCount,
-          'hipDesc': rd(hipDesc, 4),
-          'kneeDrop': rd(kneeDrop, 2),
-          'minKnee': repMinKnee != null ? rd(repMinKnee!, 1) : null,
-          'repHipYRange': rd(repHipYRange, 4),
-          'hipxRng': rd(hipxRng, 4),
-          'latVRatio': rd(lateralVertRatio, 3),
-          'repMaxWristDy': repMaxWristDy != null ? rd(repMaxWristDy!, 4) : null,
-          'committed': committed,
-          'failedGates': failedGates,
-        });
-
-        if (committed) {
-          repCount++;
-          final repScore = _scoreDeadliftRep(
-            peakInRep,
-            hipDesc,
-            kneeDrop,
-            DEPTH_EXCELLENT_PEAK,
-            DEPTH_GOOD_PEAK,
-            DEPTH_FAIR_PEAK,
-            KNEE_DROP_EXCELLENT,
-            KNEE_DROP_GOOD,
-            KNEE_DROP_FAIR,
-            HIP_DESC_EXCELLENT,
-            HIP_DESC_GOOD,
-            HIP_DESC_FAIR,
-          );
-          final repShYRange = (repMaxShY != null && repMinShY != null)
-              ? (repMaxShY! - repMinShY!)
-              : 0.0;
-          committedReps.add(_RepInfo(
-            startFrame: repStartFrame,
-            endFrame: r.idx,
-            bottomFrameI: curRepBottomI ?? i,
-            peakSig: peakInRep,
-            hipDesc: hipDesc,
-            kneeDrop: kneeDrop,
-            score: repScore,
-            hipYRange: repHipYRange,
-            shYRange: repShYRange,
-          ));
-          lastRepFrame = r.idx;
-          repJustFinished = repScore >= 7.0 ? 'good' : 'bad';
-        }
-        state = 'STANDING';
-        peakInRep = 0.0;
-        deepCount = 0;
-        curRepBottomI = null;
-      }
     }
 
-    repFinishedAtFrame.add(repJustFinished);
+    final double? baseHip = repBaselineHipY;
+    final double? baseKnee = repBaselineKnee;
+    final double hipDesc =
+        (maxHipY != null && baseHip != null) ? (maxHipY - baseHip) : 0.0;
+    final double kneeDrop =
+        (baseKnee != null && minKnee != null) ? (baseKnee - minKnee) : 0.0;
+    final double hipxRng = (xMax != null && xMin != null) ? (xMax - xMin) : 0.0;
+    final double repHipYRange =
+        (maxHipY != null && minHipY != null) ? (maxHipY - minHipY) : 0.0;
+    final double repShYRange =
+        (maxShY != null && minShY != null) ? (maxShY - minShY) : 0.0;
 
-    final double curEmaClamped = curEma.clamp(0.0, 1.0);
-    final double heightVal = 1.0 - curEmaClamped;
-    frameTelemetry.add({
-      't': r.t,
-      'reps': repCount,
-      'depth': heightVal,
-      'metric_label': 'HEIGHT',
-      'metric_value': heightVal,
-      'feedback': null,
-      'rep_just_finished': repJustFinished,
-      'landmarks': r.landmarks,
-    });
-  }
-
-  if (state == 'HINGED') {
-    final hipDesc = (repMaxHipY != null && repBaselineHipY != null)
-        ? (repMaxHipY! - repBaselineHipY!)
-        : 0.0;
-    final kneeDrop = (repBaselineKnee != null && repMinKnee != null)
-        ? (repBaselineKnee! - repMinKnee!)
-        : 0.0;
-    final hipxRng = (repHipxMax != null && repHipxMin != null)
-        ? (repHipxMax! - repHipxMin!)
-        : 0.0;
-    final holdOk = deepCount >= minHoldDeepFrames;
-    final double endRepDurSec = (raw.last.idx - repStartFrame) / fps;
-    final bool durOk = endRepDurSec >= MIN_REP_DURATION_SEC;
-    final hipOk = hipDesc >= reqHipDescent;
-    final kneeOk = kneeDrop >= reqKneeDrop;
-    final double walkXThresh = hipRange > 0.10 ? 0.20 : 0.15;
+    final bool holdOk = deepCount >= minHoldDeepFrames;
+    final double repDurSec = (raw[lockI].idx - raw[lo].idx) / fps;
+    final bool durOk = repDurSec >= MIN_REP_DURATION_SEC;
+    final bool hipOk = hipDesc >= reqHipDescent;
+    final bool kneeOk = kneeDrop >= reqKneeDrop;
+    final double walkXThresh = hipRange > 0.10 ? 0.20 : MAX_HIPX_RANGE_WALK;
     final bool walkOk = hipxRng <= walkXThresh;
     final bool isFirstMidRep = committedReps.isEmpty && firstRepStartedMidRep;
     final bool peakOk = !isFirstMidRep || peakInRep >= FIRST_REP_MIN_PEAK;
-    final double endRepHipYRange = (repMaxHipY != null && repMinHipY != null)
-        ? (repMaxHipY! - repMinHipY!)
-        : 0.0;
-    const double END_MIN_REP_HIPY_RANGE = 0.025;
-    final bool hipMotionOk = endRepHipYRange >= END_MIN_REP_HIPY_RANGE;
+    final double minRepHipYRange = endOfVideo ? 0.025 : 0.015;
+    final bool hipMotionOk = repHipYRange >= minRepHipYRange;
     final bool kneeBottomOk =
-        repMinKnee == null || repMinKnee! <= KNEE_BOTTOM_MAX_ANGLE;
+        minKnee == null || minKnee <= KNEE_BOTTOM_MAX_ANGLE;
     final double lateralVertRatio =
-        endRepHipYRange > 0.001 ? hipxRng / endRepHipYRange : 0.0;
+        repHipYRange > 0.001 ? hipxRng / repHipYRange : 0.0;
     final bool lateralOk = peakInRep >= LATERAL_GATE_PEAK_TH ||
         lateralVertRatio <= LATERAL_GATE_RATIO_TH;
+    final bool lockoutOk = ascMinEma <= LOCKOUT_EMA_MAX;
 
     final bool committed = !videoIsStatic &&
         !videoNotADeadlift &&
+        lockoutOk &&
         holdOk &&
         durOk &&
         (hipOk || kneeOk) &&
@@ -978,6 +868,9 @@ Future<dynamic> analyzeDeadliftVideoAction(
         lateralOk;
 
     final List<String> failedGates = [];
+    if (videoIsStatic) failedGates.add('videoStatic');
+    if (videoNotADeadlift) failedGates.add('notDeadlift');
+    if (!lockoutOk) failedGates.add('lockoutOk');
     if (!holdOk) failedGates.add('holdOk');
     if (!durOk) failedGates.add('durOk');
     if (!(hipOk || kneeOk)) failedGates.add('hipOrKneeOk');
@@ -987,18 +880,19 @@ Future<dynamic> analyzeDeadliftVideoAction(
     if (!kneeBottomOk) failedGates.add('kneeBottomOk');
     if (!lateralOk) failedGates.add('lateralOk');
     diagCandidates.add({
-      'endOfVideo': true,
-      'tStart': rd(repStartFrame / fps, 2),
-      'tEnd': rd(raw.last.idx / fps, 2),
+      if (endOfVideo) 'endOfVideo': true,
+      'tStart': rd(raw[lo].t, 2),
+      'tLock': rd(raw[lockI].t, 2),
+      'tEnd': rd(raw[endI].t, 2),
       'peakSig': rd(peakInRep, 3),
+      'lockEma': rd(ascMinEma, 3),
       'deepCt': deepCount,
       'hipDesc': rd(hipDesc, 4),
       'kneeDrop': rd(kneeDrop, 2),
-      'minKnee': repMinKnee != null ? rd(repMinKnee!, 1) : null,
-      'repHipYRange': rd(endRepHipYRange, 4),
+      'minKnee': minKnee != null ? rd(minKnee, 1) : null,
+      'repHipYRange': rd(repHipYRange, 4),
       'hipxRng': rd(hipxRng, 4),
       'latVRatio': rd(lateralVertRatio, 3),
-      'repMaxWristDy': repMaxWristDy != null ? rd(repMaxWristDy!, 4) : null,
       'committed': committed,
       'failedGates': failedGates,
     });
@@ -1019,16 +913,12 @@ Future<dynamic> analyzeDeadliftVideoAction(
         HIP_DESC_GOOD,
         HIP_DESC_FAIR,
       );
-      final repHipYRange = (repMaxHipY != null && repMinHipY != null)
-          ? (repMaxHipY! - repMinHipY!)
-          : 0.0;
-      final repShYRange = (repMaxShY != null && repMinShY != null)
-          ? (repMaxShY! - repMinShY!)
-          : 0.0;
       committedReps.add(_RepInfo(
-        startFrame: repStartFrame,
-        endFrame: raw.last.idx,
-        bottomFrameI: curRepBottomI ?? (raw.length - 1),
+        startFrame: raw[lo].idx,
+        endFrame: raw[lockI].idx,
+        bottomFrameI: bottomI,
+        lockI: lockI,
+        lockEma: ascMinEma,
         peakSig: peakInRep,
         hipDesc: hipDesc,
         kneeDrop: kneeDrop,
@@ -1036,100 +926,202 @@ Future<dynamic> analyzeDeadliftVideoAction(
         hipYRange: repHipYRange,
         shYRange: repShYRange,
       ));
-      if (frameTelemetry.isNotEmpty) {
-        frameTelemetry.last['reps'] = repCount;
-        frameTelemetry.last['rep_just_finished'] =
-            repScore >= 7.0 ? 'good' : 'bad';
-      }
+      lastRepFrame = raw[lockI].idx;
     }
+    return committed;
   }
 
-  // ================ 6) Phase 1 post-process: align counter to lockout ================
-  const int MAX_LOCKOUT_LOOKAHEAD_SEC = 2;
-  final int maxLookaheadFrames = (MAX_LOCKOUT_LOOKAHEAD_SEC * fps).round();
+  for (int i = 0; i < raw.length; i++) {
+    final r = raw[i];
 
+    double? hipBaseline;
+    double? kneeBaseline;
+    double curEma = ema ?? 0.0;
+    double? cRaw;
+
+    if (r.valid && r.hipY != null) {
+      final h = ((r.hipY! - hipTop) / hipRng).clamp(0.0, 1.0);
+      double? kSmoothed;
+      if (r.kneeAng != null) {
+        kneeEma = (kneeEma == null)
+            ? r.kneeAng
+            : KNEE_EMA_ALPHA * r.kneeAng! + (1 - KNEE_EMA_ALPHA) * kneeEma!;
+        kSmoothed = kneeEma;
+      } else if (kneeEma != null) {
+        kSmoothed = kneeEma;
+      }
+      final k = kSmoothed != null
+          ? ((kneeTop - kSmoothed) / kneeRng).clamp(0.0, 1.0)
+          : 0.0;
+      final c = wHip * h + wKnee * k;
+      cRaw = c;
+      ema = (ema == null) ? c : 0.4 * c + 0.6 * ema!;
+      dispEma = (dispEma == null)
+          ? c
+          : DISP_EMA_ALPHA * c + (1 - DISP_EMA_ALPHA) * dispEma!;
+      curEma = ema!;
+
+      hipBuf.add(r.hipY!);
+      if (hipBuf.length > baselineLookbackFrames) hipBuf.removeAt(0);
+      if (r.kneeAng != null) {
+        kneeBuf.add(r.kneeAng!);
+        if (kneeBuf.length > baselineLookbackFrames) kneeBuf.removeAt(0);
+      }
+      hipBaseline = hipBuf.reduce(math.min);
+      kneeBaseline = kneeBuf.isEmpty ? null : kneeBuf.reduce(math.max);
+    } else {
+      hipBaseline = hipBuf.isEmpty ? null : hipBuf.reduce(math.min);
+      kneeBaseline = kneeBuf.isEmpty ? null : kneeBuf.reduce(math.max);
+    }
+    emaByFrame.add(curEma);
+    dispByFrame.add(dispEma ?? 0.0);
+    cByFrame.add(cRaw);
+
+    bool startNow = false;
+    bool midRep = false;
+    if (r.valid && r.hipY != null && !seenFirstValidFrame) {
+      seenFirstValidFrame = true;
+      if (state == 'STANDING' && curEma >= T_DEEP) {
+        startNow = true;
+        midRep = true;
+      }
+    }
+    if (state == 'STANDING' && !startNow) {
+      if (curEma >= T_DEEP &&
+          (r.idx - lastRepFrame) >= minBetweenRepsFrames &&
+          r.valid) {
+        startNow = true;
+      }
+    }
+
+    if (startNow) {
+      state = 'HINGED';
+      repStartI = i;
+      peakInRep = curEma;
+      bottomI = i;
+      ascMinEma = curEma;
+      ascMinI = i;
+      riseFrames = 0;
+      deepCount = 1;
+      if (midRep) {
+        repBaselineHipY = hipTop;
+        repBaselineKnee = kneeTop;
+        firstRepStartedMidRep = true;
+      } else {
+        repBaselineHipY = hipBaseline;
+        repBaselineKnee = kneeBaseline;
+      }
+    } else if (state == 'HINGED') {
+      if (curEma >= T_DEEP) deepCount++;
+      if (curEma > peakInRep) {
+        // New bottom: restart the ascent tracking from here.
+        peakInRep = curEma;
+        bottomI = i;
+        ascMinEma = curEma;
+        ascMinI = i;
+        riseFrames = 0;
+      } else if (curEma < ascMinEma) {
+        ascMinEma = curEma;
+        ascMinI = i;
+        riseFrames = 0;
+      }
+      if (curEma >= ascMinEma + LOCKOUT_RISE_HYST) {
+        riseFrames++;
+      } else {
+        riseFrames = 0;
+      }
+      // [LOCKOUT] confirmed local minimum that is low enough -> close.
+      if (ascMinEma <= LOCKOUT_EMA_MAX && riseFrames >= LOCKOUT_RISE_FRAMES) {
+        finalizeCandidate(ascMinI, i, false);
+        state = 'STANDING';
+      }
+    }
+
+    final double heightVal = 1.0 - (dispEma ?? 0.0).clamp(0.0, 1.0);
+    frameTelemetry.add({
+      't': r.t,
+      'reps': repCount,
+      'depth': heightVal,
+      'metric_label': 'HEIGHT',
+      'metric_value': heightVal,
+      'feedback': null,
+      'rep_just_finished': null,
+      'landmarks': r.landmarks,
+    });
+  }
+
+  // Video ended while a candidate was open: its lockout (if any) is the
+  // running minimum; a candidate whose minimum is not a lockout (lifter
+  // still down / mid-ascent) fails the lockoutOk gate.
+  if (state == 'HINGED') {
+    finalizeCandidate(ascMinI, raw.length - 1, true);
+  }
+
+  // ================ 6) Lockout markers ================
+  // repLockoutRawI  = frame of the EMA minimum (true lockout, used by the
+  //                   walk-out check and the display rescale).
+  // repLockoutFrameI = ARRIVAL at the top: first frame after the bottom whose
+  //                   EMA is within ARRIVE_TOL of that minimum (+ optional
+  //                   visual delay). This is where the count flashes.
   final List<int> repLockoutFrameI = [];
-  // True min EMA per rep (before visual delay).
-  final List<double> repLockoutMinEma = [];
-  // Raw (pre-visual-delay) lockout frame per rep - the walk-out check
-  // needs the true lockout, not the display-shifted one.
   final List<int> repLockoutRawI = [];
+  final List<double> repLockoutMinEma = [];
 
-  for (final f in frameTelemetry) {
-    f['rep_just_finished'] = null;
-  }
-
-  for (int repI = 0; repI < committedReps.length; repI++) {
-    final r = committedReps[repI];
-
-    final int nextRepStartI = repI + 1 < committedReps.length
-        ? committedReps[repI + 1].bottomFrameI
-        : raw.length;
-    final int searchEnd = math.min(
-      raw.length,
-      math.min(nextRepStartI, r.bottomFrameI + maxLookaheadFrames),
-    );
-
-    int lockoutFrameI = r.bottomFrameI;
-    double minEma = emaByFrame.isNotEmpty && r.bottomFrameI < emaByFrame.length
-        ? emaByFrame[r.bottomFrameI]
-        : 1.0;
-    for (int j = r.bottomFrameI + 1; j < searchEnd; j++) {
-      if (j >= emaByFrame.length) break;
-      if (emaByFrame[j] < minEma) {
-        minEma = emaByFrame[j];
-        lockoutFrameI = j;
+  for (final r in committedReps) {
+    final int lockI = r.lockI;
+    final double minE = emaByFrame[lockI];
+    final double tol =
+        math.max(ARRIVE_TOL_ABS, ARRIVE_TOL_FRAC * (r.peakSig - minE));
+    int arrI = lockI;
+    for (int j = r.bottomFrameI + 1; j <= lockI; j++) {
+      if (emaByFrame[j] <= minE + tol) {
+        arrI = j;
+        break;
       }
     }
-    repLockoutMinEma.add(minEma);
-    repLockoutRawI.add(lockoutFrameI);
-
-    const double LOCKOUT_VISUAL_DELAY_SEC = 0.20;
-    final int lockoutVisualDelayFrames =
-        math.max(1, (LOCKOUT_VISUAL_DELAY_SEC * fps).round());
-    int adjustedLockoutI = lockoutFrameI + lockoutVisualDelayFrames;
-    if (adjustedLockoutI >= searchEnd) adjustedLockoutI = searchEnd - 1;
-    if (adjustedLockoutI < lockoutFrameI) adjustedLockoutI = lockoutFrameI;
-    lockoutFrameI = adjustedLockoutI;
-
-    repLockoutFrameI.add(lockoutFrameI);
+    repLockoutRawI.add(lockI);
+    repLockoutMinEma.add(minE);
+    repLockoutFrameI
+        .add(math.min(raw.length - 1, arrI + lockoutVisualDelayFrames));
   }
 
-  // ================ 6) LAST-REP WALK-OUT CHECK v2 ================
+  // ================ 6) LAST-REP WALK-OUT CHECK v3 ================
   // See the WALKOUT_* constants for the rule. Only the last committed rep,
   // only with >= WALKOUT_MIN_REPS reps, and it needs a real window after
-  // the lockout to say anything.
+  // the lockout arrival to say anything.
   if (committedReps.length >= WALKOUT_MIN_REPS) {
     final int lastI = committedReps.length - 1;
-    final int lockRaw = repLockoutRawI[lastI];
+    final int arrI = repLockoutFrameI[lastI];
     final int winFrames = math.max(1, (WALKOUT_WINDOW_SEC * fps).round());
-    final int winStart = lockRaw + 1;
-    final int winEnd = math.min(raw.length, lockRaw + 1 + winFrames);
+    final int winStart = arrI + 1;
+    final int winEnd = math.min(raw.length, arrI + 1 + winFrames);
     final int winLen = winEnd - winStart;
 
     bool sawDescent = false;
-    int gated = 0; // scale-gated or pose-less frames
+    int gated = 0; // scale-gated, pose-jump or pose-less frames
     int validN = 0;
     double? xMin, xMax;
 
     for (int j = winStart; j < winEnd; j++) {
       final rj = raw[j];
       if (!rj.valid) {
-        if (rj.scaleGated || rj.hipY == null) gated++;
+        if (rj.scaleGated || rj.poseJump || rj.hipY == null) gated++;
         continue;
       }
       validN++;
-      if (j < emaByFrame.length && emaByFrame[j] >= WALKOUT_DESCENT_EMA) {
+      final double? cj = cByFrame[j];
+      if (cj != null && cj >= WALKOUT_DESCENT_C) {
         sawDescent = true;
       }
-      if (rj.hipX != null) {
-        xMin = (xMin == null) ? rj.hipX : math.min(xMin!, rj.hipX!);
-        xMax = (xMax == null) ? rj.hipX : math.max(xMax!, rj.hipX!);
+      final double? hx = rj.hipX;
+      if (hx != null) {
+        if (xMin == null || hx < xMin) xMin = hx;
+        if (xMax == null || hx > xMax) xMax = hx;
       }
     }
 
     final double hipxRange =
-        (xMin != null && xMax != null) ? (xMax! - xMin!) : 0.0;
+        (xMin != null && xMax != null) ? (xMax - xMin) : 0.0;
     final double gatedFrac = winLen > 0 ? gated / winLen : 0.0;
     final bool walking =
         hipxRange >= WALKOUT_HIPX_RANGE || gatedFrac >= WALKOUT_GATED_FRACTION;
@@ -1138,7 +1130,7 @@ Future<dynamic> analyzeDeadliftVideoAction(
 
     diagWalkout = {
       'enabled': true,
-      'lastRepLockoutRawI': lockRaw,
+      'lastRepArrivalI': arrI,
       'windowFrames': winLen,
       'validFrames': validN,
       'gatedFrames': gated,
@@ -1199,37 +1191,49 @@ Future<dynamic> analyzeDeadliftVideoAction(
     'committedReps': committedReps
         .map((r) => {
               'tStart': rd(r.startFrame / fps, 2),
-              'tEnd': rd(r.endFrame / fps, 2),
+              'tLock': rd(r.endFrame / fps, 2),
               'peakSig': rd(r.peakSig, 3),
+              'lockEma': rd(r.lockEma, 3),
               'score': rd(r.score, 1),
             })
         .toList(),
     'repLockoutMinEma': repLockoutMinEma.map((e) => rd(e, 4)).toList(),
+    'repMarkerT': repLockoutFrameI.map((i) => rd(i / fps, 2)).toList(),
   };
 
   // ================ 6a) HEIGHT display rescaling ================
-  if (committedReps.isNotEmpty && repLockoutFrameI.isNotEmpty) {
-    double? shallowestLockoutEma;
-    for (int repI = 0; repI < repLockoutFrameI.length; repI++) {
-      final int lockoutI = repLockoutFrameI[repI];
-      if (lockoutI >= 0 && lockoutI < emaByFrame.length) {
-        final double e = emaByFrame[lockoutI];
-        if (shallowestLockoutEma == null || e > shallowestLockoutEma) {
-          shallowestLockoutEma = e;
-        }
+  // 100% = the lifter's typical lockout: the MEDIAN over reps of the display
+  // EMA around each true lockout frame. (The old rule used the shallowest
+  // lockout; one mis-placed lockout at EMA ~0.75 then pinned the meter at
+  // 100% for most of the descent.) Reps that lock out worse than the median
+  // simply show a little under 100% at their top.
+  if (committedReps.isNotEmpty && repLockoutRawI.isNotEmpty) {
+    final List<double> lockLevels = [];
+    for (int repI = 0; repI < repLockoutRawI.length; repI++) {
+      final int c = repLockoutRawI[repI];
+      if (c < 0 || c >= dispByFrame.length) continue;
+      final int j0 = math.max(0, c - 2);
+      final int j1 = math.min(dispByFrame.length - 1, c + 2);
+      double m = dispByFrame[c];
+      for (int j = j0; j <= j1; j++) {
+        if (dispByFrame[j] < m) m = dispByFrame[j];
       }
+      lockLevels.add(m);
     }
-    if (shallowestLockoutEma != null &&
-        shallowestLockoutEma > 0.05 &&
-        shallowestLockoutEma < 0.9) {
-      final double displayEmaRange = 1.0 - shallowestLockoutEma;
-      for (int i = 0; i < frameTelemetry.length && i < emaByFrame.length; i++) {
-        final double e = emaByFrame[i].clamp(0.0, 1.0);
-        double h = (1.0 - e) / displayEmaRange;
-        if (h < 0.0) h = 0.0;
-        if (h > 1.0) h = 1.0;
-        frameTelemetry[i]['depth'] = h;
-        frameTelemetry[i]['metric_value'] = h;
+    if (lockLevels.isNotEmpty) {
+      final double ref = percentile(lockLevels, 50);
+      if (ref >= 0.0 && ref < 0.9) {
+        final double displayEmaRange = 1.0 - ref;
+        for (int i = 0;
+            i < frameTelemetry.length && i < dispByFrame.length;
+            i++) {
+          final double e = dispByFrame[i].clamp(0.0, 1.0);
+          double h = (1.0 - e) / displayEmaRange;
+          if (h < 0.0) h = 0.0;
+          if (h > 1.0) h = 1.0;
+          frameTelemetry[i]['depth'] = h;
+          frameTelemetry[i]['metric_value'] = h;
+        }
       }
     }
   }
@@ -1386,11 +1390,14 @@ Future<dynamic> analyzeDeadliftVideoAction(
 
   // [DIAG] Single-string summary for binding to a UI Text widget.
   final StringBuffer dbgStr = StringBuffer();
-  dbgStr.write('variant=$variantName ');
+  dbgStr.write('v13 variant=$variantName ');
   dbgStr.write('reps=$repCount ');
   dbgStr.write('scaleGated=$scaleGatedFrames ');
+  dbgStr.write('poseJump=$poseJumpFrames ');
   if (diagCalib != null) {
     dbgStr.write('hipRange=${diagCalib['hipRange']} ');
+    dbgStr.write('kneeRange=${diagCalib['kneeRange']} ');
+    dbgStr.write('torsoComp=${diagCalib['torsoCompression']} ');
   }
   if (diagWalkout != null) {
     if (diagWalkout['removed'] != null) {
@@ -1410,13 +1417,19 @@ Future<dynamic> analyzeDeadliftVideoAction(
       dbgStr.write(rd(repLockoutMinEma[i], 3).toString());
     }
     dbgStr.write('] ');
+    dbgStr.write('markers=[');
+    for (int i = 0; i < repLockoutFrameI.length; i++) {
+      if (i > 0) dbgStr.write(',');
+      dbgStr.write(rd(repLockoutFrameI[i] / fps, 1).toString());
+    }
+    dbgStr.write('] ');
   }
   if (diagCandidates.isNotEmpty) {
     dbgStr.write('cands=${diagCandidates.length} ');
     final committedTimes = diagCandidates
         .where((c) => c['committed'] == true)
         .map((c) =>
-            '${c['tStart']}-${c['tEnd']}s(p=${c['peakSig']},k=${c['minKnee']})')
+            '${c['tStart']}-${c['tLock']}s(p=${c['peakSig']},l=${c['lockEma']},k=${c['minKnee']})')
         .toList();
     dbgStr.write('committed=[${committedTimes.join("|")}] ');
     final rejected = diagCandidates.where((c) => c['committed'] == false);
@@ -1424,7 +1437,7 @@ Future<dynamic> analyzeDeadliftVideoAction(
       dbgStr.write('rejected=[');
       for (final c in rejected) {
         dbgStr.write(
-            '${c['tStart']}s(k=${c['minKnee']};${(c['failedGates'] as List).join(",")})|');
+            '${c['tStart']}s(p=${c['peakSig']},l=${c['lockEma']},k=${c['minKnee']};${(c['failedGates'] as List).join(",")})|');
       }
       dbgStr.write('] ');
     }
@@ -1470,8 +1483,9 @@ Future<dynamic> analyzeDeadliftVideoAction(
 class _FrameRaw {
   final int idx;
   final double t;
-  bool valid; // mutable: the scale gate may invalidate a frame post-pass
+  bool valid; // mutable: the scale / pose-jump gates may invalidate a frame
   bool scaleGated = false; // set by the scale gate
+  bool poseJump = false; // set by the pose-jump gate
   final double? visMinLm;
   final double? hipY;
   final double? hipX;
@@ -1498,8 +1512,10 @@ class _FrameRaw {
 }
 
 class _RepInfo {
-  final int startFrame, endFrame;
-  final int bottomFrameI;
+  final int startFrame, endFrame; // ffmpeg frame numbers (1-based)
+  final int bottomFrameI; // index into raw of the EMA peak
+  final int lockI; // index into raw of the lockout (EMA minimum)
+  final double lockEma;
   final double peakSig;
   final double hipDesc;
   final double kneeDrop;
@@ -1510,6 +1526,8 @@ class _RepInfo {
     required this.startFrame,
     required this.endFrame,
     required this.bottomFrameI,
+    required this.lockI,
+    required this.lockEma,
     required this.peakSig,
     required this.hipDesc,
     required this.kneeDrop,

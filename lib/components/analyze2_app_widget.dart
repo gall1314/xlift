@@ -650,19 +650,16 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                               .warning,
                                           size: 20.0,
                                         ),
-                                      if (functions
-                                              .getSetTechniqueScore(
-                                                  FFAppState()
-                                                      .workoutAnalysisState
-                                                      .toList(),
-                                                  widget.exerciseId!,
-                                                  widget.setNumber!)
-                                              .toString() ==
-                                          '10')
+                                      if (functions.isSetTechniquePerfect(
+                                          FFAppState()
+                                              .workoutAnalysisState
+                                              .toList(),
+                                          widget.setNumber!,
+                                          widget.exerciseId!))
                                         Icon(
                                           Icons.check_circle_sharp,
                                           color: FlutterFlowTheme.of(context)
-                                              .secondary,
+                                              .primary,
                                           size: 20.0,
                                         ),
                                     ],

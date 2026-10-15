@@ -35,18 +35,19 @@ Future<bool> saveAnalyzedVideoToGallery(
 }
 
 /// Saves the analyzed exercise video WITH overlays burned into the pixels.
-/// Visual styling is matched 1:1 to the live SquatAnalyzedVideoPlayer widget.
+/// Visual styling matches AnalyzedVideoPlayerV2 (minus playback controls):
+/// REP n/total box top-left, metric ring top-right, skeleton with lockout
+/// flash glow, and GOOD REP / NEEDS WORK pill + feedback shown for the whole
+/// span of each rep segment.
 ///
 /// Input: the raw analyzer result map, or the workout-page set object that
 /// wraps it under `analysis` (same shapes the player widget accepts).
 ///
-/// Pipeline (fast path):
+/// Pipeline:
 ///   1) ffmpeg extracts frames at analyzed fps, capped at 720p.
-///   2) Each frame is decoded, drawn to a Canvas with the overlays, and
-///      exported as RAW RGBA (no PNG compression - that was the bottleneck)
-///      appended to ONE .rgba file.
-///   3) ffmpeg reads the raw stream (-f rawvideo) and encodes h264,
-///      remuxing the original audio if present.
+///   2) Each frame is drawn to a Canvas with the overlays and appended as
+///      RAW RGBA to ONE .rgba file.
+///   3) ffmpeg encodes h264, remuxing the original audio if present.
 ///   4) gal saves the mp4 to the gallery. Temp files cleaned in `finally`.
 ///
 /// Returns true on success; false otherwise (reason via debugPrint).
@@ -102,6 +103,13 @@ Future<bool> saveAnalyzedVideoWithProgress(
     return false;
   }
 
+  // Rep segments + total, same logic as the V2 player.
+  final List<_RepSegment> segments = _buildSegments(result, frames);
+  final int lockouts = segments.where((s) => s.index > 0).length;
+  final List<dynamic> repsList = (result['reps'] as List?) ?? const [];
+  final int totalReps =
+      [lockouts, repsList.length, frames.last.reps].reduce(math.max);
+
   // ---------- Temp paths ----------
   final Directory tmp = await getTemporaryDirectory();
   final String sessionId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -146,11 +154,12 @@ Future<bool> saveAnalyzedVideoWithProgress(
     rawSink = await File(rawPath).open(mode: FileMode.write);
 
     for (int i = 0; i < n; i++) {
-      final Color skeletonColor = _computeSkeletonColorAt(frames, i);
       final _RawFrame? rf = await _renderFrameRaw(
         inputFramePath: inFiles[i].path,
         frame: frames[i],
-        skeletonColor: skeletonColor,
+        totalReps: totalReps,
+        flash: _flashAt(frames, i),
+        seg: _segmentAt(segments, frames[i].t),
       );
 
       if (rf != null) {
@@ -261,7 +270,7 @@ Map _unwrapResult(Map raw) {
 }
 
 // ============================================================================
-// FRAME TELEMETRY — mirrors the widget's _FrameData.
+// FRAME TELEMETRY
 // ============================================================================
 class _FrameTelemetry {
   final double t;
@@ -323,79 +332,132 @@ class _RawFrame {
 }
 
 // ============================================================================
-// SKELETON CONSTANTS — copied verbatim from _SquatOverlayPainter.
+// REP SEGMENTS — same logic as the V2 player.
+// Segment i runs from the previous lockout to this rep's lockout. After the
+// last lockout comes a "tail" segment (index 0, good == null): no pill.
 // ============================================================================
-const int _L_SHOULDER = 11;
-const int _R_SHOULDER = 12;
-const int _L_ELBOW = 13;
-const int _R_ELBOW = 14;
-const int _L_WRIST = 15;
-const int _R_WRIST = 16;
-const int _L_HIP = 23;
-const int _R_HIP = 24;
-const int _L_KNEE = 25;
-const int _R_KNEE = 26;
-const int _L_ANKLE = 27;
-const int _R_ANKLE = 28;
-const int _L_HEEL = 29;
-const int _R_HEEL = 30;
-const int _L_FOOT = 31;
-const int _R_FOOT = 32;
+class _RepSegment {
+  final double startT;
+  final double endT;
+  final bool? good;
+  final int index; // 1-based rep number; 0 = tail
+  final String? feedback;
+  const _RepSegment(this.startT, this.endT, this.good, this.index,
+      [this.feedback]);
+}
 
+String? _feedbackStr(dynamic f) {
+  if (f == null) return null;
+  if (f is List) {
+    final parts =
+        f.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
+    return parts.isEmpty ? null : parts.join('\n');
+  }
+  final s = f.toString().trim();
+  return s.isEmpty ? null : s;
+}
+
+List<_RepSegment> _buildSegments(Map result, List<_FrameTelemetry> frames) {
+  final List<int> lockoutIdx = [];
+  for (int i = 0; i < frames.length; i++) {
+    if (frames[i].repJustFinished != null) lockoutIdx.add(i);
+  }
+  final List<dynamic> repsList = (result['reps'] as List?) ?? const [];
+  final bool useReps = repsList.length == lockoutIdx.length;
+
+  final segs = <_RepSegment>[];
+  double prev = 0.0;
+  for (int i = 0; i < lockoutIdx.length; i++) {
+    final f = frames[lockoutIdx[i]];
+    bool good = f.repJustFinished == 'good';
+    String? fb;
+    if (useReps && repsList[i] is Map) {
+      final m = repsList[i] as Map;
+      final g = m['good'];
+      if (g is bool) good = g;
+      fb = _feedbackStr(m['feedback']) ?? _feedbackStr(m['f']);
+    }
+    fb ??= _feedbackStr(f.feedback);
+    segs.add(_RepSegment(prev, f.t, good, i + 1, fb));
+    prev = f.t;
+  }
+  final double end = frames.isNotEmpty ? frames.last.t : prev;
+  if (end > prev + 0.05) segs.add(_RepSegment(prev, end + 1.0, null, 0));
+  return segs;
+}
+
+_RepSegment? _segmentAt(List<_RepSegment> segments, double t) {
+  for (final s in segments) {
+    if (t >= s.startT && t < s.endT) return s;
+  }
+  if (segments.isNotEmpty && t >= segments.last.startT) return segments.last;
+  return null;
+}
+
+// ============================================================================
+// SKELETON CONSTANTS + COLORS
+// ============================================================================
 const List<List<int>> _SKELETON_CONNECTIONS = [
-  [_L_SHOULDER, _R_SHOULDER],
-  [_L_SHOULDER, _L_HIP],
-  [_R_SHOULDER, _R_HIP],
-  [_L_HIP, _R_HIP],
-  [_L_SHOULDER, _L_ELBOW],
-  [_L_ELBOW, _L_WRIST],
-  [_R_SHOULDER, _R_ELBOW],
-  [_R_ELBOW, _R_WRIST],
-  [_L_HIP, _L_KNEE],
-  [_L_KNEE, _L_ANKLE],
-  [_L_ANKLE, _L_HEEL],
-  [_L_HEEL, _L_FOOT],
-  [_L_ANKLE, _L_FOOT],
-  [_R_HIP, _R_KNEE],
-  [_R_KNEE, _R_ANKLE],
-  [_R_ANKLE, _R_HEEL],
-  [_R_HEEL, _R_FOOT],
-  [_R_ANKLE, _R_FOOT],
+  [11, 12],
+  [11, 23],
+  [12, 24],
+  [23, 24],
+  [11, 13],
+  [13, 15],
+  [12, 14],
+  [14, 16],
+  [23, 25],
+  [25, 27],
+  [27, 29],
+  [29, 31],
+  [27, 31],
+  [24, 26],
+  [26, 28],
+  [28, 30],
+  [30, 32],
+  [28, 32],
 ];
 
 const List<int> _SKELETON_DOT_INDICES = [
-  _L_SHOULDER,
-  _R_SHOULDER,
-  _L_ELBOW,
-  _R_ELBOW,
-  _L_WRIST,
-  _R_WRIST,
-  _L_HIP,
-  _R_HIP,
-  _L_KNEE,
-  _R_KNEE,
-  _L_ANKLE,
-  _R_ANKLE,
-  _L_HEEL,
-  _R_HEEL,
-  _L_FOOT,
-  _R_FOOT,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30,
+  31,
+  32
 ];
 
 const double _DRAW_VIS_THRESHOLD = 0.5;
 
-const Color _FLASH_GOOD = Color.fromARGB(255, 40, 220, 90);
-const Color _FLASH_BAD = Color.fromARGB(255, 255, 150, 30);
+const Color _GOOD = Color(0xFF28DC5A);
+const Color _BAD = Color(0xFFFF9A1E);
 
 const double _FLASH_FALLBACK_MAX_SEC = 0.35;
 const double _FLASH_FALLBACK_MIN_SEC = 0.10;
 const double _FLASH_FALLBACK_GAP_FRACTION = 0.40;
 
 // ============================================================================
-// FLASH COLOR
+// FLASH — lockout glow; intensity fades 1 → 0 over the flash duration.
 // ============================================================================
-Color _computeSkeletonColorAt(List<_FrameTelemetry> frames, int frameIdx) {
-  if (frameIdx < 0 || frameIdx >= frames.length) return Colors.white;
+class _Flash {
+  final Color color;
+  final double intensity;
+  final bool good;
+  const _Flash(this.color, this.intensity, this.good);
+}
+
+_Flash? _flashAt(List<_FrameTelemetry> frames, int frameIdx) {
+  if (frameIdx < 0 || frameIdx >= frames.length) return null;
   final double currentT = frames[frameIdx].t;
 
   for (int i = frameIdx; i >= 0 && i >= frameIdx - 50; i--) {
@@ -412,21 +474,21 @@ Color _computeSkeletonColorAt(List<_FrameTelemetry> frames, int frameIdx) {
         }
       }
       final double gap = nextPulseT - f.t;
-      if (gap.isInfinite) {
-        duration = _FLASH_FALLBACK_MAX_SEC;
-      } else {
-        duration = (gap * _FLASH_FALLBACK_GAP_FRACTION)
-            .clamp(_FLASH_FALLBACK_MIN_SEC, _FLASH_FALLBACK_MAX_SEC);
-      }
+      duration = gap.isInfinite
+          ? _FLASH_FALLBACK_MAX_SEC
+          : (gap * _FLASH_FALLBACK_GAP_FRACTION)
+              .clamp(_FLASH_FALLBACK_MIN_SEC, _FLASH_FALLBACK_MAX_SEC);
     }
 
     final double age = currentT - f.t;
     if (age >= 0 && age <= duration) {
-      return f.repJustFinished == 'good' ? _FLASH_GOOD : _FLASH_BAD;
+      final bool good = f.repJustFinished == 'good';
+      final double intensity = (1.0 - age / duration).clamp(0.0, 1.0);
+      return _Flash(good ? _GOOD : _BAD, intensity, good);
     }
-    return Colors.white;
+    return null;
   }
-  return Colors.white;
+  return null;
 }
 
 // ============================================================================
@@ -435,7 +497,9 @@ Color _computeSkeletonColorAt(List<_FrameTelemetry> frames, int frameIdx) {
 Future<_RawFrame?> _renderFrameRaw({
   required String inputFramePath,
   required _FrameTelemetry frame,
-  required Color skeletonColor,
+  required int totalReps,
+  required _Flash? flash,
+  required _RepSegment? seg,
 }) async {
   ui.Image? image;
   ui.Image? rendered;
@@ -454,10 +518,8 @@ Future<_RawFrame?> _renderFrameRaw({
     );
 
     canvas.drawImage(image, Offset.zero, Paint());
-    _paintSkeleton(canvas, w.toDouble(), h.toDouble(), frame, skeletonColor);
-    _paintRepsBadge(canvas, w.toDouble(), h.toDouble(), frame);
-    _paintDepthRing(canvas, w.toDouble(), h.toDouble(), frame);
-    _paintFeedbackBubble(canvas, w.toDouble(), h.toDouble(), frame);
+    _paintOverlayV2(
+        canvas, w.toDouble(), h.toDouble(), frame, totalReps, flash, seg);
 
     final ui.Picture picture = recorder.endRecording();
     rendered = await picture.toImage(w, h);
@@ -476,223 +538,177 @@ Future<_RawFrame?> _renderFrameRaw({
   }
 }
 
-// ----------------------------------------------------------------------------
-// SKELETON
-// ----------------------------------------------------------------------------
-void _paintSkeleton(
-    Canvas canvas, double w, double h, _FrameTelemetry frame, Color color) {
-  if (!frame.poseReliable) return;
-  if (frame.landmarks.length < 33) return;
+// ============================================================================
+// V2 OVERLAY (mirrors the player's painter, no playback controls)
+// ============================================================================
+void _paintOverlayV2(Canvas canvas, double w, double h, _FrameTelemetry frame,
+    int totalReps, _Flash? flash, _RepSegment? seg) {
+  final double pad = math.max(10.0, w * 0.035);
+  final double flashI = (flash?.intensity ?? 0.0).clamp(0.0, 1.0);
 
-  final List<List<double>> lms = frame.landmarks;
+  // --- skeleton (white, tinted + glow during lockout flash) ---
+  final Color skel = flash == null
+      ? Colors.white
+      : Color.lerp(Colors.white, flash.color, flashI)!;
+  if (frame.poseReliable && frame.landmarks.length >= 33) {
+    final lms = frame.landmarks;
+    final line = Paint()
+      ..color = skel
+      ..strokeWidth = math.max(2.0, h * 0.004)
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final glow = Paint()
+      ..color = skel.withOpacity(0.35)
+      ..strokeWidth = math.max(5.0, h * 0.010)
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final dot = Paint()..color = skel;
+    final double r = math.max(3.0, h * 0.006);
+    Offset? pt(int i) {
+      if (i >= lms.length) return null;
+      final l = lms[i];
+      if (l.length < 3 || l[2] < _DRAW_VIS_THRESHOLD) return null;
+      return Offset(l[0] * w, l[1] * h);
+    }
 
-  final Paint linePaint = Paint()
-    ..color = color
-    ..strokeWidth = math.max(2.0, h * 0.004)
-    ..strokeCap = StrokeCap.round
-    ..style = PaintingStyle.stroke;
-  final Paint dotPaint = Paint()
-    ..color = color
-    ..style = PaintingStyle.fill;
-  final double dotR = math.max(3.0, h * 0.006);
-
-  Offset? pt(int idx) {
-    if (idx < 0 || idx >= lms.length) return null;
-    final lm = lms[idx];
-    if (lm.length < 3) return null;
-    if (lm[2] < _DRAW_VIS_THRESHOLD) return null;
-    return Offset(lm[0] * w, lm[1] * h);
+    for (final c in _SKELETON_CONNECTIONS) {
+      final a = pt(c[0]), b = pt(c[1]);
+      if (a != null && b != null) {
+        if (flashI > 0) canvas.drawLine(a, b, glow);
+        canvas.drawLine(a, b, line);
+      }
+    }
+    for (final i in _SKELETON_DOT_INDICES) {
+      final p0 = pt(i);
+      if (p0 != null) canvas.drawCircle(p0, r, dot);
+    }
   }
 
-  for (final conn in _SKELETON_CONNECTIONS) {
-    final Offset? a = pt(conn[0]);
-    final Offset? b = pt(conn[1]);
-    if (a != null && b != null) canvas.drawLine(a, b, linePaint);
-  }
-  for (final i in _SKELETON_DOT_INDICES) {
-    final Offset? c = pt(i);
-    if (c != null) canvas.drawCircle(c, dotR, dotPaint);
-  }
-}
-
-// ----------------------------------------------------------------------------
-// REPS BADGE
-// ----------------------------------------------------------------------------
-void _paintRepsBadge(Canvas canvas, double w, double h, _FrameTelemetry frame) {
-  final double repsFontSize = math.max(14.0, h * 0.055);
-  final ui.Paragraph para = _layoutText(
-    'Reps: ${frame.reps}',
-    fontSize: repsFontSize,
-    fontWeight: FontWeight.bold,
-    color: Colors.white,
-    maxWidth: w,
+  // --- REP counter (top-left): "REP" over "n / total" ---
+  final double labelSize = math.max(9.0, h * 0.022);
+  final double numSize = math.max(22.0, h * 0.075);
+  final double totalSize = math.max(12.0, h * 0.032);
+  final ui.Paragraph label = _layoutText('REP',
+      fontSize: labelSize,
+      fontWeight: FontWeight.w700,
+      color: Colors.white.withOpacity(0.85),
+      letterSpacing: 1.5);
+  final ui.Paragraph numP = _layoutText('${frame.reps}',
+      fontSize: numSize, fontWeight: FontWeight.w800, color: Colors.white);
+  final ui.Paragraph tot = _layoutText(totalReps > 0 ? ' / $totalReps' : '',
+      fontSize: totalSize,
+      fontWeight: FontWeight.w600,
+      color: Colors.white.withOpacity(0.75));
+  final double boxW =
+      math.max(label.longestLine, numP.longestLine + tot.longestLine) +
+          pad * 1.6;
+  final double boxH = label.height + 4 + numP.height + pad * 1.2;
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+        Rect.fromLTWH(pad, pad, boxW, boxH), const Radius.circular(12)),
+    Paint()..color = Colors.black.withOpacity(0.45),
   );
-  final double boxW = para.longestLine + 20;
-  final double boxH = para.height + 12;
-  final Paint bg = Paint()..color = Colors.black.withOpacity(0.55);
-  canvas.drawRect(Rect.fromLTWH(0, 0, boxW, boxH), bg);
-  canvas.drawParagraph(para, const Offset(10, 6));
-}
+  canvas.drawParagraph(label, Offset(pad + pad * 0.8, pad + pad * 0.6));
+  final double numY = pad + pad * 0.6 + label.height + 4;
+  canvas.drawParagraph(numP, Offset(pad + pad * 0.8, numY));
+  canvas.drawParagraph(
+    tot,
+    Offset(pad + pad * 0.8 + numP.longestLine,
+        numY + numP.height - tot.height - 2),
+  );
 
-// ----------------------------------------------------------------------------
-// DEPTH RING
-// ----------------------------------------------------------------------------
-void _paintDepthRing(Canvas canvas, double w, double h, _FrameTelemetry frame) {
-  final double repsFontSize = math.max(14.0, h * 0.055);
-  final double refH = math.max(h * 0.07, repsFontSize * 1.7);
-  final double radius = refH * 0.78;
-  final double thick = math.max(3.0, radius * 0.25);
-  final double cx = w - 12 - radius;
-  final double cy = math.max(refH + radius / 8, radius + thick / 2 + 2);
-
-  final Paint ringBgPaint = Paint()
-    ..color = const Color.fromARGB(255, 70, 70, 70)
-    ..strokeWidth = thick
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.butt;
-  canvas.drawCircle(Offset(cx, cy), radius, ringBgPaint);
-
+  // --- metric ring (top-right) ---
+  final double radius = math.max(22.0, h * 0.055);
+  final double thick = math.max(3.5, radius * 0.18);
+  final double cx = w - pad - radius - thick;
+  final double cy = pad + radius + thick;
+  canvas.drawCircle(Offset(cx, cy), radius + thick,
+      Paint()..color = Colors.black.withOpacity(0.35));
+  canvas.drawCircle(
+    Offset(cx, cy),
+    radius,
+    Paint()
+      ..color = Colors.white.withOpacity(0.18)
+      ..strokeWidth = thick
+      ..style = PaintingStyle.stroke,
+  );
   final double pct = frame.metricValue.clamp(0.0, 1.0);
   if (pct > 0) {
-    final Paint ringFgPaint = Paint()
-      ..color = const Color.fromARGB(255, 40, 200, 80)
-      ..strokeWidth = thick
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: radius),
       -math.pi / 2,
       2 * math.pi * pct,
       false,
-      ringFgPaint,
+      Paint()
+        ..color = _GOOD
+        ..strokeWidth = thick
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
     );
   }
-
-  final double labelFontSize = math.max(9.0, h * 0.024);
-  final double pctFontSize = math.max(11.0, h * 0.032);
-  double labelSize = labelFontSize;
-  double pctSize = pctFontSize;
-
-  final double maxInnerW = (radius * 2.0) * 0.80;
-  final double maxInnerH = (radius * 2.0) * 0.80;
-  final int pctInt = (pct * 100).round();
-
-  ui.Paragraph probe = _layoutText(
-    '$pctInt%',
-    fontSize: pctSize,
-    fontWeight: FontWeight.bold,
-    color: Colors.white,
-    maxWidth: maxInnerW,
-  );
-  int safety = 0;
-  while (probe.longestLine > maxInnerW && pctSize > 8.0 && safety < 6) {
-    final double scale = (maxInnerW / probe.longestLine).clamp(0.5, 1.0);
-    pctSize = (pctSize * scale).clamp(8.0, pctFontSize);
-    labelSize = (labelSize * scale).clamp(7.0, labelFontSize);
-    probe = _layoutText(
-      '$pctInt%',
-      fontSize: pctSize,
-      fontWeight: FontWeight.bold,
-      color: Colors.white,
-      maxWidth: maxInnerW,
-    );
-    safety += 1;
-  }
-
-  ui.Paragraph labelTp = _layoutText(
-    frame.metricLabel,
-    fontSize: labelSize,
-    fontWeight: FontWeight.w600,
-    color: Colors.white,
-    maxWidth: maxInnerW,
-  );
-  ui.Paragraph pctTp = _layoutText(
-    '$pctInt%',
-    fontSize: pctSize,
-    fontWeight: FontWeight.bold,
-    color: Colors.white,
-    maxWidth: maxInnerW,
-  );
-
-  final double gap = math.max(2.0, radius * 0.10);
-  if (labelTp.height + gap + pctTp.height > maxInnerH) {
-    final double scale =
-        maxInnerH / (labelTp.height + gap + pctTp.height) * 0.95;
-    labelSize *= scale;
-    pctSize *= scale;
-    labelTp = _layoutText(
-      frame.metricLabel,
-      fontSize: labelSize,
-      fontWeight: FontWeight.w600,
-      color: Colors.white,
-      maxWidth: maxInnerW,
-    );
-    pctTp = _layoutText(
-      '$pctInt%',
-      fontSize: pctSize,
-      fontWeight: FontWeight.bold,
-      color: Colors.white,
-      maxWidth: maxInnerW,
-    );
-  }
-
-  final double totalTextH = labelTp.height + gap + pctTp.height;
-  final double labelY = cy - totalTextH / 2;
+  final ui.Paragraph rl = _layoutText(frame.metricLabel,
+      fontSize: math.max(7.5, radius * 0.26),
+      fontWeight: FontWeight.w700,
+      color: Colors.white.withOpacity(0.85),
+      letterSpacing: 0.8);
+  final ui.Paragraph rp = _layoutText('${(pct * 100).round()}%',
+      fontSize: math.max(11.0, radius * 0.42),
+      fontWeight: FontWeight.w800,
+      color: Colors.white);
+  final double th = rl.height + 2 + rp.height;
+  canvas.drawParagraph(rl, Offset(cx - rl.longestLine / 2, cy - th / 2));
   canvas.drawParagraph(
-    labelTp,
-    Offset(cx - labelTp.longestLine / 2, labelY),
-  );
-  canvas.drawParagraph(
-    pctTp,
-    Offset(cx - pctTp.longestLine / 2, labelY + labelTp.height + gap),
-  );
-}
+      rp, Offset(cx - rp.longestLine / 2, cy - th / 2 + rl.height + 2));
 
-// ----------------------------------------------------------------------------
-// FEEDBACK BUBBLE
-// ----------------------------------------------------------------------------
-void _paintFeedbackBubble(
-    Canvas canvas, double w, double h, _FrameTelemetry frame) {
-  final String? fb = frame.feedback;
-  if (fb == null || fb.isEmpty) return;
+  // --- bottom: verdict pill + feefdback, for the whole rep segment ---
+  // In a rep segment: pill always, feedback if the rep has any.
+  // In the tail (no verdict): no pill, frame feedbac;k if any.
+  final bool? segGood = seg?.good;
+  final bool showPill = segGood != null;
+  final String fb =
+      ((segGood != null ? seg?.feedback : frame.feedback) ?? '').trim();
+  final bool hasFb = fb.isNotEmpty;
+  if (!showPill && !hasFb) return;
 
-  final List<String> fbLines =
-      fb.split('\n').where((s) => s.trim().isNotEmpty).toList();
-  if (fbLines.isEmpty) return;
+  final double bottomSafe = math.max(16.0, h * 0.05); // no controls in file
+  double y = h - bottomSafe;
 
-  final double fbFontSize = math.max(12.0, h * 0.038);
-  const double padX = 12;
-  const double padY = 8;
-  final double lineGap = math.max(2.0, h * 0.005);
-  final double safe = math.max(6.0, h * 0.02);
-  final double maxLineW = w - 2 * padX - 20;
-
-  final List<ui.Paragraph> linePainters = fbLines.map((line) {
-    return _layoutText(
-      line,
-      fontSize: fbFontSize,
-      fontWeight: FontWeight.w600,
-      color: Colors.white,
-      textAlign: TextAlign.center,
-      maxWidth: maxLineW,
-      maxLines: 2,
-    );
-  }).toList();
-
-  double totalH = 2 * padY;
-  for (int i = 0; i < linePainters.length; i++) {
-    totalH += linePainters[i].height;
-    if (i < linePainters.length - 1) totalH += lineGap;
+  if (hasFb) {
+    final double fbSize = math.max(12.0, h * 0.028);
+    final ui.Paragraph fbTp = _layoutText(fb,
+        fontSize: fbSize,
+        fontWeight: FontWeight.w700,
+        color: Colors.white,
+        maxWidth: w - pad * 2,
+        maxLines: 3);
+    final ui.Paragraph shadow = _layoutText(fb,
+        fontSize: fbSize,
+        fontWeight: FontWeight.w700,
+        color: Colors.black.withOpacity(0.6),
+        maxWidth: w - pad * 2,
+        maxLines: 3);
+    y -= fbTp.height;
+    canvas.drawParagraph(shadow, Offset(pad + 1, y + 1));
+    canvas.drawParagraph(fbTp, Offset(pad, y));
+    y -= 8;
   }
-  final double fbY0 = math.max(0.0, h - safe - totalH);
 
-  final Paint fbBoxBg = Paint()..color = Colors.black.withOpacity(0.55);
-  canvas.drawRect(Rect.fromLTWH(0, fbY0, w, totalH), fbBoxBg);
-
-  double y = fbY0 + padY;
-  for (final tp in linePainters) {
-    canvas.drawParagraph(tp, Offset((w - tp.longestLine) / 2, y));
-    y += tp.height + lineGap;
+  if (showPill) {
+    final bool g = segGood;
+    final ui.Paragraph pillTp = _layoutText(g ? 'GOOD REP' : 'NEEDS WORK',
+        fontSize: math.max(10.0, h * 0.024),
+        fontWeight: FontWeight.w800,
+        color: Colors.white,
+        letterSpacing: 1.0);
+    final double pw = pillTp.longestLine + 20;
+    final double ph = pillTp.height + 10;
+    y -= ph;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(pad, y, pw, ph), Radius.circular(ph / 2)),
+      Paint()..color = (g ? _GOOD : _BAD).withOpacity(0.78 + 0.22 * flashI),
+    );
+    canvas.drawParagraph(pillTp, Offset(pad + 10, y + 5));
   }
 }
 
@@ -707,6 +723,7 @@ ui.Paragraph _layoutText(
   TextAlign textAlign = TextAlign.left,
   double maxWidth = 4096,
   int maxLines = 1,
+  double letterSpacing = 0,
 }) {
   final ui.ParagraphStyle pStyle = ui.ParagraphStyle(
     textAlign: textAlign,
@@ -719,6 +736,7 @@ ui.Paragraph _layoutText(
     color: color,
     fontSize: fontSize,
     fontWeight: fontWeight,
+    letterSpacing: letterSpacing,
   );
   final ui.ParagraphBuilder pb = ui.ParagraphBuilder(pStyle)
     ..pushStyle(tStyle)

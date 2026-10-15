@@ -5867,12 +5867,31 @@ bool shouldShowCameraButton(
   int setNumber,
   int analysisCount,
   bool isPremium,
+  List<dynamic> loggedSets,
 ) {
   {
     // --- Quota gate (free users) ---
     const int freeMonthlyLimit = 5;
     if (!isPremium && analysisCount >= freeMonthlyLimit) {
       return false;
+    }
+
+    // --- Done gate: a logged set never shows the camera ---
+    int? toInt(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v.trim());
+      return null;
+    }
+
+    for (final s in loggedSets) {
+      if (s is! Map) continue;
+      final exId = toInt(s['exerciseId']) ?? toInt(s['exercise_id']);
+      final sn = toInt(s['setNumber']) ?? toInt(s['set_number']);
+      if (exId == exerciseId && sn == setNumber) {
+        return false;
+      }
     }
 
     // --- Per-set state (existing logic) ---
@@ -7257,5 +7276,47 @@ String greetingText() {
     if (h < 12) return 'Good morning';
     if (h < 18) return 'Good afternoon';
     return 'Good evening';
+  }
+}
+
+bool isSetTechniquePerfect(
+  List<dynamic> analysisList,
+  int setNumber,
+  int exerciseId,
+) {
+  {
+    try {
+      for (final exercise in analysisList) {
+        if (exercise is! Map) continue;
+        if (exercise['exerciseId'] != exerciseId) continue;
+
+        final sets = exercise['sets'];
+        if (sets is! List) continue;
+
+        for (final s in sets) {
+          if (s is! Map) continue;
+          if (s['setNumber'] != setNumber) continue;
+
+          final analysis = s['analysis'];
+          if (analysis is! Map) return false;
+
+          final data =
+              analysis['result'] is Map ? analysis['result'] as Map : analysis;
+
+          final raw = data['technique_score'];
+          double? score;
+          if (raw is num) score = raw.toDouble();
+          if (raw is String) score = double.tryParse(raw);
+          if (score == null) return false;
+
+          // Perfect only at a true 10 — no rounding (9.5 is NOT perfect).
+          return score >= 9.95;
+        }
+      }
+    } catch (e) {
+      print("isSetTechniquePerfect error: $e");
+    }
+
+    return false;
   }
 }

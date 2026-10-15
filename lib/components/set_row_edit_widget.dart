@@ -127,6 +127,10 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                               width: 40.0,
                               height: 35.0,
                               label: widget.setNumber?.toString(),
+                              fillColor: FlutterFlowTheme.of(context)
+                                  .secondaryBackground,
+                              chevronColor:
+                                  FlutterFlowTheme.of(context).secondaryText,
                               showChevron: true,
                               enableHaptic: true,
                               onTap: () async {

@@ -371,6 +371,7 @@ class _SetOptinBottomWidgetState extends State<SetOptinBottomWidget> {
                                 await actions.removeSetFromLoggedSets(
                               FFAppState().loggedSets.toList(),
                               widget.exerciseId!,
+                              widget.setNumber!,
                             );
                             FFAppState().loggedSets =
                                 _model.removeLogged1!.toList().cast<dynamic>();

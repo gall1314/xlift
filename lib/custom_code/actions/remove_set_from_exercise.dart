@@ -11,98 +11,74 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+/// Removes set [setNumberToRemove] of exercise [exerciseId] from the
+/// exerciseSets structure and renumbers the remaining sets 1..N.
+/// Call removeSetFromLoggedSets with the SAME (exerciseId, setNumber) on
+/// loggedSets and on workoutAnalysisState so all three stay aligned.
 List<dynamic> removeSetFromExercise(
   List<dynamic> exerciseSets,
   int exerciseId,
   int setNumberToRemove,
 ) {
-  int? _toInt(dynamic v) {
+  int? toInt(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
     if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v);
+    if (v is String) return int.tryParse(v.trim());
     return null;
   }
 
-  // העתק עמוק של הרשימה העליונה
   final updated = exerciseSets
-      .where((e) => e is Map)
-      .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e as Map))
+      .whereType<Map>()
+      .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
       .toList();
 
-  bool changed = false;
-
   for (final ex in updated) {
-    // תמיכה גם בגרסאות ישנות של המפתח
-    final exId = _toInt(ex['exerciseId']) ??
-        _toInt(ex['exerciseID']) ??
-        _toInt(ex['exercisesId']);
+    final exId = toInt(ex['exerciseId']) ??
+        toInt(ex['exerciseID']) ??
+        toInt(ex['exercise_id']) ??
+        toInt(ex['exercisesId']);
     if (exId != exerciseId) continue;
 
-    // שליפת הסטים כמפות
     final sets = (ex['sets'] is List)
         ? (ex['sets'] as List)
-            .where((s) => s is Map)
-            .map<Map<String, dynamic>>(
-                (s) => Map<String, dynamic>.from(s as Map))
+            .whereType<Map>()
+            .map<Map<String, dynamic>>((s) => Map<String, dynamic>.from(s))
             .toList()
         : <Map<String, dynamic>>[];
 
-    // DEBUG
-    print(
-        'removeSetFromExercise: exId=$exId, setsBefore=${sets.length}, want=$setNumberToRemove');
-
-    if (sets.isEmpty || sets.length <= 1) return updated;
-
-    // מציאת שם השדה של מספר הסט (תומך גם ב־snake_case)
-    String setNumKey = 'setNumber';
-    if (sets.isNotEmpty && !sets.first.containsKey('setNumber')) {
-      if (sets.first.containsKey('set_number')) setNumKey = 'set_number';
-    }
-
-    // מיון לפי מספר סט (גם אם מחרוזת)
-    sets.sort((a, b) =>
-        (_toInt(a[setNumKey]) ?? 0).compareTo(_toInt(b[setNumKey]) ?? 0));
-
-    // האם עבר לנו index במקום setNumber?
-    final passedAsIndex = setNumberToRemove >= 0 &&
-        setNumberToRemove < sets.length &&
-        (_toInt(sets[setNumberToRemove][setNumKey]) != setNumberToRemove);
-
-    // מציאת אינדקס למחיקה
-    int idx = sets.indexWhere(
-      (s) => (_toInt(s[setNumKey]) ?? -1) == setNumberToRemove,
-    );
-
-    if (idx == -1 && passedAsIndex) {
-      // מגבים: אם עבר אינדקס של רשימה, נמחק לפיו
-      idx = setNumberToRemove;
-    }
-
-    if (idx == -1) {
-      print(
-          'removeSetFromExercise: not found. available=${sets.map((s) => _toInt(s[setNumKey])).toList()}');
+    if (sets.length <= 1) {
+      print('removeSetFromExercise: exId=$exId has ${sets.length} set(s), '
+          'not removing');
       return updated;
     }
 
-    // מחיקה ורה-נומרינג
-    sets.removeAt(idx);
-    for (var i = 0; i < sets.length; i++) {
-      sets[i][setNumKey] = i + 1;
+    final String setKey =
+        sets.first.containsKey('set_number') ? 'set_number' : 'setNumber';
+
+    sets.sort(
+        (a, b) => (toInt(a[setKey]) ?? 0).compareTo(toInt(b[setKey]) ?? 0));
+
+    final int idx =
+        sets.indexWhere((s) => toInt(s[setKey]) == setNumberToRemove);
+    if (idx == -1) {
+      print('removeSetFromExercise: set $setNumberToRemove not found in '
+          '${sets.map((s) => toInt(s[setKey])).toList()}');
+      return updated;
     }
 
+    sets.removeAt(idx);
+    for (var i = 0; i < sets.length; i++) {
+      sets[i][setKey] = i + 1;
+    }
     ex['sets'] = sets;
-    changed = true;
 
-    print('removeSetFromExercise: removed idx=$idx, setsAfter=${sets.length}');
-    break;
+    print('removeSetFromExercise: exId=$exId removed set $setNumberToRemove, '
+        'now ${sets.length} sets');
+    return updated;
   }
 
-  if (!changed) {
-    print(
-        'removeSetFromExercise: no matching exerciseId found or nothing changed.');
-  }
-
+  print('removeSetFromExercise: exerciseId=$exerciseId not found');
   return updated;
 }
 

@@ -169,6 +169,10 @@ class TuningParams {
   // [v1.11 REVISION] Raised from 0.05 → 0.15.
   static const double MIN_RISE_FROM_CYCLE_START = 0.15;
 
+  // [v1.34] Fake-rep gates (see the v1.34 doc comment).
+  static const double ASCENT_ABS_MIN_FRAC = 0.40;
+  static const double SHOULDER_SINK_MAX_TORSO = 0.30;
+
   static const double W_DEPTH = 0.20;
   static const double W_LOCKOUT = 0.25;
   static const double W_LEAN = 0.20;
@@ -479,15 +483,23 @@ const int _PHASE_ASCENDING = 2;
 const int _PHASE_TOP = 3;
 const int _PHASE_DESCENDING = 4;
 
-/// Overhead press analyzer — v1.33.
+/// Overhead press analyzer — v1.34.
 /// Pipeline: ffmpeg frames @12fps → ML Kit pose (single mode) → Savitzky-Golay
 /// smoothing → arm visibility hysteresis → state machine
 /// (IDLE → BOTTOM → ASCENDING → TOP → DESCENDING → count) → scoring on 6 dims
 /// (depth, lockout, lean, head_through, elbow_flare, bar_path) → post-process
 /// outlier filters → per-frame telemetry for the overlay widget.
 ///
-/// v1.33 (validated on the device's own landmarks, frontal set, 13 presses:
-/// v1.32 = 12 reps + lockout/flare feedback on every rep; v1.33 = 13/13, clean):
+/// v1.34 (second real frontal set, 11 presses + a crouch toward the phone):
+///   1. Fake-rep gates at count time: absolute wrist rise >= 40% of the
+///      shoulder-relative rise, and the shoulder line may not sink > 0.30
+///      torso between the cycle's lowest point and its peak. A crouch with
+///      hands on a fixed bar sinks the shoulders 0.65t with the wrist still;
+///      real presses measure abs/rel 0.8-1.2 and sink -0.2..+0.18.
+///   2. Lean measured only during the press motion, not the BOTTOM dwell
+///      (a bent-over set-up frame was setting rep 1's lean).
+///
+/// v1.33 (validated on the device's own landmarks, frontal set, 13 presses):
 ///   1. Aspect-correct geometry: angles/lean/flare/head-through computed with x
 ///      scaled by frameW/frameH (portrait video stretched x by 1.78x, so straight
 ///      arms read 20-30 deg more bent). Lean/head-through thresholds rescaled.
@@ -938,6 +950,10 @@ Future<dynamic> analyzeOverheadPressVideoAction(
   // [v1.32] Shoulder-relative ascent tracking (FIX 2).
   double? startWristAboveShNorm;
   double? peakWristAboveShNorm;
+  // [v1.34] Shoulder-line Y (normalized) at the frames where the two
+  // values above were captured — for the shoulder-sink fake-rep gate.
+  double? startShoulderYNorm;
+  double? peakShoulderYNorm;
 
   // Current-rep accumulators.
   double currentRepMinElbow = 999.0;
@@ -1010,6 +1026,8 @@ Future<dynamic> analyzeOverheadPressVideoAction(
     wristYAtCycleStart = null;
     startWristAboveShNorm = null; // [v1.32]
     peakWristAboveShNorm = null; // [v1.32]
+    startShoulderYNorm = null; // [v1.34]
+    peakShoulderYNorm = null; // [v1.34]
     ascentStartFrame = 0; // [v1.31]
     currentRepWristX.clear();
     currentRepAscendingFrames = 0;
@@ -1200,7 +1218,11 @@ Future<dynamic> analyzeOverheadPressVideoAction(
         phase == _PHASE_DESCENDING) {
       if (elbowEma! < currentRepMinElbow) currentRepMinElbow = elbowEma!;
       if (elbowEma! > currentRepMaxElbow) currentRepMaxElbow = elbowEma!;
-      if (leanEma! > currentRepMaxLean) currentRepMaxLean = leanEma!;
+      // [v1.34] Lean is a press-motion metric: ignore the BOTTOM dwell
+      // (setup, re-gripping, resting) so it can't set the rep's value.
+      if (phase != _PHASE_BOTTOM && leanEma! > currentRepMaxLean) {
+        currentRepMaxLean = leanEma!;
+      }
 
       // Track head-through only at TOP (the only phase where the measurement is anatomically meaningful —…
       // [v1.29] Two-slot minimum tracker:
@@ -1233,6 +1255,7 @@ Future<dynamic> analyzeOverheadPressVideoAction(
         final double aboveSh = midShY - wristYEma!;
         if (peakWristAboveShNorm == null || aboveSh > peakWristAboveShNorm!) {
           peakWristAboveShNorm = aboveSh;
+          peakShoulderYNorm = midShY; // [v1.34]
         }
       }
 
@@ -1275,6 +1298,7 @@ Future<dynamic> analyzeOverheadPressVideoAction(
       if (startWristAboveShNorm == null ||
           aboveShNow < startWristAboveShNorm!) {
         startWristAboveShNorm = aboveShNow;
+        startShoulderYNorm = midShY; // [v1.34]
       }
       if (wristYAtCycleStart == null || wristYEma! > wristYAtCycleStart!) {
         wristYAtCycleStart = wristYEma;
@@ -1369,6 +1393,8 @@ Future<dynamic> analyzeOverheadPressVideoAction(
             wristYAtCycleStart = wristYEma;
             startWristAboveShNorm = midShY - wristYEma!; // [v1.32]
             peakWristAboveShNorm = null; // [v1.32]
+            startShoulderYNorm = midShY; // [v1.34]
+            peakShoulderYNorm = null; // [v1.34]
             currentRepStartFrame = frameIdx1Based;
             // Fresh accumulators.
             currentRepMinElbow = 999.0;
@@ -1422,6 +1448,8 @@ Future<dynamic> analyzeOverheadPressVideoAction(
             startWristAboveShNorm = // [v1.32] from the observed bottom
                 lastShortDwellStartAboveSh ?? (midShY - wristYEma!);
             peakWristAboveShNorm = midShY - wristYEma!; // [v1.32]
+            startShoulderYNorm = midShY; // [v1.34]
+            peakShoulderYNorm = midShY; // [v1.34]
             currentRepStartFrame = lastShortDwellStartFrame;
             currentRepMinElbow = 999.0;
             currentRepMaxElbow = elbowEma!;
@@ -1470,6 +1498,8 @@ Future<dynamic> analyzeOverheadPressVideoAction(
               wristYAtCycleStart = wristYEma;
               startWristAboveShNorm = midShY - wristYEma!; // [v1.32]
               peakWristAboveShNorm = midShY - wristYEma!; // [v1.32]
+              startShoulderYNorm = midShY; // [v1.34]
+              peakShoulderYNorm = midShY; // [v1.34]
               currentRepStartFrame = frameIdx1Based;
               currentRepMinElbow = 999.0;
               currentRepMaxElbow = elbowEma!;
@@ -1513,6 +1543,7 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           if (peakWristAboveShNorm == null ||
               _aboveShEntry > peakWristAboveShNorm!) {
             peakWristAboveShNorm = _aboveShEntry;
+            peakShoulderYNorm = midShY; // [v1.34]
           }
           wristDescentConsecFrames = 0; // [v1.5] reset sustained counter
           framesInPhase = 0;
@@ -1537,6 +1568,7 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           if (peakWristAboveShNorm == null ||
               _aboveShEntry > peakWristAboveShNorm!) {
             peakWristAboveShNorm = _aboveShEntry;
+            peakShoulderYNorm = midShY; // [v1.34]
           }
           wristDescentConsecFrames = 0; // [v1.5] reset sustained counter
           framesInPhase = 0;
@@ -1546,6 +1578,7 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           cycleStartFrame = frameIdx1Based;
           wristYAtCycleStart = wristYEma;
           startWristAboveShNorm = midShY - wristYEma!; // [v1.32]
+          startShoulderYNorm = midShY; // [v1.34]
           currentRepStartFrame = frameIdx1Based;
         }
         break;
@@ -1582,6 +1615,16 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           final bool ascentOk = ascentMagnitude >=
               TuningParams.MIN_RISE_FROM_CYCLE_START * torsoUnit;
 
+          // [v1.34] Fake-rep gates.
+          final bool absAscentOk = ascentMagnitudeAbs >=
+              TuningParams.ASCENT_ABS_MIN_FRAC * ascentMagnitude;
+          final double shoulderSinkTorso =
+              (startShoulderYNorm != null && peakShoulderYNorm != null)
+                  ? (peakShoulderYNorm! - startShoulderYNorm!) / torsoUnit
+                  : 0.0;
+          final bool shoulderSinkOk =
+              shoulderSinkTorso <= TuningParams.SHOULDER_SINK_MAX_TORSO;
+
           // [v1.18] Peak-height gate.
           // [v1.19] PRIMARY check is now wristCrossedHead — the wrist must have risen above the nose landmark…
           final bool peakReachedRealLockout = currentRepWristCrossedHead ||
@@ -1613,6 +1656,9 @@ Future<dynamic> analyzeOverheadPressVideoAction(
             _failReasons.add('realBottomObs<$REAL_BOTTOM_REQUIRED');
           }
           if (!peakReachedRealLockout) _failReasons.add('peakNotOverhead');
+          if (!absAscentOk) _failReasons.add('absAscent<40%rel'); // [v1.34]
+          if (!shoulderSinkOk)
+            _failReasons.add('shoulderSank>0.30t'); // [v1.34]
           // [v1.22] cycleStartedAtRealOHPSetup no longer affects the count outcome — it's still computed and…
           final bool _willCount = _failReasons.isEmpty;
           debugLog.add({
@@ -1636,6 +1682,10 @@ Future<dynamic> analyzeOverheadPressVideoAction(
             // [v1.32] absolute (pre-v1.32) ascent for comparison, and
             // the raw endpoints of the relative measure.
             'ascentAbs': double.parse(ascentMagnitudeAbs.toStringAsFixed(4)),
+            'shoulderSinkTorso': // [v1.34]
+                double.parse(shoulderSinkTorso.toStringAsFixed(3)),
+            'absAscentOk': absAscentOk, // [v1.34]
+            'shoulderSinkOk': shoulderSinkOk, // [v1.34]
             'startAboveShNorm': startWristAboveShNorm != null
                 ? double.parse(startWristAboveShNorm!.toStringAsFixed(4))
                 : null,
@@ -1667,6 +1717,8 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           if (durationOk &&
               refractoryOk &&
               ascentOk &&
+              absAscentOk &&
+              shoulderSinkOk &&
               realBottomFramesObserved >= REAL_BOTTOM_REQUIRED &&
               peakReachedRealLockout) {
             // ---- Score it ----
@@ -1906,6 +1958,8 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           wristYAtCycleStart = wristYEma;
           startWristAboveShNorm = midShY - wristYEma!; // [v1.32]
           peakWristAboveShNorm = null; // [v1.32]
+          startShoulderYNorm = midShY; // [v1.34]
+          peakShoulderYNorm = null; // [v1.34]
           currentRepStartFrame = frameIdx1Based;
           currentRepMinElbow = 999.0;
           currentRepMaxElbow = 0.0;
@@ -1933,6 +1987,7 @@ Future<dynamic> analyzeOverheadPressVideoAction(
           if (peakWristAboveShNorm == null ||
               _aboveShEntry > peakWristAboveShNorm!) {
             peakWristAboveShNorm = _aboveShEntry;
+            peakShoulderYNorm = midShY; // [v1.34]
           }
           wristDescentConsecFrames = 0; // [v1.5] reset sustained counter
           framesInPhase = 0;

@@ -816,7 +816,8 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                   widget.exerciseId!,
                                   widget.setNumber!,
                                   FFAppState().analysisCount,
-                                  FFAppState().isPremium))
+                                  FFAppState().isPremium,
+                                  FFAppState().loggedSets.toList()))
                                 Builder(
                                   builder: (context) => Container(
                                     width: 35.0,
