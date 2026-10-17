@@ -259,7 +259,8 @@ class _AnalysiAlertWidgetState extends State<AnalysiAlertWidget> {
                               child: CameraAnalyzerWidget(
                                 exerciseId: widget.exerciseId!,
                                 exerciseName: widget.exerciseName!,
-                                analyze: (video) async {
+                                analyze:
+                                    (video, exerciseName, exerciseId) async {
                                   _model.videoUrl = video;
                                   safeSetState(() {});
                                 },

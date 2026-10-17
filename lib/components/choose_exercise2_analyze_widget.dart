@@ -1,12 +1,9 @@
-import '/backend/sqlite/sqlite_manager.dart';
+import '/auth/supabase_auth/auth_util.dart';
 import '/components/camera_analyzer_widget.dart';
-import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart' as custom_widgets;
-import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'choose_exercise2_analyze_model.dart';
 export 'choose_exercise2_analyze_model.dart';
 
@@ -101,279 +98,60 @@ class _ChooseExercise2AnalyzeWidgetState
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<GetAiexercisesRow>>(
-      future: SQLiteManager.instance.getAiexercises(),
-      builder: (context, snapshot) {
-        // Customize what your widget looks like when it's loading.
-        if (!snapshot.hasData) {
-          return Center(
-            child: SizedBox(
-              width: 50.0,
-              height: 50.0,
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  FlutterFlowTheme.of(context).secondary,
-                ),
-              ),
-            ),
-          );
-        }
-        final containerGetAiexercisesRowList = snapshot.data!;
-
-        return Container(
-          width: 935.0,
-          decoration: BoxDecoration(
-            color: FlutterFlowTheme.of(context).secondaryBackground,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24.0),
-              topRight: Radius.circular(24.0),
-            ),
-            shape: BoxShape.rectangle,
-          ),
-          child: Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 12.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              0.0, 12.0, 0.0, 12.0),
-                          child: Container(
-                            child: Container(
-                              alignment: AlignmentDirectional(0.0, 0.0),
-                              child: Container(
-                                width: 36.0,
-                                height: 4.0,
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFE5E7EB),
-                                  borderRadius: BorderRadius.circular(9999.0),
-                                  shape: BoxShape.rectangle,
-                                ),
-                              ),
-                            ),
+    return Builder(
+      builder: (context) => Container(
+        width: MediaQuery.sizeOf(context).width * 1.0,
+        height: MediaQuery.sizeOf(context).height * 0.8,
+        child: custom_widgets.AnalyzeExercisePicker(
+          width: MediaQuery.sizeOf(context).width * 1.0,
+          height: MediaQuery.sizeOf(context).height * 0.8,
+          userId: currentUserUid,
+          onPick: (exerciseId, exerciseName) async {
+            await showDialog(
+              context: context,
+              builder: (dialogContext) {
+                return Dialog(
+                  elevation: 0,
+                  insetPadding: EdgeInsets.zero,
+                  backgroundColor: Colors.transparent,
+                  alignment: AlignmentDirectional(0.0, 0.0)
+                      .resolve(Directionality.of(context)),
+                  child: CameraAnalyzerWidget(
+                    exerciseId: exerciseId,
+                    exerciseName: exerciseId.toString(),
+                    analyze: (video, exerciseName, exerciseId) async {
+                      context.pushNamed(
+                        FullAnalyzingStatePageWidget.routeName,
+                        queryParameters: {
+                          'videoFile': serializeParam(
+                            video,
+                            ParamType.FFUploadedFile,
                           ),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(
-                            20.0, 0.0, 20.0, 0.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              FFLocalizations.of(context).getText(
-                                'g5t98pf2' /* Pick an exercise to analyze */,
-                              ),
-                              style: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .override(
-                                    font: GoogleFonts.inter(
-                                      fontWeight: FontWeight.bold,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .primaryText,
-                                    fontSize: 18.0,
-                                    letterSpacing: 0.0,
-                                    fontWeight: FontWeight.bold,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodyMedium
-                                        .fontStyle,
-                                    lineHeight: 1.4,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Padding(
-                              padding: EdgeInsetsDirectional.fromSTEB(
-                                  20.0, 0.0, 20.0, 0.0),
-                              child: Container(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0.0, 12.0, 0.0, 0.0),
-                  child: Builder(
-                    builder: (context) {
-                      final aiEx =
-                          containerGetAiexercisesRowList.map((e) => e).toList();
-
-                      return SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          children: List.generate(aiEx.length, (aiExIndex) {
-                            final aiExItem = aiEx[aiExIndex];
-                            return Builder(
-                              builder: (context) => InkWell(
-                                splashColor: Colors.transparent,
-                                focusColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                highlightColor: Colors.transparent,
-                                onTap: () async {
-                                  await showDialog(
-                                    context: context,
-                                    builder: (dialogContext) {
-                                      return Dialog(
-                                        elevation: 0,
-                                        insetPadding: EdgeInsets.zero,
-                                        backgroundColor: Colors.transparent,
-                                        alignment:
-                                            AlignmentDirectional(0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                        child: CameraAnalyzerWidget(
-                                          exerciseId: aiExItem.id,
-                                          exerciseName: aiExItem.name,
-                                          analyze: (video) async {
-                                            context.pushNamed(
-                                              FullAnalyzingStatePageWidget
-                                                  .routeName,
-                                              queryParameters: {
-                                                'videoFile': serializeParam(
-                                                  video,
-                                                  ParamType.FFUploadedFile,
-                                                ),
-                                                'exerciseName': serializeParam(
-                                                  aiExItem.name,
-                                                  ParamType.String,
-                                                ),
-                                                'exerciseId': serializeParam(
-                                                  aiExItem.id,
-                                                  ParamType.int,
-                                                ),
-                                                'isBodyweight': serializeParam(
-                                                  aiExItem.isBodyweight,
-                                                  ParamType.int,
-                                                ),
-                                              }.withoutNulls,
-                                            );
-                                          },
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                                child: Container(
-                                  width: 130.0,
-                                  height: 160.0,
-                                  decoration: BoxDecoration(
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryBackground,
-                                    borderRadius: BorderRadius.circular(16.0),
-                                    shape: BoxShape.rectangle,
-                                    border: Border.all(
-                                      color: Color(0xFFE5E7EB),
-                                      width: 1.0,
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: EdgeInsets.all(10.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          height: 90.0,
-                                          decoration: BoxDecoration(
-                                            color: Color(0xFFDCF5F0),
-                                            borderRadius:
-                                                BorderRadius.circular(12.0),
-                                            shape: BoxShape.rectangle,
-                                          ),
-                                          child: Container(
-                                            width: MediaQuery.sizeOf(context)
-                                                    .width *
-                                                1.0,
-                                            height: 90.0,
-                                            child: custom_widgets
-                                                .ExerciseAssetImage(
-                                              width: MediaQuery.sizeOf(context)
-                                                      .width *
-                                                  1.0,
-                                              height: 90.0,
-                                              exerciseName:
-                                                  functions.exerciseImageName(
-                                                      aiExItem.name),
-                                              borderRadius: 18.0,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          height: 8.0,
-                                        ),
-                                        Text(
-                                          aiExItem.name,
-                                          textAlign: TextAlign.center,
-                                          maxLines: 2,
-                                          style: FlutterFlowTheme.of(context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                                color:
-                                                    FlutterFlowTheme.of(context)
-                                                        .secondaryText,
-                                                fontSize: 14.0,
-                                                letterSpacing: 0.0,
-                                                fontWeight: FontWeight.w600,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                                lineHeight: 1.4,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).divide(SizedBox(width: 16.0)),
-                        ),
+                          'exerciseName': serializeParam(
+                            exerciseName,
+                            ParamType.String,
+                          ),
+                          'exerciseId': serializeParam(
+                            exerciseId,
+                            ParamType.int,
+                          ),
+                          'isBodyweight': serializeParam(
+                            0,
+                            ParamType.int,
+                          ),
+                        }.withoutNulls,
                       );
                     },
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+                );
+              },
+            );
+          },
+          onClose: () async {
+            Navigator.pop(context);
+          },
+        ),
+      ),
     );
   }
 }

@@ -2,7 +2,6 @@ import '/backend/sqlite/sqlite_manager.dart';
 import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
-import '/components/restyle_the_existing3_widget.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/form_field_controller.dart';
 import '/index.dart';
@@ -45,12 +44,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
   late PieGraphPlaceHolderModel pieGraphPlaceHolderModel;
   // Model for exerciseStatsPlaceHolder component.
   late ExerciseStatsPlaceHolderModel exerciseStatsPlaceHolderModel;
-  // Model for RestyleTheExisting3 component.
-  late RestyleTheExisting3Model restyleTheExisting3Model;
-  // Stores action output result for [Backend Call - SQLite (workoutNum)] action in Button widget.
-  List<WorkoutNumRow>? workouts;
-  // Stores action output result for [Backend Call - SQLite (workoutNum)] action in DashedNewWorkoutButton widget.
-  List<WorkoutNumRow>? workoutsCopy;
   // Stores action output result for [Custom Action - callWorkoutBuilder] action in Button widget.
   dynamic result;
   bool isDataUploading_uploadDataNme = false;
@@ -171,8 +164,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
         createModel(context, () => PieGraphPlaceHolderModel());
     exerciseStatsPlaceHolderModel =
         createModel(context, () => ExerciseStatsPlaceHolderModel());
-    restyleTheExisting3Model =
-        createModel(context, () => RestyleTheExisting3Model());
   }
 
   @override
@@ -181,7 +172,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
     lineGraphPlaceHolderModel.dispose();
     pieGraphPlaceHolderModel.dispose();
     exerciseStatsPlaceHolderModel.dispose();
-    restyleTheExisting3Model.dispose();
     tabBarController2?.dispose();
     textFieldFocusNode?.dispose();
     textController?.dispose();

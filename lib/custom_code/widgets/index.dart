@@ -58,3 +58,5 @@ export 'ai_form_button.dart' show AiFormButton;
 export 'ai_form_badge.dart' show AiFormBadge;
 export 'ai_score_ring.dart' show AiScoreRing;
 export 'vision_pose_test_button.dart' show VisionPoseTestButton;
+export 'home_view.dart' show HomeView;
+export 'analyze_exercise_picker.dart' show AnalyzeExercisePicker;

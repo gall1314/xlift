@@ -2234,46 +2234,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'By Muscle',
       'es': '',
     },
-    'xcaae697': {
-      'en': 'Create New  Workout',
-      'es': 'Crear nuevo entrenamiento',
-    },
-    'se39ktoq': {
-      'en': 'Last Workout',
-      'es': '',
-    },
-    'pe5qacis': {
-      'en': 'Tap to view summary →',
-      'es': '',
-    },
-    '99am3u39': {
-      'en': 'This Week\'s Stats',
-      'es': 'Estadísticas de esta semana',
-    },
-    'hoqf61ig': {
-      'en': 'Workouts',
-      'es': 'Entrenamientos',
-    },
-    'mulfnrpw': {
-      'en': 'Total Sets',
-      'es': 'Conjuntos totales',
-    },
-    'au6sgyi1': {
-      'en': 'Tap to view full stats →',
-      'es': 'Toque para ver las estadísticas completas →',
-    },
-    'x6ssmr9f': {
-      'en': 'My Workouts',
-      'es': 'Mis entrenamientos',
-    },
-    'xwou7zvm': {
-      'en': 'Start',
-      'es': 'Comenzar',
-    },
-    '8i1ru5mo': {
-      'en': 'Create New  Workout',
-      'es': '',
-    },
     'v519r977': {
       'en': 'live',
       'es': '',
@@ -4154,13 +4114,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     '5ngt1ou1': {
       'en': 'Forearms',
       'es': 'antebrazos',
-    },
-  },
-  // chooseExercise2Analyze
-  {
-    'g5t98pf2': {
-      'en': 'Pick an exercise to analyze',
-      'es': '',
     },
   },
   // BottomSheetNoFreeLeft

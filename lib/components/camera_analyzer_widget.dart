@@ -13,7 +13,8 @@ class CameraAnalyzerWidget extends StatefulWidget {
   });
 
   final int? exerciseId;
-  final Future Function(FFUploadedFile video)? analyze;
+  final Future Function(
+      FFUploadedFile video, String exerciseName, int exerciseId)? analyze;
   final String? exerciseName;
 
   @override
@@ -55,6 +56,8 @@ class _CameraAnalyzerWidgetState extends State<CameraAnalyzerWidget> {
         onVideoRecorded: (videoFile) async {
           await widget.analyze?.call(
             videoFile,
+            widget.exerciseName!,
+            widget.exerciseId!,
           );
           Navigator.pop(context);
         },

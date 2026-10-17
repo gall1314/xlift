@@ -848,7 +848,8 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                                 exerciseId: widget.exerciseId!,
                                                 exerciseName:
                                                     widget.exerciseName!,
-                                                analyze: (video) async {
+                                                analyze: (video, exerciseName,
+                                                    exerciseId) async {
                                                   _model.videoUrl = video;
                                                   safeSetState(() {});
                                                 },
