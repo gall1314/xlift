@@ -2,24 +2,18 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
 import '/components/analyze2_app_after_widget.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
-import '/components/bottom_sheet_no_free_templates_widget.dart';
 import '/components/choose_exercise2_analyze_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
-import '/components/discard_and_start_new_widget.dart';
 import '/components/discard_workout_widget.dart';
 import '/components/edit_delte2_widget.dart';
-import '/components/edit_or_delete_widget.dart';
 import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
-import '/components/workout_list_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_charts.dart';
-import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/flutter_flow/upload_data.dart';
 import '/custom_code/actions/index.dart' as actions;
 import '/custom_code/widgets/index.dart' as custom_widgets;
@@ -81,25 +75,11 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
       }
     });
 
-    _model.tabBarController1 = TabController(
+    _model.tabBarController = TabController(
       vsync: this,
       length: 3,
       initialIndex: 0,
     )..addListener(() => safeSetState(() {}));
-
-    _model.tabBarController2 = TabController(
-      vsync: this,
-      length: 2,
-      initialIndex: min(
-          valueOrDefault<int>(
-            _model.template ? 1 : 0,
-            0,
-          ),
-          1),
-    )..addListener(() => safeSetState(() {}));
-
-    _model.textController ??= TextEditingController();
-    _model.textFieldFocusNode ??= FocusNode();
   }
 
   @override
@@ -139,6 +119,204 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
           child: Stack(
             alignment: AlignmentDirectional(0.0, -1.0),
             children: [
+              if (_model.pageIndex == 4)
+                Container(
+                  width: MediaQuery.sizeOf(context).width * 1.0,
+                  height: MediaQuery.sizeOf(context).height * 1.0,
+                  decoration: BoxDecoration(
+                    color: FlutterFlowTheme.of(context).secondaryBackground,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      if (_model.pageIndex == 4)
+                        Container(
+                          width: MediaQuery.sizeOf(context).width * 1.0,
+                          height: MediaQuery.sizeOf(context).height * 1.0,
+                          child: custom_widgets.LibraryView(
+                            width: MediaQuery.sizeOf(context).width * 1.0,
+                            height: MediaQuery.sizeOf(context).height * 1.0,
+                            userId: currentUserUid,
+                            initialTab: 1,
+                            onStartWorkout: (workoutId) async {
+                              context.pushNamed(
+                                WorkoutV2Widget.routeName,
+                                queryParameters: {
+                                  'workoutId': serializeParam(
+                                    workoutId,
+                                    ParamType.String,
+                                  ),
+                                }.withoutNulls,
+                              );
+                            },
+                            onEditWorkout: (workoutId) async {
+                              context.pushNamed(
+                                EditWorkoutV2Widget.routeName,
+                                queryParameters: {
+                                  'shouldInit': serializeParam(
+                                    false,
+                                    ParamType.bool,
+                                  ),
+                                  'workoutId': serializeParam(
+                                    workoutId,
+                                    ParamType.String,
+                                  ),
+                                }.withoutNulls,
+                              );
+                            },
+                            onDeleteWorkout: (workoutId) async {
+                              await SQLiteManager.instance.deleteWorkout(
+                                workoutId: workoutId,
+                              );
+                            },
+                            onOpenTemplate: (template, workoutId) async {
+                              context.pushNamed(
+                                TemplateWorkoutWidget.routeName,
+                                queryParameters: {
+                                  'workoutTemplate': serializeParam(
+                                    template,
+                                    ParamType.SqliteRow,
+                                  ),
+                                }.withoutNulls,
+                              );
+                            },
+                            onUseTemplate: (template, workoutId) async {
+                              _model.exrecises = await SQLiteManager.instance
+                                  .getworkoutExercise(
+                                workoutId: workoutId,
+                              );
+                              _model.uuid = await actions.generateUuidV4();
+                              await SQLiteManager.instance.insertWorkout(
+                                id: _model.uuid!,
+                                name: template.name,
+                                createdAt: dateTimeFormat(
+                                  "22",
+                                  getCurrentTimestamp,
+                                  locale:
+                                      FFLocalizations.of(context).languageCode,
+                                ),
+                                userId: currentUserUid,
+                              );
+                              for (int loop1Index = 0;
+                                  loop1Index < _model.exrecises!.length;
+                                  loop1Index++) {
+                                final currentLoop1Item =
+                                    _model.exrecises![loop1Index];
+                                _model.uuid2 = await actions.generateUuidV4();
+                                await SQLiteManager.instance
+                                    .insertWorkoutExercise(
+                                  id: _model.uuid2!,
+                                  workoutId: _model.uuid!,
+                                  createdAt: getCurrentTimestamp.toString(),
+                                  order: loop1Index,
+                                  restSeconds: 0,
+                                  exerciseId: currentLoop1Item.exerciseId,
+                                  exerciseName: currentLoop1Item.exerciseName,
+                                  userId: currentUserUid,
+                                  isSuperset: 0,
+                                  supersetGroupId: '',
+                                );
+                                _model.sets = await SQLiteManager.instance
+                                    .getExerciseSetsForWorkout(
+                                  workoutId: template.workoutId,
+                                );
+                                for (int loop2Index = 0;
+                                    loop2Index < _model.sets!.length;
+                                    loop2Index++) {
+                                  final currentLoop2Item =
+                                      _model.sets![loop2Index];
+                                  _model.uuid3 = await actions.generateUuidV4();
+                                  await SQLiteManager.instance
+                                      .insertExerciseSts(
+                                    workoutExerciseId: _model.uuid2!,
+                                    setNumber: currentLoop2Item.setNumber,
+                                    targetReps: currentLoop2Item.targetReps,
+                                    isWarmup: 0,
+                                    isDropset: 0,
+                                    workoutId: _model.uuid!,
+                                    id: _model.uuid3!,
+                                    weighted: currentLoop2Item.weighted,
+                                    durationSeconds:
+                                        currentLoop2Item.durationSeconds,
+                                    dropNumber: 0,
+                                  );
+                                }
+                              }
+
+                              context.pushNamed(
+                                MasterPageWidget.routeName,
+                                queryParameters: {
+                                  'initialTab': serializeParam(
+                                    3,
+                                    ParamType.int,
+                                  ),
+                                }.withoutNulls,
+                              );
+
+                              safeSetState(() {});
+                            },
+                            onOpenExercise: (exerciseId, isPublic) async {
+                              if (isPublic) {
+                                context.pushNamed(
+                                  ExerciseHistoryWidget.routeName,
+                                  queryParameters: {
+                                    'exerciseId': serializeParam(
+                                      exerciseId,
+                                      ParamType.int,
+                                    ),
+                                    'overview': serializeParam(
+                                      true,
+                                      ParamType.bool,
+                                    ),
+                                    'analytics': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              } else {
+                                context.pushNamed(
+                                  ExerciseHistoryCustomWidget.routeName,
+                                  queryParameters: {
+                                    'exerciseId': serializeParam(
+                                      exerciseId,
+                                      ParamType.int,
+                                    ),
+                                    'overview': serializeParam(
+                                      true,
+                                      ParamType.bool,
+                                    ),
+                                    'analytics': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              }
+                            },
+                            onCreateWorkout: () async {
+                              context.pushNamed(
+                                CreateWorkoutV2Widget.routeName,
+                                queryParameters: {
+                                  'shouldInit': serializeParam(
+                                    false,
+                                    ParamType.bool,
+                                  ),
+                                }.withoutNulls,
+                              );
+                            },
+                            onGenerateWorkout: () async {
+                              context.pushNamed(AiWorkoutTypeWidget.routeName);
+                            },
+                            onCreateCustomExercise: () async {
+                              context.pushNamed(
+                                  CreateUserExerciseWidget.routeName);
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               if (_model.pageIndex == 1)
                 Container(
                   decoration: BoxDecoration(),
@@ -400,7 +578,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                             ),
                                           ),
                                         ],
-                                        controller: _model.tabBarController1,
+                                        controller: _model.tabBarController,
                                         onTap: (i) async {
                                           [
                                             () async {},
@@ -412,7 +590,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                     ),
                                     Expanded(
                                       child: TabBarView(
-                                        controller: _model.tabBarController1,
+                                        controller: _model.tabBarController,
                                         children: [
                                           Padding(
                                             padding:
@@ -1523,21 +1701,29 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                               child: Align(
                                                 alignment: AlignmentDirectional(
                                                     0.0, -1.0),
-                                                child: Padding(
-                                                  padding: EdgeInsetsDirectional
-                                                      .fromSTEB(
-                                                          16.0, 0.0, 16.0, 0.0),
-                                                  child: SingleChildScrollView(
-                                                    child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.max,
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Builder(
-                                                          builder: (context) =>
-                                                              Container(
+                                                child: SingleChildScrollView(
+                                                  child: Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.max,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      Builder(
+                                                        builder: (context) =>
+                                                            Container(
+                                                          width:
+                                                              MediaQuery.sizeOf(
+                                                                          context)
+                                                                      .width *
+                                                                  1.0,
+                                                          height:
+                                                              MediaQuery.sizeOf(
+                                                                          context)
+                                                                      .height *
+                                                                  1.0,
+                                                          child: custom_widgets
+                                                              .HomeView(
                                                             width: MediaQuery
                                                                         .sizeOf(
                                                                             context)
@@ -1548,144 +1734,75 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                             context)
                                                                     .height *
                                                                 1.0,
-                                                            child:
-                                                                custom_widgets
-                                                                    .HomeView(
-                                                              width: MediaQuery
-                                                                          .sizeOf(
-                                                                              context)
-                                                                      .width *
-                                                                  1.0,
-                                                              height: MediaQuery
-                                                                          .sizeOf(
-                                                                              context)
-                                                                      .height *
-                                                                  1.0,
-                                                              userId:
-                                                                  currentUserUid,
-                                                              isPremium:
-                                                                  FFAppState()
-                                                                      .isPremium,
-                                                              analysisCount:
-                                                                  FFAppState()
-                                                                      .analysisCount,
-                                                              analysisCountMonth:
-                                                                  FFAppState()
-                                                                      .analysisCountMonth,
-                                                              onStartWorkout:
-                                                                  (workoutId) async {
-                                                                context
-                                                                    .pushNamed(
-                                                                  WorkoutV2Widget
-                                                                      .routeName,
-                                                                  queryParameters:
-                                                                      {
-                                                                    'workoutId':
-                                                                        serializeParam(
-                                                                      workoutId,
-                                                                      ParamType
-                                                                          .String,
-                                                                    ),
-                                                                  }.withoutNulls,
-                                                                );
-                                                              },
-                                                              onOpenSummary:
-                                                                  (workoutLogId) async {
-                                                                context
-                                                                    .pushNamed(
-                                                                  WorkoutSummaryViewWidget
-                                                                      .routeName,
-                                                                  queryParameters:
-                                                                      {
-                                                                    'workoutLogId':
-                                                                        serializeParam(
-                                                                      workoutLogId,
-                                                                      ParamType
-                                                                          .String,
-                                                                    ),
-                                                                  }.withoutNulls,
-                                                                );
-                                                              },
-                                                              onOpenLastAnalysis:
-                                                                  (analysis) async {
-                                                                await showDialog(
-                                                                  context:
-                                                                      context,
-                                                                  builder:
-                                                                      (dialogContext) {
-                                                                    return Dialog(
-                                                                      elevation:
-                                                                          0,
-                                                                      insetPadding:
-                                                                          EdgeInsets
-                                                                              .zero,
-                                                                      backgroundColor:
-                                                                          Colors
-                                                                              .transparent,
-                                                                      alignment: AlignmentDirectional(
-                                                                              0.0,
-                                                                              0.0)
-                                                                          .resolve(
-                                                                              Directionality.of(context)),
-                                                                      child:
-                                                                          GestureDetector(
-                                                                        onTap:
-                                                                            () {
-                                                                          FocusScope.of(dialogContext)
-                                                                              .unfocus();
-                                                                          FocusManager
-                                                                              .instance
-                                                                              .primaryFocus
-                                                                              ?.unfocus();
-                                                                        },
-                                                                        child:
-                                                                            Analyze2AppAfterWidget(
-                                                                          anlysis:
-                                                                              analysis,
-                                                                        ),
-                                                                      ),
-                                                                    );
-                                                                  },
-                                                                );
-                                                              },
-                                                              onOpenStats:
-                                                                  () async {
-                                                                _model.pageIndex =
-                                                                    1;
-                                                                safeSetState(
-                                                                    () {});
-                                                              },
-                                                              onOpenLibrary:
-                                                                  () async {
-                                                                _model.pageIndex =
-                                                                    3;
-                                                                safeSetState(
-                                                                    () {});
-                                                              },
-                                                              onOpenSettings:
-                                                                  () async {
-                                                                context.pushNamed(
-                                                                    SettingssWidget
-                                                                        .routeName);
-                                                              },
-                                                              onCreateWorkout:
-                                                                  () async {
-                                                                await showModalBottomSheet(
-                                                                  isScrollControlled:
-                                                                      true,
-                                                                  backgroundColor:
-                                                                      Colors
-                                                                          .transparent,
-                                                                  enableDrag:
-                                                                      false,
-                                                                  context:
-                                                                      context,
-                                                                  builder:
-                                                                      (context) {
-                                                                    return GestureDetector(
+                                                            userId:
+                                                                currentUserUid,
+                                                            isPremium:
+                                                                FFAppState()
+                                                                    .isPremium,
+                                                            analysisCount:
+                                                                FFAppState()
+                                                                    .analysisCount,
+                                                            analysisCountMonth:
+                                                                FFAppState()
+                                                                    .analysisCountMonth,
+                                                            onStartWorkout:
+                                                                (workoutId) async {
+                                                              context.pushNamed(
+                                                                WorkoutV2Widget
+                                                                    .routeName,
+                                                                queryParameters:
+                                                                    {
+                                                                  'workoutId':
+                                                                      serializeParam(
+                                                                    workoutId,
+                                                                    ParamType
+                                                                        .String,
+                                                                  ),
+                                                                }.withoutNulls,
+                                                              );
+                                                            },
+                                                            onOpenSummary:
+                                                                (workoutLogId) async {
+                                                              context.pushNamed(
+                                                                WorkoutSummaryViewWidget
+                                                                    .routeName,
+                                                                queryParameters:
+                                                                    {
+                                                                  'workoutLogId':
+                                                                      serializeParam(
+                                                                    workoutLogId,
+                                                                    ParamType
+                                                                        .String,
+                                                                  ),
+                                                                }.withoutNulls,
+                                                              );
+                                                            },
+                                                            onOpenLastAnalysis:
+                                                                (analysis) async {
+                                                              await showDialog(
+                                                                context:
+                                                                    context,
+                                                                builder:
+                                                                    (dialogContext) {
+                                                                  return Dialog(
+                                                                    elevation:
+                                                                        0,
+                                                                    insetPadding:
+                                                                        EdgeInsets
+                                                                            .zero,
+                                                                    backgroundColor:
+                                                                        Colors
+                                                                            .transparent,
+                                                                    alignment: AlignmentDirectional(
+                                                                            0.0,
+                                                                            0.0)
+                                                                        .resolve(
+                                                                            Directionality.of(context)),
+                                                                    child:
+                                                                        GestureDetector(
                                                                       onTap:
                                                                           () {
-                                                                        FocusScope.of(context)
+                                                                        FocusScope.of(dialogContext)
                                                                             .unfocus();
                                                                         FocusManager
                                                                             .instance
@@ -1693,81 +1810,126 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                             ?.unfocus();
                                                                       },
                                                                       child:
-                                                                          Padding(
-                                                                        padding:
-                                                                            MediaQuery.viewInsetsOf(context),
-                                                                        child:
-                                                                            CreateWorkoutBottomWidget(),
+                                                                          Analyze2AppAfterWidget(
+                                                                        anlysis:
+                                                                            analysis,
                                                                       ),
-                                                                    );
-                                                                  },
-                                                                ).then((value) =>
-                                                                    safeSetState(
-                                                                        () {}));
-                                                              },
-                                                            ),
+                                                                    ),
+                                                                  );
+                                                                },
+                                                              );
+                                                            },
+                                                            onOpenStats:
+                                                                () async {
+                                                              _model.pageIndex =
+                                                                  2;
+                                                              safeSetState(
+                                                                  () {});
+                                                            },
+                                                            onOpenLibrary:
+                                                                () async {
+                                                              _model.pageIndex =
+                                                                  4;
+                                                              safeSetState(
+                                                                  () {});
+                                                            },
+                                                            onOpenSettings:
+                                                                () async {
+                                                              context.pushNamed(
+                                                                  SettingssWidget
+                                                                      .routeName);
+                                                            },
+                                                            onCreateWorkout:
+                                                                () async {
+                                                              await showModalBottomSheet(
+                                                                isScrollControlled:
+                                                                    true,
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .transparent,
+                                                                enableDrag:
+                                                                    false,
+                                                                context:
+                                                                    context,
+                                                                builder:
+                                                                    (context) {
+                                                                  return GestureDetector(
+                                                                    onTap: () {
+                                                                      FocusScope.of(
+                                                                              context)
+                                                                          .unfocus();
+                                                                      FocusManager
+                                                                          .instance
+                                                                          .primaryFocus
+                                                                          ?.unfocus();
+                                                                    },
+                                                                    child:
+                                                                        Padding(
+                                                                      padding: MediaQuery
+                                                                          .viewInsetsOf(
+                                                                              context),
+                                                                      child:
+                                                                          CreateWorkoutBottomWidget(),
+                                                                    ),
+                                                                  );
+                                                                },
+                                                              ).then((value) =>
+                                                                  safeSetState(
+                                                                      () {}));
+                                                            },
                                                           ),
                                                         ),
-                                                        if (currentUserUid ==
-                                                            '6880a3ee-0e24-42eb-adbb-ec167c12c089')
-                                                          Container(
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .secondaryBackground,
-                                                            ),
-                                                            child: Column(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .max,
-                                                              children: [
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    context.pushNamed(
-                                                                        LiveSquatWidget
-                                                                            .routeName);
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                      ),
+                                                      if (currentUserUid ==
+                                                          '6880a3ee-0e24-42eb-adbb-ec167c12c089')
+                                                        Container(
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            color: FlutterFlowTheme
+                                                                    .of(context)
+                                                                .secondaryBackground,
+                                                          ),
+                                                          child: Column(
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .max,
+                                                            children: [
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  context.pushNamed(
+                                                                      LiveSquatWidget
+                                                                          .routeName);
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'v519r977' /* live */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'v519r977' /* live */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -1775,99 +1937,99 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                Container(
+                                                              ),
+                                                              Container(
+                                                                width: 300.0,
+                                                                height: 40.0,
+                                                                child: custom_widgets
+                                                                    .VisionPoseTestButton(
                                                                   width: 300.0,
                                                                   height: 40.0,
-                                                                  child: custom_widgets
-                                                                      .VisionPoseTestButton(
-                                                                    width:
-                                                                        300.0,
-                                                                    height:
-                                                                        40.0,
-                                                                  ),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    context.pushNamed(
-                                                                        AiWorkoutTypeWidget
-                                                                            .routeName);
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  context.pushNamed(
+                                                                      AiWorkoutTypeWidget
+                                                                          .routeName);
 
-                                                                    _model.result =
-                                                                        await actions
-                                                                            .callWorkoutBuilder(
-                                                                      1,
-                                                                      'Intermediate',
-                                                                      functions
-                                                                          .testMuscles()
-                                                                          .toList(),
-                                                                    );
+                                                                  _model.result =
+                                                                      await actions
+                                                                          .callWorkoutBuilder(
+                                                                    1,
+                                                                    'Intermediate',
+                                                                    functions
+                                                                        .testMuscles()
+                                                                        .toList(),
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      Test3Widget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result2':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .result,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    Test3Widget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result2':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .result,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'guz1gr5a' /* AI */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'guz1gr5a' /* AI */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -1875,133 +2037,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadDataNme =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadDataNme =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadDataNme =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadDataNme =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadDataNme =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.deadBarb =
-                                                                        await actions
-                                                                            .analyzeDeadliftWithBarbellTest(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadDataNme,
-                                                                      10.0,
-                                                                    );
+                                                                  _model.deadBarb =
+                                                                      await actions
+                                                                          .analyzeDeadliftWithBarbellTest(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadDataNme,
+                                                                    10.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .deadBarb,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .deadBarb,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'c5eotijq' /* deadBarbell */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'c5eotijq' /* deadBarbell */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2009,132 +2173,134 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadDataEut =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadDataEut =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadDataEut =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadDataEut =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadDataEut =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.barb =
-                                                                        await actions
-                                                                            .testBarbellDetection(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadDataEut,
-                                                                    );
+                                                                  _model.barb =
+                                                                      await actions
+                                                                          .testBarbellDetection(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadDataEut,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      BarbelllWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .barb,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    BarbelllWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .barb,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'j052n2mz' /* Barbell */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'j052n2mz' /* Barbell */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2142,135 +2308,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_field99999 =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_field99999 =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_field99999 =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_field99999 =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_field99999 =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.hevy =
-                                                                        await actions
-                                                                            .analyzeSquatVideoHeavyAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_field99999,
-                                                                      12.0,
-                                                                    );
+                                                                  _model.hevy =
+                                                                      await actions
+                                                                          .analyzeSquatVideoHeavyAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_field99999,
+                                                                    12.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .hevy,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .hevy,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'tdz0v8sl' /* HEVY */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'tdz0v8sl' /* HEVY */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          fontSize:
-                                                                              230.0,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2278,133 +2444,137 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        fontSize:
+                                                                            230.0,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData5z999 =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData5z999 =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData5z999 =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData5z999 =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData5z999 =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.press =
-                                                                        await actions
-                                                                            .analyzeOverheadPressVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData5z999,
-                                                                      10.0,
-                                                                    );
+                                                                  _model.press =
+                                                                      await actions
+                                                                          .analyzeOverheadPressVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData5z999,
+                                                                    10.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .press,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .press,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  '20ovd11d' /* overhead */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    '20ovd11d' /* overhead */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2412,133 +2582,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData5z99 =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData5z99 =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData5z99 =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData5z99 =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData5z99 =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.stiff =
-                                                                        await actions
-                                                                            .analyzeStiffLegDeadliftVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData5z99,
-                                                                      10.0,
-                                                                    );
+                                                                  _model.stiff =
+                                                                      await actions
+                                                                          .analyzeStiffLegDeadliftVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData5z99,
+                                                                    10.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .stiff,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .stiff,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  '5faz4avs' /* stiff */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    '5faz4avs' /* stiff */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2546,134 +2718,136 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData5z7 =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData5z7 =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData5z7 =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData5z7 =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData5z7 =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.dead =
-                                                                        await actions
-                                                                            .analyzeDeadliftVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData5z7,
-                                                                      12.0,
-                                                                      'deadlift',
-                                                                    );
+                                                                  _model.dead =
+                                                                      await actions
+                                                                          .analyzeDeadliftVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData5z7,
+                                                                    12.0,
+                                                                    'deadlift',
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .dead,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .dead,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'mzkxe4lg' /* dead */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'mzkxe4lg' /* dead */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2681,133 +2855,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData5zb =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData5zb =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData5zb =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData5zb =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData5zb =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.roman =
-                                                                        await actions
-                                                                            .analyzeRomanianDeadliftVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData5zb,
-                                                                      15.0,
-                                                                    );
+                                                                  _model.roman =
+                                                                      await actions
+                                                                          .analyzeRomanianDeadliftVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData5zb,
+                                                                    15.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .roman,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .roman,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'oa9v66qh' /* romanian */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'oa9v66qh' /* romanian */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2815,133 +2991,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData5zy =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData5zy =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData5zy =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData5zy =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData5zy =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.bulb =
-                                                                        await actions
-                                                                            .analyzeBulgarianVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData5zy,
-                                                                      15.0,
-                                                                    );
+                                                                  _model.bulb =
+                                                                      await actions
+                                                                          .analyzeBulgarianVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData5zy,
+                                                                    15.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .bulb,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .bulb,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'mnefh77d' /* Bulgarian */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'mnefh77d' /* Bulgarian */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -2949,133 +3127,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadDataUxr =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadDataUxr =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadDataUxr =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadDataUxr =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadDataUxr =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.goodm =
-                                                                        await actions
-                                                                            .analyzeBentRowVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadDataUxr,
-                                                                      12.0,
-                                                                    );
+                                                                  _model.goodm =
+                                                                      await actions
+                                                                          .analyzeBentRowVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadDataUxr,
+                                                                    12.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .goodm,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .goodm,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  '8gaxhykq' /* bent */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    '8gaxhykq' /* bent */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -3083,133 +3263,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadDataUxb =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadDataUxb =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadDataUxb =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadDataUxb =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadDataUxb =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.curl =
-                                                                        await actions
-                                                                            .analyzeBicepCurlVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadDataUxb,
-                                                                      15.0,
-                                                                    );
+                                                                  _model.curl =
+                                                                      await actions
+                                                                          .analyzeBicepCurlVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadDataUxb,
+                                                                    15.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .curl,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .curl,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'i11qsqnm' /* curl */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'i11qsqnm' /* curl */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -3217,134 +3399,136 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadDataUxg =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadDataUxg =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadDataUxg =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadDataUxg =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadDataUxg =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.push =
-                                                                        await actions
-                                                                            .analyzePushupVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadDataUxg,
-                                                                      15.0,
-                                                                      'push-up',
-                                                                    );
+                                                                  _model.push =
+                                                                      await actions
+                                                                          .analyzePushupVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadDataUxg,
+                                                                    15.0,
+                                                                    'push-up',
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .push,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .push,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'd7krjqep' /* pushup */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'd7krjqep' /* pushup */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -3352,134 +3536,136 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.cc =
-                                                                        await actions
-                                                                            .analyzeSquatVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData,
-                                                                      15.0,
-                                                                      'back squat',
-                                                                    );
+                                                                  _model.cc =
+                                                                      await actions
+                                                                          .analyzeSquatVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData,
+                                                                    15.0,
+                                                                    'back squat',
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .cc,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .cc,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  '36rqa6e7' /* Button */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    '36rqa6e7' /* Button */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -3487,134 +3673,136 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadData5z8 =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadData5z8 =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadData5z8 =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadData5z8 =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadData5z8 =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.plp =
-                                                                        await actions
-                                                                            .analyzePullupVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadData5z8,
-                                                                      10.0,
-                                                                      'pull-up',
-                                                                    );
+                                                                  _model.plp =
+                                                                      await actions
+                                                                          .analyzePullupVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadData5z8,
+                                                                    10.0,
+                                                                    'pull-up',
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .plp,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .plp,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'k7sua9wp' /* pullup */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'k7sua9wp' /* pullup */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -3622,133 +3810,135 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    final selectedMedia =
-                                                                        await selectMediaWithSourceBottomSheet(
-                                                                      context:
-                                                                          context,
-                                                                      allowPhoto:
-                                                                          false,
-                                                                      allowVideo:
-                                                                          true,
-                                                                    );
-                                                                    if (selectedMedia !=
-                                                                            null &&
-                                                                        selectedMedia.every((m) => validateFileFormat(
-                                                                            m.storagePath,
-                                                                            context))) {
-                                                                      safeSetState(() =>
-                                                                          _model.isDataUploading_uploadDataUxb5 =
-                                                                              true);
-                                                                      var selectedUploadedFiles =
-                                                                          <FFUploadedFile>[];
-
-                                                                      try {
-                                                                        selectedUploadedFiles = selectedMedia
-                                                                            .map((m) => FFUploadedFile(
-                                                                                  name: m.storagePath.split('/').last,
-                                                                                  bytes: m.bytes,
-                                                                                  height: m.dimensions?.height,
-                                                                                  width: m.dimensions?.width,
-                                                                                  blurHash: m.blurHash,
-                                                                                  originalFilename: m.originalFilename,
-                                                                                ))
-                                                                            .toList();
-                                                                      } finally {
+                                                              ),
+                                                              FFButtonWidget(
+                                                                onPressed:
+                                                                    () async {
+                                                                  final selectedMedia =
+                                                                      await selectMediaWithSourceBottomSheet(
+                                                                    context:
+                                                                        context,
+                                                                    allowPhoto:
+                                                                        false,
+                                                                    allowVideo:
+                                                                        true,
+                                                                  );
+                                                                  if (selectedMedia !=
+                                                                          null &&
+                                                                      selectedMedia.every((m) => validateFileFormat(
+                                                                          m.storagePath,
+                                                                          context))) {
+                                                                    safeSetState(() =>
                                                                         _model.isDataUploading_uploadDataUxb5 =
-                                                                            false;
-                                                                      }
-                                                                      if (selectedUploadedFiles
-                                                                              .length ==
-                                                                          selectedMedia
-                                                                              .length) {
-                                                                        safeSetState(
-                                                                            () {
-                                                                          _model.uploadedLocalFile_uploadDataUxb5 =
-                                                                              selectedUploadedFiles.first;
-                                                                        });
-                                                                      } else {
-                                                                        safeSetState(
-                                                                            () {});
-                                                                        return;
-                                                                      }
+                                                                            true);
+                                                                    var selectedUploadedFiles =
+                                                                        <FFUploadedFile>[];
+
+                                                                    try {
+                                                                      selectedUploadedFiles = selectedMedia
+                                                                          .map((m) => FFUploadedFile(
+                                                                                name: m.storagePath.split('/').last,
+                                                                                bytes: m.bytes,
+                                                                                height: m.dimensions?.height,
+                                                                                width: m.dimensions?.width,
+                                                                                blurHash: m.blurHash,
+                                                                                originalFilename: m.originalFilename,
+                                                                              ))
+                                                                          .toList();
+                                                                    } finally {
+                                                                      _model.isDataUploading_uploadDataUxb5 =
+                                                                          false;
                                                                     }
+                                                                    if (selectedUploadedFiles
+                                                                            .length ==
+                                                                        selectedMedia
+                                                                            .length) {
+                                                                      safeSetState(
+                                                                          () {
+                                                                        _model.uploadedLocalFile_uploadDataUxb5 =
+                                                                            selectedUploadedFiles.first;
+                                                                      });
+                                                                    } else {
+                                                                      safeSetState(
+                                                                          () {});
+                                                                      return;
+                                                                    }
+                                                                  }
 
-                                                                    _model.dip =
-                                                                        await actions
-                                                                            .analyzeDipsVideoAction(
-                                                                      _model
-                                                                          .uploadedLocalFile_uploadDataUxb5,
-                                                                      10.0,
-                                                                    );
+                                                                  _model.dip =
+                                                                      await actions
+                                                                          .analyzeDipsVideoAction(
+                                                                    _model
+                                                                        .uploadedLocalFile_uploadDataUxb5,
+                                                                    10.0,
+                                                                  );
 
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TestWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'result':
-                                                                            serializeParam(
-                                                                          _model
-                                                                              .dip,
-                                                                          ParamType
-                                                                              .JSON,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
+                                                                  context
+                                                                      .pushNamed(
+                                                                    TestWidget
+                                                                        .routeName,
+                                                                    queryParameters:
+                                                                        {
+                                                                      'result':
+                                                                          serializeParam(
+                                                                        _model
+                                                                            .dip,
+                                                                        ParamType
+                                                                            .JSON,
+                                                                      ),
+                                                                    }.withoutNulls,
+                                                                  );
 
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
+                                                                  safeSetState(
+                                                                      () {});
+                                                                },
+                                                                text: FFLocalizations.of(
+                                                                        context)
+                                                                    .getText(
+                                                                  'lcrzglaf' /* dips */,
+                                                                ),
+                                                                options:
+                                                                    FFButtonOptions(
+                                                                  height: 40.0,
+                                                                  padding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          16.0,
+                                                                          0.0,
+                                                                          16.0,
+                                                                          0.0),
+                                                                  iconPadding: EdgeInsetsDirectional
+                                                                      .fromSTEB(
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                  color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .getText(
-                                                                    'lcrzglaf' /* dips */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    height:
-                                                                        40.0,
-                                                                    padding: EdgeInsetsDirectional
-                                                                        .fromSTEB(
-                                                                            16.0,
-                                                                            0.0,
-                                                                            16.0,
-                                                                            0.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleSmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              Colors.white,
-                                                                          letterSpacing:
-                                                                              0.0,
+                                                                      .primary,
+                                                                  textStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .titleSmall
+                                                                      .override(
+                                                                        font: GoogleFonts
+                                                                            .interTight(
                                                                           fontWeight: FlutterFlowTheme.of(context)
                                                                               .titleSmall
                                                                               .fontWeight,
@@ -3756,26 +3946,36 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                               .titleSmall
                                                                               .fontStyle,
                                                                         ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
+                                                                        color: Colors
+                                                                            .white,
+                                                                        letterSpacing:
+                                                                            0.0,
+                                                                        fontWeight: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontWeight,
+                                                                        fontStyle: FlutterFlowTheme.of(context)
+                                                                            .titleSmall
+                                                                            .fontStyle,
+                                                                      ),
+                                                                  elevation:
+                                                                      0.0,
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .circular(
+                                                                              8.0),
                                                                 ),
-                                                              ].divide(SizedBox(
-                                                                  height:
-                                                                      20.0)),
-                                                            ),
+                                                              ),
+                                                            ].divide(SizedBox(
+                                                                height: 20.0)),
                                                           ),
-                                                      ]
-                                                          .divide(SizedBox(
-                                                              height: 30.0))
-                                                          .addToStart(SizedBox(
-                                                              height: 20.0))
-                                                          .addToEnd(SizedBox(
-                                                              height: 80.0)),
-                                                    ),
+                                                        ),
+                                                    ]
+                                                        .divide(SizedBox(
+                                                            height: 30.0))
+                                                        .addToStart(SizedBox(
+                                                            height: 20.0))
+                                                        .addToEnd(SizedBox(
+                                                            height: 80.0)),
                                                   ),
                                                 ),
                                               ),
@@ -3794,1403 +3994,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                     ),
                   ),
                 ),
-              if (_model.pageIndex == 4)
-                Align(
-                  alignment: AlignmentDirectional(0.0, 0.0),
-                  child: Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                    child: Container(
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      height: 610.0,
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(16.0),
-                        border: Border.all(
-                          color: FlutterFlowTheme.of(context).alternate,
-                        ),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            Align(
-                              alignment: Alignment(0.0, 0),
-                              child: TabBar(
-                                labelColor:
-                                    FlutterFlowTheme.of(context).primaryText,
-                                unselectedLabelColor:
-                                    FlutterFlowTheme.of(context).secondaryText,
-                                labelStyle: FlutterFlowTheme.of(context)
-                                    .titleMedium
-                                    .override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontStyle,
-                                    ),
-                                unselectedLabelStyle: FlutterFlowTheme.of(
-                                        context)
-                                    .titleMedium
-                                    .override(
-                                      font: GoogleFonts.interTight(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .titleMedium
-                                            .fontStyle,
-                                      ),
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleMedium
-                                          .fontStyle,
-                                    ),
-                                indicatorColor:
-                                    FlutterFlowTheme.of(context).primary,
-                                tabs: [
-                                  Tab(
-                                    text: FFLocalizations.of(context).getText(
-                                      'ahlq77rb' /* Your Workouts */,
-                                    ),
-                                  ),
-                                  Tab(
-                                    text: FFLocalizations.of(context).getText(
-                                      'cj0vxjk2' /* Template */,
-                                    ),
-                                  ),
-                                ],
-                                controller: _model.tabBarController2,
-                                onTap: (i) async {
-                                  [() async {}, () async {}][i]();
-                                },
-                              ),
-                            ),
-                            Expanded(
-                              child: TabBarView(
-                                controller: _model.tabBarController2,
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 24.0, 0.0, 0.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: [
-                                            Expanded(
-                                              child: Container(
-                                                width:
-                                                    MediaQuery.sizeOf(context)
-                                                            .width *
-                                                        0.5,
-                                                child: TextFormField(
-                                                  controller:
-                                                      _model.textController,
-                                                  focusNode:
-                                                      _model.textFieldFocusNode,
-                                                  autofocus: false,
-                                                  obscureText: false,
-                                                  decoration: InputDecoration(
-                                                    isDense: true,
-                                                    labelStyle: FlutterFlowTheme
-                                                            .of(context)
-                                                        .labelMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                    hintText:
-                                                        FFLocalizations.of(
-                                                                context)
-                                                            .getText(
-                                                      '8ktvi2nq' /* TextField */,
-                                                    ),
-                                                    hintStyle: FlutterFlowTheme
-                                                            .of(context)
-                                                        .labelMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                    enabledBorder:
-                                                        OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color:
-                                                            Color(0x00000000),
-                                                        width: 1.0,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8.0),
-                                                    ),
-                                                    focusedBorder:
-                                                        OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color:
-                                                            Color(0x00000000),
-                                                        width: 1.0,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8.0),
-                                                    ),
-                                                    errorBorder:
-                                                        OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .error,
-                                                        width: 1.0,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8.0),
-                                                    ),
-                                                    focusedErrorBorder:
-                                                        OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .error,
-                                                        width: 1.0,
-                                                      ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              8.0),
-                                                    ),
-                                                    filled: true,
-                                                    fillColor:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .primaryBackground,
-                                                  ),
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                  cursorColor:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .primaryText,
-                                                  validator: _model
-                                                      .textControllerValidator
-                                                      .asValidator(context),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child:
-                                                  FlutterFlowDropDown<String>(
-                                                controller: _model
-                                                        .muscleDropdownValueController ??=
-                                                    FormFieldController<String>(
-                                                  _model.muscleDropdownValue ??=
-                                                      FFLocalizations.of(
-                                                              context)
-                                                          .getText(
-                                                    'oy2b8ybn' /* All */,
-                                                  ),
-                                                ),
-                                                options: [
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    '7pid1v9f' /* All */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    '10s22mju' /* Chest */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    '3uuvp7nl' /* Back */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    'kb8zdhu7' /* Shoulders */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    'r32ngiot' /* Biceps */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    'm58s0ooy' /* Triceps */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    'fvz529sn' /* Legs */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    'qx1fafec' /* Core */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    'pi7flkbt' /* Forearms */,
-                                                  ),
-                                                  FFLocalizations.of(context)
-                                                      .getText(
-                                                    '7l5aqd87' /* Neck */,
-                                                  )
-                                                ],
-                                                onChanged: (val) async {
-                                                  safeSetState(() => _model
-                                                          .muscleDropdownValue =
-                                                      val);
-                                                  _model.libaryMuscle = _model
-                                                      .muscleDropdownValue!;
-                                                  safeSetState(() {});
-                                                },
-                                                width: 200.0,
-                                                height: 40.0,
-                                                textStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                hintText:
-                                                    FFLocalizations.of(context)
-                                                        .getText(
-                                                  'tq9oct0d' /* Select... */,
-                                                ),
-                                                icon: Icon(
-                                                  Icons
-                                                      .keyboard_arrow_down_rounded,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryText,
-                                                  size: 24.0,
-                                                ),
-                                                fillColor:
-                                                    FlutterFlowTheme.of(context)
-                                                        .primaryBackground,
-                                                elevation: 2.0,
-                                                borderColor: Colors.transparent,
-                                                borderWidth: 0.0,
-                                                borderRadius: 8.0,
-                                                margin: EdgeInsetsDirectional
-                                                    .fromSTEB(
-                                                        12.0, 0.0, 12.0, 0.0),
-                                                hidesUnderline: true,
-                                                isOverButton: false,
-                                                isSearchable: false,
-                                                isMultiSelect: false,
-                                              ),
-                                            ),
-                                          ].divide(SizedBox(width: 16.0)),
-                                        ),
-                                        Expanded(
-                                          child: Container(
-                                            decoration: BoxDecoration(),
-                                            child: FutureBuilder<
-                                                List<GetdirtyworkoutsRow>>(
-                                              future: SQLiteManager.instance
-                                                  .getdirtyworkouts(
-                                                userId: currentUserUid,
-                                              ),
-                                              builder: (context, snapshot) {
-                                                // Customize what your widget looks like when it's loading.
-                                                if (!snapshot.hasData) {
-                                                  return Center(
-                                                    child: SizedBox(
-                                                      width: 50.0,
-                                                      height: 50.0,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        valueColor:
-                                                            AlwaysStoppedAnimation<
-                                                                Color>(
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .secondary,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                }
-                                                final listViewGetdirtyworkoutsRowList =
-                                                    snapshot.data!;
-                                                if (listViewGetdirtyworkoutsRowList
-                                                    .isEmpty) {
-                                                  return WorkoutListPlaceHolderWidget();
-                                                }
-
-                                                return ListView.builder(
-                                                  padding: EdgeInsets.zero,
-                                                  scrollDirection:
-                                                      Axis.vertical,
-                                                  itemCount:
-                                                      listViewGetdirtyworkoutsRowList
-                                                          .length,
-                                                  itemBuilder:
-                                                      (context, listViewIndex) {
-                                                    final listViewGetdirtyworkoutsRow =
-                                                        listViewGetdirtyworkoutsRowList[
-                                                            listViewIndex];
-                                                    return Visibility(
-                                                      visible: functions
-                                                          .shouldShowWorkoutSimple(
-                                                              listViewGetdirtyworkoutsRow
-                                                                  .name!,
-                                                              _model
-                                                                  .textController
-                                                                  .text,
-                                                              _model
-                                                                  .libaryMuscle,
-                                                              listViewGetdirtyworkoutsRow
-                                                                  .mainMuscleGroups),
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    0.0,
-                                                                    0.0,
-                                                                    0.0,
-                                                                    16.0),
-                                                        child: Container(
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: FlutterFlowTheme
-                                                                    .of(context)
-                                                                .primaryBackground,
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        12.0),
-                                                            border: Border.all(
-                                                              color: FlutterFlowTheme
-                                                                      .of(context)
-                                                                  .alternate,
-                                                            ),
-                                                          ),
-                                                          child: Padding(
-                                                            padding:
-                                                                EdgeInsets.all(
-                                                                    16.0),
-                                                            child: Column(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .min,
-                                                              children: [
-                                                                Row(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .max,
-                                                                  children: [
-                                                                    Expanded(
-                                                                      child:
-                                                                          Column(
-                                                                        mainAxisSize:
-                                                                            MainAxisSize.min,
-                                                                        crossAxisAlignment:
-                                                                            CrossAxisAlignment.start,
-                                                                        children:
-                                                                            [
-                                                                          Text(
-                                                                            valueOrDefault<String>(
-                                                                              listViewGetdirtyworkoutsRow.name,
-                                                                              'name',
-                                                                            ),
-                                                                            style: FlutterFlowTheme.of(context).titleMedium.override(
-                                                                                  font: GoogleFonts.interTight(
-                                                                                    fontWeight: FontWeight.bold,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                                  ),
-                                                                                  letterSpacing: 0.0,
-                                                                                  fontWeight: FontWeight.bold,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                                ),
-                                                                          ),
-                                                                          Text(
-                                                                            listViewGetdirtyworkoutsRow.mainMuscleGroups,
-                                                                            maxLines:
-                                                                                1,
-                                                                            style: FlutterFlowTheme.of(context).labelMedium.override(
-                                                                                  font: GoogleFonts.inter(
-                                                                                    fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                                    fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                                  ),
-                                                                                  color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                  letterSpacing: 0.0,
-                                                                                  fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                                ),
-                                                                          ),
-                                                                        ].divide(SizedBox(height: 4.0)),
-                                                                      ),
-                                                                    ),
-                                                                    Builder(
-                                                                      builder:
-                                                                          (context) =>
-                                                                              FFButtonWidget(
-                                                                        onPressed:
-                                                                            () async {
-                                                                          if (FFAppState()
-                                                                              .workout) {
-                                                                            await showDialog(
-                                                                              context: context,
-                                                                              builder: (dialogContext) {
-                                                                                return Dialog(
-                                                                                  elevation: 0,
-                                                                                  insetPadding: EdgeInsets.zero,
-                                                                                  backgroundColor: Colors.transparent,
-                                                                                  alignment: AlignmentDirectional(0.0, 0.0).resolve(Directionality.of(context)),
-                                                                                  child: GestureDetector(
-                                                                                    onTap: () {
-                                                                                      FocusScope.of(dialogContext).unfocus();
-                                                                                      FocusManager.instance.primaryFocus?.unfocus();
-                                                                                    },
-                                                                                    child: DiscardAndStartNewWidget(
-                                                                                      workoutId: listViewGetdirtyworkoutsRow.id,
-                                                                                      startAnalysis: () async {},
-                                                                                    ),
-                                                                                  ),
-                                                                                );
-                                                                              },
-                                                                            );
-                                                                          } else {
-                                                                            context.goNamed(
-                                                                              WorkoutV2Widget.routeName,
-                                                                              queryParameters: {
-                                                                                'workoutId': serializeParam(
-                                                                                  listViewGetdirtyworkoutsRow.id,
-                                                                                  ParamType.String,
-                                                                                ),
-                                                                              }.withoutNulls,
-                                                                            );
-                                                                          }
-                                                                        },
-                                                                        text: FFLocalizations.of(context)
-                                                                            .getText(
-                                                                          'k205h2l1' /* Start */,
-                                                                        ),
-                                                                        options:
-                                                                            FFButtonOptions(
-                                                                          width:
-                                                                              80.0,
-                                                                          height:
-                                                                              32.0,
-                                                                          padding:
-                                                                              EdgeInsets.all(8.0),
-                                                                          iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                                                              0.0,
-                                                                              0.0,
-                                                                              0.0,
-                                                                              0.0),
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).primary,
-                                                                          textStyle: FlutterFlowTheme.of(context)
-                                                                              .labelSmall
-                                                                              .override(
-                                                                                font: GoogleFonts.inter(
-                                                                                  fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,
-                                                                                  fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                                                                                ),
-                                                                                color: FlutterFlowTheme.of(context).info,
-                                                                                letterSpacing: 0.0,
-                                                                                fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,
-                                                                                fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                                                                              ),
-                                                                          elevation:
-                                                                              0.0,
-                                                                          borderSide:
-                                                                              BorderSide(
-                                                                            color:
-                                                                                Colors.transparent,
-                                                                            width:
-                                                                                1.0,
-                                                                          ),
-                                                                          borderRadius:
-                                                                              BorderRadius.circular(16.0),
-                                                                        ),
-                                                                        showLoadingIndicator:
-                                                                            false,
-                                                                      ),
-                                                                    ),
-                                                                    Builder(
-                                                                      builder:
-                                                                          (context) =>
-                                                                              FlutterFlowIconButton(
-                                                                        borderColor:
-                                                                            Colors.transparent,
-                                                                        borderRadius:
-                                                                            16.0,
-                                                                        borderWidth:
-                                                                            1.0,
-                                                                        buttonSize:
-                                                                            32.0,
-                                                                        fillColor:
-                                                                            Color(0x00FFFFFF),
-                                                                        icon:
-                                                                            Icon(
-                                                                          Icons
-                                                                              .edit,
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).secondaryText,
-                                                                          size:
-                                                                              18.0,
-                                                                        ),
-                                                                        onPressed:
-                                                                            () async {
-                                                                          await showDialog(
-                                                                            context:
-                                                                                context,
-                                                                            builder:
-                                                                                (dialogContext) {
-                                                                              return Dialog(
-                                                                                elevation: 0,
-                                                                                insetPadding: EdgeInsets.zero,
-                                                                                backgroundColor: Colors.transparent,
-                                                                                alignment: AlignmentDirectional(0.0, 0.0).resolve(Directionality.of(context)),
-                                                                                child: GestureDetector(
-                                                                                  onTap: () {
-                                                                                    FocusScope.of(dialogContext).unfocus();
-                                                                                    FocusManager.instance.primaryFocus?.unfocus();
-                                                                                  },
-                                                                                  child: EditOrDeleteWidget(
-                                                                                    workout: listViewGetdirtyworkoutsRow,
-                                                                                  ),
-                                                                                ),
-                                                                              );
-                                                                            },
-                                                                          );
-                                                                        },
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ].divide(SizedBox(
-                                                                  height: 8.0)),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding:
-                                              EdgeInsetsDirectional.fromSTEB(
-                                                  0.0, 24.0, 0.0, 0.0),
-                                          child: FFButtonWidget(
-                                            onPressed: () async {
-                                              _model.workouts2 =
-                                                  await SQLiteManager.instance
-                                                      .workoutNum(
-                                                userId: currentUserUid,
-                                              );
-                                              if (_model.workouts2!.length <
-                                                  3) {
-                                                await showModalBottomSheet(
-                                                  isScrollControlled: true,
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  enableDrag: false,
-                                                  context: context,
-                                                  builder: (context) {
-                                                    return GestureDetector(
-                                                      onTap: () {
-                                                        FocusScope.of(context)
-                                                            .unfocus();
-                                                        FocusManager.instance
-                                                            .primaryFocus
-                                                            ?.unfocus();
-                                                      },
-                                                      child: Padding(
-                                                        padding: MediaQuery
-                                                            .viewInsetsOf(
-                                                                context),
-                                                        child:
-                                                            CreateWorkoutBottomWidget(),
-                                                      ),
-                                                    );
-                                                  },
-                                                ).then((value) =>
-                                                    safeSetState(() {}));
-                                              } else {
-                                                final isEntitled =
-                                                    await revenue_cat.isEntitled(
-                                                            'Xliftfinal Pro') ??
-                                                        false;
-                                                if (!isEntitled) {
-                                                  await revenue_cat
-                                                      .loadOfferings();
-                                                }
-
-                                                if (isEntitled) {
-                                                  await showModalBottomSheet(
-                                                    isScrollControlled: true,
-                                                    backgroundColor:
-                                                        Colors.transparent,
-                                                    enableDrag: false,
-                                                    context: context,
-                                                    builder: (context) {
-                                                      return GestureDetector(
-                                                        onTap: () {
-                                                          FocusScope.of(context)
-                                                              .unfocus();
-                                                          FocusManager.instance
-                                                              .primaryFocus
-                                                              ?.unfocus();
-                                                        },
-                                                        child: Padding(
-                                                          padding: MediaQuery
-                                                              .viewInsetsOf(
-                                                                  context),
-                                                          child:
-                                                              CreateWorkoutBottomWidget(),
-                                                        ),
-                                                      );
-                                                    },
-                                                  ).then((value) =>
-                                                      safeSetState(() {}));
-                                                } else {
-                                                  await showModalBottomSheet(
-                                                    isScrollControlled: true,
-                                                    backgroundColor:
-                                                        Colors.transparent,
-                                                    enableDrag: false,
-                                                    context: context,
-                                                    builder: (context) {
-                                                      return GestureDetector(
-                                                        onTap: () {
-                                                          FocusScope.of(context)
-                                                              .unfocus();
-                                                          FocusManager.instance
-                                                              .primaryFocus
-                                                              ?.unfocus();
-                                                        },
-                                                        child: Padding(
-                                                          padding: MediaQuery
-                                                              .viewInsetsOf(
-                                                                  context),
-                                                          child:
-                                                              BottomSheetNoFreeTemplatesWidget(),
-                                                        ),
-                                                      );
-                                                    },
-                                                  ).then((value) =>
-                                                      safeSetState(() {}));
-                                                }
-                                              }
-
-                                              safeSetState(() {});
-                                            },
-                                            text: FFLocalizations.of(context)
-                                                .getText(
-                                              '2bd1t25s' /* Create New  Workout */,
-                                            ),
-                                            icon: Icon(
-                                              Icons.add,
-                                              size: 20.0,
-                                            ),
-                                            options: FFButtonOptions(
-                                              width: double.infinity,
-                                              height: 56.0,
-                                              padding: EdgeInsets.all(12.0),
-                                              iconPadding: EdgeInsetsDirectional
-                                                  .fromSTEB(0.0, 0.0, 0.0, 0.0),
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .primary,
-                                              textStyle: FlutterFlowTheme.of(
-                                                      context)
-                                                  .titleMedium
-                                                  .override(
-                                                    font:
-                                                        GoogleFonts.interTight(
-                                                      fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .titleMedium
-                                                              .fontWeight,
-                                                      fontStyle:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .titleMedium
-                                                              .fontStyle,
-                                                    ),
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .info,
-                                                    letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .titleMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .titleMedium
-                                                            .fontStyle,
-                                                  ),
-                                              elevation: 2.0,
-                                              borderSide: BorderSide(
-                                                color: Colors.transparent,
-                                                width: 1.0,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(16.0),
-                                            ),
-                                          ),
-                                        ),
-                                      ].divide(SizedBox(height: 16.0)),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsetsDirectional.fromSTEB(
-                                        0.0, 24.0, 0.0, 0.0),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        FlutterFlowDropDown<String>(
-                                          controller:
-                                              _model.dropDownValueController ??=
-                                                  FormFieldController<String>(
-                                            _model.dropDownValue ??=
-                                                FFLocalizations.of(context)
-                                                    .getText(
-                                              'v7ebt3bk' /* All */,
-                                            ),
-                                          ),
-                                          options: [
-                                            FFLocalizations.of(context).getText(
-                                              's13m0nlj' /* All */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              'pqiwmalo' /* Chest */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              't1r5sfg5' /* Back */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              'psfvfw3i' /* Shoulders */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              'pyn1hlm8' /* Biceps */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              'cd1ytbtc' /* Triceps */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              'lg6a7k4g' /* Legs */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              '3jc8aihc' /* Core */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              'kuxlfp9u' /* Neck */,
-                                            ),
-                                            FFLocalizations.of(context).getText(
-                                              '90xwveia' /* Forearms */,
-                                            )
-                                          ],
-                                          onChanged: (val) => safeSetState(
-                                              () => _model.dropDownValue = val),
-                                          width:
-                                              MediaQuery.sizeOf(context).width *
-                                                  1.0,
-                                          height: 40.0,
-                                          textStyle: FlutterFlowTheme.of(
-                                                  context)
-                                              .bodyMedium
-                                              .override(
-                                                font: GoogleFonts.inter(
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .bodyMedium
-                                                          .fontStyle,
-                                                ),
-                                                letterSpacing: 0.0,
-                                                fontWeight:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontWeight,
-                                                fontStyle:
-                                                    FlutterFlowTheme.of(context)
-                                                        .bodyMedium
-                                                        .fontStyle,
-                                              ),
-                                          hintText: FFLocalizations.of(context)
-                                              .getText(
-                                            '9dap7ro4' /* Select... */,
-                                          ),
-                                          icon: Icon(
-                                            Icons.keyboard_arrow_down_rounded,
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondaryText,
-                                            size: 24.0,
-                                          ),
-                                          fillColor:
-                                              FlutterFlowTheme.of(context)
-                                                  .primaryBackground,
-                                          elevation: 2.0,
-                                          borderColor: Colors.transparent,
-                                          borderWidth: 0.0,
-                                          borderRadius: 8.0,
-                                          margin:
-                                              EdgeInsetsDirectional.fromSTEB(
-                                                  12.0, 0.0, 12.0, 0.0),
-                                          hidesUnderline: true,
-                                          isOverButton: false,
-                                          isSearchable: false,
-                                          isMultiSelect: false,
-                                        ),
-                                        FutureBuilder<
-                                            List<GetWorkoutTemplateRow>>(
-                                          future: SQLiteManager.instance
-                                              .getWorkoutTemplate(),
-                                          builder: (context, snapshot) {
-                                            // Customize what your widget looks like when it's loading.
-                                            if (!snapshot.hasData) {
-                                              return Center(
-                                                child: SizedBox(
-                                                  width: 50.0,
-                                                  height: 50.0,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    valueColor:
-                                                        AlwaysStoppedAnimation<
-                                                            Color>(
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .secondary,
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                            final listViewGetWorkoutTemplateRowList =
-                                                snapshot.data!;
-
-                                            return ListView.builder(
-                                              padding: EdgeInsets.zero,
-                                              shrinkWrap: true,
-                                              scrollDirection: Axis.vertical,
-                                              itemCount:
-                                                  listViewGetWorkoutTemplateRowList
-                                                      .length,
-                                              itemBuilder:
-                                                  (context, listViewIndex) {
-                                                final listViewGetWorkoutTemplateRow =
-                                                    listViewGetWorkoutTemplateRowList[
-                                                        listViewIndex];
-                                                return Visibility(
-                                                  visible: functions
-                                                      .shouldShowTemplate(
-                                                          _model.dropDownValue!,
-                                                          listViewGetWorkoutTemplateRow
-                                                              .mainMuscles),
-                                                  child: Padding(
-                                                    padding:
-                                                        EdgeInsetsDirectional
-                                                            .fromSTEB(0.0, 0.0,
-                                                                0.0, 16.0),
-                                                    child: Container(
-                                                      decoration: BoxDecoration(
-                                                        color: FlutterFlowTheme
-                                                                .of(context)
-                                                            .primaryBackground,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(12.0),
-                                                        border: Border.all(
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .alternate,
-                                                        ),
-                                                      ),
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsetsDirectional
-                                                                .fromSTEB(
-                                                                    16.0,
-                                                                    16.0,
-                                                                    16.0,
-                                                                    16.0),
-                                                        child: Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.max,
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .spaceBetween,
-                                                          children: [
-                                                            Expanded(
-                                                              child: Column(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .min,
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  Text(
-                                                                    listViewGetWorkoutTemplateRow
-                                                                        .name,
-                                                                    style: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .titleMedium
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.interTight(
-                                                                            fontWeight:
-                                                                                FontWeight.w600,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                          ),
-                                                                          letterSpacing:
-                                                                              0.0,
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .titleMedium
-                                                                              .fontStyle,
-                                                                        ),
-                                                                  ),
-                                                                  Row(
-                                                                    mainAxisSize:
-                                                                        MainAxisSize
-                                                                            .max,
-                                                                    children: [
-                                                                      Icon(
-                                                                        Icons
-                                                                            .timer_sharp,
-                                                                        color: FlutterFlowTheme.of(context)
-                                                                            .secondaryText,
-                                                                        size:
-                                                                            18.0,
-                                                                      ),
-                                                                      Text(
-                                                                        '${listViewGetWorkoutTemplateRow.estimatedTime.toString()} min',
-                                                                        style: FlutterFlowTheme.of(context)
-                                                                            .bodyMedium
-                                                                            .override(
-                                                                              font: GoogleFonts.inter(
-                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                              ),
-                                                                              color: FlutterFlowTheme.of(context).secondaryText,
-                                                                              letterSpacing: 0.0,
-                                                                              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                            ),
-                                                                      ),
-                                                                    ].divide(SizedBox(
-                                                                        width:
-                                                                            8.0)),
-                                                                  ),
-                                                                  Container(
-                                                                    width: MediaQuery.sizeOf(context)
-                                                                            .width *
-                                                                        0.75,
-                                                                    height:
-                                                                        20.0,
-                                                                    decoration:
-                                                                        BoxDecoration(),
-                                                                    child: Text(
-                                                                      listViewGetWorkoutTemplateRow
-                                                                          .mainMuscles,
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .labelSmall
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                                                                            ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).labelSmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ),
-                                                                ].divide(SizedBox(
-                                                                    height:
-                                                                        4.0)),
-                                                              ),
-                                                            ),
-                                                            Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .max,
-                                                              children: [
-                                                                FFButtonWidget(
-                                                                  onPressed:
-                                                                      () async {
-                                                                    _model.exrecisess =
-                                                                        await SQLiteManager
-                                                                            .instance
-                                                                            .getworkoutExercise(
-                                                                      workoutId:
-                                                                          listViewGetWorkoutTemplateRow
-                                                                              .workoutId,
-                                                                    );
-                                                                    _model.uuid =
-                                                                        await actions
-                                                                            .generateUuidV4();
-                                                                    await SQLiteManager
-                                                                        .instance
-                                                                        .insertWorkout(
-                                                                      id: _model
-                                                                          .uuid!,
-                                                                      name: listViewGetWorkoutTemplateRow
-                                                                          .name,
-                                                                      createdAt:
-                                                                          dateTimeFormat(
-                                                                        "22",
-                                                                        getCurrentTimestamp,
-                                                                        locale:
-                                                                            FFLocalizations.of(context).languageCode,
-                                                                      ),
-                                                                      userId:
-                                                                          currentUserUid,
-                                                                    );
-                                                                    _model.save =
-                                                                        await actions
-                                                                            .insertWorkoutExercises(
-                                                                      _model
-                                                                          .uuid!,
-                                                                      currentUserUid,
-                                                                      _model
-                                                                          .exrecisess!
-                                                                          .toList(),
-                                                                    );
-
-                                                                    context.pushNamed(
-                                                                        MasterPageWidget
-                                                                            .routeName);
-
-                                                                    safeSetState(
-                                                                        () {});
-                                                                  },
-                                                                  text: FFLocalizations.of(
-                                                                          context)
-                                                                      .getText(
-                                                                    '0bvto18q' /* Use */,
-                                                                  ),
-                                                                  options:
-                                                                      FFButtonOptions(
-                                                                    width: 60.0,
-                                                                    height:
-                                                                        32.0,
-                                                                    padding:
-                                                                        EdgeInsets.all(
-                                                                            8.0),
-                                                                    iconPadding:
-                                                                        EdgeInsetsDirectional.fromSTEB(
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0,
-                                                                            0.0),
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .primary,
-                                                                    textStyle: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .bodySmall
-                                                                        .override(
-                                                                          font:
-                                                                              GoogleFonts.inter(
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                          ),
-                                                                          color:
-                                                                              FlutterFlowTheme.of(context).info,
-                                                                          fontSize:
-                                                                              12.0,
-                                                                          letterSpacing:
-                                                                              0.0,
-                                                                          fontWeight: FlutterFlowTheme.of(context)
-                                                                              .bodySmall
-                                                                              .fontWeight,
-                                                                          fontStyle: FlutterFlowTheme.of(context)
-                                                                              .bodySmall
-                                                                              .fontStyle,
-                                                                        ),
-                                                                    elevation:
-                                                                        0.0,
-                                                                    borderSide:
-                                                                        BorderSide(
-                                                                      color: Colors
-                                                                          .transparent,
-                                                                      width:
-                                                                          1.0,
-                                                                    ),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8.0),
-                                                                  ),
-                                                                ),
-                                                                FlutterFlowIconButton(
-                                                                  borderColor:
-                                                                      FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .alternate,
-                                                                  borderRadius:
-                                                                      8.0,
-                                                                  borderWidth:
-                                                                      1.0,
-                                                                  buttonSize:
-                                                                      32.0,
-                                                                  fillColor: FlutterFlowTheme.of(
-                                                                          context)
-                                                                      .secondaryBackground,
-                                                                  icon: Icon(
-                                                                    Icons
-                                                                        .visibility,
-                                                                    color: FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .secondaryText,
-                                                                    size: 16.0,
-                                                                  ),
-                                                                  onPressed:
-                                                                      () async {
-                                                                    context
-                                                                        .pushNamed(
-                                                                      TemplateWorkoutWidget
-                                                                          .routeName,
-                                                                      queryParameters:
-                                                                          {
-                                                                        'workoutTemplate':
-                                                                            serializeParam(
-                                                                          listViewGetWorkoutTemplateRow,
-                                                                          ParamType
-                                                                              .SqliteRow,
-                                                                        ),
-                                                                      }.withoutNulls,
-                                                                    );
-                                                                  },
-                                                                ),
-                                                              ].divide(SizedBox(
-                                                                  width: 8.0)),
-                                                            ),
-                                                          ].divide(SizedBox(
-                                                              width: 12.0)),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ].divide(SizedBox(height: 16.0)),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              Align(
-                alignment: AlignmentDirectional(0.0, 1.0),
-                child: Container(
-                  width: MediaQuery.sizeOf(context).width * 1.0,
-                  height: 130.0,
-                  child: custom_widgets.XliftNavBar(
-                    width: MediaQuery.sizeOf(context).width * 1.0,
-                    height: 130.0,
-                    currentPage: functions.navPageFromIndex(_model.pageIndex),
-                    showFabLock: !functions.canStartQuickAnalysis(
-                        FFAppState().isPremium,
-                        FFAppState().analysisCount,
-                        FFAppState().analysisCountMonth),
-                    isDark: Theme.of(context).brightness == Brightness.dark,
-                    onHistoryTap: () async {
-                      _model.pageIndex = 1;
-                      safeSetState(() {});
-                    },
-                    onStatsTap: () async {
-                      _model.pageIndex = 2;
-                      safeSetState(() {});
-                    },
-                    onHomeTap: () async {
-                      _model.pageIndex = 3;
-                      safeSetState(() {});
-                    },
-                    onLibraryTap: () async {
-                      _model.pageIndex = 4;
-                      safeSetState(() {});
-                    },
-                    onFabTap: () async {
-                      if (functions.canStartQuickAnalysis(
-                          FFAppState().isPremium,
-                          FFAppState().analysisCount,
-                          FFAppState().analysisCountMonth)) {
-                        await showModalBottomSheet(
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          enableDrag: false,
-                          context: context,
-                          builder: (context) {
-                            return GestureDetector(
-                              onTap: () {
-                                FocusScope.of(context).unfocus();
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
-                              child: Padding(
-                                padding: MediaQuery.viewInsetsOf(context),
-                                child: ChooseExercise2AnalyzeWidget(),
-                              ),
-                            );
-                          },
-                        ).then((value) => safeSetState(() {}));
-                      } else {
-                        await showModalBottomSheet(
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          enableDrag: false,
-                          context: context,
-                          builder: (context) {
-                            return GestureDetector(
-                              onTap: () {
-                                FocusScope.of(context).unfocus();
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
-                              child: Padding(
-                                padding: MediaQuery.viewInsetsOf(context),
-                                child: BottomSheetNoFreeLeftWidget(),
-                              ),
-                            );
-                          },
-                        ).then((value) => safeSetState(() {}));
-                      }
-                    },
-                  ),
-                ),
-              ),
               if (FFAppState().workout)
                 Align(
                   alignment: AlignmentDirectional(
@@ -5396,6 +4199,83 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                     ),
                   ),
                 ),
+              Align(
+                alignment: AlignmentDirectional(0.0, 1.0),
+                child: Container(
+                  width: MediaQuery.sizeOf(context).width * 1.0,
+                  height: 130.0,
+                  child: custom_widgets.XliftNavBar(
+                    width: MediaQuery.sizeOf(context).width * 1.0,
+                    height: 130.0,
+                    currentPage: functions.navPageFromIndex(_model.pageIndex),
+                    showFabLock: !functions.canStartQuickAnalysis(
+                        FFAppState().isPremium,
+                        FFAppState().analysisCount,
+                        FFAppState().analysisCountMonth),
+                    isDark: Theme.of(context).brightness == Brightness.dark,
+                    onHistoryTap: () async {
+                      _model.pageIndex = 1;
+                      safeSetState(() {});
+                    },
+                    onStatsTap: () async {
+                      _model.pageIndex = 2;
+                      safeSetState(() {});
+                    },
+                    onHomeTap: () async {
+                      _model.pageIndex = 3;
+                      safeSetState(() {});
+                    },
+                    onLibraryTap: () async {
+                      _model.pageIndex = 4;
+                      safeSetState(() {});
+                    },
+                    onFabTap: () async {
+                      if (functions.canStartQuickAnalysis(
+                          FFAppState().isPremium,
+                          FFAppState().analysisCount,
+                          FFAppState().analysisCountMonth)) {
+                        await showModalBottomSheet(
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          enableDrag: false,
+                          context: context,
+                          builder: (context) {
+                            return GestureDetector(
+                              onTap: () {
+                                FocusScope.of(context).unfocus();
+                                FocusManager.instance.primaryFocus?.unfocus();
+                              },
+                              child: Padding(
+                                padding: MediaQuery.viewInsetsOf(context),
+                                child: ChooseExercise2AnalyzeWidget(),
+                              ),
+                            );
+                          },
+                        ).then((value) => safeSetState(() {}));
+                      } else {
+                        await showModalBottomSheet(
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          enableDrag: false,
+                          context: context,
+                          builder: (context) {
+                            return GestureDetector(
+                              onTap: () {
+                                FocusScope.of(context).unfocus();
+                                FocusManager.instance.primaryFocus?.unfocus();
+                              },
+                              child: Padding(
+                                padding: MediaQuery.viewInsetsOf(context),
+                                child: BottomSheetNoFreeLeftWidget(),
+                              ),
+                            );
+                          },
+                        ).then((value) => safeSetState(() {}));
+                      }
+                    },
+                  ),
+                ),
+              ),
             ],
           ),
         ),

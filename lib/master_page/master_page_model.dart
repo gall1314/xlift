@@ -3,7 +3,6 @@ import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/index.dart';
 import 'master_page_widget.dart' show MasterPageWidget;
 import 'package:flutter/material.dart';
@@ -31,12 +30,22 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
 
   ///  State fields for stateful widgets in this page.
 
+  // Stores action output result for [Backend Call - SQLite (getworkoutExercise)] action in LibraryView widget.
+  List<GetworkoutExerciseRow>? exrecises;
+  // Stores action output result for [Custom Action - generateUuidV4] action in LibraryView widget.
+  String? uuid;
+  // Stores action output result for [Custom Action - generateUuidV4] action in LibraryView widget.
+  String? uuid2;
+  // Stores action output result for [Backend Call - SQLite (getExerciseSetsForWorkout)] action in LibraryView widget.
+  List<GetExerciseSetsForWorkoutRow>? sets;
+  // Stores action output result for [Custom Action - generateUuidV4] action in LibraryView widget.
+  String? uuid3;
   // State field(s) for TabBar widget.
-  TabController? tabBarController1;
-  int get tabBarCurrentIndex1 =>
-      tabBarController1 != null ? tabBarController1!.index : 0;
-  int get tabBarPreviousIndex1 =>
-      tabBarController1 != null ? tabBarController1!.previousIndex : 0;
+  TabController? tabBarController;
+  int get tabBarCurrentIndex =>
+      tabBarController != null ? tabBarController!.index : 0;
+  int get tabBarPreviousIndex =>
+      tabBarController != null ? tabBarController!.previousIndex : 0;
 
   // Model for lineGraphPlaceHolder component.
   late LineGraphPlaceHolderModel lineGraphPlaceHolderModel;
@@ -130,31 +139,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
 
   // Stores action output result for [Custom Action - analyzeDipsVideoAction] action in Button widget.
   dynamic dip;
-  // State field(s) for TabBar widget.
-  TabController? tabBarController2;
-  int get tabBarCurrentIndex2 =>
-      tabBarController2 != null ? tabBarController2!.index : 0;
-  int get tabBarPreviousIndex2 =>
-      tabBarController2 != null ? tabBarController2!.previousIndex : 0;
-
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode;
-  TextEditingController? textController;
-  String? Function(BuildContext, String?)? textControllerValidator;
-  // State field(s) for muscleDropdown widget.
-  String? muscleDropdownValue;
-  FormFieldController<String>? muscleDropdownValueController;
-  // Stores action output result for [Backend Call - SQLite (workoutNum)] action in Button widget.
-  List<WorkoutNumRow>? workouts2;
-  // State field(s) for DropDown widget.
-  String? dropDownValue;
-  FormFieldController<String>? dropDownValueController;
-  // Stores action output result for [Backend Call - SQLite (getworkoutExercise)] action in Button widget.
-  List<GetworkoutExerciseRow>? exrecisess;
-  // Stores action output result for [Custom Action - generateUuidV4] action in Button widget.
-  String? uuid;
-  // Stores action output result for [Custom Action - insertWorkoutExercises] action in Button widget.
-  dynamic save;
 
   @override
   void initState(BuildContext context) {
@@ -168,12 +152,9 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
 
   @override
   void dispose() {
-    tabBarController1?.dispose();
+    tabBarController?.dispose();
     lineGraphPlaceHolderModel.dispose();
     pieGraphPlaceHolderModel.dispose();
     exerciseStatsPlaceHolderModel.dispose();
-    tabBarController2?.dispose();
-    textFieldFocusNode?.dispose();
-    textController?.dispose();
   }
 }

@@ -67,6 +67,15 @@ class HomeView extends StatefulWidget {
 // Free-tier form-check quota (mirrors canStartQuickAnalysis).
 const int _kFreeMonthlyLimit = 5;
 
+// Space reserved at the bottom for the page's nav bar + FAB overhang.
+const double _kBottomInset = 170;
+
+// Horizontal page gutter.
+const double _kGutter = 20;
+
+// Minutes per working set, incl. rest and transitions.
+const double _kMinPerSet = 3.5;
+
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------
@@ -157,13 +166,11 @@ class _LastScore {
 
 class _HomeData {
   _HomeData({
-    required this.userName,
     required this.workouts,
     required this.lastWorkout,
     required this.week,
     required this.lastScore,
   });
-  final String userName;
   final List<_WorkoutRow> workouts;
   final _LastWorkout? lastWorkout;
   final _WeekStats week;
@@ -250,22 +257,17 @@ class _HomeViewState extends State<HomeView> {
     return out;
   }
 
+  static int _estimate(int exerciseCount, int setCount) {
+    final sets = setCount == 0 ? exerciseCount * 3 : setCount;
+    return math.max(15, (sets * _kMinPerSet).round());
+  }
+
   // ------------------------------- fetch ------------------------------------
 
   Future<_HomeData> _fetch() async {
     final db = SQLiteManager.instance.database;
     final uid = widget.userId;
     final now = DateTime.now();
-
-    // --- user name ---
-    String userName = '';
-    final u = await db.rawQuery(
-      'SELECT username FROM users WHERE id = ? LIMIT 1',
-      [uid],
-    );
-    if (u.isNotEmpty) {
-      userName = (u.first['username'] ?? '').toString().trim();
-    }
 
     // --- saved workouts ---
     final wRows = await db.rawQuery('''
@@ -297,9 +299,6 @@ class _HomeViewState extends State<HomeView> {
         GROUP BY pmg.name ORDER BY cnt DESC
       ''', [id]);
       final exCount = _int(r['exercise_count']);
-      final setCount = _int(r['set_count']);
-      final est =
-          math.max(15, (setCount == 0 ? exCount * 3 : setCount) * 2.5).round();
       workouts.add(_WorkoutRow(
         id: id,
         name: (r['name'] ?? '').toString().trim(),
@@ -307,7 +306,7 @@ class _HomeViewState extends State<HomeView> {
         lastDoneAt: _parse(r['last_done_at']),
         muscles: _topMuscles(mRows),
         formCheckCount: _int(r['fc_count']),
-        estMinutes: est,
+        estMinutes: _estimate(exCount, _int(r['set_count'])),
       ));
     }
 
@@ -423,7 +422,6 @@ class _HomeViewState extends State<HomeView> {
     }
 
     return _HomeData(
-      userName: userName,
       workouts: workouts,
       lastWorkout: last,
       week: _WeekStats(
@@ -440,10 +438,10 @@ class _HomeViewState extends State<HomeView> {
 
   static String _greeting(DateTime now) {
     final h = now.hour;
-    if (h < 5) return 'Late night';
-    if (h < 12) return 'Morning';
-    if (h < 17) return 'Afternoon';
-    return 'Evening';
+    if (h < 5) return 'Good night';
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   static String _dateLine(DateTime now) {
@@ -517,10 +515,13 @@ class _HomeViewState extends State<HomeView> {
     return buf.toString();
   }
 
+  static String _cap(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
   static String _displayName(_WorkoutRow w) {
     if (w.name.isNotEmpty &&
         !w.name.toLowerCase().startsWith('unnamed workout')) {
-      return w.name;
+      return _cap(w.name);
     }
     if (w.muscles.isNotEmpty) return w.muscles.take(2).join(' & ');
     return 'Workout';
@@ -539,19 +540,24 @@ class _HomeViewState extends State<HomeView> {
         fontSize: size,
         fontWeight: w,
         color: color,
-        height: 1.0,
+        height: 1.05,
         letterSpacing: -size * 0.02,
       );
 
   TextStyle _body(double size,
           {Color color = _kInk, FontWeight w = FontWeight.w400}) =>
-      TextStyle(fontSize: size, fontWeight: w, color: color, height: 1.2);
+      TextStyle(fontSize: size, fontWeight: w, color: color, height: 1.25);
 
   TextStyle _eyebrow({Color color = _kInkMuted}) => TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: color,
-        letterSpacing: 1.5,
+        letterSpacing: 1.4,
+      );
+
+  Widget _gutter(Widget child) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+        child: child,
       );
 
   @override
@@ -579,21 +585,21 @@ class _HomeViewState extends State<HomeView> {
               color: _kAccent,
               onRefresh: _load,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, _kBottomInset),
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  _header(d),
-                  const SizedBox(height: 22),
-                  _hero(d),
-                  const SizedBox(height: 14),
-                  _formCheckCard(d),
-                  const SizedBox(height: 14),
-                  _weekCard(d),
+                  _gutter(_header()),
+                  const SizedBox(height: 20),
+                  _gutter(_hero(d)),
+                  const SizedBox(height: 12),
+                  _gutter(_formCheckCard(d)),
+                  const SizedBox(height: 12),
+                  _gutter(_weekCard(d)),
                   if (d.lastWorkout != null) ...[
-                    const SizedBox(height: 14),
-                    _lastWorkoutCard(d.lastWorkout!),
+                    const SizedBox(height: 12),
+                    _gutter(_lastWorkoutCard(d.lastWorkout!)),
                   ],
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 24),
                   _myWorkouts(d),
                 ],
               ),
@@ -601,14 +607,9 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- header ---
-  Widget _header(_HomeData d) {
+  // --- header: greeting only, settings on the right ---
+  Widget _header() {
     final now = DateTime.now();
-    final first = d.userName.trim().isEmpty
-        ? ''
-        : ', ${d.userName.trim().split(' ').first}';
-    final initial =
-        d.userName.trim().isEmpty ? '•' : d.userName.trim()[0].toUpperCase();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -619,24 +620,24 @@ class _HomeViewState extends State<HomeView> {
               Text(_dateLine(now).toUpperCase(), style: _eyebrow()),
               const SizedBox(height: 6),
               Text(
-                '${_greeting(now)}$first.',
-                style: _display(34),
+                _greeting(now),
+                style: _display(32),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
+        const SizedBox(width: 12),
         GestureDetector(
           onTap: () => widget.onOpenSettings?.call(),
           child: Container(
             width: 44,
             height: 44,
             decoration:
-                const BoxDecoration(color: _kInk, shape: BoxShape.circle),
+                const BoxDecoration(color: _kCard, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Text(initial,
-                style: _display(17, color: _kBg, w: FontWeight.w700)),
+            child: const Icon(Icons.settings_rounded, size: 20, color: _kInk),
           ),
         ),
       ],
@@ -651,12 +652,12 @@ class _HomeViewState extends State<HomeView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('START HERE', style: _eyebrow(color: _kAccentOnDark)),
-            const SizedBox(height: 12),
-            Text('Build your first\nworkout', style: _display(32, color: _kBg)),
+            const SizedBox(height: 14),
+            Text('Build your first\nworkout', style: _display(30, color: _kBg)),
             const SizedBox(height: 8),
             Text('Pick exercises yourself or let the AI build one.',
                 style: _body(13, color: _kInkFaint)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _primaryButton('Create workout',
                 onTap: () => widget.onCreateWorkout?.call()),
           ],
@@ -682,24 +683,18 @@ class _HomeViewState extends State<HomeView> {
                       color: _kAccentOnDark, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    '${w.muscles.take(2).join(' & ')} recovered',
-                    style: _body(12, color: _kInkFaint),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                Text('Recovered', style: _body(12, color: _kInkFaint)),
               ],
             ],
           ),
           const SizedBox(height: 14),
           Text(
             _displayName(w),
-            style: _display(40, color: _kBg),
-            maxLines: 1,
+            style: _display(34, color: _kBg),
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             '${w.exerciseCount} exercises · ~${w.estMinutes} min · ${_ago(w.lastDoneAt)}',
             style: _body(13, color: _kInkFaint),
@@ -761,10 +756,10 @@ class _HomeViewState extends State<HomeView> {
     String subtitle;
     if (ls == null) {
       subtitle = widget.isPremium
-          ? 'Unlimited · tap the camera below to film a set'
-          : '$left free this month · tap the camera below to film a set';
+          ? 'Unlimited · film a set with the camera below'
+          : '$left of $_kFreeMonthlyLimit free this month · film a set with the camera below';
     } else if (widget.isPremium) {
-      subtitle = 'Unlimited · tap to see your last analysis';
+      subtitle = 'Unlimited · tap for your last analysis';
     } else {
       subtitle = '$left of $_kFreeMonthlyLimit free checks left this month';
     }
@@ -791,10 +786,13 @@ class _HomeViewState extends State<HomeView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Form check', style: _body(16, w: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  Text(subtitle, style: _body(12, color: _kInkMuted)),
+                  const SizedBox(height: 5),
+                  Text(subtitle,
+                      style: _body(12, color: _kInkMuted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                   if (!widget.isPremium) ...[
-                    const SizedBox(height: 7),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         for (int i = 0; i < _kFreeMonthlyLimit; i++) ...[
@@ -818,22 +816,22 @@ class _HomeViewState extends State<HomeView> {
             ),
             if (ls != null) ...[
               const SizedBox(width: 12),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ScoreRing(score: ls.score, label: _score(ls.score)),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    width: 64,
-                    child: Text(
+              SizedBox(
+                width: 84,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ScoreRing(score: ls.score, label: _score(ls.score)),
+                    const SizedBox(height: 5),
+                    Text(
                       '${ls.exerciseName.split(' ').last} · ${_dayShort(ls.at)}',
                       style: _body(10, color: _kInkMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ],
@@ -842,7 +840,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- this week ---
+  // --- this week: circles like the original, centered stats ---
   Widget _weekCard(_HomeData d) {
     const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     final today = DateTime.now().weekday % 7;
@@ -870,34 +868,15 @@ class _HomeViewState extends State<HomeView> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
-              for (int i = 0; i < 7; i++) ...[
+              for (int i = 0; i < 7; i++)
                 Expanded(
                   child: Column(
                     children: [
-                      Container(
-                        height: 34,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: wk.perDay[i] > 0
-                              ? _kAccent
-                              : (i == today ? _kCard : _kCardSub),
-                          borderRadius: BorderRadius.circular(8),
-                          border: i == today && wk.perDay[i] == 0
-                              ? Border.all(color: _kInk, width: 1.5)
-                              : null,
-                        ),
-                        child: wk.perDay[i] > 1
-                            ? Text('${wk.perDay[i]}',
-                                style: _display(14, w: FontWeight.w800))
-                            : wk.perDay[i] == 1
-                                ? const Icon(Icons.check_rounded,
-                                    size: 18, color: _kInk)
-                                : null,
-                      ),
-                      const SizedBox(height: 6),
+                      _dayDot(done: wk.perDay[i] > 0, today: i == today),
+                      const SizedBox(height: 7),
                       Text(
                         letters[i],
                         style: _body(
@@ -905,19 +884,17 @@ class _HomeViewState extends State<HomeView> {
                           color: i == today || wk.perDay[i] > 0
                               ? _kInk
                               : _kInkMuted,
-                          w: i == today ? FontWeight.w600 : FontWeight.w400,
+                          w: i == today ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (i < 6) const SizedBox(width: 6),
-              ],
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           const Divider(height: 1, color: _kCardSub),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               _stat('${wk.workouts}', 'workouts'),
@@ -930,13 +907,38 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  Widget _dayDot({required bool done, required bool today}) {
+    if (done) {
+      return Container(
+        width: 36,
+        height: 36,
+        decoration:
+            const BoxDecoration(color: _kAccent, shape: BoxShape.circle),
+        child: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+      );
+    }
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: today ? _kCard : Colors.transparent,
+        border: Border.all(
+          color: today ? _kAccent : _kLine,
+          width: today ? 2 : 1.5,
+        ),
+      ),
+    );
+  }
+
   Widget _stat(String value, String label) => Expanded(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(value, style: _display(26)),
+            Text(value, style: _display(26), textAlign: TextAlign.center),
             const SizedBox(height: 3),
-            Text(label, style: _body(11, color: _kInkMuted)),
+            Text(label,
+                style: _body(11, color: _kInkMuted),
+                textAlign: TextAlign.center),
           ],
         ),
       );
@@ -946,6 +948,7 @@ class _HomeViewState extends State<HomeView> {
     final hh = l.at.hour.toString().padLeft(2, '0');
     final mm = l.at.minute.toString().padLeft(2, '0');
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () => widget.onOpenSummary?.call(l.logId),
       child: _lightCard(
         child: Row(
@@ -958,12 +961,12 @@ class _HomeViewState extends State<HomeView> {
                     'LAST WORKOUT · ${_dayShort(l.at).toUpperCase()} $hh:$mm',
                     style: _eyebrow(),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(l.name.isEmpty ? 'Workout' : l.name,
+                      Text(l.name.isEmpty ? 'Workout' : _cap(l.name),
                           style: _display(20, w: FontWeight.w700)),
                       const SizedBox(width: 8),
                       Flexible(
@@ -975,7 +978,7 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 6),
                   Text.rich(TextSpan(
                     style: _body(13),
                     children: [
@@ -1001,7 +1004,8 @@ class _HomeViewState extends State<HomeView> {
                 shape: BoxShape.circle,
                 border: Border.all(color: _kInk, width: 1.5),
               ),
-              child: const Icon(Icons.refresh_rounded, size: 18, color: _kInk),
+              child: const Icon(Icons.chevron_right_rounded,
+                  size: 22, color: _kInk),
             ),
           ],
         ),
@@ -1009,13 +1013,13 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- my workouts shelf ---
+  // --- my workouts: full-bleed horizontal shelf ---
   Widget _myWorkouts(_HomeData d) {
     final list = d.workouts;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        _gutter(Row(
           children: [
             Text('My workouts', style: _display(20, w: FontWeight.w700)),
             const Spacer(),
@@ -1026,21 +1030,22 @@ class _HomeViewState extends State<HomeView> {
                     style: _body(12, color: _kAccentDeep, w: FontWeight.w500)),
               ),
           ],
-        ),
+        )),
         const SizedBox(height: 12),
         if (list.isNotEmpty)
           SizedBox(
-            height: 150,
+            height: 156,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
+              padding: const EdgeInsets.symmetric(horizontal: _kGutter),
+              physics: const BouncingScrollPhysics(),
               itemCount: list.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, i) => _workoutCard(list[i]),
             ),
           ),
         const SizedBox(height: 12),
-        GestureDetector(
+        _gutter(GestureDetector(
           onTap: () => widget.onCreateWorkout?.call(),
           child: Container(
             height: 54,
@@ -1057,7 +1062,7 @@ class _HomeViewState extends State<HomeView> {
               ],
             ),
           ),
-        ),
+        )),
       ],
     );
   }
@@ -1066,7 +1071,7 @@ class _HomeViewState extends State<HomeView> {
     return GestureDetector(
       onTap: () => widget.onStartWorkout?.call(w.id),
       child: Container(
-        width: 196,
+        width: 200,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _kCard,
@@ -1081,10 +1086,10 @@ class _HomeViewState extends State<HomeView> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text('${w.exerciseCount} exercises · ~${w.estMinutes} min',
                 style: _body(12, color: _kInkMuted)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               w.muscles.isEmpty ? '—' : w.muscles.join(' · '),
               style: _body(12, color: _kInkMuted),

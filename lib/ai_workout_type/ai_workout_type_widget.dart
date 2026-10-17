@@ -119,7 +119,7 @@ class _AiWorkoutTypeWidgetState extends State<AiWorkoutTypeWidget> {
                                 width: MediaQuery.sizeOf(context).width * 1.0,
                                 height: 4.0,
                                 decoration: BoxDecoration(
-                                  color: FlutterFlowTheme.of(context).secondary,
+                                  color: FlutterFlowTheme.of(context).primary,
                                   borderRadius: BorderRadius.circular(9999.0),
                                   shape: BoxShape.rectangle,
                                 ),
