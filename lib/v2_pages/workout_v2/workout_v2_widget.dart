@@ -180,20 +180,6 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                           FFAppState().activeWorkoutStartTime = null;
 
                           safeSetState(() {});
-
-                          context.goNamed(
-                            WorkoutCompleteWidget.routeName,
-                            queryParameters: {
-                              'workoutLogId': serializeParam(
-                                getJsonField(
-                                  _model.save,
-                                  r'''$["workoutLogId"]''',
-                                ).toString(),
-                                ParamType.String,
-                              ),
-                            }.withoutNulls,
-                          );
-
                           _model.de = await actions.syncAllPending();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -211,6 +197,19 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                               backgroundColor:
                                   FlutterFlowTheme.of(context).secondary,
                             ),
+                          );
+
+                          context.goNamed(
+                            WorkoutCompleteWidget.routeName,
+                            queryParameters: {
+                              'workoutLogId': serializeParam(
+                                getJsonField(
+                                  _model.save,
+                                  r'''$["workoutLogId"]''',
+                                ).toString(),
+                                ParamType.String,
+                              ),
+                            }.withoutNulls,
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
