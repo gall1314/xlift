@@ -16,8 +16,8 @@ import 'dart:math' as math;
 
 /// Self-managed Library screen content (nav bar / FAB live on the page).
 ///
-/// Three tabs: Workouts (user's), Templates (is_public = 1), Exercises
-/// (catalog + custom). Runs its own SQLite, owns its filter state.
+/// Three tabs: Workouts (user's), Templates (rows in workout_template),
+/// Exercises (catalog + custom). Runs its own SQLite, owns its filter state.
 ///
 /// Parameters: userId               - current user id initialTab           -
 /// 0 workouts, 1 templates, 2 exercises onStartWorkout       - (workoutId)
@@ -328,9 +328,11 @@ class _LibraryViewState extends State<LibraryView> {
     }
 
     // --- workouts + templates (one pass) ---
+    // A workout is a template iff it has a row in workout_template.
     final wRows = await db.rawQuery('''
       SELECT
-        w.id, w.name, w.user_id, COALESCE(w.is_public, 0) AS is_public,
+        w.id, w.name, w.user_id,
+        CASE WHEN wt.workout_id IS NOT NULL THEN 1 ELSE 0 END AS is_public,
         COUNT(DISTINCT we.id) AS exercise_count,
         MAX(wl.created_at)    AS last_done_at,
         SUM(CASE WHEN e.ai_form_analysis = 1 THEN 1 ELSE 0 END) AS fc_count,
@@ -344,7 +346,7 @@ class _LibraryViewState extends State<LibraryView> {
       LEFT JOIN workout_log wl      ON wl.workout_id = w.id AND wl.user_id = ?
       LEFT JOIN workout_template wt ON wt.workout_id = w.id
       WHERE COALESCE(w.is_deleted, 0) = 0
-        AND (w.user_id = ? OR COALESCE(w.is_public, 0) = 1)
+        AND (w.user_id = ? OR wt.workout_id IS NOT NULL)
       GROUP BY w.id
     ''', [uid, uid]);
 
@@ -372,10 +374,10 @@ class _LibraryViewState extends State<LibraryView> {
       final muscles = counts.keys.toList()
         ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
 
-      final isPublic = _int(r['is_public']) == 1;
+      final isTemplate = _int(r['is_public']) == 1;
       final item = _WorkoutItem(
         id: id,
-        name: isPublic ? _templateName(_str(r['name'])) : _str(r['name']),
+        name: isTemplate ? _templateName(_str(r['name'])) : _str(r['name']),
         exerciseCount: _int(r['exercise_count']),
         setCount: _int(r['set_count']),
         lastDoneAt: _parse(r['last_done_at']),
@@ -387,7 +389,7 @@ class _LibraryViewState extends State<LibraryView> {
             r['estimated_time'] == null ? null : _int(r['estimated_time']),
         level: r['level'] == null ? null : _str(r['level']),
       );
-      if (isPublic) {
+      if (isTemplate) {
         templates.add(item);
       } else {
         workouts.add(item);

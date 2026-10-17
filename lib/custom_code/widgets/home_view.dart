@@ -13,11 +13,13 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:math' as math;
+import 'package:google_fonts/google_fonts.dart';
 
 /// Self-managed Home screen content (nav bar / FAB live on the page).
 ///
 /// Runs its own SQLite queries, holds its own state, exposes navigation as
-/// callbacks.
+/// callbacks. Fonts and colors come from FlutterFlowTheme so the page matches
+/// the rest of the app.
 ///
 /// Parameters: userId              - current user id (auth) isPremium - true
 /// hides the form-check quota meter analysisCount       -
@@ -68,7 +70,7 @@ class HomeView extends StatefulWidget {
 const int _kFreeMonthlyLimit = 5;
 
 // Space reserved at the bottom for the page's nav bar + FAB overhang.
-const double _kBottomInset = 170;
+const double _kBottomInset = 220;
 
 // Horizontal page gutter.
 const double _kGutter = 20;
@@ -76,20 +78,17 @@ const double _kGutter = 20;
 // Minutes per working set, incl. rest and transitions.
 const double _kMinPerSet = 3.5;
 
-// ---------------------------------------------------------------------------
-// Design tokens
-// ---------------------------------------------------------------------------
-const _kBg = Color(0xFFF2F4F3);
-const _kInk = Color(0xFF0F1D1B);
-const _kInkMuted = Color(0xFF5B6966);
-const _kInkFaint = Color(0xFF9AAAA6);
-const _kCard = Color(0xFFFFFFFF);
-const _kCardSub = Color(0xFFEEF1F0);
-const _kLine = Color(0xFFE2E7E5);
-const _kAccent = Color(0xFF13B094);
-const _kAccentOnDark = Color(0xFF3FD2B6);
-const _kAccentDeep = Color(0xFF0B7D6B);
-const _kAccentTint = Color(0xFFE1F4EF);
+// App-wide container radius.
+const double _kRadius = 16;
+const double _kRadiusInner = 12;
+
+// The one intentional dark surface (hero card), fixed in both themes.
+const _kDark = Color(0xFF0F1D1B);
+const _kOnDark = Color(0xFFF2F4F3);
+const _kOnDarkMuted = Color(0xFF9AAAA6);
+const _kOnDarkPill = Color(0xFFD7E0DE);
+
+const _kTabular = [FontFeature.tabularFigures()];
 
 // ---------------------------------------------------------------------------
 // Data models
@@ -120,6 +119,7 @@ class _WorkoutRow {
 class _LastWorkout {
   _LastWorkout({
     required this.logId,
+    required this.workoutId,
     required this.name,
     required this.at,
     required this.durationSec,
@@ -129,6 +129,7 @@ class _LastWorkout {
     required this.prCount,
   });
   final String logId;
+  final String workoutId;
   final String name;
   final DateTime at;
   final int durationSec;
@@ -185,10 +186,45 @@ class _HomeViewState extends State<HomeView> {
   String? _error;
   int _heroOffset = 0;
 
+  // Palette, resolved from FlutterFlowTheme in didChangeDependencies.
+  Color _bg = const Color(0xFFF2F4F3);
+  Color _card = const Color(0xFFFFFFFF);
+  Color _cardSub = const Color(0xFFEEF1F0);
+  Color _line = const Color(0xFFE2E7E5);
+  Color _ink = const Color(0xFF0F1D1B);
+  Color _inkMuted = const Color(0xFF5B6966);
+  Color _inkFaint = const Color(0xFF9AAAA6);
+  Color _accent = const Color(0xFF13B094);
+  Color _accentDeep = const Color(0xFF0B7D6B);
+  Color _accentOnDark = const Color(0xFF3FD2B6);
+  Color _accentTint = const Color(0xFFE1F4EF);
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final th = FlutterFlowTheme.of(context);
+    _bg = th.primaryBackground;
+    _card = th.secondaryBackground;
+    _ink = th.primaryText;
+    _inkMuted = th.secondaryText;
+    _line = th.alternate;
+    _cardSub = Color.alphaBlend(_ink.withOpacity(0.05), _card);
+    _inkFaint = Color.alphaBlend(_inkMuted.withOpacity(0.55), _card);
+
+    final p = th.primary;
+    final h = HSLColor.fromColor(p);
+    _accent = p;
+    _accentDeep =
+        h.withLightness((h.lightness * 0.72).clamp(0.0, 1.0)).toColor();
+    _accentOnDark =
+        h.withLightness((h.lightness * 1.3).clamp(0.0, 0.85)).toColor();
+    _accentTint = Color.alphaBlend(p.withOpacity(0.13), _card);
   }
 
   Future<void> _load() async {
@@ -370,6 +406,7 @@ class _HomeViewState extends State<HomeView> {
       final durSec = rawDur > 20000 ? rawDur ~/ 1000 : rawDur;
       last = _LastWorkout(
         logId: logId,
+        workoutId: (r['workout_id'] ?? '').toString(),
         name: (r['name'] ?? '').toString().trim(),
         at: at,
         durationSec: durSec,
@@ -532,33 +569,55 @@ class _HomeViewState extends State<HomeView> {
     return r == r.roundToDouble() ? r.toInt().toString() : r.toStringAsFixed(1);
   }
 
-  // --------------------------------- UI -------------------------------------
+  // ------------------------------ typography --------------------------------
+  // Built from the app theme so Home uses the same family as every other page.
+
+  TextStyle _ts(
+    double size, {
+    Color? color,
+    FontWeight w = FontWeight.w400,
+    double height = 1.25,
+    double letterSpacing = 0,
+    bool display = false,
+  }) {
+    final th = FlutterFlowTheme.of(context);
+    final fam = display ? th.headlineMediumFamily : th.bodyMediumFamily;
+    final base = display ? th.headlineMedium : th.bodyMedium;
+    return base
+        .override(
+          fontFamily: fam,
+          color: color ?? _ink,
+          fontSize: size,
+          fontWeight: w,
+          lineHeight: height,
+          letterSpacing: letterSpacing,
+          useGoogleFonts: GoogleFonts.asMap().containsKey(fam),
+        )
+        .copyWith(fontFeatures: _kTabular);
+  }
 
   TextStyle _display(double size,
-          {Color color = _kInk, FontWeight w = FontWeight.w800}) =>
-      TextStyle(
-        fontSize: size,
-        fontWeight: w,
-        color: color,
-        height: 1.05,
-        letterSpacing: -size * 0.02,
-      );
+          {Color? color, FontWeight w = FontWeight.w800}) =>
+      _ts(size,
+          color: color,
+          w: w,
+          height: 1.05,
+          letterSpacing: -size * 0.02,
+          display: true);
 
   TextStyle _body(double size,
-          {Color color = _kInk, FontWeight w = FontWeight.w400}) =>
-      TextStyle(fontSize: size, fontWeight: w, color: color, height: 1.25);
+          {Color? color, FontWeight w = FontWeight.w400}) =>
+      _ts(size, color: color, w: w);
 
-  TextStyle _eyebrow({Color color = _kInkMuted}) => TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: color,
-        letterSpacing: 1.4,
-      );
+  TextStyle _eyebrow({Color? color}) => _ts(11,
+      color: color ?? _inkMuted, w: FontWeight.w600, letterSpacing: 1.4);
 
   Widget _gutter(Widget child) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: _kGutter),
         child: child,
       );
+
+  // --------------------------------- UI -------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -566,23 +625,22 @@ class _HomeViewState extends State<HomeView> {
     return Container(
       width: widget.width,
       height: widget.height,
-      color: _kBg,
+      color: _bg,
       child: d == null
           ? Center(
               child: _error == null
-                  ? const CircularProgressIndicator(
-                      color: _kAccent, strokeWidth: 2)
+                  ? CircularProgressIndicator(color: _accent, strokeWidth: 2)
                   : Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
                         'Home failed to load\n$_error',
                         textAlign: TextAlign.center,
-                        style: _body(13, color: _kInkMuted),
+                        style: _body(13, color: _inkMuted),
                       ),
                     ),
             )
           : RefreshIndicator(
-              color: _kAccent,
+              color: _accent,
               onRefresh: _load,
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(0, 8, 0, _kBottomInset),
@@ -599,7 +657,7 @@ class _HomeViewState extends State<HomeView> {
                     const SizedBox(height: 12),
                     _gutter(_lastWorkoutCard(d.lastWorkout!)),
                   ],
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 26),
                   _myWorkouts(d),
                 ],
               ),
@@ -634,10 +692,9 @@ class _HomeViewState extends State<HomeView> {
           child: Container(
             width: 44,
             height: 44,
-            decoration:
-                const BoxDecoration(color: _kCard, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: _card, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: const Icon(Icons.settings_rounded, size: 20, color: _kInk),
+            child: Icon(Icons.settings_rounded, size: 20, color: _ink),
           ),
         ),
       ],
@@ -651,12 +708,13 @@ class _HomeViewState extends State<HomeView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('START HERE', style: _eyebrow(color: _kAccentOnDark)),
+            Text('START HERE', style: _eyebrow(color: _accentOnDark)),
             const SizedBox(height: 14),
-            Text('Build your first\nworkout', style: _display(30, color: _kBg)),
+            Text('Build your first\nworkout',
+                style: _display(30, color: _kOnDark)),
             const SizedBox(height: 8),
             Text('Pick exercises yourself or let the AI build one.',
-                style: _body(13, color: _kInkFaint)),
+                style: _body(13, color: _kOnDarkMuted)),
             const SizedBox(height: 18),
             _primaryButton('Create workout',
                 onTap: () => widget.onCreateWorkout?.call()),
@@ -673,31 +731,31 @@ class _HomeViewState extends State<HomeView> {
         children: [
           Row(
             children: [
-              Text('UP NEXT', style: _eyebrow(color: _kAccentOnDark)),
+              Text('UP NEXT', style: _eyebrow(color: _accentOnDark)),
               const Spacer(),
               if (rested) ...[
                 Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(
-                      color: _kAccentOnDark, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                      color: _accentOnDark, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 6),
-                Text('Recovered', style: _body(12, color: _kInkFaint)),
+                Text('Recovered', style: _body(12, color: _kOnDarkMuted)),
               ],
             ],
           ),
           const SizedBox(height: 14),
           Text(
             _displayName(w),
-            style: _display(34, color: _kBg),
+            style: _display(34, color: _kOnDark),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 6),
           Text(
             '${w.exerciseCount} exercises · ~${w.estMinutes} min · ${_ago(w.lastDoneAt)}',
-            style: _body(13, color: _kInkFaint),
+            style: _body(13, color: _kOnDarkMuted),
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -708,7 +766,7 @@ class _HomeViewState extends State<HomeView> {
               if (w.formCheckCount > 0)
                 _pillDark(
                   '${w.formCheckCount} with form check',
-                  icon: const _FormCheckIcon(size: 12, color: _kAccentOnDark),
+                  icon: _FormCheckIcon(size: 12, color: _accentOnDark),
                 ),
             ],
           ),
@@ -731,12 +789,12 @@ class _HomeViewState extends State<HomeView> {
                   width: 52,
                   height: 52,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(_kRadiusInner),
                     border: Border.all(color: Colors.white.withOpacity(0.18)),
                   ),
                   child: Icon(
                     Icons.swap_horiz_rounded,
-                    color: d.workouts.length > 1 ? _kBg : _kInkFaint,
+                    color: d.workouts.length > 1 ? _kOnDark : _kOnDarkMuted,
                     size: 22,
                   ),
                 ),
@@ -757,9 +815,9 @@ class _HomeViewState extends State<HomeView> {
     if (ls == null) {
       subtitle = widget.isPremium
           ? 'Unlimited · film a set with the camera below'
-          : '$left of $_kFreeMonthlyLimit free this month · film a set with the camera below';
+          : '$left of $_kFreeMonthlyLimit free this month · film a set below';
     } else if (widget.isPremium) {
-      subtitle = 'Unlimited · tap for your last analysis';
+      subtitle = 'Unlimited · tap to review';
     } else {
       subtitle = '$left of $_kFreeMonthlyLimit free checks left this month';
     }
@@ -774,11 +832,11 @@ class _HomeViewState extends State<HomeView> {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: _kAccentTint,
-                borderRadius: BorderRadius.circular(14),
+                color: _accentTint,
+                borderRadius: BorderRadius.circular(_kRadiusInner),
               ),
               alignment: Alignment.center,
-              child: const _FormCheckIcon(size: 24, color: _kAccentDeep),
+              child: _FormCheckIcon(size: 24, color: _accentDeep),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -788,7 +846,7 @@ class _HomeViewState extends State<HomeView> {
                   Text('Form check', style: _body(16, w: FontWeight.w600)),
                   const SizedBox(height: 5),
                   Text(subtitle,
-                      style: _body(12, color: _kInkMuted),
+                      style: _body(12, color: _inkMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                   if (!widget.isPremium) ...[
@@ -800,7 +858,7 @@ class _HomeViewState extends State<HomeView> {
                             child: Container(
                               height: 5,
                               decoration: BoxDecoration(
-                                color: i < left ? _kAccent : _kLine,
+                                color: i < left ? _accent : _line,
                                 borderRadius: BorderRadius.circular(3),
                               ),
                             ),
@@ -821,11 +879,17 @@ class _HomeViewState extends State<HomeView> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _ScoreRing(score: ls.score, label: _score(ls.score)),
+                    _ScoreRing(
+                      score: ls.score,
+                      label: _score(ls.score),
+                      color: _accent,
+                      track: _line,
+                      labelStyle: _display(16, w: FontWeight.w800),
+                    ),
                     const SizedBox(height: 5),
                     Text(
                       '${ls.exerciseName.split(' ').last} · ${_dayShort(ls.at)}',
-                      style: _body(10, color: _kInkMuted),
+                      style: _body(10, color: _inkMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -840,7 +904,7 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- this week: circles like the original, centered stats ---
+  // --- this week: circles, centered stats ---
   Widget _weekCard(_HomeData d) {
     const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     final today = DateTime.now().weekday % 7;
@@ -860,9 +924,9 @@ class _HomeViewState extends State<HomeView> {
                   children: [
                     Text('Full stats',
                         style:
-                            _body(12, color: _kAccentDeep, w: FontWeight.w500)),
-                    const Icon(Icons.chevron_right_rounded,
-                        size: 16, color: _kAccentDeep),
+                            _body(12, color: _accentDeep, w: FontWeight.w500)),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 16, color: _accentDeep),
                   ],
                 ),
               ),
@@ -881,9 +945,8 @@ class _HomeViewState extends State<HomeView> {
                         letters[i],
                         style: _body(
                           11,
-                          color: i == today || wk.perDay[i] > 0
-                              ? _kInk
-                              : _kInkMuted,
+                          color:
+                              i == today || wk.perDay[i] > 0 ? _ink : _inkMuted,
                           w: i == today ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
@@ -893,7 +956,7 @@ class _HomeViewState extends State<HomeView> {
             ],
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: _kCardSub),
+          Divider(height: 1, color: _cardSub),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -912,8 +975,7 @@ class _HomeViewState extends State<HomeView> {
       return Container(
         width: 36,
         height: 36,
-        decoration:
-            const BoxDecoration(color: _kAccent, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: _accent, shape: BoxShape.circle),
         child: const Icon(Icons.check_rounded, size: 18, color: Colors.white),
       );
     }
@@ -922,9 +984,9 @@ class _HomeViewState extends State<HomeView> {
       height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: today ? _kCard : Colors.transparent,
+        color: today ? _card : Colors.transparent,
         border: Border.all(
-          color: today ? _kAccent : _kLine,
+          color: today ? _accent : _line,
           width: today ? 2 : 1.5,
         ),
       ),
@@ -937,13 +999,13 @@ class _HomeViewState extends State<HomeView> {
             Text(value, style: _display(26), textAlign: TextAlign.center),
             const SizedBox(height: 3),
             Text(label,
-                style: _body(11, color: _kInkMuted),
+                style: _body(11, color: _inkMuted),
                 textAlign: TextAlign.center),
           ],
         ),
       );
 
-  // --- last workout ---
+  // --- last workout: card opens summary, round button restarts it ---
   Widget _lastWorkoutCard(_LastWorkout l) {
     final hh = l.at.hour.toString().padLeft(2, '0');
     final mm = l.at.minute.toString().padLeft(2, '0');
@@ -972,7 +1034,7 @@ class _HomeViewState extends State<HomeView> {
                       Flexible(
                         child: Text(
                           l.muscles.join(' · '),
-                          style: _body(12, color: _kInkMuted),
+                          style: _body(12, color: _inkMuted),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -988,8 +1050,8 @@ class _HomeViewState extends State<HomeView> {
                       if (l.prCount > 0)
                         TextSpan(
                           text: ' · ${l.prCount} PR${l.prCount > 1 ? 's' : ''}',
-                          style: _body(13,
-                              color: _kAccentDeep, w: FontWeight.w600),
+                          style:
+                              _body(13, color: _accentDeep, w: FontWeight.w600),
                         ),
                     ],
                   )),
@@ -997,15 +1059,20 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
             const SizedBox(width: 12),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: _kInk, width: 1.5),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: l.workoutId.isEmpty
+                  ? null
+                  : () => widget.onStartWorkout?.call(l.workoutId),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _ink, width: 1.5),
+                ),
+                child: Icon(Icons.refresh_rounded, size: 20, color: _ink),
               ),
-              child: const Icon(Icons.chevron_right_rounded,
-                  size: 22, color: _kInk),
             ),
           ],
         ),
@@ -1027,7 +1094,7 @@ class _HomeViewState extends State<HomeView> {
               GestureDetector(
                 onTap: () => widget.onOpenLibrary?.call(),
                 child: Text('See all ${list.length}',
-                    style: _body(12, color: _kAccentDeep, w: FontWeight.w500)),
+                    style: _body(12, color: _accentDeep, w: FontWeight.w500)),
               ),
           ],
         )),
@@ -1050,13 +1117,13 @@ class _HomeViewState extends State<HomeView> {
           child: Container(
             height: 54,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _kInkFaint, width: 1.5),
+              borderRadius: BorderRadius.circular(_kRadius),
+              border: Border.all(color: _inkFaint, width: 1.5),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.add_rounded, size: 20, color: _kInk),
+                Icon(Icons.add_rounded, size: 20, color: _ink),
                 const SizedBox(width: 8),
                 Text('Create workout', style: _body(14, w: FontWeight.w600)),
               ],
@@ -1068,61 +1135,62 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _workoutCard(_WorkoutRow w) {
-    return GestureDetector(
-      onTap: () => widget.onStartWorkout?.call(w.id),
-      child: Container(
-        width: 200,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _displayName(w),
-              style: _body(16, w: FontWeight.w600),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text('${w.exerciseCount} exercises · ~${w.estMinutes} min',
-                style: _body(12, color: _kInkMuted)),
-            const SizedBox(height: 8),
-            Text(
-              w.muscles.isEmpty ? '—' : w.muscles.join(' · '),
-              style: _body(12, color: _kInkMuted),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    w.lastDoneAt == null
-                        ? 'Never done'
-                        : 'Done ${_ago(w.lastDoneAt)}',
-                    style: _body(11, color: _kInkMuted),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    return Container(
+      width: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(_kRadius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _displayName(w),
+            style: _body(16, w: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text('${w.exerciseCount} exercises · ~${w.estMinutes} min',
+              style: _body(12, color: _inkMuted)),
+          const SizedBox(height: 8),
+          Text(
+            w.muscles.join(' · '),
+            style: _body(12, color: _inkMuted),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  w.lastDoneAt == null
+                      ? 'Never done'
+                      : 'Done ${_ago(w.lastDoneAt)}',
+                  style: _body(11, color: _inkMuted),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Container(
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => widget.onStartWorkout?.call(w.id),
+                child: Container(
                   height: 34,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: _kInk,
+                    color: _kDark,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
                   child: Text('Start',
-                      style: _body(13, color: _kBg, w: FontWeight.w600)),
+                      style: _body(13, color: _kOnDark, w: FontWeight.w600)),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1132,8 +1200,8 @@ class _HomeViewState extends State<HomeView> {
   Widget _darkCard({required Widget child}) => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: _kInk,
-          borderRadius: BorderRadius.circular(24),
+          color: _kDark,
+          borderRadius: BorderRadius.circular(_kRadius),
         ),
         child: child,
       );
@@ -1145,8 +1213,8 @@ class _HomeViewState extends State<HomeView> {
       Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: _kCard,
-          borderRadius: BorderRadius.circular(20),
+          color: _card,
+          borderRadius: BorderRadius.circular(_kRadius),
         ),
         child: child,
       );
@@ -1162,8 +1230,7 @@ class _HomeViewState extends State<HomeView> {
           children: [
             if (icon != null) ...[icon, const SizedBox(width: 5)],
             Text(text,
-                style: _body(12,
-                    color: const Color(0xFFD7E0DE), w: FontWeight.w500)),
+                style: _body(12, color: _kOnDarkPill, w: FontWeight.w500)),
           ],
         ),
       );
@@ -1174,17 +1241,18 @@ class _HomeViewState extends State<HomeView> {
         child: Container(
           height: 52,
           decoration: BoxDecoration(
-            color: _kAccent,
-            borderRadius: BorderRadius.circular(14),
+            color: _accent,
+            borderRadius: BorderRadius.circular(_kRadiusInner),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 18, color: _kInk),
+                Icon(icon, size: 18, color: Colors.white),
                 const SizedBox(width: 6),
               ],
-              Text(label, style: _body(16, w: FontWeight.w600)),
+              Text(label,
+                  style: _body(16, color: Colors.white, w: FontWeight.w600)),
             ],
           ),
         ),
@@ -1195,9 +1263,18 @@ class _HomeViewState extends State<HomeView> {
 // Score ring
 // ---------------------------------------------------------------------------
 class _ScoreRing extends StatelessWidget {
-  const _ScoreRing({required this.score, required this.label});
+  const _ScoreRing({
+    required this.score,
+    required this.label,
+    required this.color,
+    required this.track,
+    required this.labelStyle,
+  });
   final double score;
   final String label;
+  final Color color;
+  final Color track;
+  final TextStyle labelStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -1209,17 +1286,9 @@ class _ScoreRing extends StatelessWidget {
         children: [
           CustomPaint(
             size: const Size(50, 50),
-            painter: _RingPainter(score.clamp(0, 10) / 10),
+            painter: _RingPainter(score.clamp(0, 10) / 10, color, track),
           ),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: _kInk,
-              letterSpacing: -0.3,
-            ),
-          ),
+          Text(label, style: labelStyle),
         ],
       ),
     );
@@ -1227,19 +1296,21 @@ class _ScoreRing extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  _RingPainter(this.t);
+  _RingPainter(this.t, this.color, this.track);
   final double t;
+  final Color color;
+  final Color track;
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     const r = 21.0;
     final bg = Paint()
-      ..color = _kLine
+      ..color = track
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
     final fg = Paint()
-      ..color = _kAccent
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
@@ -1254,7 +1325,8 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.t != t;
+  bool shouldRepaint(_RingPainter old) =>
+      old.t != t || old.color != color || old.track != track;
 }
 
 // ---------------------------------------------------------------------------

@@ -4,8 +4,9 @@ import '/components/analyze2_app_after_widget.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
 import '/components/choose_exercise2_analyze_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
+import '/components/delete_workout_log_widget.dart';
+import '/components/discard_and_start_new_widget.dart';
 import '/components/discard_workout_widget.dart';
-import '/components/edit_delte2_widget.dart';
 import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
@@ -367,7 +368,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                             FocusManager.instance.primaryFocus
                                                 ?.unfocus();
                                           },
-                                          child: EditDelte2Widget(
+                                          child: DeleteWorkoutLogWidget(
                                             workoutLogId: workoutLogId,
                                           ),
                                         ),
@@ -1747,19 +1748,65 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                     .analysisCountMonth,
                                                             onStartWorkout:
                                                                 (workoutId) async {
-                                                              context.pushNamed(
-                                                                WorkoutV2Widget
-                                                                    .routeName,
-                                                                queryParameters:
-                                                                    {
-                                                                  'workoutId':
-                                                                      serializeParam(
-                                                                    workoutId,
-                                                                    ParamType
-                                                                        .String,
-                                                                  ),
-                                                                }.withoutNulls,
-                                                              );
+                                                              if (FFAppState()
+                                                                  .workout) {
+                                                                await showDialog(
+                                                                  context:
+                                                                      context,
+                                                                  builder:
+                                                                      (dialogContext) {
+                                                                    return Dialog(
+                                                                      elevation:
+                                                                          0,
+                                                                      insetPadding:
+                                                                          EdgeInsets
+                                                                              .zero,
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .transparent,
+                                                                      alignment: AlignmentDirectional(
+                                                                              0.0,
+                                                                              0.0)
+                                                                          .resolve(
+                                                                              Directionality.of(context)),
+                                                                      child:
+                                                                          GestureDetector(
+                                                                        onTap:
+                                                                            () {
+                                                                          FocusScope.of(dialogContext)
+                                                                              .unfocus();
+                                                                          FocusManager
+                                                                              .instance
+                                                                              .primaryFocus
+                                                                              ?.unfocus();
+                                                                        },
+                                                                        child:
+                                                                            DiscardAndStartNewWidget(
+                                                                          workoutId:
+                                                                              workoutId,
+                                                                          startAnalysis:
+                                                                              () async {},
+                                                                        ),
+                                                                      ),
+                                                                    );
+                                                                  },
+                                                                );
+                                                              } else {
+                                                                context
+                                                                    .pushNamed(
+                                                                  WorkoutV2Widget
+                                                                      .routeName,
+                                                                  queryParameters:
+                                                                      {
+                                                                    'workoutId':
+                                                                        serializeParam(
+                                                                      workoutId,
+                                                                      ParamType
+                                                                          .String,
+                                                                    ),
+                                                                  }.withoutNulls,
+                                                                );
+                                                              }
                                                             },
                                                             onOpenSummary:
                                                                 (workoutLogId) async {

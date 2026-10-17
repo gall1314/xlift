@@ -5876,7 +5876,7 @@ bool shouldShowCameraButton(
       return false;
     }
 
-    // --- Done gate: a logged set never shows the camera ---
+    // --- Done gate: a COMPLETED set never shows the camera ---
     int? toInt(dynamic v) {
       if (v == null) return null;
       if (v is int) return v;
@@ -5885,11 +5885,33 @@ bool shouldShowCameraButton(
       return null;
     }
 
+    // True only if the entry is explicitly marked done. An entry that
+    // carries a status flag set to false (a draft with weight/reps typed
+    // but not checked off) is NOT done. An entry with no status flag at
+    // all is treated as done (legacy shape).
+    bool isDoneEntry(Map s) {
+      const flags = ['done', 'isDone', 'completed', 'isCompleted', 'is_done'];
+      bool sawFlag = false;
+      for (final f in flags) {
+        if (!s.containsKey(f)) continue;
+        sawFlag = true;
+        final v = s[f];
+        if (v == true || v == 1 || v == '1' || v == 'true') return true;
+      }
+      final st = s['status'];
+      if (st != null) {
+        sawFlag = true;
+        final t = st.toString().toLowerCase();
+        if (t == 'done' || t == 'completed') return true;
+      }
+      return !sawFlag;
+    }
+
     for (final s in loggedSets) {
       if (s is! Map) continue;
       final exId = toInt(s['exerciseId']) ?? toInt(s['exercise_id']);
       final sn = toInt(s['setNumber']) ?? toInt(s['set_number']);
-      if (exId == exerciseId && sn == setNumber) {
+      if (exId == exerciseId && sn == setNumber && isDoneEntry(s)) {
         return false;
       }
     }
