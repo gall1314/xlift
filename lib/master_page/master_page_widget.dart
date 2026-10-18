@@ -326,15 +326,26 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                 }
                               },
                               onCreateWorkout: () async {
-                                context.pushNamed(
-                                  CreateWorkoutV2Widget.routeName,
-                                  queryParameters: {
-                                    'shouldInit': serializeParam(
-                                      false,
-                                      ParamType.bool,
-                                    ),
-                                  }.withoutNulls,
-                                );
+                                await showModalBottomSheet(
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  enableDrag: false,
+                                  context: context,
+                                  builder: (context) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        FocusScope.of(context).unfocus();
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                      },
+                                      child: Padding(
+                                        padding:
+                                            MediaQuery.viewInsetsOf(context),
+                                        child: CreateWorkoutBottomWidget(),
+                                      ),
+                                    );
+                                  },
+                                ).then((value) => safeSetState(() {}));
                               },
                               onGenerateWorkout: () async {
                                 context

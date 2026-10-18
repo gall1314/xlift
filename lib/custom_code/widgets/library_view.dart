@@ -17,10 +17,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Self-managed Library screen content (nav bar / FAB live on the page).
 ///
-/// Three tabs: Workouts (the user's), Templates (catalog, driven by the
+/// Three tabs: Workouts (the user's), Templates (catalכog, driven by the
 /// workout_template table), Exercises (catalog + the user's custom ones).
 /// Runs its own SQLite queries, exposes navigation as callbacks. Fonts and
-/// colors come from FlutterFlowTheme so it matches the rest of the app.
+/// colors come from FlutterFlowTheme so it mכatches the rest of the app.
 ///
 /// Parameters: userId                  - current user id (auth) initialTab -
 /// 0 Workouts, 1 Templates, 2 Exercises canGenerate             - false =
