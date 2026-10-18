@@ -42,7 +42,7 @@ class CreateUserExerciseModel
   void updateSecondaryMuscelsAtIndex(int index, Function(dynamic) updateFn) =>
       secondaryMuscels[index] = updateFn(secondaryMuscels[index]);
 
-  int allowBodyweight = 0;
+  bool allowBodyweight = false;
 
   bool regular = false;
 
@@ -50,12 +50,6 @@ class CreateUserExerciseModel
 
   ///  State fields for stateful widgets in this page.
 
-  // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.
-  int? idCopy;
-  // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.
-  int? id2Copy;
-  // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.
-  int? id3;
   // State field(s) for TextField widget.
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;

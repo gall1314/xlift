@@ -51,12 +51,8 @@ class CreateUserExerciseMidSessionModel
 
   ///  State fields for stateful widgets in this page.
 
-  // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.
-  int? idCopy;
-  // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.
-  int? id2Copy;
-  // Stores action output result for [Custom Action - generateUniqueExerciseId] action in Button widget.
-  int? id3;
+  // Stores action output result for [Custom Action - createUserExercise] action in Button widget.
+  int? id;
   // State field(s) for TextField widget.
   FocusNode? textFieldFocusNode;
   TextEditingController? textController;

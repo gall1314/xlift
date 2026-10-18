@@ -616,319 +616,428 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                             ),
                           ),
                         if (widget.ai && (widget.exerciseId != 33))
-                          Stack(
-                            alignment: AlignmentDirectional(0.0, 0.0),
-                            children: [
-                              if (functions.shouldShowErrorButton(
-                                  FFAppState().workoutAnalysisState.toList(),
-                                  widget.exerciseId!,
-                                  widget.setNumber!))
-                                Builder(
-                                  builder: (context) => FlutterFlowIconButton(
-                                    borderColor:
-                                        FlutterFlowTheme.of(context).warning,
-                                    borderRadius: 40.0,
-                                    borderWidth: 2.5,
-                                    buttonSize: 35.0,
-                                    icon: Icon(
-                                      Icons.error_outline,
-                                      color:
-                                          FlutterFlowTheme.of(context).warning,
-                                      size: 18.0,
+                          Container(
+                            width: 35.0,
+                            height: 35.0,
+                            decoration: BoxDecoration(),
+                            child: Visibility(
+                              visible: widget.ai && (widget.exerciseId != 33),
+                              child: Stack(
+                                alignment: AlignmentDirectional(0.0, 0.0),
+                                children: [
+                                  if (functions.shouldShowErrorButton(
+                                      FFAppState()
+                                          .workoutAnalysisState
+                                          .toList(),
+                                      widget.exerciseId!,
+                                      widget.setNumber!))
+                                    Builder(
+                                      builder: (context) =>
+                                          FlutterFlowIconButton(
+                                        borderColor:
+                                            FlutterFlowTheme.of(context)
+                                                .warning,
+                                        borderRadius: 40.0,
+                                        borderWidth: 2.5,
+                                        buttonSize: 35.0,
+                                        icon: Icon(
+                                          Icons.error_outline,
+                                          color: FlutterFlowTheme.of(context)
+                                              .warning,
+                                          size: 18.0,
+                                        ),
+                                        onPressed: () async {
+                                          await showDialog(
+                                            context: context,
+                                            builder: (dialogContext) {
+                                              return Dialog(
+                                                elevation: 0,
+                                                insetPadding: EdgeInsets.zero,
+                                                backgroundColor:
+                                                    Colors.transparent,
+                                                alignment: AlignmentDirectional(
+                                                        0.0, 0.0)
+                                                    .resolve(Directionality.of(
+                                                        context)),
+                                                child: AnalysiAlertWidget(
+                                                  video: _model.videoUrl,
+                                                  exerciseId:
+                                                      widget.exerciseId!,
+                                                  setNumber: widget.setNumber!,
+                                                  exerciseName:
+                                                      widget.exerciseName!,
+                                                  retry: () async {
+                                                    _model.prosess2 = await actions
+                                                        .setExerciseLoadingState(
+                                                      FFAppState()
+                                                          .workoutAnalysisState
+                                                          .toList(),
+                                                      widget.exerciseId!,
+                                                      widget.setNumber!,
+                                                      true,
+                                                    );
+                                                    FFAppState()
+                                                            .workoutAnalysisState =
+                                                        _model.prosess2!
+                                                            .toList()
+                                                            .cast<dynamic>();
+                                                    safeSetState(() {});
+                                                    _model.result = await actions
+                                                        .analyzeExerciseVideoAction(
+                                                      _model.videoUrl!,
+                                                      widget.exerciseName!,
+                                                      10.0,
+                                                    );
+                                                    if (functions
+                                                        .isAnalysisValid(
+                                                            _model.result!)) {
+                                                      _model.result2 = await actions
+                                                          .updateSetAnalysisResult(
+                                                        FFAppState()
+                                                            .workoutAnalysisState
+                                                            .toList(),
+                                                        widget.exerciseId!,
+                                                        widget.setNumber!,
+                                                        _model.result!,
+                                                      );
+                                                      unawaited(
+                                                        () async {
+                                                          await actions
+                                                              .sendAnalysisFinishedNotification(
+                                                            widget
+                                                                .exerciseName,
+                                                            false,
+                                                          );
+                                                        }(),
+                                                      );
+                                                      FFAppState()
+                                                              .workoutAnalysisState =
+                                                          _model.result2!
+                                                              .toList()
+                                                              .cast<dynamic>();
+                                                      FFAppState()
+                                                              .analysisCount =
+                                                          FFAppState()
+                                                                  .analysisCount +
+                                                              1;
+                                                      safeSetState(() {});
+                                                      if (FFAppState().sound) {
+                                                        _model.soundPlayer1 ??=
+                                                            AudioPlayer();
+                                                        if (_model.soundPlayer1!
+                                                            .playing) {
+                                                          await _model
+                                                              .soundPlayer1!
+                                                              .stop();
+                                                        }
+                                                        _model.soundPlayer1!
+                                                            .setVolume(0.72);
+                                                        _model.soundPlayer1!
+                                                            .setAsset(
+                                                                'assets/audios/sample_pop_notification02_kofi_by_miraclei-360096.mp3')
+                                                            .then((_) => _model
+                                                                .soundPlayer1!
+                                                                .play());
+                                                      }
+                                                      await showDialog(
+                                                        context: context,
+                                                        builder:
+                                                            (dialogContext) {
+                                                          return Dialog(
+                                                            elevation: 0,
+                                                            insetPadding:
+                                                                EdgeInsets.zero,
+                                                            backgroundColor:
+                                                                Colors
+                                                                    .transparent,
+                                                            alignment: AlignmentDirectional(
+                                                                    0.0, 0.0)
+                                                                .resolve(
+                                                                    Directionality.of(
+                                                                        context)),
+                                                            child:
+                                                                Analyze2AppWidget(
+                                                              exercise: widget
+                                                                  .exerciseName!,
+                                                              exerciseId: widget
+                                                                  .exerciseId!,
+                                                              setNumber: widget
+                                                                  .setNumber!,
+                                                              videoReady:
+                                                                  (url) async {},
+                                                            ),
+                                                          );
+                                                        },
+                                                      );
+                                                    } else {
+                                                      _model.error2 = await actions
+                                                          .updateSetAnalysisError(
+                                                        FFAppState()
+                                                            .workoutAnalysisState
+                                                            .toList(),
+                                                        widget.exerciseId!,
+                                                        widget.setNumber!,
+                                                      );
+                                                      FFAppState()
+                                                              .workoutAnalysisState =
+                                                          _model.error2!
+                                                              .toList()
+                                                              .cast<dynamic>();
+                                                      safeSetState(() {});
+                                                    }
+                                                  },
+                                                ),
+                                              );
+                                            },
+                                          );
+
+                                          safeSetState(() {});
+                                        },
+                                      ),
                                     ),
-                                    onPressed: () async {
-                                      await showDialog(
-                                        context: context,
-                                        builder: (dialogContext) {
-                                          return Dialog(
-                                            elevation: 0,
-                                            insetPadding: EdgeInsets.zero,
-                                            backgroundColor: Colors.transparent,
-                                            alignment: AlignmentDirectional(
-                                                    0.0, 0.0)
-                                                .resolve(
-                                                    Directionality.of(context)),
-                                            child: AnalysiAlertWidget(
-                                              video: _model.videoUrl,
-                                              exerciseId: widget.exerciseId!,
-                                              setNumber: widget.setNumber!,
-                                              exerciseName:
-                                                  widget.exerciseName!,
-                                              retry: () async {
-                                                _model.prosess2 = await actions
-                                                    .setExerciseLoadingState(
+                                  if (functions.shouldShowLockButton(
+                                      FFAppState()
+                                          .workoutAnalysisState
+                                          .toList(),
+                                      widget.exerciseId!,
+                                      widget.setNumber!,
+                                      FFAppState().isPremium,
+                                      FFAppState().analysisCount))
+                                    FlutterFlowIconButton(
+                                      borderColor:
+                                          FlutterFlowTheme.of(context).primary,
+                                      borderRadius: 40.0,
+                                      borderWidth: 2.5,
+                                      buttonSize: 35.0,
+                                      icon: FaIcon(
+                                        FaIconData(const IconData(
+                                            /* lock */ 0xf023,
+                                            fontFamily: 'FontAwesomeSolid',
+                                            fontPackage:
+                                                'font_awesome_flutter')),
+                                        color: FlutterFlowTheme.of(context)
+                                            .primary,
+                                        size: 18.0,
+                                      ),
+                                      onPressed: () async {
+                                        context.pushNamed(
+                                            PremiumPaywallPageWidget.routeName);
+                                      },
+                                    ),
+                                  if (functions.isSetLoading(
+                                      FFAppState()
+                                          .workoutAnalysisState
+                                          .toList(),
+                                      widget.exerciseId!,
+                                      widget.setNumber!))
+                                    wrapWithModel(
+                                      model: _model.analysisLottieModel,
+                                      updateCallback: () => safeSetState(() {}),
+                                      child: AnalysisLottieWidget(),
+                                    ),
+                                  if (functions.shouldShowCameraButton(
+                                      FFAppState()
+                                          .workoutAnalysisState
+                                          .toList(),
+                                      widget.exerciseId!,
+                                      widget.setNumber!,
+                                      FFAppState().analysisCount,
+                                      FFAppState().isPremium,
+                                      FFAppState().loggedSets.toList()))
+                                    Builder(
+                                      builder: (context) => Container(
+                                        width: 35.0,
+                                        height: 35.0,
+                                        child: custom_widgets.AiFormButton(
+                                          width: 35.0,
+                                          height: 35.0,
+                                          size: 35.0,
+                                          iconSize: 18.0,
+                                          borderWidth: 2.5,
+                                          enabled: true,
+                                          animate: false,
+                                          onTap: () async {
+                                            await showDialog(
+                                              context: context,
+                                              builder: (dialogContext) {
+                                                return Dialog(
+                                                  elevation: 0,
+                                                  insetPadding: EdgeInsets.zero,
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  alignment:
+                                                      AlignmentDirectional(
+                                                              0.0, 0.0)
+                                                          .resolve(
+                                                              Directionality.of(
+                                                                  context)),
+                                                  child: CameraAnalyzerWidget(
+                                                    exerciseId:
+                                                        widget.exerciseId!,
+                                                    exerciseName:
+                                                        widget.exerciseName!,
+                                                    analyze: (video,
+                                                        exerciseName,
+                                                        exerciseId) async {
+                                                      _model.videoUrl = video;
+                                                      safeSetState(() {});
+                                                    },
+                                                  ),
+                                                );
+                                              },
+                                            );
+
+                                            if (_model.videoUrl != null &&
+                                                (_model.videoUrl?.bytes
+                                                        ?.isNotEmpty ??
+                                                    false)) {
+                                              _model.prosesssCopy =
+                                                  await actions
+                                                      .setExerciseLoadingState(
+                                                FFAppState()
+                                                    .workoutAnalysisState
+                                                    .toList(),
+                                                widget.exerciseId!,
+                                                widget.setNumber!,
+                                                true,
+                                              );
+                                              FFAppState()
+                                                      .workoutAnalysisState =
+                                                  _model.prosesssCopy!
+                                                      .toList()
+                                                      .cast<dynamic>();
+                                              safeSetState(() {});
+                                              _model.result3Copy = await actions
+                                                  .analyzeExerciseVideoAction(
+                                                _model.videoUrl!,
+                                                widget.exerciseName!,
+                                                10.0,
+                                              );
+                                              if (functions.isAnalysisValid(
+                                                  _model.result3Copy!)) {
+                                                _model.resCopy = await actions
+                                                    .updateSetAnalysisResult(
                                                   FFAppState()
                                                       .workoutAnalysisState
                                                       .toList(),
                                                   widget.exerciseId!,
                                                   widget.setNumber!,
-                                                  true,
+                                                  _model.result3Copy!,
+                                                );
+                                                await actions.logAnalysisUsage(
+                                                  _model.result3Copy!,
+                                                );
+                                                unawaited(
+                                                  () async {
+                                                    await actions
+                                                        .sendAnalysisFinishedNotification(
+                                                      widget.exerciseName,
+                                                      false,
+                                                    );
+                                                  }(),
                                                 );
                                                 FFAppState()
                                                         .workoutAnalysisState =
-                                                    _model.prosess2!
+                                                    _model.resCopy!
+                                                        .toList()
+                                                        .cast<dynamic>();
+                                                FFAppState().analysisCount =
+                                                    FFAppState().analysisCount +
+                                                        1;
+                                                safeSetState(() {});
+                                                if (FFAppState().sound) {
+                                                  _model.soundPlayer2 ??=
+                                                      AudioPlayer();
+                                                  if (_model
+                                                      .soundPlayer2!.playing) {
+                                                    await _model.soundPlayer2!
+                                                        .stop();
+                                                  }
+                                                  _model.soundPlayer2!
+                                                      .setVolume(0.72);
+                                                  _model.soundPlayer2!
+                                                      .setAsset(
+                                                          'assets/audios/sample_pop_notification02_kofi_by_miraclei-360096.mp3')
+                                                      .then((_) => _model
+                                                          .soundPlayer2!
+                                                          .play());
+                                                }
+                                                await showDialog(
+                                                  context: context,
+                                                  builder: (dialogContext) {
+                                                    return Dialog(
+                                                      elevation: 0,
+                                                      insetPadding:
+                                                          EdgeInsets.zero,
+                                                      backgroundColor:
+                                                          Colors.transparent,
+                                                      alignment:
+                                                          AlignmentDirectional(
+                                                                  0.0, 0.0)
+                                                              .resolve(
+                                                                  Directionality.of(
+                                                                      context)),
+                                                      child: Analyze2AppWidget(
+                                                        exercise: widget
+                                                            .exerciseName!,
+                                                        exerciseId:
+                                                            widget.exerciseId!,
+                                                        setNumber:
+                                                            widget.setNumber!,
+                                                        videoReady:
+                                                            (url) async {},
+                                                      ),
+                                                    );
+                                                  },
+                                                );
+                                              } else {
+                                                _model.errorCopy = await actions
+                                                    .updateSetAnalysisError(
+                                                  FFAppState()
+                                                      .workoutAnalysisState
+                                                      .toList(),
+                                                  widget.exerciseId!,
+                                                  widget.setNumber!,
+                                                );
+                                                FFAppState()
+                                                        .workoutAnalysisState =
+                                                    _model.errorCopy!
                                                         .toList()
                                                         .cast<dynamic>();
                                                 safeSetState(() {});
-                                                _model.result = await actions
-                                                    .analyzeExerciseVideoAction(
-                                                  _model.videoUrl!,
-                                                  widget.exerciseName!,
-                                                  10.0,
-                                                );
-                                                if (functions.isAnalysisValid(
-                                                    _model.result!)) {
-                                                  _model.result2 = await actions
-                                                      .updateSetAnalysisResult(
-                                                    FFAppState()
-                                                        .workoutAnalysisState
-                                                        .toList(),
-                                                    widget.exerciseId!,
-                                                    widget.setNumber!,
-                                                    _model.result!,
-                                                  );
-                                                  unawaited(
-                                                    () async {
-                                                      await actions
-                                                          .sendAnalysisFinishedNotification(
-                                                        widget.exerciseName,
-                                                        false,
-                                                      );
-                                                    }(),
-                                                  );
-                                                  FFAppState()
-                                                          .workoutAnalysisState =
-                                                      _model.result2!
-                                                          .toList()
-                                                          .cast<dynamic>();
-                                                  FFAppState().analysisCount =
-                                                      FFAppState()
-                                                              .analysisCount +
-                                                          1;
-                                                  safeSetState(() {});
-                                                  if (FFAppState().sound) {
-                                                    _model.soundPlayer1 ??=
-                                                        AudioPlayer();
-                                                    if (_model.soundPlayer1!
-                                                        .playing) {
-                                                      await _model.soundPlayer1!
-                                                          .stop();
-                                                    }
-                                                    _model.soundPlayer1!
-                                                        .setVolume(0.72);
-                                                    _model.soundPlayer1!
-                                                        .setAsset(
-                                                            'assets/audios/sample_pop_notification02_kofi_by_miraclei-360096.mp3')
-                                                        .then((_) => _model
-                                                            .soundPlayer1!
-                                                            .play());
-                                                  }
-                                                  await showDialog(
-                                                    context: context,
-                                                    builder: (dialogContext) {
-                                                      return Dialog(
-                                                        elevation: 0,
-                                                        insetPadding:
-                                                            EdgeInsets.zero,
-                                                        backgroundColor:
-                                                            Colors.transparent,
-                                                        alignment:
-                                                            AlignmentDirectional(
-                                                                    0.0, 0.0)
-                                                                .resolve(
-                                                                    Directionality.of(
-                                                                        context)),
-                                                        child:
-                                                            Analyze2AppWidget(
-                                                          exercise: widget
-                                                              .exerciseName!,
-                                                          exerciseId: widget
-                                                              .exerciseId!,
-                                                          setNumber: widget
-                                                              .setNumber!,
-                                                          videoReady:
-                                                              (url) async {},
-                                                        ),
-                                                      );
-                                                    },
-                                                  );
-                                                } else {
-                                                  _model.error2 = await actions
-                                                      .updateSetAnalysisError(
-                                                    FFAppState()
-                                                        .workoutAnalysisState
-                                                        .toList(),
-                                                    widget.exerciseId!,
-                                                    widget.setNumber!,
-                                                  );
-                                                  FFAppState()
-                                                          .workoutAnalysisState =
-                                                      _model.error2!
-                                                          .toList()
-                                                          .cast<dynamic>();
-                                                  safeSetState(() {});
-                                                }
-                                              },
-                                            ),
-                                          );
-                                        },
-                                      );
+                                              }
+                                            }
 
-                                      safeSetState(() {});
-                                    },
-                                  ),
-                                ),
-                              if (functions.shouldShowLockButton(
-                                  FFAppState().workoutAnalysisState.toList(),
-                                  widget.exerciseId!,
-                                  widget.setNumber!,
-                                  FFAppState().isPremium,
-                                  FFAppState().analysisCount))
-                                FlutterFlowIconButton(
-                                  borderColor:
-                                      FlutterFlowTheme.of(context).primary,
-                                  borderRadius: 40.0,
-                                  borderWidth: 2.5,
-                                  buttonSize: 35.0,
-                                  icon: FaIcon(
-                                    FaIconData(const IconData(/* lock */ 0xf023,
-                                        fontFamily: 'FontAwesomeSolid',
-                                        fontPackage: 'font_awesome_flutter')),
-                                    color: FlutterFlowTheme.of(context).primary,
-                                    size: 18.0,
-                                  ),
-                                  onPressed: () async {
-                                    context.pushNamed(
-                                        PremiumPaywallPageWidget.routeName);
-                                  },
-                                ),
-                              if (functions.isSetLoading(
-                                  FFAppState().workoutAnalysisState.toList(),
-                                  widget.exerciseId!,
-                                  widget.setNumber!))
-                                wrapWithModel(
-                                  model: _model.analysisLottieModel,
-                                  updateCallback: () => safeSetState(() {}),
-                                  child: AnalysisLottieWidget(),
-                                ),
-                              if (functions.shouldShowCameraButton(
-                                  FFAppState().workoutAnalysisState.toList(),
-                                  widget.exerciseId!,
-                                  widget.setNumber!,
-                                  FFAppState().analysisCount,
-                                  FFAppState().isPremium,
-                                  FFAppState().loggedSets.toList()))
-                                Builder(
-                                  builder: (context) => Container(
-                                    width: 35.0,
-                                    height: 35.0,
-                                    child: custom_widgets.AiFormButton(
-                                      width: 35.0,
-                                      height: 35.0,
-                                      size: 35.0,
-                                      iconSize: 18.0,
-                                      borderWidth: 2.5,
-                                      enabled: true,
-                                      animate: false,
-                                      onTap: () async {
-                                        await showDialog(
-                                          context: context,
-                                          builder: (dialogContext) {
-                                            return Dialog(
-                                              elevation: 0,
-                                              insetPadding: EdgeInsets.zero,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              alignment:
-                                                  AlignmentDirectional(0.0, 0.0)
-                                                      .resolve(
-                                                          Directionality.of(
-                                                              context)),
-                                              child: CameraAnalyzerWidget(
-                                                exerciseId: widget.exerciseId!,
-                                                exerciseName:
-                                                    widget.exerciseName!,
-                                                analyze: (video, exerciseName,
-                                                    exerciseId) async {
-                                                  _model.videoUrl = video;
-                                                  safeSetState(() {});
-                                                },
-                                              ),
-                                            );
+                                            safeSetState(() {});
                                           },
-                                        );
-
-                                        if (_model.videoUrl != null &&
-                                            (_model.videoUrl?.bytes
-                                                    ?.isNotEmpty ??
-                                                false)) {
-                                          _model.prosesssCopy = await actions
-                                              .setExerciseLoadingState(
-                                            FFAppState()
-                                                .workoutAnalysisState
-                                                .toList(),
-                                            widget.exerciseId!,
-                                            widget.setNumber!,
-                                            true,
-                                          );
-                                          FFAppState().workoutAnalysisState =
-                                              _model.prosesssCopy!
-                                                  .toList()
-                                                  .cast<dynamic>();
-                                          safeSetState(() {});
-                                          _model.result3Copy = await actions
-                                              .analyzeExerciseVideoAction(
-                                            _model.videoUrl!,
-                                            widget.exerciseName!,
-                                            10.0,
-                                          );
-                                          if (functions.isAnalysisValid(
-                                              _model.result3Copy!)) {
-                                            _model.resCopy = await actions
-                                                .updateSetAnalysisResult(
+                                        ),
+                                      ),
+                                    ),
+                                  if (functions.isSetAnalysisDone(
+                                      FFAppState()
+                                          .workoutAnalysisState
+                                          .toList(),
+                                      widget.exerciseId!,
+                                      widget.setNumber!))
+                                    Builder(
+                                      builder: (context) => Container(
+                                        width: 35.0,
+                                        height: 35.0,
+                                        child: custom_widgets.AiScoreRing(
+                                          width: 35.0,
+                                          height: 35.0,
+                                          score: functions.getSetAnalysisField(
                                               FFAppState()
                                                   .workoutAnalysisState
                                                   .toList(),
                                               widget.exerciseId!,
                                               widget.setNumber!,
-                                              _model.result3Copy!,
-                                            );
-                                            await actions.logAnalysisUsage(
-                                              _model.result3Copy!,
-                                            );
-                                            unawaited(
-                                              () async {
-                                                await actions
-                                                    .sendAnalysisFinishedNotification(
-                                                  widget.exerciseName,
-                                                  false,
-                                                );
-                                              }(),
-                                            );
-                                            FFAppState().workoutAnalysisState =
-                                                _model.resCopy!
-                                                    .toList()
-                                                    .cast<dynamic>();
-                                            FFAppState().analysisCount =
-                                                FFAppState().analysisCount + 1;
-                                            safeSetState(() {});
-                                            if (FFAppState().sound) {
-                                              _model.soundPlayer2 ??=
-                                                  AudioPlayer();
-                                              if (_model
-                                                  .soundPlayer2!.playing) {
-                                                await _model.soundPlayer2!
-                                                    .stop();
-                                              }
-                                              _model.soundPlayer2!
-                                                  .setVolume(0.72);
-                                              _model.soundPlayer2!
-                                                  .setAsset(
-                                                      'assets/audios/sample_pop_notification02_kofi_by_miraclei-360096.mp3')
-                                                  .then((_) => _model
-                                                      .soundPlayer2!
-                                                      .play());
-                                            }
+                                              'technique_score'),
+                                          size: 35.0,
+                                          isDark:
+                                              Theme.of(context).brightness ==
+                                                  Brightness.dark,
+                                          onTap: () async {
                                             await showDialog(
                                               context: context,
                                               builder: (dialogContext) {
@@ -950,101 +1059,37 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                                         widget.exerciseId!,
                                                     setNumber:
                                                         widget.setNumber!,
-                                                    videoReady: (url) async {},
+                                                    videoUrl: _model.videoUrl,
+                                                    videoReady: (url) async {
+                                                      _model.vidCopy = await actions
+                                                          .updateSetAnalyzedVideo(
+                                                        FFAppState()
+                                                            .workoutAnalysisState
+                                                            .toList(),
+                                                        widget.exerciseId!,
+                                                        widget.setNumber!,
+                                                        'gggh',
+                                                      );
+                                                      FFAppState()
+                                                              .workoutAnalysisState =
+                                                          _model.vidCopy!
+                                                              .toList()
+                                                              .cast<dynamic>();
+                                                      safeSetState(() {});
+                                                    },
                                                   ),
                                                 );
                                               },
                                             );
-                                          } else {
-                                            _model.errorCopy = await actions
-                                                .updateSetAnalysisError(
-                                              FFAppState()
-                                                  .workoutAnalysisState
-                                                  .toList(),
-                                              widget.exerciseId!,
-                                              widget.setNumber!,
-                                            );
-                                            FFAppState().workoutAnalysisState =
-                                                _model.errorCopy!
-                                                    .toList()
-                                                    .cast<dynamic>();
+
                                             safeSetState(() {});
-                                          }
-                                        }
-
-                                        safeSetState(() {});
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              if (functions.isSetAnalysisDone(
-                                  FFAppState().workoutAnalysisState.toList(),
-                                  widget.exerciseId!,
-                                  widget.setNumber!))
-                                Builder(
-                                  builder: (context) => Container(
-                                    width: 35.0,
-                                    height: 35.0,
-                                    child: custom_widgets.AiScoreRing(
-                                      width: 35.0,
-                                      height: 35.0,
-                                      score: functions.getSetAnalysisField(
-                                          FFAppState()
-                                              .workoutAnalysisState
-                                              .toList(),
-                                          widget.exerciseId!,
-                                          widget.setNumber!,
-                                          'technique_score'),
-                                      size: 35.0,
-                                      isDark: Theme.of(context).brightness ==
-                                          Brightness.dark,
-                                      onTap: () async {
-                                        await showDialog(
-                                          context: context,
-                                          builder: (dialogContext) {
-                                            return Dialog(
-                                              elevation: 0,
-                                              insetPadding: EdgeInsets.zero,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              alignment:
-                                                  AlignmentDirectional(0.0, 0.0)
-                                                      .resolve(
-                                                          Directionality.of(
-                                                              context)),
-                                              child: Analyze2AppWidget(
-                                                exercise: widget.exerciseName!,
-                                                exerciseId: widget.exerciseId!,
-                                                setNumber: widget.setNumber!,
-                                                videoUrl: _model.videoUrl,
-                                                videoReady: (url) async {
-                                                  _model.vidCopy = await actions
-                                                      .updateSetAnalyzedVideo(
-                                                    FFAppState()
-                                                        .workoutAnalysisState
-                                                        .toList(),
-                                                    widget.exerciseId!,
-                                                    widget.setNumber!,
-                                                    'gggh',
-                                                  );
-                                                  FFAppState()
-                                                          .workoutAnalysisState =
-                                                      _model.vidCopy!
-                                                          .toList()
-                                                          .cast<dynamic>();
-                                                  safeSetState(() {});
-                                                },
-                                              ),
-                                            );
                                           },
-                                        );
-
-                                        safeSetState(() {});
-                                      },
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                            ],
+                                ],
+                              ),
+                            ),
                           ),
                         if (!functions.isSetDoneOffline(
                                 FFAppState().loggedSets.toList(),

@@ -1,5 +1,4 @@
 import '/auth/supabase_auth/auth_util.dart';
-import '/backend/sqlite/sqlite_manager.dart';
 import '/components/eqypment_shit_widget.dart';
 import '/components/exercyse_type_bottom_widget.dart';
 import '/components/muscle_group_dropdown_widget.dart';
@@ -130,60 +129,24 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                   safeSetState(() {});
                   if (functions.canSaveUserExercise(_model.textController.text,
                       _model.primaryMuscle!, _model.type)!) {
-                    _model.idCopy = await actions.generateUniqueExerciseId();
-                    await SQLiteManager.instance.createUserExercise(
-                      id: _model.idCopy!,
-                      userId: currentUserUid,
-                      name: _model.textController.text,
-                      equipment: 'Dumbbell',
-                      isBodyweight: _model.isBodyweight,
-                      isTimed: _model.isTimed,
-                      allowsBodyweight: _model.allowBodyweight,
-                      illustration: _model.tempPhoto?.originalFilename,
-                    );
-                    _model.id2Copy = await actions.generateUniqueExerciseId();
-                    await SQLiteManager.instance.userExerciseMuscleGroup(
-                      id: _model.id2Copy!,
-                      muscleGroupId: getJsonField(
+                    await actions.createUserExercise(
+                      currentUserUid,
+                      _model.textController.text,
+                      _model.equipment,
+                      _model.isBodyweight,
+                      _model.allowBodyweight,
+                      _model.isTimed,
+                      _model.tempPhoto?.originalFilename,
+                      getJsonField(
                         _model.primaryMuscle,
                         r'''$["id"]''',
                       ),
-                      exerciseId: _model.idCopy!,
-                      isPrimary: 1,
+                      _model.secondaryMuscels.toList(),
                     );
-                    for (int loop1Index = 0;
-                        loop1Index <
-                            _model.secondaryMuscels
-                                .map((e) => e)
-                                .toList()
-                                .length;
-                        loop1Index++) {
-                      final currentLoop1Item = _model.secondaryMuscels
-                          .map((e) => e)
-                          .toList()[loop1Index];
-                      _model.id3 = await actions.generateUniqueExerciseId();
-                      await SQLiteManager.instance.userExerciseMuscleGroup(
-                        id: _model.id3!,
-                        muscleGroupId: getJsonField(
-                          currentLoop1Item,
-                          r'''$["id"]''',
-                        ),
-                        exerciseId: _model.idCopy!,
-                        isPrimary: 0,
-                      );
-                    }
 
-                    context.goNamed(
+                    context.pushNamed(
                       AddExercisesV3Widget.routeName,
                       queryParameters: {
-                        'adduserEx': serializeParam(
-                          functions.addExerciseToSelected(
-                              widget.alreadySelected?.toList(),
-                              _model.idCopy!,
-                              _model.textController.text),
-                          ParamType.JSON,
-                          isList: true,
-                        ),
                         'addUserEx': serializeParam(
                           true,
                           ParamType.bool,
@@ -202,8 +165,6 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                   } else {
                     safeSetState(() {});
                   }
-
-                  safeSetState(() {});
                 },
                 text: FFLocalizations.of(context).getText(
                   '72373tu5' /* Create */,
@@ -1031,10 +992,10 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                                         safeSetState(() =>
                                             _model.switchValue = newValue);
                                         if (newValue) {
-                                          _model.allowBodyweight = 1;
+                                          _model.allowBodyweight = true;
                                           safeSetState(() {});
                                         } else {
-                                          _model.allowBodyweight = 0;
+                                          _model.allowBodyweight = false;
                                           safeSetState(() {});
                                         }
                                       },

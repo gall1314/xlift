@@ -15,9 +15,10 @@ import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'xlift_log_add.dart';
 
-/// Syncs ALL pending offline queues to Supabase in FK-safe order: templates:
-/// workout -> workout_exercise -> exercise_sets history:   workout_log ->
-/// set_log -> set_analysis quota:     analysis_usage (independent)
+/// Syncs ALL pending offline queues to Supabase in FK-safe order: custom
+/// exercises: exercise -> exercise_muscle_group templates:        workout ->
+/// workout_exercise -> exercise_sets history:          workout_log -> set_log
+/// -> set_analysis quota:            analysis_usage (independent)
 ///
 /// BATCHED: each queue is upserted in chunks of [batchSize] rows (one request
 /// per chunk).
@@ -25,25 +26,23 @@ import 'xlift_log_add.dart';
 /// If a chunk is rejected, its rows are retried one by one so the offending
 /// row is identified and the good ones still land.
 ///
-/// Cloud columns match SQLite 1:1 (exercise_sets.set_number / workout_id
-/// exist in the cloud) - rows are sent as queued, no translation.
+/// Cloud columns match SQLite 1:1 - rows are sent as queued, no translation.
 ///
 /// Hive entries are deleted ONLY after Supabase accepted the row (key-based,
-/// no index-shift bugs). Every call has a hard timeout - NEVER hangs, NEVER
-/// throws.
+/// no index-shift bugs) - OR when the row can never land ("drop"). Every call
+/// has a hard timeout - NEVER hangs, NEVER throws.
 ///
-/// Per-row rules: - RLS mismatch (row user_id != signed-in user) -> stop
-/// queue, report. - workout_exercise 23503 on exercise_id (custom exercise
-/// not in the cloud) -> SKIP that row (kept in Hive), continue with the rest.
+/// Per-row rules: - RLS mismatch (row user_id / created_by_user_id !=
+/// signed-in user) -> stop queue, report. - workout_exercise 23503 on
+/// exercise_id (exercise not in the cloud) -> DROP that row, remember its id,
+/// continue. - exercise_sets 23503 on workout_exercise_id (orphan) -> DROP,
+/// continue. Sets whose parent was dropped in this run are dropped up-front.
 /// - workout_log 23503 on workout_id (template missing) -> re-send with
-/// workout_id = null (safety net; needs nullable column). - anything else ->
-/// stop that queue, retry next sync.
+/// workout_id = null. - anything else -> stop that queue, retry next sync.
 ///
-/// Auth guard: no signed-in user -> one refreshSession attempt, else all
-/// queues are left untouched and `not signed in` is reported.
-///
-/// Returns JSON: { success, workouts, workoutExercises, exerciseSets,
-/// workoutLogs, setLogs, analyses, usage, errors, pending, debug_string }
+/// Returns JSON: { success, exercises, exerciseMuscleGroups, workouts,
+/// workoutExercises, exerciseSets, workoutLogs, setLogs, analyses, usage,
+/// errors, pending, debug_string }
 Future<dynamic> syncAllPending() async {
   final sw = Stopwatch()..start();
   const Duration callTimeout = Duration(seconds: 20);
@@ -55,8 +54,12 @@ Future<dynamic> syncAllPending() async {
   final Map<String, int> syncedByTable = {};
   final List<String> dbgLines = [];
 
+  final Set<String> skippedWorkoutExerciseIds = {};
+
   // FK-safe order: parents before children.
   const List<List<String>> queues = [
+    ['pendingExercises', 'exercise'],
+    ['pendingExerciseMuscleGroups', 'exercise_muscle_group'],
     ['pendingWorkouts', 'workout'],
     ['pendingWorkoutExercises', 'workout_exercise'],
     ['pendingExerciseSets', 'exercise_sets'],
@@ -91,6 +94,8 @@ Future<dynamic> syncAllPending() async {
     }
     return {
       'success': false,
+      'exercises': 0,
+      'exerciseMuscleGroups': 0,
       'workouts': 0,
       'workoutExercises': 0,
       'exerciseSets': 0,
@@ -112,8 +117,7 @@ Future<dynamic> syncAllPending() async {
     });
   }
 
-  /// Sends ONE row with the per-table fallbacks.
-  /// Returns: 'ok' | 'skip' (row kept, continue) | throws (stop queue).
+  /// Returns: 'ok' | 'drop' (remove from Hive, continue) | throws (stop).
   Future<String> sendOne(String table, Map<String, dynamic> row) async {
     try {
       await upsertRows(table, [row]);
@@ -122,9 +126,17 @@ Future<dynamic> syncAllPending() async {
       final String es = e.toString();
       final bool fk = es.contains('23503');
       if (fk && table == 'workout_exercise' && es.contains('exercise_id')) {
+        skippedWorkoutExerciseIds.add('${row['id']}');
         xliftLogAdd('[syncAll] workout_exercise ${row['id']}: exercise '
-            '${row['exercise_id']} not in cloud (custom) - skipped');
-        return 'skip';
+            '${row['exercise_id']} not in cloud - dropped');
+        return 'drop';
+      }
+      if (fk &&
+          table == 'exercise_sets' &&
+          es.contains('workout_exercise_id')) {
+        xliftLogAdd('[syncAll] exercise_sets ${row['id']}: parent '
+            '${row['workout_exercise_id']} not in cloud (orphan) - dropped');
+        return 'drop';
       }
       if (fk &&
           table == 'workout_log' &&
@@ -140,7 +152,6 @@ Future<dynamic> syncAllPending() async {
     }
   }
 
-  // Per-box sync: batch upsert, per-row fallback, key-based Hive delete.
   Future<int> syncBox(String boxName, String table) async {
     int synced = 0;
     int skipped = 0;
@@ -156,7 +167,6 @@ Future<dynamic> syncAllPending() async {
         return 0;
       }
 
-      // Snapshot (key, row) - safe to delete while iterating.
       final List<MapEntry<dynamic, Map<String, dynamic>>> items = [];
       for (final key in box.keys.toList()) {
         final raw = box.get(key);
@@ -166,11 +176,34 @@ Future<dynamic> syncAllPending() async {
       }
       xliftLogAdd('[syncAll] $boxName: ${items.length} pending');
 
-      // RLS guard: every row with a user_id must belong to this user.
+      // Orphan pre-filter: sets whose parent was dropped in this run.
+      if (table == 'exercise_sets' && skippedWorkoutExerciseIds.isNotEmpty) {
+        final orphans = items
+            .where((it) => skippedWorkoutExerciseIds
+                .contains('${it.value['workout_exercise_id']}'))
+            .toList();
+        for (final it in orphans) {
+          await box.delete(it.key);
+          items.remove(it);
+          skipped++;
+        }
+        if (orphans.isNotEmpty) {
+          xliftLogAdd('[syncAll] exercise_sets: ${orphans.length} orphan '
+              'rows dropped');
+        }
+        if (items.isEmpty) {
+          pendingAfter[table] = box.length;
+          dbgLines.add('$table: sent 0 ($skipped skipped), left ${box.length}');
+          return 0;
+        }
+      }
+
+      // RLS guard: every owned row must belong to this user.
       for (final it in items) {
-        final rowUid = it.value['user_id']?.toString();
+        final rowUid =
+            (it.value['user_id'] ?? it.value['created_by_user_id'])?.toString();
         if (rowUid != null && rowUid.isNotEmpty && rowUid != userId) {
-          failMsg = 'row user_id=$rowUid != signed-in $userId';
+          failMsg = 'row owner=$rowUid != signed-in $userId';
           failKeys = it.value.keys.join(',');
           xliftLogAdd('[syncAll] $table $failMsg');
           errors.add('$table: $failMsg');
@@ -185,7 +218,6 @@ Future<dynamic> syncAllPending() async {
         final chunk =
             items.sublist(start, (start + batchSize).clamp(0, items.length));
 
-        // 1) Try the whole chunk in one request.
         bool chunkOk = false;
         try {
           await upsertRows(table, chunk.map((e) => e.value).toList());
@@ -202,12 +234,11 @@ Future<dynamic> syncAllPending() async {
           continue;
         }
 
-        // 2) Per-row fallback to isolate the bad row(s).
         for (final it in chunk) {
           try {
             final r = await sendOne(table, it.value);
+            await box.delete(it.key); // 'ok' landed, 'drop' can never land
             if (r == 'ok') {
-              await box.delete(it.key);
               synced++;
             } else {
               skipped++;
@@ -253,6 +284,8 @@ Future<dynamic> syncAllPending() async {
 
   return {
     'success': errors.isEmpty,
+    'exercises': syncedByTable['exercise'] ?? 0,
+    'exerciseMuscleGroups': syncedByTable['exercise_muscle_group'] ?? 0,
     'workouts': syncedByTable['workout'] ?? 0,
     'workoutExercises': syncedByTable['workout_exercise'] ?? 0,
     'exerciseSets': syncedByTable['exercise_sets'] ?? 0,

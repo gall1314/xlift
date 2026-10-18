@@ -44,13 +44,11 @@ class AddExercisesV3Widget extends StatefulWidget {
     super.key,
     this.alreadySelceted,
     this.workoutName,
-    this.adduserEx,
     required this.addUserEx,
   });
 
   final List<dynamic>? alreadySelceted;
   final String? workoutName;
-  final List<dynamic>? adduserEx;
   final bool? addUserEx;
 
   static String routeName = 'addExercisesV3';
@@ -73,7 +71,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       if (widget.addUserEx!) {
-        _model.selected = widget.adduserEx!.toList().cast<dynamic>();
+        _model.selected = widget.alreadySelceted!.toList().cast<dynamic>();
         safeSetState(() {});
       } else {
         _model.selected = widget.alreadySelceted!.toList().cast<dynamic>();

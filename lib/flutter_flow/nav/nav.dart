@@ -199,11 +199,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               'workoutName',
               ParamType.String,
             ),
-            adduserEx: params.getParam<dynamic>(
-              'adduserEx',
-              ParamType.JSON,
-              isList: true,
-            ),
             addUserEx: params.getParam(
               'addUserEx',
               ParamType.bool,

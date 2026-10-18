@@ -1,5 +1,4 @@
 import '/auth/supabase_auth/auth_util.dart';
-import '/backend/sqlite/sqlite_manager.dart';
 import '/components/eqypment_shit_widget.dart';
 import '/components/exercyse_type_bottom_widget.dart';
 import '/components/muscle_group_dropdown_widget.dart';
@@ -131,48 +130,20 @@ class _CreateUserExerciseMidSessionWidgetState
                   safeSetState(() {});
                   if (functions.canSaveUserExercise(_model.textController.text,
                       _model.primaryMuscle!, _model.type)!) {
-                    _model.idCopy = await actions.generateUniqueExerciseId();
-                    await SQLiteManager.instance.createUserExercise(
-                      id: _model.idCopy!,
-                      userId: currentUserUid,
-                      name: _model.textController.text,
-                      equipment: 'Dumbbell',
-                      isBodyweight: _model.isBodyweight,
-                      isTimed: _model.isTimed,
-                      allowsBodyweight: _model.allowBodyweight,
-                      illustration: _model.tempImage?.originalFilename,
-                    );
-                    _model.id2Copy = await actions.generateUniqueExerciseId();
-                    await SQLiteManager.instance.userExerciseMuscleGroup(
-                      id: _model.id2Copy!,
-                      muscleGroupId: getJsonField(
+                    _model.id = await actions.createUserExercise(
+                      currentUserUid,
+                      _model.textController.text,
+                      _model.equipment,
+                      _model.isBodyweight,
+                      _model.allowBodyweight == 1 ? true : false,
+                      _model.isTimed,
+                      _model.tempImage?.originalFilename,
+                      getJsonField(
                         _model.primaryMuscle,
                         r'''$["id"]''',
                       ),
-                      exerciseId: _model.idCopy!,
-                      isPrimary: 1,
+                      _model.secondaryMuscels.toList(),
                     );
-                    for (int loop1Index = 0;
-                        loop1Index <
-                            _model.secondaryMuscels
-                                .map((e) => e)
-                                .toList()
-                                .length;
-                        loop1Index++) {
-                      final currentLoop1Item = _model.secondaryMuscels
-                          .map((e) => e)
-                          .toList()[loop1Index];
-                      _model.id3 = await actions.generateUniqueExerciseId();
-                      await SQLiteManager.instance.userExerciseMuscleGroup(
-                        muscleGroupId: getJsonField(
-                          currentLoop1Item,
-                          r'''$["id"]''',
-                        ),
-                        id: _model.id3!,
-                        exerciseId: _model.idCopy!,
-                        isPrimary: 0,
-                      );
-                    }
 
                     context.pushNamed(
                       AddExercisesMidSeissionWidget.routeName,
@@ -193,7 +164,7 @@ class _CreateUserExerciseMidSessionWidgetState
                         'userExlist': serializeParam(
                           functions.addExerciseToSelected(
                               widget.alreadySelected?.toList(),
-                              _model.idCopy!,
+                              _model.id!,
                               _model.textController.text),
                           ParamType.JSON,
                           isList: true,

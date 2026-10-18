@@ -17,10 +17,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Self-managed Library screen content (nav bar / FAB live on the page).
 ///
-/// Three tabs: Workouts (the user's), Templates (catalכog, driven by the
+/// Three tabs: Workouts (the user's), Templates (catalog, driven by the
 /// workout_template table), Exercises (catalog + the user's custom ones).
 /// Runs its own SQLite queries, exposes navigation as callbacks. Fonts and
-/// colors come from FlutterFlowTheme so it mכatches the rest of the app.
+/// colors come from FlutterFlowTheme so it matches the rest of the app.
 ///
 /// Parameters: userId                  - current user id (auth) initialTab -
 /// 0 Workouts, 1 Templates, 2 Exercises canGenerate             - false =
@@ -98,9 +98,10 @@ const _kTabular = [FontFeature.tabularFigures()];
 // Data models
 // ---------------------------------------------------------------------------
 class _Group {
-  const _Group(this.id, this.name);
+  const _Group(this.id, this.name, [this.image = '']);
   final int id;
   final String name;
+  final String image; // optional asset fallback from the table
 }
 
 class _MuscleRef {
@@ -211,10 +212,12 @@ class _LibraryData {
 }
 
 class _PickItem {
-  const _PickItem(this.id, this.label, this.count);
+  const _PickItem(this.id, this.label, this.count, {this.image = ''});
   final int? id;
   final String label;
   final int count;
+  final String image;
+  bool get isAll => id == null;
 }
 
 // ---------------------------------------------------------------------------
@@ -356,11 +359,11 @@ class _LibraryViewState extends State<LibraryView> {
     final uid = widget.userId;
 
     // --- muscle taxonomy ---
-    final pmgRows = await db
-        .rawQuery('SELECT id, name FROM primary_muscle_group ORDER BY id');
-    final mgRows = await db
-        .rawQuery('SELECT id, name, primary_muscle_group_id FROM muscle_group '
-            'ORDER BY name COLLATE NOCASE');
+    final pmgRows = await db.rawQuery(
+        'SELECT id, name, ilustration FROM primary_muscle_group ORDER BY id');
+    final mgRows = await db.rawQuery(
+        'SELECT id, name, image_url, primary_muscle_group_id FROM muscle_group '
+        'ORDER BY name COLLATE NOCASE');
     final emgRows = await db.rawQuery('''
       SELECT emg.exercise_id, emg.muscle_group_id, emg.is_primary,
              mg.name AS mg_name, mg.primary_muscle_group_id AS pmg_id,
@@ -372,13 +375,14 @@ class _LibraryViewState extends State<LibraryView> {
     ''');
 
     final primaryGroups = <_Group>[
-      for (final r in pmgRows) _Group(_int(r['id']), _str(r['name'])),
+      for (final r in pmgRows)
+        _Group(_int(r['id']), _str(r['name']), _str(r['ilustration'])),
     ];
     final subGroups = <int, List<_Group>>{};
     for (final r in mgRows) {
       subGroups
           .putIfAbsent(_int(r['primary_muscle_group_id']), () => [])
-          .add(_Group(_int(r['id']), _str(r['name'])));
+          .add(_Group(_int(r['id']), _str(r['name']), _str(r['image_url'])));
     }
     final exMuscles = <int, List<_MuscleRef>>{};
     for (final r in emgRows) {
@@ -783,10 +787,10 @@ class _LibraryViewState extends State<LibraryView> {
     final items = <_PickItem>[
       _PickItem(null, 'All muscles', _countFor(null, null)),
       for (final g in d.primaryGroups)
-        _PickItem(g.id, g.name, _countFor(g.id, null)),
+        _PickItem(g.id, g.name, _countFor(g.id, null), image: g.image),
     ];
     final picked = await _showPicker(
-        title: 'Muscle group', items: items, selected: _pmgId);
+        title: 'Choose Muscle group', items: items, selected: _pmgId);
     if (picked == null || !mounted) return;
     setState(() {
       _pmgId = picked.id;
@@ -804,14 +808,17 @@ class _LibraryViewState extends State<LibraryView> {
     final subs = d.subGroups[p] ?? const <_Group>[];
     final items = <_PickItem>[
       _PickItem(null, 'All ${pName.toLowerCase()}', _countFor(p, null)),
-      for (final g in subs) _PickItem(g.id, g.name, _countFor(p, g.id)),
+      for (final g in subs)
+        _PickItem(g.id, g.name, _countFor(p, g.id), image: g.image),
     ];
-    final picked =
-        await _showPicker(title: pName, items: items, selected: _mgId);
+    final picked = await _showPicker(
+        title: 'Choose muscle', items: items, selected: _mgId);
     if (picked == null || !mounted) return;
     setState(() => _mgId = picked.id);
   }
 
+  /// Same look as the app's existing muscle sheet: centered title, search,
+  /// illustration per group, "All" with a grid icon, hairline dividers.
   Future<_PickItem?> _showPicker({
     required String title,
     required List<_PickItem> items,
@@ -822,85 +829,152 @@ class _LibraryViewState extends State<LibraryView> {
       backgroundColor: _card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        final maxH = MediaQuery.of(ctx).size.height * 0.72;
-        return SafeArea(
-          top: false,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxH),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: _line,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: _kGutter),
-                  child: Row(
+        final maxH = MediaQuery.of(ctx).size.height * 0.85;
+        String q = '';
+        return StatefulBuilder(
+          builder: (sctx, setSheet) {
+            final visible = q.isEmpty
+                ? items
+                : items
+                    .where(
+                        (it) => it.isAll || it.label.toLowerCase().contains(q))
+                    .toList();
+            return Padding(
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(sctx).viewInsets.bottom),
+              child: SafeArea(
+                top: false,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxH),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(title, style: _display(20, w: FontWeight.w700)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 2),
-                    itemBuilder: (_, i) {
-                      final it = items[i];
-                      final on = it.id == selected;
-                      return GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => Navigator.of(ctx).pop(it),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _line,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Text(
+                        title,
+                        style: _display(26, w: FontWeight.w700),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: _kGutter),
                         child: Container(
                           height: 48,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: on ? _accentTint : Colors.transparent,
-                            borderRadius: BorderRadius.circular(_kRadiusInner),
+                            color: _card,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: _line),
                           ),
                           child: Row(
                             children: [
+                              Icon(Icons.search_rounded,
+                                  size: 20, color: _inkMuted),
+                              const SizedBox(width: 10),
                               Expanded(
-                                child: Text(
-                                  it.label,
-                                  style: _body(15,
-                                      w: on ? FontWeight.w600 : FontWeight.w500,
-                                      color: on ? _accentDeep : _ink),
-                                  overflow: TextOverflow.ellipsis,
+                                child: TextField(
+                                  onChanged: (v) => setSheet(
+                                      () => q = v.trim().toLowerCase()),
+                                  style: _body(15),
+                                  cursorColor: _accent,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  decoration: InputDecoration(
+                                    isCollapsed: true,
+                                    border: InputBorder.none,
+                                    hintText: 'Search muscle',
+                                    hintStyle: _body(15, color: _inkMuted),
+                                  ),
                                 ),
                               ),
-                              Text('${it.count}',
-                                  style: _body(13, color: _inkMuted)),
-                              if (on) ...[
-                                const SizedBox(width: 10),
-                                Icon(Icons.check_rounded,
-                                    size: 18, color: _accentDeep),
-                              ],
                             ],
                           ),
                         ),
-                      );
-                    },
+                      ),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
+                          itemCount: visible.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: _cardSub,
+                            indent: _kGutter,
+                            endIndent: _kGutter,
+                          ),
+                          itemBuilder: (_, i) => _pickRow(
+                              sctx, visible[i], visible[i].id == selected),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _pickRow(BuildContext ctx, _PickItem it, bool on) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(ctx).pop(it),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: _kGutter, vertical: 10),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: it.isAll
+                  ? Icon(Icons.grid_view_rounded, size: 28, color: _ink)
+                  : ExerciseAssetImage(
+                      width: 64,
+                      height: 64,
+                      exerciseName: exerciseImageName(it.label).toString(),
+                      fallbackAsset: it.image.isEmpty
+                          ? null
+                          : (it.image.contains('/')
+                              ? it.image
+                              : 'assets/images/${it.image}'),
+                    ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                it.label,
+                style: _body(
+                  17,
+                  w: on ? FontWeight.w600 : FontWeight.w500,
+                  color: on ? _accentDeep : _ink,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text('${it.count}', style: _body(13, color: _inkFaint)),
+            if (on) ...[
+              const SizedBox(width: 12),
+              Icon(Icons.check_rounded, size: 22, color: _accent),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
