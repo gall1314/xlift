@@ -1,5 +1,4 @@
 import '/components/bottom_sheet_no_free_left_widget.dart';
-import '/components/choose_exercise2_analyze_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/custom_functions.dart' as functions;
@@ -48,21 +47,8 @@ class _AnalysisHomeWidgetState extends State<AnalysisHomeWidget> {
       hoverColor: Colors.transparent,
       highlightColor: Colors.transparent,
       onTap: () async {
-        if (functions.canStartQuickAnalysis(FFAppState().isPremium,
+        if (!functions.canStartQuickAnalysis(FFAppState().isPremium,
             FFAppState().analysisCount, FFAppState().analysisCountMonth)) {
-          await showModalBottomSheet(
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            enableDrag: false,
-            context: context,
-            builder: (context) {
-              return Padding(
-                padding: MediaQuery.viewInsetsOf(context),
-                child: ChooseExercise2AnalyzeWidget(),
-              );
-            },
-          ).then((value) => safeSetState(() {}));
-        } else {
           await showModalBottomSheet(
             isScrollControlled: true,
             backgroundColor: Colors.transparent,

@@ -19,26 +19,35 @@ import 'xlift_log_add.dart';
 /// workout -> workout_exercise -> exercise_sets history:   workout_log ->
 /// set_log -> set_analysis quota:     analysis_usage (independent)
 ///
-/// Deletes each Hive entry ONLY after its row was accepted by Supabase (safe
-/// key-based deletion, no index-shift bugs).
+/// BATCHED: each queue is upserted in chunks of [batchSize] rows (one request
+/// per chunk).
 ///
-/// A failure in one queue stops that queue (retry next time) but lets the
-/// earlier queues' successes stand. Every Supabase call has a hard timeout -
-/// this NEVER hangs and NEVER throws.
+/// If a chunk is rejected, its rows are retried one by one so the offending
+/// row is identified and the good ones still land.
+///
+/// Cloud columns match SQLite 1:1 (exercise_sets.set_number / workout_id
+/// exist in the cloud) - rows are sent as queued, no translation.
+///
+/// Hive entries are deleted ONLY after Supabase accepted the row (key-based,
+/// no index-shift bugs). Every call has a hard timeout - NEVER hangs, NEVER
+/// throws.
+///
+/// Per-row rules: - RLS mismatch (row user_id != signed-in user) -> stop
+/// queue, report. - workout_exercise 23503 on exercise_id (custom exercise
+/// not in the cloud) -> SKIP that row (kept in Hive), continue with the rest.
+/// - workout_log 23503 on workout_id (template missing) -> re-send with
+/// workout_id = null (safety net; needs nullable column). - anything else ->
+/// stop that queue, retry next sync.
 ///
 /// Auth guard: no signed-in user -> one refreshSession attempt, else all
 /// queues are left untouched and `not signed in` is reported.
-///
-/// FK fallback (workout_log only, safety net): if a row is rejected because
-/// its workout_id points to a template that is not in the cloud, it is
-/// re-sent with workout_id = null (requires workout_log.workout_id to be
-/// nullable). Covers logs whose template failed/was never queued.
 ///
 /// Returns JSON: { success, workouts, workoutExercises, exerciseSets,
 /// workoutLogs, setLogs, analyses, usage, errors, pending, debug_string }
 Future<dynamic> syncAllPending() async {
   final sw = Stopwatch()..start();
-  const Duration rowTimeout = Duration(seconds: 15);
+  const Duration callTimeout = Duration(seconds: 20);
+  const int batchSize = 50;
 
   xliftLogAdd('[syncAll] START');
   final errors = <String>[];
@@ -96,18 +105,46 @@ Future<dynamic> syncAllPending() async {
   }
   final String userId = uid;
 
-  Future<void> upsertRow(String table, Map<String, dynamic> row) async {
-    await SupaFlow.client.from(table).upsert(row).timeout(rowTimeout,
+  Future<void> upsertRows(String table, List<Map<String, dynamic>> rows) {
+    return SupaFlow.client.from(table).upsert(rows).timeout(callTimeout,
         onTimeout: () {
-      throw TimeoutException('no response within ${rowTimeout.inSeconds}s');
+      throw TimeoutException('no response within ${callTimeout.inSeconds}s');
     });
   }
 
-  // Generic per-box sync: insert to Supabase, delete from Hive by KEY.
+  /// Sends ONE row with the per-table fallbacks.
+  /// Returns: 'ok' | 'skip' (row kept, continue) | throws (stop queue).
+  Future<String> sendOne(String table, Map<String, dynamic> row) async {
+    try {
+      await upsertRows(table, [row]);
+      return 'ok';
+    } catch (e) {
+      final String es = e.toString();
+      final bool fk = es.contains('23503');
+      if (fk && table == 'workout_exercise' && es.contains('exercise_id')) {
+        xliftLogAdd('[syncAll] workout_exercise ${row['id']}: exercise '
+            '${row['exercise_id']} not in cloud (custom) - skipped');
+        return 'skip';
+      }
+      if (fk &&
+          table == 'workout_log' &&
+          es.contains('workout_id') &&
+          row['workout_id'] != null) {
+        xliftLogAdd('[syncAll] workout_log ${row['id']}: template '
+            '${row['workout_id']} not in cloud, retrying with null');
+        final retry = Map<String, dynamic>.from(row)..['workout_id'] = null;
+        await upsertRows(table, [retry]);
+        return 'ok';
+      }
+      rethrow;
+    }
+  }
+
+  // Per-box sync: batch upsert, per-row fallback, key-based Hive delete.
   Future<int> syncBox(String boxName, String table) async {
     int synced = 0;
+    int skipped = 0;
     int pendingBefore = 0;
-    int fkFallbacks = 0;
     String? failMsg;
     String? failKeys;
     try {
@@ -119,55 +156,71 @@ Future<dynamic> syncAllPending() async {
         return 0;
       }
 
-      // Snapshot of keys - safe to delete while iterating this list.
-      final keys = box.keys.toList();
-      xliftLogAdd('[syncAll] $boxName: ${keys.length} pending');
-
-      for (final key in keys) {
+      // Snapshot (key, row) - safe to delete while iterating.
+      final List<MapEntry<dynamic, Map<String, dynamic>>> items = [];
+      for (final key in box.keys.toList()) {
         final raw = box.get(key);
-        if (raw == null) continue;
+        if (raw is Map) {
+          items.add(MapEntry(key, Map<String, dynamic>.from(raw)));
+        }
+      }
+      xliftLogAdd('[syncAll] $boxName: ${items.length} pending');
 
-        // Hive returns Map<dynamic,dynamic> - Supabase needs String keys.
-        final row = Map<String, dynamic>.from(raw as Map);
-
-        // Rows carrying a user_id must belong to the signed-in user, or
-        // RLS rejects them. Surface that clearly instead of a bare 42501.
-        final rowUid = row['user_id']?.toString();
+      // RLS guard: every row with a user_id must belong to this user.
+      for (final it in items) {
+        final rowUid = it.value['user_id']?.toString();
         if (rowUid != null && rowUid.isNotEmpty && rowUid != userId) {
           failMsg = 'row user_id=$rowUid != signed-in $userId';
-          failKeys = row.keys.join(',');
+          failKeys = it.value.keys.join(',');
           xliftLogAdd('[syncAll] $table $failMsg');
           errors.add('$table: $failMsg');
-          break;
+          pendingAfter[table] = box.length;
+          dbgLines.add('$table: sent 0, left ${box.length} FAIL [$failMsg]');
+          return 0;
+        }
+      }
+
+      bool stop = false;
+      for (int start = 0; start < items.length && !stop; start += batchSize) {
+        final chunk =
+            items.sublist(start, (start + batchSize).clamp(0, items.length));
+
+        // 1) Try the whole chunk in one request.
+        bool chunkOk = false;
+        try {
+          await upsertRows(table, chunk.map((e) => e.value).toList());
+          chunkOk = true;
+        } catch (e) {
+          xliftLogAdd('[syncAll] $table chunk@$start failed, '
+              'falling back to per-row: $e');
+        }
+        if (chunkOk) {
+          for (final it in chunk) {
+            await box.delete(it.key);
+          }
+          synced += chunk.length;
+          continue;
         }
 
-        try {
+        // 2) Per-row fallback to isolate the bad row(s).
+        for (final it in chunk) {
           try {
-            await upsertRow(table, row);
+            final r = await sendOne(table, it.value);
+            if (r == 'ok') {
+              await box.delete(it.key);
+              synced++;
+            } else {
+              skipped++;
+            }
           } catch (e) {
-            // FK fallback: template missing in the cloud -> detach it.
-            final String es = e.toString();
-            final bool templateFk = table == 'workout_log' &&
-                es.contains('23503') &&
-                es.contains('workout_id') &&
-                row['workout_id'] != null;
-            if (!templateFk) rethrow;
-            xliftLogAdd('[syncAll] workout_log ${row['id']}: template '
-                '${row['workout_id']} not in cloud, retrying with null');
-            final retry = Map<String, dynamic>.from(row)..['workout_id'] = null;
-            await upsertRow(table, retry);
-            fkFallbacks++;
+            failMsg = e.toString();
+            failKeys = it.value.keys.join(',');
+            xliftLogAdd('[syncAll] $table row failed: $failMsg '
+                'keys=[$failKeys]');
+            errors.add('$table: $failMsg');
+            stop = true;
+            break;
           }
-          await box.delete(key); // key-based - no index shifting
-          synced++;
-        } catch (e) {
-          failMsg = e.toString();
-          failKeys = row.keys.join(',');
-          xliftLogAdd('[syncAll] $table row failed: $failMsg '
-              'keys=[$failKeys]');
-          errors.add('$table: $failMsg');
-          // Stop this queue - likely offline, FK or schema issue; retry later.
-          break;
         }
       }
       pendingAfter[table] = box.length;
@@ -179,11 +232,11 @@ Future<dynamic> syncAllPending() async {
     }
 
     final int left = pendingAfter[table] ?? pendingBefore;
-    final String fb = fkFallbacks > 0 ? ' ($fkFallbacks detached)' : '';
+    final String sk = skipped > 0 ? ' ($skipped skipped)' : '';
     if (failMsg == null) {
-      dbgLines.add('$table: sent $synced$fb, left $left');
+      dbgLines.add('$table: sent $synced$sk, left $left');
     } else {
-      dbgLines.add('$table: sent $synced$fb, left $left FAIL [$failMsg]'
+      dbgLines.add('$table: sent $synced$sk, left $left FAIL [$failMsg]'
           '${failKeys != null ? ' keys=[$failKeys]' : ''}');
     }
     return synced;

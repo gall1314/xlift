@@ -12,6 +12,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
 
@@ -21,11 +22,21 @@ import 'package:flutter/services.dart';
 /// tab). showFabLock: small lock badge on the FAB (free quota exhausted).
 /// isDark: null = auto from theme.
 ///
+/// FAB flow (v4) — runs entirely inside this widget, no FF callbacks between
+/// the steps:
+///   tap FAB -> AnalyzeExercisePicker (bottom sheet) -> XliftCameraRecorder
+///   (full-screen route) -> analyzing page (runs analyzeExerciseVideoAction)
+///   -> onAnalysisDone(analysisResult).
+/// analysisResult is the analyzer map PLUS `exercise_id`, `exercise_name`
+/// and `is_bodyweight` (0/1 from SQLite exercise.is_bodyweight), so FF needs
+/// only this one callback parameter to navigate to the result page
+/// ($.exercise_id, $.exercise_name, $.is_bodyweight).
+/// When showFabLock is true the FAB only fires onFabTap (paywall) instead.
+///
 /// FAB icon (v3): the app-wide "AI Form" glyph - a video camera with a
-/// sparkle inside (same drawing as AiFormBadge / AiFormButton).
-/// 3s loop: the sparkle twinkles (grows + quarter turn) and two small
-/// sparkles pop briefly next to the camera. On tap the camera body
-/// flashes white (shutter).
+/// sparkle inside (same drawing as AiFormBadge / AiFormButton). 3s loop: the
+/// sparkle twinkles (grows + quarter turn) and two small sparkles pop briefly
+/// next to the camera. On tap the camera body flashes white (shutter).
 class XliftNavBar extends StatefulWidget {
   const XliftNavBar({
     super.key,
@@ -34,11 +45,15 @@ class XliftNavBar extends StatefulWidget {
     required this.currentPage,
     this.showFabLock = false,
     this.isDark,
+    this.userId,
+    this.showCameraGuidance,
     this.onHistoryTap,
     this.onStatsTap,
     this.onHomeTap,
     this.onLibraryTap,
     this.onFabTap,
+    this.onDontShowAgain,
+    this.onAnalysisDone,
   });
 
   final double? width;
@@ -46,11 +61,27 @@ class XliftNavBar extends StatefulWidget {
   final String currentPage;
   final bool showFabLock;
   final bool? isDark;
+
+  /// Needed by the picker (Recent / last scores). Empty = no Recent row.
+  final String? userId;
+
+  /// Show the camera setup tips first. Default true.
+  final bool? showCameraGuidance;
+
   final Future Function()? onHistoryTap;
   final Future Function()? onStatsTap;
   final Future Function()? onHomeTap;
   final Future Function()? onLibraryTap;
+
+  /// Fired ONLY when showFabLock is true (quota exhausted -> paywall).
   final Future Function()? onFabTap;
+
+  /// User tapped "Don't show this again" on the camera tips.
+  final Future Function()? onDontShowAgain;
+
+  /// Analysis finished successfully. analysisResult = analyzer map +
+  /// `exercise_id` (int) + `exercise_name` (String) + `is_bodyweight` (0/1).
+  final Future Function(dynamic analysisResult)? onAnalysisDone;
 
   @override
   State<XliftNavBar> createState() => _XliftNavBarState();
@@ -67,6 +98,7 @@ class _XliftNavBarState extends State<XliftNavBar>
 
   String? _pressed;
   bool _fabPressed = false;
+  bool _flowOpen = false;
 
   @override
   void initState() {
@@ -86,6 +118,68 @@ class _XliftNavBarState extends State<XliftNavBar>
     _loopCtrl.dispose();
     _shutterCtrl.dispose();
     super.dispose();
+  }
+
+  // ===========================================================================
+  // AI analyze flow (picker -> camera -> analyzing -> onAnalysisDone)
+  // ===========================================================================
+
+  NavigatorState get _nav => Navigator.of(context, rootNavigator: true);
+
+  void _onFab() {
+    if (widget.showFabLock) {
+      widget.onFabTap?.call();
+      return;
+    }
+    _openPicker();
+  }
+
+  Future<void> _openPicker() async {
+    if (_flowOpen) return;
+    _flowOpen = true;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        useSafeArea: false,
+        backgroundColor: Colors.transparent,
+        builder: (sheetCtx) => FractionallySizedBox(
+          heightFactor: 0.85,
+          child: AnalyzeExercisePicker(
+            userId: widget.userId ?? '',
+            onPick: (int exerciseId, String exerciseName) async {
+              Navigator.of(sheetCtx).pop();
+              // Let the sheet close before pushing the camera.
+              await Future.delayed(const Duration(milliseconds: 220));
+              await _openCamera(exerciseId, exerciseName);
+            },
+            onClose: () async => Navigator.of(sheetCtx).pop(),
+          ),
+        ),
+      );
+    } finally {
+      _flowOpen = false;
+    }
+  }
+
+  Future<void> _openCamera(int exerciseId, String exerciseName) async {
+    if (!mounted) return;
+    await _nav.push(
+      PageRouteBuilder(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 260),
+        pageBuilder: (ctx, a, b) => _CameraPage(
+          exerciseId: exerciseId,
+          exerciseName: exerciseName,
+          showGuidance: widget.showCameraGuidance ?? true,
+          onDontShowAgain: widget.onDontShowAgain,
+          onAnalysisDone: widget.onAnalysisDone,
+        ),
+        transitionsBuilder: (ctx, anim, sec, child) =>
+            FadeTransition(opacity: anim, child: child),
+      ),
+    );
   }
 
   @override
@@ -155,7 +249,7 @@ class _XliftNavBarState extends State<XliftNavBar>
                 setState(() => _fabPressed = false);
                 HapticFeedback.mediumImpact();
                 _shutterCtrl.forward(from: 0);
-                widget.onFabTap?.call();
+                _onFab();
               },
               child: AnimatedScale(
                 scale: _fabPressed ? 0.90 : 1.0,
@@ -282,6 +376,404 @@ class _XliftNavBarState extends State<XliftNavBar>
       ),
     );
   }
+}
+
+// ===========================================================================
+// Camera page: hosts XliftCameraRecorder full screen. A recorded/picked clip
+// replaces this page with the analyzing page.
+// ===========================================================================
+
+class _CameraPage extends StatelessWidget {
+  const _CameraPage({
+    required this.exerciseId,
+    required this.exerciseName,
+    required this.showGuidance,
+    required this.onDontShowAgain,
+    required this.onAnalysisDone,
+  });
+
+  final int exerciseId;
+  final String exerciseName;
+  final bool showGuidance;
+  final Future Function()? onDontShowAgain;
+  final Future Function(dynamic analysisResult)? onAnalysisDone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: XliftCameraRecorder(
+        width: double.infinity,
+        height: double.infinity,
+        exerciseName: exerciseName,
+        showGuidance: showGuidance,
+        onClose: () async => Navigator.of(context).pop(),
+        onDontShowAgain: onDontShowAgain,
+        onVideoRecorded: (FFUploadedFile videoFile) async {
+          await Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              opaque: true,
+              transitionDuration: const Duration(milliseconds: 260),
+              pageBuilder: (ctx, a, b) => _AnalyzingPage(
+                videoFile: videoFile,
+                exerciseId: exerciseId,
+                exerciseName: exerciseName,
+                onAnalysisDone: onAnalysisDone,
+              ),
+              transitionsBuilder: (ctx, anim, sec, child) =>
+                  FadeTransition(opacity: anim, child: child),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// Analyzing page: runs the dispatcher, shows progress, then pops itself and
+// hands the result to FF via onAnalysisDone.
+// ===========================================================================
+
+class _AnalyzingPage extends StatefulWidget {
+  const _AnalyzingPage({
+    required this.videoFile,
+    required this.exerciseId,
+    required this.exerciseName,
+    required this.onAnalysisDone,
+  });
+
+  final FFUploadedFile videoFile;
+  final int exerciseId;
+  final String exerciseName;
+  final Future Function(dynamic analysisResult)? onAnalysisDone;
+
+  @override
+  State<_AnalyzingPage> createState() => _AnalyzingPageState();
+}
+
+class _AnalyzingPageState extends State<_AnalyzingPage>
+    with SingleTickerProviderStateMixin {
+  static const Color _bg = Color(0xFF0F1A1A);
+  static const Color _teal = Color(0xFF14B8A6);
+
+  static const List<String> _stages = [
+    'Extracting frames…',
+    'Detecting your pose…',
+    'Counting reps…',
+    'Scoring technique…',
+    'Almost there…',
+  ];
+
+  late final AnimationController _spin;
+  Timer? _stageTimer;
+  int _stage = 0;
+  double _fakeProgress = 0.0;
+  String? _error;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+    _startStageTicker();
+    _run();
+  }
+
+  @override
+  void dispose() {
+    _stageTimer?.cancel();
+    _spin.dispose();
+    super.dispose();
+  }
+
+  // Stage label advances every ~6s; bar eases toward 90% over ~40s.
+  void _startStageTicker() {
+    _stageTimer?.cancel();
+    _stage = 0;
+    _fakeProgress = 0.0;
+    int ticks = 0;
+    _stageTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      ticks++;
+      setState(() {
+        _fakeProgress = 0.9 * (1 - math.exp(-ticks / 40.0));
+        if (ticks % 12 == 0 && _stage < _stages.length - 1) _stage++;
+      });
+    });
+  }
+
+  Future<void> _run() async {
+    if (_running) return;
+    _running = true;
+    setState(() => _error = null);
+    _startStageTicker();
+
+    dynamic result;
+    try {
+      result = await analyzeExerciseVideoAction(
+        widget.videoFile,
+        widget.exerciseName,
+        null,
+      );
+    } catch (e) {
+      result = {'error': 'exception', 'detail': e.toString()};
+    }
+    _stageTimer?.cancel();
+    if (!mounted) return;
+
+    final Map<String, dynamic> map = result is Map
+        ? Map<String, dynamic>.from(result)
+        : <String, dynamic>{'error': 'bad_result', 'detail': '$result'};
+
+    if (map['error'] != null) {
+      setState(() {
+        _error = (map['detail'] ?? map['error']).toString();
+        _running = false;
+      });
+      return;
+    }
+
+    // Attach the exercise so FF needs only this one callback parameter:
+    //   $.exercise_id, $.exercise_name, $.is_bodyweight
+    map['exercise_id'] = widget.exerciseId;
+    map['exercise_name'] = widget.exerciseName;
+    int isBodyweight = 0;
+    try {
+      final rows = await SQLiteManager.instance.database.rawQuery(
+        'SELECT is_bodyweight FROM exercise WHERE id = ? LIMIT 1',
+        [widget.exerciseId],
+      );
+      if (rows.isNotEmpty) {
+        final v = rows.first['is_bodyweight'];
+        final int n = v is num ? v.toInt() : (int.tryParse('$v') ?? 0);
+        isBodyweight = n != 0 ? 1 : 0;
+      }
+    } catch (_) {}
+    map['is_bodyweight'] = isBodyweight;
+
+    setState(() => _fakeProgress = 1.0);
+    HapticFeedback.mediumImpact();
+    await Future.delayed(const Duration(milliseconds: 250));
+    if (!mounted) return;
+
+    final nav = Navigator.of(context);
+    nav.pop();
+    _running = false;
+    await widget.onAnalysisDone?.call(map);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double top = MediaQuery.of(context).padding.top;
+    return Scaffold(
+      backgroundColor: _bg,
+      body: Stack(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: _error == null ? _progress() : _failed(),
+            ),
+          ),
+          if (_error != null)
+            Positioned(
+              left: 12,
+              top: top + 8,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _progress() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 104,
+          height: 104,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              RotationTransition(
+                turns: _spin,
+                child: CustomPaint(
+                  size: const Size(104, 104),
+                  painter: _ArcPainter(color: _teal),
+                ),
+              ),
+              const Icon(Icons.auto_awesome_rounded, color: _teal, size: 30),
+            ],
+          ),
+        ),
+        const SizedBox(height: 26),
+        const Text(
+          'Analyzing your set',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: Text(
+            '${widget.exerciseName} · ${_stages[_stage]}',
+            key: ValueKey(_stage),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(height: 22),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: SizedBox(
+            width: 220,
+            height: 6,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: _fakeProgress),
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.easeOut,
+              builder: (_, v, __) => LinearProgressIndicator(
+                value: v,
+                backgroundColor: Colors.white.withOpacity(0.10),
+                valueColor: const AlwaysStoppedAnimation<Color>(_teal),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: Text(
+            'Keep the app open — about 20–40 seconds',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.55),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _failed() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF59E0B).withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.error_outline_rounded,
+              color: Color(0xFFF59E0B), size: 36),
+        ),
+        const SizedBox(height: 22),
+        const Text(
+          "Couldn't analyze this video",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 19,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _error ?? '',
+          textAlign: TextAlign.center,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.6),
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 26),
+        SizedBox(
+          width: 220,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _run,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _teal,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text('Try again',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text('Close',
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.65), fontSize: 14)),
+        ),
+      ],
+    );
+  }
+}
+
+class _ArcPainter extends CustomPainter {
+  _ArcPainter({required this.color});
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(3, 3, size.width - 6, size.height - 6);
+    canvas.drawArc(
+      rect,
+      0,
+      2 * math.pi,
+      false,
+      Paint()
+        ..color = Colors.white.withOpacity(0.10)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5,
+    );
+    canvas.drawArc(
+      rect,
+      -math.pi / 2,
+      math.pi * 0.55,
+      false,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArcPainter old) => old.color != color;
 }
 
 /// App-wide "AI Form" glyph: video camera with a sparkle inside, drawn on

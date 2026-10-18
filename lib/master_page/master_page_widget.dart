@@ -2,7 +2,6 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
 import '/components/analyze2_app_after_widget.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
-import '/components/choose_exercise2_analyze_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
 import '/components/delete_workout_log_widget.dart';
 import '/components/discard_and_start_new_widget.dart';
@@ -4260,6 +4259,8 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                         FFAppState().analysisCount,
                         FFAppState().analysisCountMonth),
                     isDark: Theme.of(context).brightness == Brightness.dark,
+                    userId: currentUserUid,
+                    showCameraGuidance: true,
                     onHistoryTap: () async {
                       _model.pageIndex = 1;
                       safeSetState(() {});
@@ -4277,48 +4278,44 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                       safeSetState(() {});
                     },
                     onFabTap: () async {
-                      if (functions.canStartQuickAnalysis(
-                          FFAppState().isPremium,
-                          FFAppState().analysisCount,
-                          FFAppState().analysisCountMonth)) {
-                        await showModalBottomSheet(
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          enableDrag: false,
-                          context: context,
-                          builder: (context) {
-                            return GestureDetector(
-                              onTap: () {
-                                FocusScope.of(context).unfocus();
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
-                              child: Padding(
-                                padding: MediaQuery.viewInsetsOf(context),
-                                child: ChooseExercise2AnalyzeWidget(),
-                              ),
-                            );
-                          },
-                        ).then((value) => safeSetState(() {}));
-                      } else {
-                        await showModalBottomSheet(
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          enableDrag: false,
-                          context: context,
-                          builder: (context) {
-                            return GestureDetector(
-                              onTap: () {
-                                FocusScope.of(context).unfocus();
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
-                              child: Padding(
-                                padding: MediaQuery.viewInsetsOf(context),
-                                child: BottomSheetNoFreeLeftWidget(),
-                              ),
-                            );
-                          },
-                        ).then((value) => safeSetState(() {}));
-                      }
+                      await showModalBottomSheet(
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        enableDrag: false,
+                        context: context,
+                        builder: (context) {
+                          return GestureDetector(
+                            onTap: () {
+                              FocusScope.of(context).unfocus();
+                              FocusManager.instance.primaryFocus?.unfocus();
+                            },
+                            child: Padding(
+                              padding: MediaQuery.viewInsetsOf(context),
+                              child: BottomSheetNoFreeLeftWidget(),
+                            ),
+                          );
+                        },
+                      ).then((value) => safeSetState(() {}));
+                    },
+                    onDontShowAgain: () async {},
+                    onAnalysisDone: (analysisResult) async {
+                      context.pushNamed(
+                        FullResultPageWidget.routeName,
+                        queryParameters: {
+                          'analysis': serializeParam(
+                            analysisResult,
+                            ParamType.JSON,
+                          ),
+                          'exerciseId': serializeParam(
+                            0,
+                            ParamType.int,
+                          ),
+                          'isBodyweight': serializeParam(
+                            0,
+                            ParamType.int,
+                          ),
+                        }.withoutNulls,
+                      );
                     },
                   ),
                 ),
