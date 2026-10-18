@@ -18,20 +18,20 @@ import 'package:flutter/services.dart';
 
 /// Xlift bottom nav bar with a raised center FAB for AI form analysis.
 ///
-/// currentPage: 'history' | 'stats' | 'home' | 'library' (highlights that
-/// tab). showFabLock: small lock badge on the FAB (free quota exhausted).
-/// isDark: null = auto from theme.
+/// Tab order: Home · History · [FAB] · Stats · Library. currentPage:
+/// 'history' | 'stats' | 'home' | 'library' (highlights that tab).
+/// showFabLock: small lock badge on the FAB (free quota exhausted). isDark:
+/// null = auto from theme.
 ///
 /// FAB flow (v4) — runs entirely inside this widget, no FF callbacks between
-/// the steps:
-///   tap FAB -> AnalyzeExercisePicker (bottom sheet) -> XliftCameraRecorder
-///   (full-screen route) -> analyzing page (runs analyzeExerciseVideoAction)
-///   -> onAnalysisDone(analysisResult).
-/// analysisResult is the analyzer map PLUS `exercise_id`, `exercise_name`
-/// and `is_bodyweight` (0/1 from SQLite exercise.is_bodyweight), so FF needs
-/// only this one callback parameter to navigate to the result page
-/// ($.exercise_id, $.exercise_name, $.is_bodyweight).
-/// When showFabLock is true the FAB only fires onFabTap (paywall) instead.
+/// the steps: tap FAB -> AnalyzeExercisePicker (bottom sheet) ->
+/// XliftCameraRecorder (full-screen route) -> analyzing page (runs
+/// analyzeExerciseVideoAction) -> onAnalysisDone(analysisResult).
+/// analysisResult is the analyzer map PLUS `exercise_id`, `exercise_name` and
+/// `is_bodyweight` (0/1 from SQLite exercise.is_bodyweight), so FF needs only
+/// this one callback parameter to navigate to the result page ($.exercise_id,
+/// $.exercise_name, $.is_bodyweight). When showFabLock is true the FAB only
+/// fires onFabTap (paywall) instead.
 ///
 /// FAB icon (v3): the app-wide "AI Form" glyph - a video camera with a
 /// sparkle inside (same drawing as AiFormBadge / AiFormButton). 3s loop: the
@@ -225,13 +225,13 @@ class _XliftNavBarState extends State<XliftNavBar>
             ),
             child: Row(
               children: [
-                _tab('history', Icons.history_rounded, 'History', active,
-                    inactive, dark, widget.onHistoryTap),
-                _tab('stats', Icons.query_stats_rounded, 'Stats', active,
-                    inactive, dark, widget.onStatsTap),
-                const Expanded(child: SizedBox()), // FAB slot
                 _tab('home', Icons.home_rounded, 'Home', active, inactive, dark,
                     widget.onHomeTap),
+                _tab('history', Icons.history_rounded, 'History', active,
+                    inactive, dark, widget.onHistoryTap),
+                const Expanded(child: SizedBox()), // FAB slot
+                _tab('stats', Icons.query_stats_rounded, 'Stats', active,
+                    inactive, dark, widget.onStatsTap),
                 _tab('library', Icons.menu_book_rounded, 'Library', active,
                     inactive, dark, widget.onLibraryTap),
               ],

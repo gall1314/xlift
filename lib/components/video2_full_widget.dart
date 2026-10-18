@@ -161,14 +161,16 @@ class _Video2FullWidgetState extends State<Video2FullWidget> {
             Container(
               width: 270.0,
               height: 488.0,
-              child: custom_widgets.SquatAnalyzedVideoPlayer(
+              child: custom_widgets.AnalyzedVideoPlayerV2(
                 width: 270.0,
                 height: 488.0,
                 showSkeleton: true,
+                showBarbellBox: false,
                 videoVolume: 8.0,
                 lockFeet: false,
+                autoplay: true,
+                accentColor: FlutterFlowTheme.of(context).primary,
                 analysisResult: widget.analysisResult!,
-                showBarbellBox: true,
               ),
             ),
             FFButtonWidget(

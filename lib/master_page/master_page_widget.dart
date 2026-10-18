@@ -130,188 +130,222 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       if (_model.pageIndex == 4)
-                        Container(
-                          width: MediaQuery.sizeOf(context).width * 1.0,
-                          height: MediaQuery.sizeOf(context).height * 1.0,
-                          child: custom_widgets.LibraryView(
+                        Builder(
+                          builder: (context) => Container(
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             height: MediaQuery.sizeOf(context).height * 1.0,
-                            userId: currentUserUid,
-                            initialTab: 1,
-                            onStartWorkout: (workoutId) async {
-                              context.pushNamed(
-                                WorkoutV2Widget.routeName,
-                                queryParameters: {
-                                  'workoutId': serializeParam(
-                                    workoutId,
-                                    ParamType.String,
-                                  ),
-                                }.withoutNulls,
-                              );
-                            },
-                            onEditWorkout: (workoutId) async {
-                              context.pushNamed(
-                                EditWorkoutV2Widget.routeName,
-                                queryParameters: {
-                                  'shouldInit': serializeParam(
-                                    false,
-                                    ParamType.bool,
-                                  ),
-                                  'workoutId': serializeParam(
-                                    workoutId,
-                                    ParamType.String,
-                                  ),
-                                }.withoutNulls,
-                              );
-                            },
-                            onDeleteWorkout: (workoutId) async {
-                              await SQLiteManager.instance.deleteWorkout(
-                                workoutId: workoutId,
-                              );
-                            },
-                            onOpenTemplate: (template, workoutId) async {
-                              context.pushNamed(
-                                TemplateWorkoutWidget.routeName,
-                                queryParameters: {
-                                  'workoutTemplate': serializeParam(
-                                    template,
-                                    ParamType.SqliteRow,
-                                  ),
-                                }.withoutNulls,
-                              );
-                            },
-                            onUseTemplate: (template, workoutId) async {
-                              _model.exrecises = await SQLiteManager.instance
-                                  .getworkoutExercise(
-                                workoutId: workoutId,
-                              );
-                              _model.uuid = await actions.generateUuidV4();
-                              await SQLiteManager.instance.insertWorkout(
-                                id: _model.uuid!,
-                                name: template.name,
-                                createdAt: dateTimeFormat(
-                                  "22",
-                                  getCurrentTimestamp,
-                                  locale:
-                                      FFLocalizations.of(context).languageCode,
-                                ),
-                                userId: currentUserUid,
-                              );
-                              for (int loop1Index = 0;
-                                  loop1Index < _model.exrecises!.length;
-                                  loop1Index++) {
-                                final currentLoop1Item =
-                                    _model.exrecises![loop1Index];
-                                _model.uuid2 = await actions.generateUuidV4();
-                                await SQLiteManager.instance
-                                    .insertWorkoutExercise(
-                                  id: _model.uuid2!,
-                                  workoutId: _model.uuid!,
-                                  createdAt: getCurrentTimestamp.toString(),
-                                  order: loop1Index,
-                                  restSeconds: 0,
-                                  exerciseId: currentLoop1Item.exerciseId,
-                                  exerciseName: currentLoop1Item.exerciseName,
-                                  userId: currentUserUid,
-                                  isSuperset: 0,
-                                  supersetGroupId: '',
-                                );
-                                _model.sets = await SQLiteManager.instance
-                                    .getExerciseSetsForWorkout(
-                                  workoutId: template.workoutId,
-                                );
-                                for (int loop2Index = 0;
-                                    loop2Index < _model.sets!.length;
-                                    loop2Index++) {
-                                  final currentLoop2Item =
-                                      _model.sets![loop2Index];
-                                  _model.uuid3 = await actions.generateUuidV4();
-                                  await SQLiteManager.instance
-                                      .insertExerciseSts(
-                                    workoutExerciseId: _model.uuid2!,
-                                    setNumber: currentLoop2Item.setNumber,
-                                    targetReps: currentLoop2Item.targetReps,
-                                    isWarmup: 0,
-                                    isDropset: 0,
-                                    workoutId: _model.uuid!,
-                                    id: _model.uuid3!,
-                                    weighted: currentLoop2Item.weighted,
-                                    durationSeconds:
-                                        currentLoop2Item.durationSeconds,
-                                    dropNumber: 0,
+                            child: custom_widgets.LibraryView(
+                              width: MediaQuery.sizeOf(context).width * 1.0,
+                              height: MediaQuery.sizeOf(context).height * 1.0,
+                              userId: currentUserUid,
+                              initialTab: 1,
+                              onStartWorkout: (workoutId) async {
+                                if (FFAppState().workout) {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (dialogContext) {
+                                      return Dialog(
+                                        elevation: 0,
+                                        insetPadding: EdgeInsets.zero,
+                                        backgroundColor: Colors.transparent,
+                                        alignment:
+                                            AlignmentDirectional(0.0, 0.0)
+                                                .resolve(
+                                                    Directionality.of(context)),
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            FocusScope.of(dialogContext)
+                                                .unfocus();
+                                            FocusManager.instance.primaryFocus
+                                                ?.unfocus();
+                                          },
+                                          child: DiscardAndStartNewWidget(
+                                            workoutId: workoutId,
+                                            startAnalysis: () async {},
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                } else {
+                                  context.pushNamed(
+                                    WorkoutV2Widget.routeName,
+                                    queryParameters: {
+                                      'workoutId': serializeParam(
+                                        workoutId,
+                                        ParamType.String,
+                                      ),
+                                    }.withoutNulls,
                                   );
                                 }
-                              }
-
-                              context.pushNamed(
-                                MasterPageWidget.routeName,
-                                queryParameters: {
-                                  'initialTab': serializeParam(
-                                    3,
-                                    ParamType.int,
-                                  ),
-                                }.withoutNulls,
-                              );
-
-                              safeSetState(() {});
-                            },
-                            onOpenExercise: (exerciseId, isPublic) async {
-                              if (isPublic) {
+                              },
+                              onEditWorkout: (workoutId) async {
                                 context.pushNamed(
-                                  ExerciseHistoryWidget.routeName,
+                                  EditWorkoutV2Widget.routeName,
                                   queryParameters: {
-                                    'exerciseId': serializeParam(
-                                      exerciseId,
-                                      ParamType.int,
-                                    ),
-                                    'overview': serializeParam(
-                                      true,
+                                    'shouldInit': serializeParam(
+                                      false,
                                       ParamType.bool,
                                     ),
-                                    'analytics': serializeParam(
+                                    'workoutId': serializeParam(
+                                      workoutId,
+                                      ParamType.String,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onDeleteWorkout: (workoutId) async {
+                                await SQLiteManager.instance.deleteWorkout(
+                                  workoutId: workoutId,
+                                );
+                              },
+                              onOpenTemplate: (template, workoutId) async {
+                                context.pushNamed(
+                                  TemplateWorkoutWidget.routeName,
+                                  queryParameters: {
+                                    'workoutTemplate': serializeParam(
+                                      template,
+                                      ParamType.SqliteRow,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onUseTemplate: (template, workoutId) async {
+                                _model.exrecises = await SQLiteManager.instance
+                                    .getworkoutExercise(
+                                  workoutId: workoutId,
+                                );
+                                _model.uuid = await actions.generateUuidV4();
+                                await SQLiteManager.instance.insertWorkout(
+                                  id: _model.uuid!,
+                                  name: template.name,
+                                  createdAt: dateTimeFormat(
+                                    "22",
+                                    getCurrentTimestamp,
+                                    locale: FFLocalizations.of(context)
+                                        .languageCode,
+                                  ),
+                                  userId: currentUserUid,
+                                );
+                                for (int loop1Index = 0;
+                                    loop1Index < _model.exrecises!.length;
+                                    loop1Index++) {
+                                  final currentLoop1Item =
+                                      _model.exrecises![loop1Index];
+                                  _model.uuid2 = await actions.generateUuidV4();
+                                  await SQLiteManager.instance
+                                      .insertWorkoutExercise(
+                                    id: _model.uuid2!,
+                                    workoutId: _model.uuid!,
+                                    createdAt: getCurrentTimestamp.toString(),
+                                    order: loop1Index,
+                                    restSeconds: 0,
+                                    exerciseId: currentLoop1Item.exerciseId,
+                                    exerciseName: currentLoop1Item.exerciseName,
+                                    userId: currentUserUid,
+                                    isSuperset: 0,
+                                    supersetGroupId: '',
+                                  );
+                                  _model.sets = await SQLiteManager.instance
+                                      .getExerciseSetsForWorkout(
+                                    workoutId: template.workoutId,
+                                  );
+                                  for (int loop2Index = 0;
+                                      loop2Index < _model.sets!.length;
+                                      loop2Index++) {
+                                    final currentLoop2Item =
+                                        _model.sets![loop2Index];
+                                    _model.uuid3 =
+                                        await actions.generateUuidV4();
+                                    await SQLiteManager.instance
+                                        .insertExerciseSts(
+                                      workoutExerciseId: _model.uuid2!,
+                                      setNumber: currentLoop2Item.setNumber,
+                                      targetReps: currentLoop2Item.targetReps,
+                                      isWarmup: 0,
+                                      isDropset: 0,
+                                      workoutId: _model.uuid!,
+                                      id: _model.uuid3!,
+                                      weighted: currentLoop2Item.weighted,
+                                      durationSeconds:
+                                          currentLoop2Item.durationSeconds,
+                                      dropNumber: 0,
+                                    );
+                                  }
+                                }
+
+                                context.pushNamed(
+                                  MasterPageWidget.routeName,
+                                  queryParameters: {
+                                    'initialTab': serializeParam(
+                                      3,
+                                      ParamType.int,
+                                    ),
+                                  }.withoutNulls,
+                                );
+
+                                safeSetState(() {});
+                              },
+                              onOpenExercise: (exerciseId, isPublic) async {
+                                if (isPublic) {
+                                  context.pushNamed(
+                                    ExerciseHistoryWidget.routeName,
+                                    queryParameters: {
+                                      'exerciseId': serializeParam(
+                                        exerciseId,
+                                        ParamType.int,
+                                      ),
+                                      'overview': serializeParam(
+                                        true,
+                                        ParamType.bool,
+                                      ),
+                                      'analytics': serializeParam(
+                                        false,
+                                        ParamType.bool,
+                                      ),
+                                    }.withoutNulls,
+                                  );
+                                } else {
+                                  context.pushNamed(
+                                    ExerciseHistoryCustomWidget.routeName,
+                                    queryParameters: {
+                                      'exerciseId': serializeParam(
+                                        exerciseId,
+                                        ParamType.int,
+                                      ),
+                                      'overview': serializeParam(
+                                        true,
+                                        ParamType.bool,
+                                      ),
+                                      'analytics': serializeParam(
+                                        false,
+                                        ParamType.bool,
+                                      ),
+                                    }.withoutNulls,
+                                  );
+                                }
+                              },
+                              onCreateWorkout: () async {
+                                context.pushNamed(
+                                  CreateWorkoutV2Widget.routeName,
+                                  queryParameters: {
+                                    'shouldInit': serializeParam(
                                       false,
                                       ParamType.bool,
                                     ),
                                   }.withoutNulls,
                                 );
-                              } else {
+                              },
+                              onGenerateWorkout: () async {
+                                context
+                                    .pushNamed(AiWorkoutTypeWidget.routeName);
+                              },
+                              onCreateCustomExercise: () async {
                                 context.pushNamed(
-                                  ExerciseHistoryCustomWidget.routeName,
-                                  queryParameters: {
-                                    'exerciseId': serializeParam(
-                                      exerciseId,
-                                      ParamType.int,
-                                    ),
-                                    'overview': serializeParam(
-                                      true,
-                                      ParamType.bool,
-                                    ),
-                                    'analytics': serializeParam(
-                                      false,
-                                      ParamType.bool,
-                                    ),
-                                  }.withoutNulls,
-                                );
-                              }
-                            },
-                            onCreateWorkout: () async {
-                              context.pushNamed(
-                                CreateWorkoutV2Widget.routeName,
-                                queryParameters: {
-                                  'shouldInit': serializeParam(
-                                    false,
-                                    ParamType.bool,
-                                  ),
-                                }.withoutNulls,
-                              );
-                            },
-                            onGenerateWorkout: () async {
-                              context.pushNamed(AiWorkoutTypeWidget.routeName);
-                            },
-                            onCreateCustomExercise: () async {
-                              context.pushNamed(
-                                  CreateUserExerciseWidget.routeName);
-                            },
+                                    CreateUserExerciseWidget.routeName);
+                              },
+                              onOpenPremium: () async {},
+                            ),
                           ),
                         ),
                     ],
@@ -4313,6 +4347,13 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                           'isBodyweight': serializeParam(
                             0,
                             ParamType.int,
+                          ),
+                          'exerciseName': serializeParam(
+                            getJsonField(
+                              analysisResult,
+                              r'''$["exerciseName"]''',
+                            ).toString(),
+                            ParamType.String,
                           ),
                         }.withoutNulls,
                       );

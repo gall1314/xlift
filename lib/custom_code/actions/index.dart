@@ -174,3 +174,4 @@ export 'restore_analysis_quota.dart' show restoreAnalysisQuota;
 export 'restore_all_from_cloud.dart' show restoreAllFromCloud;
 export 'save_custom_exercise_image.dart' show saveCustomExerciseImage;
 export 'vision_squat_test.dart' show visionSquatTest;
+export 'save_template_as_workout.dart' show saveTemplateAsWorkout;
