@@ -180,24 +180,6 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                           FFAppState().activeWorkoutStartTime = null;
 
                           safeSetState(() {});
-                          _model.de = await actions.syncAllPending();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                getJsonField(
-                                  _model.de,
-                                  r'''$["debug_string"]''',
-                                ).toString(),
-                                style: TextStyle(
-                                  color:
-                                      FlutterFlowTheme.of(context).primaryText,
-                                ),
-                              ),
-                              duration: Duration(milliseconds: 4000),
-                              backgroundColor:
-                                  FlutterFlowTheme.of(context).secondary,
-                            ),
-                          );
 
                           context.goNamed(
                             WorkoutCompleteWidget.routeName,

@@ -73,6 +73,8 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
         FFAppState().isPremium = false;
         safeSetState(() {});
       }
+
+      await actions.syncAllPending();
     });
 
     _model.tabBarController = TabController(

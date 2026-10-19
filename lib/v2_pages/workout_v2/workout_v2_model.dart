@@ -27,8 +27,6 @@ class WorkoutV2Model extends FlutterFlowModel<WorkoutV2Widget> {
   dynamic rest1;
   // Stores action output result for [Custom Action - saveWorkoutComplete] action in Button widget.
   dynamic save;
-  // Stores action output result for [Custom Action - syncAllPending] action in Button widget.
-  dynamic de;
   // Models for exerciseComponet dynamic component.
   late FlutterFlowDynamicModels<ExerciseComponetModel> exerciseComponetModels;
 

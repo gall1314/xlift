@@ -18,28 +18,30 @@ import 'xlift_log_add.dart';
 /// ONE-SHOT CLOUD RESTORE: Supabase -> local SQLite, for one user.
 ///
 /// Order (FK-safe): users -> workout -> workout_exercise -> exercise_sets ->
-/// exercise (user's custom only) -> workout_log -> set_log -> set_analysis
-/// (best-effort, skipped silently if the mirror differs)
+/// exercise (user's custom only) -> exercise_muscle_group (of those) ->
+/// workout_log -> set_log -> set_analysis (best-effort, skipped silently if
+/// the mirror differs)
 ///
 /// Rules - Every Supabase call has a 20s timeout. Never hangs, never throws.
-/// - Paged (no 1000-row cap, no IN-list URL limits except set_analysis, which
-/// is chunked by 100 ids). - INSERT OR IGNORE by id -> rows that already
-/// exist locally are kept as-is (restore never overwrites local edits).
-/// `users` is the one exception: it is UPSERTed, because the cloud profile is
-/// the source. - Safe to run again at any time (idempotent). - A failure in
-/// one table is recorded and the run CONTINUES with the next table (children
-/// of a failed parent simply won't match).
+/// - Paged (no 1000-row cap, no IN-list URL limits except set_analysis /
+/// exercise_muscle_group, which are chunked by 100 ids). - INSERT OR IGNORE
+/// by id -> rows that already exist locally are kept as-is (restore never
+/// overwrites local edits). `users` is the one exception: it is UPSERTed,
+/// because the cloud profile is the source. - Safe to run again at any time
+/// (idempotent). - A failure in one table is recorded and the run CONTINUES
+/// with the next table (children of a failed parent simply won't match).
 ///
 /// Column mapping (Supabase -> SQLite) handled here: users.is_kg bool -> 0/1;
-/// date_of_birth kept as ISO text exercise_sets.order_index -> set_number;
-/// target_reps text -> int; workout_id filled from the parent
-/// workout_exercise; target_weight dropped exercise.no_video_illustration ->
-/// no_video_ilustration (local typo); step_by_step / form_tips jsonb -> JSON
-/// text; is_assisted -> 0 workout_log.duration (text, trigger-formatted) ->
-/// duration_seconds as MILLISECONDS (app convention): "h:mm:ss"/"mm:ss"
-/// parsed, numeric text taken as ms set_log: is_kg null -> 1, is_dropset null
-/// -> 0 set_analysis: avg_depth (nullable real), reps_json (text; stored as
-/// JSON text locally whatever type the cloud column is)
+/// date_of_birth kept as ISO text exercise_sets.set_number (legacy
+/// order_index accepted); target_reps text -> int; workout_id filled from the
+/// parent workout_exercise; target_weight dropped
+/// exercise.no_video_illustration -> no_video_ilustration (local typo);
+/// step_by_step / form_tips jsonb -> JSON text; is_assisted -> 0
+/// workout_log.duration (text, trigger-formatted) -> duration_seconds as
+/// MILLISECONDS (app convention): "h:mm:ss"/"mm:ss" parsed, numeric text
+/// taken as ms set_log: is_kg null -> 1, is_dropset null -> 0 set_analysis:
+/// avg_depth (nullable real), reps_json (text; stored as JSON text locally
+/// whatever type the cloud column is)
 ///
 /// Returns: { success, counts:{table:{fetched,inserted,skipped}},
 /// errors:[...], ms, debug_string }
@@ -318,12 +320,13 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
             esRows.add([
               sId,
               weId,
-              toInt(s['order_index']) ?? 1, // -> set_number
+              // cloud column is set_number (renamed from order_index)
+              toInt(s['set_number']) ?? toInt(s['order_index']) ?? 1,
               toInt(s['target_reps']), // text -> int (null if not numeric)
               flag(s['is_warmup'], 0),
               s['is_dropset'] == null ? null : flag(s['is_dropset'], 0),
               toInt(s['drop_number']),
-              wId,
+              toStr(s['workout_id']) ?? wId,
               toInt(s['weighted']) ?? 1,
               toInt(s['duration_seconds']),
             ]);
@@ -363,13 +366,14 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
   }
 
   // ================= 5. exercise (user's custom only) =================
+  final List<int> customExerciseIds = [];
   try {
     final rows = await timed(
         'exercise(custom)',
         SupaFlow.client
             .from('exercise')
             .select()
-            .or('created_by_user_id.eq.$uId,owner_user_id.eq.$uId')
+            .eq('created_by_user_id', uId)
             .order('id', ascending: true));
     final List<List<dynamic>> exRows = [];
     for (final r0 in rows) {
@@ -377,6 +381,7 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
       final r = Map<String, dynamic>.from(r0);
       final int? id = toInt(r['id']);
       if (id == null) continue;
+      customExerciseIds.add(id);
       exRows.add([
         id,
         toStr(r['name']),
@@ -386,7 +391,7 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
         flag(r['ai_form_analysis'], 0),
         toStr(r['long_description']),
         flag(r['is_public'], 0),
-        toStr(r['created_by_user_id']) ?? toStr(r['owner_user_id']) ?? uId,
+        toStr(r['created_by_user_id']) ?? uId,
         flag(r['is_time_based'], 0),
         toStr(r['video']),
         toStr(r['illustration']),
@@ -413,6 +418,45 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
     record('exercise', exRows.length, ins);
   } catch (e) {
     fail('exercise', e);
+  }
+
+  // ================= 5b. exercise_muscle_group (of custom exercises) ======
+  if (customExerciseIds.isNotEmpty) {
+    try {
+      final List<List<dynamic>> mgRows = [];
+      const int chunk = 100;
+      for (int i = 0; i < customExerciseIds.length; i += chunk) {
+        final ids = customExerciseIds.sublist(
+            i,
+            i + chunk > customExerciseIds.length
+                ? customExerciseIds.length
+                : i + chunk);
+        final rows = await timed(
+            'exercise_muscle_group chunk@$i',
+            SupaFlow.client
+                .from('exercise_muscle_group')
+                .select()
+                .inFilter('exercise_id', ids));
+        for (final r0 in rows) {
+          if (r0 is! Map) continue;
+          final r = Map<String, dynamic>.from(r0);
+          final int? id = toInt(r['id']);
+          final int? mgId = toInt(r['muscle_group_id']);
+          final int? exId = toInt(r['exercise_id']);
+          if (id == null || mgId == null || exId == null) continue;
+          mgRows.add([id, mgId, flag(r['is_primary'], 0), exId]);
+        }
+      }
+      final int ins = await batchInsert(
+          'exercise_muscle_group',
+          mgRows,
+          'INSERT OR IGNORE INTO exercise_muscle_group '
+              '(id, muscle_group_id, is_primary, exercise_id) '
+              'VALUES (?, ?, ?, ?)');
+      record('exercise_muscle_group', mgRows.length, ins);
+    } catch (e) {
+      fail('exercise_muscle_group', e);
+    }
   }
 
   // ================= 6. workout_log =================

@@ -140,6 +140,7 @@ class _WorkoutCompleteWidgetState extends State<WorkoutCompleteWidget> {
       );
       _model.animation = false;
       safeSetState(() {});
+      await actions.syncAllPending();
     });
   }
 
