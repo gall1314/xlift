@@ -663,9 +663,33 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                                   .secondary,
                                                         ),
                                                       );
-                                                      await actions
+                                                      _model.deb = await actions
                                                           .restoreAllFromCloud(
                                                         currentUserUid,
+                                                      );
+                                                      ScaffoldMessenger.of(
+                                                              context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            getJsonField(
+                                                              _model.deb,
+                                                              r'''$["debug_string"]''',
+                                                            ).toString(),
+                                                            style: TextStyle(
+                                                              color: FlutterFlowTheme
+                                                                      .of(context)
+                                                                  .primaryText,
+                                                            ),
+                                                          ),
+                                                          duration: Duration(
+                                                              milliseconds:
+                                                                  4000),
+                                                          backgroundColor:
+                                                              FlutterFlowTheme.of(
+                                                                      context)
+                                                                  .secondary,
+                                                        ),
                                                       );
                                                       FFAppState().restore =
                                                           false;
@@ -676,6 +700,8 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                           MasterPageWidget
                                                               .routeName,
                                                           context.mounted);
+
+                                                      safeSetState(() {});
                                                     },
                                                     text: FFLocalizations.of(
                                                             context)
