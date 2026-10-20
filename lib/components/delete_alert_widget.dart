@@ -14,10 +14,10 @@ export 'delete_alert_model.dart';
 class DeleteAlertWidget extends StatefulWidget {
   const DeleteAlertWidget({
     super.key,
-    required this.workout,
+    required this.workoutID,
   });
 
-  final GetdirtyworkoutsRow? workout;
+  final String? workoutID;
 
   @override
   State<DeleteAlertWidget> createState() => _DeleteAlertWidgetState();
@@ -185,10 +185,10 @@ class _DeleteAlertWidgetState extends State<DeleteAlertWidget> {
                     FFButtonWidget(
                       onPressed: () async {
                         await SQLiteManager.instance.deleteWorkout(
-                          workoutId: widget.workout!.id,
+                          workoutId: widget.workoutID!,
                         );
                         await actions.queueWorkoutSoftDelete(
-                          widget.workout!.id,
+                          widget.workoutID!,
                           currentUserUid,
                         );
 

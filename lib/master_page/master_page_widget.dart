@@ -3,6 +3,7 @@ import '/backend/sqlite/sqlite_manager.dart';
 import '/components/analyze2_app_after_widget.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
+import '/components/delete_alert_widget.dart';
 import '/components/delete_workout_log_widget.dart';
 import '/components/discard_and_start_new_widget.dart';
 import '/components/discard_workout_widget.dart';
@@ -199,6 +200,29 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                               onDeleteWorkout: (workoutId) async {
                                 await SQLiteManager.instance.deleteWorkout(
                                   workoutId: workoutId,
+                                );
+                                await showDialog(
+                                  context: context,
+                                  builder: (dialogContext) {
+                                    return Dialog(
+                                      elevation: 0,
+                                      insetPadding: EdgeInsets.zero,
+                                      backgroundColor: Colors.transparent,
+                                      alignment: AlignmentDirectional(0.0, 0.0)
+                                          .resolve(Directionality.of(context)),
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          FocusScope.of(dialogContext)
+                                              .unfocus();
+                                          FocusManager.instance.primaryFocus
+                                              ?.unfocus();
+                                        },
+                                        child: DeleteAlertWidget(
+                                          workoutID: workoutId,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                               onOpenTemplate: (template, workoutId) async {

@@ -635,15 +635,12 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                 children: [
                                   Stack(
                                     children: [
-                                      if (functions
-                                              .getSetTechniqueScore(
-                                                  FFAppState()
-                                                      .workoutAnalysisState
-                                                      .toList(),
-                                                  widget.exerciseId!,
-                                                  widget.setNumber!)
-                                              .toString() !=
-                                          '10')
+                                      if (!functions.isSetTechniquePerfect(
+                                          FFAppState()
+                                              .workoutAnalysisState
+                                              .toList(),
+                                          widget.setNumber!,
+                                          widget.exerciseId!))
                                         Icon(
                                           Icons.warning,
                                           color: FlutterFlowTheme.of(context)

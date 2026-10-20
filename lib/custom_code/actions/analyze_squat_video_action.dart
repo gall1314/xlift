@@ -129,6 +129,38 @@ class TuningParams {
   // ---------------------- ML KIT POSE DETECTOR ----------------------
   static const bool USE_STREAM_MODE = true;
 
+  // ---------------------- [v22] TRACKER RESET ON LOSS ----------------------
+  // In stream mode ML Kit does NOT re-detect the person on every frame: it
+  // re-uses the previous frame's body crop (ROI) and only runs the person
+  // detector again when its own tracking confidence collapses. That is what
+  // makes stream mode fast, and on a clean clip it is also perfectly stable.
+  //
+  // It breaks when something walks between the camera and the lifter. The
+  // crop gets dragged onto the passer-by, the lifter is "lost" for a couple
+  // of seconds (every frame rejected -> the real squat in that window is not
+  // counted), and when ML Kit re-acquires, it does so from a STALE crop: the
+  // landmark model then confidently places a whole skeleton inside the
+  // lifter's torso (hips at the chest, "ankles" at mid-thigh) and keeps
+  // tracking that hallucination for many seconds while the lifter is just
+  // standing. Those frames pass every existing gate — likelihood is high
+  // and the fake hip sits close to the real hip so the jump filter never
+  // fires — and the side pipeline reads them as a rep with back-angle and
+  // depth feedback. Measured on a real clip: 6/6 reps correct before the
+  // passer-by, then 1 missed rep + 2 phantom reps in the 15s after.
+  //
+  // The fix is to throw the tracker state away as soon as we know it is
+  // lost: after this many CONSECUTIVE rejected frames (no pose / low core
+  // likelihood / hip jump) we close the detector and create a fresh one, so
+  // the next frame gets a full-image person detection instead of a stale
+  // crop. 6 frames at 12fps = 0.5s. On a clip where the pose is never lost
+  // for 0.5s this never triggers and behavior is byte-for-byte unchanged.
+  // Recreating the detector costs one model load (~100-300ms) per reset,
+  // which only happens while frames are being rejected anyway.
+  //
+  // Set to 0 to disable. Has no effect when USE_STREAM_MODE is false
+  // (single mode already re-detects on every frame).
+  static const int TRACKER_RESET_AFTER_REJECTED_FRAMES = 6;
+
   // ---------------------- [v15] UNRACK REP REJECTION ----------------------
   // The counter sometimes catches the bar-pickup motion as a rep. We
   // retroactively drop the first rep if it's dramatically shallower
@@ -1304,6 +1336,16 @@ Map<String, dynamic> detectBackViewReps(
 ///    'smith' | 'goblet' | 'bodyweight' | 'sumo'; null = back). See
 ///    _SquatVariant for the per-variant tweaks. back/front/zercher/smith are
 ///    byte-for-byte the previous behavior.
+///
+/// v22 changes (this file) — ML Kit tracker reset after a loss:
+///  - When the pose is rejected for TRACKER_RESET_AFTER_REJECTED_FRAMES
+///    consecutive frames (someone walked through the frame, etc.) the
+///    PoseDetector is closed and recreated, so stream-mode tracking cannot
+///    re-acquire from a stale crop and hallucinate a skeleton inside the
+///    torso (which produced phantom reps + bogus back/depth feedback while
+///    the lifter was standing still). No counting, depth, scoring or
+///    telemetry logic changed; clips where the pose is never lost are
+///    unaffected. New debug key: _tracker_resets.
 Future<dynamic> analyzeSquatVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
@@ -1500,14 +1542,22 @@ Future<dynamic> analyzeSquatVideoAction(
     return errorPayload('no_frames', 'No frames were produced');
   }
 
-  final poseDetector = PoseDetector(
-    options: PoseDetectorOptions(
-      mode: TuningParams.USE_STREAM_MODE
-          ? PoseDetectionMode.stream
-          : PoseDetectionMode.single,
-      model: PoseDetectionModel.accurate,
-    ),
-  );
+  // [v22] Detector is no longer final: it is recreated when the tracker is
+  // lost for TRACKER_RESET_AFTER_REJECTED_FRAMES consecutive frames.
+  PoseDetector newPoseDetector() => PoseDetector(
+        options: PoseDetectorOptions(
+          mode: TuningParams.USE_STREAM_MODE
+              ? PoseDetectionMode.stream
+              : PoseDetectionMode.single,
+          model: PoseDetectionModel.accurate,
+        ),
+      );
+  PoseDetector poseDetector = newPoseDetector();
+  // [v22] Consecutive rejected frames of ANY kind (exception / no pose /
+  // missing landmarks / low core likelihood / hip jump). Reset to 0 on the
+  // first accepted frame. Drives the tracker reset only.
+  int consecutiveRejectedFrames = 0;
+  int trackerResets = 0;
 
   const List<PoseLandmarkType> LM_ORDER = [
     PoseLandmarkType.nose,
@@ -1572,17 +1622,33 @@ Future<dynamic> analyzeSquatVideoAction(
       final double tSec = (frameIdx - 1) / fps;
       allFrameTimes.add(tSec);
 
+      // [v22] Tracker lost for too long -> drop the stale ROI and start a
+      // fresh detector so this frame gets a full-image person detection.
+      if (TuningParams.USE_STREAM_MODE &&
+          TuningParams.TRACKER_RESET_AFTER_REJECTED_FRAMES > 0 &&
+          consecutiveRejectedFrames >=
+              TuningParams.TRACKER_RESET_AFTER_REJECTED_FRAMES) {
+        try {
+          await poseDetector.close();
+        } catch (_) {}
+        poseDetector = newPoseDetector();
+        consecutiveRejectedFrames = 0;
+        trackerResets += 1;
+      }
+
       final inputImage = InputImage.fromFilePath(frameFile.path);
       List<Pose> poses = [];
       try {
         poses = await poseDetector.processImage(inputImage);
       } catch (_) {
+        consecutiveRejectedFrames += 1;
         allRawLandmarks.add(const []);
         frameRejected.add(true);
         continue;
       }
 
       if (poses.isEmpty) {
+        consecutiveRejectedFrames += 1;
         allRawLandmarks.add(const []);
         frameRejected.add(true);
         continue;
@@ -1618,6 +1684,7 @@ Future<dynamic> analyzeSquatVideoAction(
           lKneeLm == null ||
           lAnkleLm == null ||
           lShoulderLm == null) {
+        consecutiveRejectedFrames += 1;
         allRawLandmarks.add(const []);
         frameRejected.add(true);
         continue;
@@ -1682,6 +1749,7 @@ Future<dynamic> analyzeSquatVideoAction(
         if (wasJumpRejection) {
           consecutiveJumpRejections += 1;
         }
+        consecutiveRejectedFrames += 1;
         allRawLandmarks.add(const []);
         frameRejected.add(true);
         continue;
@@ -1689,6 +1757,7 @@ Future<dynamic> analyzeSquatVideoAction(
 
       // Frame accepted — reset the jump-rejection cascade counter.
       consecutiveJumpRejections = 0;
+      consecutiveRejectedFrames = 0;
       lastGoodMidHipNorm = rawMidHip;
       allRawLandmarks.add(rawNormLandmarks);
       frameRejected.add(false);
@@ -2550,6 +2619,9 @@ Future<dynamic> analyzeSquatVideoAction(
     'squat_variant': variant ?? 'back',
     // [v18] Back-view calibration debug (null on normal side videos).
     '_backview_debug': backViewDebug,
+    // [v22] How many times the ML Kit tracker was reset after a loss.
+    // 0 on a clean clip. >0 means something occluded the lifter.
+    '_tracker_resets': trackerResets,
   };
 }
 

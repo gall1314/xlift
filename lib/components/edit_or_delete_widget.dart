@@ -149,7 +149,7 @@ class _EditOrDeleteWidgetState extends State<EditOrDeleteWidget> {
                     return Material(
                       color: Colors.transparent,
                       child: DeleteAlertWidget(
-                        workout: widget.workout!,
+                        workoutID: widget.workout!.id,
                       ),
                     );
                   },
