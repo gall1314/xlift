@@ -60,14 +60,24 @@ Future<List<GetAllExercisesRow>> performGetAllExercises(
 ) {
   final query = '''
 SELECT
-  ev.*,
-  e.is_bodyweight,
-  e.ai_form_analysis,
-  CASE WHEN COALESCE(e.is_assisted, 0) IN (1, 'true', 'TRUE') THEN 1 ELSE 0 END AS is_assisted, -- INTEGER 0/1
-  CASE WHEN COALESCE(e.is_public, 0)   IN (1, 'true', 'TRUE') THEN 1 ELSE 0 END AS is_public    -- INTEGER 0/1
-FROM exercise_view ev
-JOIN exercise e
-  ON e.id = ev.exercise_id;
+  e.id             AS exercise_id,
+  e.name           AS exercise_name,
+  e.illustration   AS illustration,
+  (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
+     WHERE g.exercise_id = e.id AND g.is_primary = 1 ORDER BY g.id LIMIT 1 OFFSET 0) AS primary_muscle_1,
+  (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
+     WHERE g.exercise_id = e.id AND g.is_primary = 1 ORDER BY g.id LIMIT 1 OFFSET 1) AS primary_muscle_2,
+  (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
+     WHERE g.exercise_id = e.id AND g.is_primary = 0 ORDER BY g.id LIMIT 1 OFFSET 0) AS sub_muscle_1,
+  (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
+     WHERE g.exercise_id = e.id AND g.is_primary = 0 ORDER BY g.id LIMIT 1 OFFSET 1) AS sub_muscle_2,
+  (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
+     WHERE g.exercise_id = e.id AND g.is_primary = 0 ORDER BY g.id LIMIT 1 OFFSET 2) AS sub_muscle_3,
+  e.equipment      AS equipment,
+  e.exercise_type  AS exercise_type
+FROM exercise e
+WHERE e.is_deleted = 0
+ORDER BY e.id;
 ''';
   return _readQuery(database, query, (d) => GetAllExercisesRow(d));
 }

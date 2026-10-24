@@ -1943,9 +1943,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                   1;
                                                               safeSetState(
                                                                   () {});
-
-                                                              safeSetState(
-                                                                  () {});
                                                             },
                                                             onCreateWorkout:
                                                                 () async {

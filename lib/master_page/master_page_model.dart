@@ -27,7 +27,7 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
 
   String selectedMuscleHistory = 'All';
 
-  int initialLibaryTab = 0;
+  int initialLibaryTab = 1;
 
   ///  State fields for stateful widgets in this page.
 
