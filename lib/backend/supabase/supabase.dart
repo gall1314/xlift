@@ -17,10 +17,8 @@ class SupaFlow {
 
   static Future initialize() => Supabase.initialize(
         url: _kSupabaseUrl,
-        headers: {
-          'X-Client-Info': 'flutterflow',
-        },
         anonKey: _kSupabaseAnonKey,
+        headers: {'X-Client-Info': 'flutterflow'},
         debug: false,
         authOptions:
             FlutterAuthClientOptions(authFlowType: AuthFlowType.implicit),

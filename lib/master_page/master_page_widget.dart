@@ -7,7 +7,6 @@ import '/components/delete_alert_widget.dart';
 import '/components/delete_workout_log_widget.dart';
 import '/components/discard_and_start_new_widget.dart';
 import '/components/discard_workout_widget.dart';
-import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_charts.dart';
@@ -141,7 +140,8 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               height: MediaQuery.sizeOf(context).height * 1.0,
                               userId: currentUserUid,
-                              initialTab: 1,
+                              initialTab: widget.initialTab,
+                              canGenerate: false,
                               onStartWorkout: (workoutId) async {
                                 if (FFAppState().workout) {
                                   await showDialog(
@@ -1540,28 +1540,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                       decoration:
                                                           BoxDecoration(),
                                                       child: Stack(
-                                                        children: [
-                                                          if (containerHasExerciseDataRowList
-                                                                  .firstOrNull
-                                                                  ?.hasData ==
-                                                              0)
-                                                            Align(
-                                                              alignment:
-                                                                  AlignmentDirectional(
-                                                                      0.0,
-                                                                      -1.0),
-                                                              child:
-                                                                  wrapWithModel(
-                                                                model: _model
-                                                                    .exerciseStatsPlaceHolderModel,
-                                                                updateCallback: () =>
-                                                                    safeSetState(
-                                                                        () {}),
-                                                                child:
-                                                                    ExerciseStatsPlaceHolderWidget(),
-                                                              ),
-                                                            ),
-                                                        ],
+                                                        children: [],
                                                       ),
                                                     );
                                                   },
@@ -1955,6 +1934,18 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                               context.pushNamed(
                                                                   SettingssWidget
                                                                       .routeName);
+                                                            },
+                                                            onOpenTemplates:
+                                                                () async {
+                                                              _model.pageIndex =
+                                                                  4;
+                                                              _model.initialLibaryTab =
+                                                                  1;
+                                                              safeSetState(
+                                                                  () {});
+
+                                                              safeSetState(
+                                                                  () {});
                                                             },
                                                             onCreateWorkout:
                                                                 () async {

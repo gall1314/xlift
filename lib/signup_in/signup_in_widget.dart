@@ -562,9 +562,10 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                               !_model
                                                                   .passwordVisibility);
                                                         },
-                                                        focusNode: FocusNode(
-                                                            skipTraversal:
-                                                                true),
+                                                        focusNode: _model
+                                                            .passwordPasswordVisibilityFocusNode
+                                                          ..skipTraversal =
+                                                              !(false),
                                                         child: Icon(
                                                           _model.passwordVisibility
                                                               ? Icons
@@ -1098,9 +1099,10 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                               !_model
                                                                   .passwordCreateVisibility);
                                                         },
-                                                        focusNode: FocusNode(
-                                                            skipTraversal:
-                                                                true),
+                                                        focusNode: _model
+                                                            .passwordCreatePasswordVisibilityFocusNode
+                                                          ..skipTraversal =
+                                                              !(false),
                                                         child: Icon(
                                                           _model.passwordCreateVisibility
                                                               ? Icons
@@ -1254,9 +1256,10 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                               !_model
                                                                   .passwordConfirmVisibility);
                                                         },
-                                                        focusNode: FocusNode(
-                                                            skipTraversal:
-                                                                true),
+                                                        focusNode: _model
+                                                            .passwordConfirmPasswordVisibilityFocusNode
+                                                          ..skipTraversal =
+                                                              !(false),
                                                         child: Icon(
                                                           _model.passwordConfirmVisibility
                                                               ? Icons
@@ -1378,41 +1381,29 @@ class _SignupInWidgetState extends State<SignupInWidget>
                                                         userId: currentUserUid,
                                                       );
                                                       FFAppState()
-                                                          .deleteProfile();
-                                                      FFAppState().profile = '';
-
+                                                          .deleteProfile(
+                                                              resetState: true);
                                                       FFAppState()
                                                           .initialLogin = true;
                                                       FFAppState()
-                                                          .deleteExercisesets();
+                                                          .deleteExercisesets(
+                                                              resetState: true);
                                                       FFAppState()
-                                                          .exercisesets = [];
-
-                                                      FFAppState()
-                                                          .deleteLoggedSets();
-                                                      FFAppState().loggedSets =
-                                                          [];
-
+                                                          .deleteLoggedSets(
+                                                              resetState: true);
                                                       FFAppState().dropSets =
                                                           [];
                                                       FFAppState()
                                                           .activeWorkoutTime = '';
                                                       FFAppState()
-                                                          .deleteWorkoutAnalysisState();
+                                                          .deleteWorkoutAnalysisState(
+                                                              resetState: true);
                                                       FFAppState()
-                                                          .workoutAnalysisState = [];
-
+                                                          .deleteActiveWorkoutStartTime(
+                                                              resetState: true);
                                                       FFAppState()
-                                                          .deleteActiveWorkoutStartTime();
-                                                      FFAppState()
-                                                              .activeWorkoutStartTime =
-                                                          null;
-
-                                                      FFAppState()
-                                                          .deleteWarmupSets();
-                                                      FFAppState().warmupSets =
-                                                          [];
-
+                                                          .deleteWarmupSets(
+                                                              resetState: true);
                                                       FFAppState().workout =
                                                           false;
                                                       safeSetState(() {});

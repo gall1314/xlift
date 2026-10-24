@@ -206,8 +206,9 @@ flutter_launcher_icons:
 # The following section is specific to Flutter.
 flutter:
 
-  # Flutter's UIScene migrator is disabled until the managed FlutterFire graph
-  # supports the scene lifecycle without losing cold-start notifications.
+  # Codegen emits the UIScene lifecycle itself where it is safe (see
+  # useUISceneLifecycle). Flutter's migrator would also rewrite the legacy
+  # AppDelegate that every other build still needs.
   config:
     # Flutter uses Swift Package Manager for compatible plugins and CocoaPods
     # for the rest. Projects using the managed Firebase Analytics/GenUI graph

@@ -919,29 +919,22 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                     FFAppState().workoutAnalysisState =
                                         _model.analA!.toList().cast<dynamic>();
                                     safeSetState(() {});
-                                    FFAppState().deleteExercisesets();
-                                    FFAppState().exercisesets = [];
-
-                                    FFAppState().deleteLoggedSets();
-                                    FFAppState().loggedSets = [];
-
+                                    FFAppState()
+                                        .deleteExercisesets(resetState: true);
+                                    FFAppState()
+                                        .deleteLoggedSets(resetState: true);
                                     FFAppState().dropSets = [];
-                                    FFAppState().deleteRestTimers();
-                                    FFAppState().restTimers = null;
-
-                                    FFAppState().deleteWarmupSets();
-                                    FFAppState().warmupSets = [];
-
+                                    FFAppState()
+                                        .deleteRestTimers(resetState: true);
+                                    FFAppState()
+                                        .deleteWarmupSets(resetState: true);
                                     FFAppState().workout = false;
-                                    FFAppState().deleteCompletedExercises();
-                                    FFAppState().completedExercises = [];
-
-                                    FFAppState().deleteWorkoutAnalysisState();
-                                    FFAppState().workoutAnalysisState = [];
-
-                                    FFAppState().deleteActiveWorkoutStartTime();
-                                    FFAppState().activeWorkoutStartTime = null;
-
+                                    FFAppState().deleteCompletedExercises(
+                                        resetState: true);
+                                    FFAppState().deleteWorkoutAnalysisState(
+                                        resetState: true);
+                                    FFAppState().deleteActiveWorkoutStartTime(
+                                        resetState: true);
                                     safeSetState(() {});
 
                                     context.pushNamed(
@@ -1003,29 +996,17 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                           1,
                           widget.analysis!,
                         );
-                        FFAppState().deleteExercisesets();
-                        FFAppState().exercisesets = [];
-
-                        FFAppState().deleteLoggedSets();
-                        FFAppState().loggedSets = [];
-
+                        FFAppState().deleteExercisesets(resetState: true);
+                        FFAppState().deleteLoggedSets(resetState: true);
                         FFAppState().dropSets = [];
-                        FFAppState().deleteRestTimers();
-                        FFAppState().restTimers = null;
-
-                        FFAppState().deleteWarmupSets();
-                        FFAppState().warmupSets = [];
-
+                        FFAppState().deleteRestTimers(resetState: true);
+                        FFAppState().deleteWarmupSets(resetState: true);
                         FFAppState().workout = false;
-                        FFAppState().deleteCompletedExercises();
-                        FFAppState().completedExercises = [];
-
-                        FFAppState().deleteWorkoutAnalysisState();
-                        FFAppState().workoutAnalysisState = [];
-
-                        FFAppState().deleteActiveWorkoutStartTime();
-                        FFAppState().activeWorkoutStartTime = null;
-
+                        FFAppState().deleteCompletedExercises(resetState: true);
+                        FFAppState()
+                            .deleteWorkoutAnalysisState(resetState: true);
+                        FFAppState()
+                            .deleteActiveWorkoutStartTime(resetState: true);
                         safeSetState(() {});
                         FFAppState().workoutAnalysisState =
                             _model.anal!.toList().cast<dynamic>();

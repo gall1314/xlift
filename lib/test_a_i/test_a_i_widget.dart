@@ -69,7 +69,7 @@ class _TestAIWidgetState extends State<TestAIWidget> {
           ),
           title: Text(
             FFLocalizations.of(context).getText(
-              'aal9asnx' /* Page Title */,
+              '8l6o3gwt' /* Page Title */,
             ),
             style: FlutterFlowTheme.of(context).headlineMedium.override(
                   font: GoogleFonts.interTight(

@@ -20,6 +20,7 @@ class SignupInModel extends FlutterFlowModel<SignupInWidget> {
   TextEditingController? emailAddressTextController;
   String? Function(BuildContext, String?)? emailAddressTextControllerValidator;
   // State field(s) for password widget.
+  late FocusNode passwordPasswordVisibilityFocusNode;
   FocusNode? passwordFocusNode;
   TextEditingController? passwordTextController;
   late bool passwordVisibility;
@@ -32,12 +33,14 @@ class SignupInModel extends FlutterFlowModel<SignupInWidget> {
   String? Function(BuildContext, String?)?
       emailAddressCreateTextControllerValidator;
   // State field(s) for password_Create widget.
+  late FocusNode passwordCreatePasswordVisibilityFocusNode;
   FocusNode? passwordCreateFocusNode;
   TextEditingController? passwordCreateTextController;
   late bool passwordCreateVisibility;
   String? Function(BuildContext, String?)?
       passwordCreateTextControllerValidator;
   // State field(s) for passwordConfirm widget.
+  late FocusNode passwordConfirmPasswordVisibilityFocusNode;
   FocusNode? passwordConfirmFocusNode;
   TextEditingController? passwordConfirmTextController;
   late bool passwordConfirmVisibility;
@@ -52,8 +55,11 @@ class SignupInModel extends FlutterFlowModel<SignupInWidget> {
 
   @override
   void initState(BuildContext context) {
+    passwordPasswordVisibilityFocusNode = FocusNode();
     passwordVisibility = false;
+    passwordCreatePasswordVisibilityFocusNode = FocusNode();
     passwordCreateVisibility = false;
+    passwordConfirmPasswordVisibilityFocusNode = FocusNode();
     passwordConfirmVisibility = false;
   }
 
@@ -65,14 +71,15 @@ class SignupInModel extends FlutterFlowModel<SignupInWidget> {
 
     passwordFocusNode?.dispose();
     passwordTextController?.dispose();
-
+    passwordPasswordVisibilityFocusNode.dispose();
     emailAddressCreateFocusNode?.dispose();
     emailAddressCreateTextController?.dispose();
 
     passwordCreateFocusNode?.dispose();
     passwordCreateTextController?.dispose();
-
+    passwordCreatePasswordVisibilityFocusNode.dispose();
     passwordConfirmFocusNode?.dispose();
     passwordConfirmTextController?.dispose();
+    passwordConfirmPasswordVisibilityFocusNode.dispose();
   }
 }

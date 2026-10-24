@@ -1834,7 +1834,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'Page Title',
       'es': '',
     },
-    '66lg051x': {
+    'gfd0np2r': {
       'en': 'Home',
       'es': '',
     },
@@ -2008,7 +2008,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // testAI
   {
-    'aal9asnx': {
+    '8l6o3gwt': {
       'en': 'Page Title',
       'es': '',
     },
@@ -2302,7 +2302,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'en': 'Workout in Progress',
       'es': '',
     },
-    '1w9l0zfj': {
+    'beheo8ln': {
       'en': 'Home',
       'es': '',
     },

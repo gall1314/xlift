@@ -156,29 +156,18 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                           _model.save,
                           r'''$["success"]''',
                         )) {
-                          FFAppState().deleteExercisesets();
-                          FFAppState().exercisesets = [];
-
-                          FFAppState().deleteLoggedSets();
-                          FFAppState().loggedSets = [];
-
+                          FFAppState().deleteExercisesets(resetState: true);
+                          FFAppState().deleteLoggedSets(resetState: true);
                           FFAppState().dropSets = [];
-                          FFAppState().deleteRestTimers();
-                          FFAppState().restTimers = null;
-
-                          FFAppState().deleteWarmupSets();
-                          FFAppState().warmupSets = [];
-
+                          FFAppState().deleteRestTimers(resetState: true);
+                          FFAppState().deleteWarmupSets(resetState: true);
                           FFAppState().workout = false;
-                          FFAppState().deleteCompletedExercises();
-                          FFAppState().completedExercises = [];
-
-                          FFAppState().deleteWorkoutAnalysisState();
-                          FFAppState().workoutAnalysisState = [];
-
-                          FFAppState().deleteActiveWorkoutStartTime();
-                          FFAppState().activeWorkoutStartTime = null;
-
+                          FFAppState()
+                              .deleteCompletedExercises(resetState: true);
+                          FFAppState()
+                              .deleteWorkoutAnalysisState(resetState: true);
+                          FFAppState()
+                              .deleteActiveWorkoutStartTime(resetState: true);
                           safeSetState(() {});
 
                           context.goNamed(

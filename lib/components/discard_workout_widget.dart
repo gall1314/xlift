@@ -176,33 +176,19 @@ class _DiscardWorkoutWidgetState extends State<DiscardWorkoutWidget> {
                     ),
                     FFButtonWidget(
                       onPressed: () async {
-                        FFAppState().deleteExercisesets();
-                        FFAppState().exercisesets = [];
-
-                        FFAppState().deleteWarmupSets();
-                        FFAppState().warmupSets = [];
-
+                        FFAppState().deleteExercisesets(resetState: true);
+                        FFAppState().deleteWarmupSets(resetState: true);
                         FFAppState().dropSets = [];
-                        FFAppState().deleteRestTimers();
-                        FFAppState().restTimers = null;
-
-                        FFAppState().deleteLoggedSets();
-                        FFAppState().loggedSets = [];
-
-                        FFAppState().deleteActiveWorkoutDet();
-                        FFAppState().activeWorkoutDet = null;
-
+                        FFAppState().deleteRestTimers(resetState: true);
+                        FFAppState().deleteLoggedSets(resetState: true);
+                        FFAppState().deleteActiveWorkoutDet(resetState: true);
                         FFAppState().workout = false;
                         FFAppState().activeWorkoutTime = '';
-                        FFAppState().deleteWorkoutAnalysisState();
-                        FFAppState().workoutAnalysisState = [];
-
-                        FFAppState().deleteActiveWorkoutStartTime();
-                        FFAppState().activeWorkoutStartTime = null;
-
-                        FFAppState().deleteCompletedExercises();
-                        FFAppState().completedExercises = [];
-
+                        FFAppState()
+                            .deleteWorkoutAnalysisState(resetState: true);
+                        FFAppState()
+                            .deleteActiveWorkoutStartTime(resetState: true);
+                        FFAppState().deleteCompletedExercises(resetState: true);
                         FFAppState().update(() {});
                         Navigator.pop(context);
                       },

@@ -250,7 +250,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_isKg', value);
   }
 
-  void deleteIsKg() {
+  void deleteIsKg({bool resetState = false}) {
+    if (resetState) {
+      _isKg = true;
+    }
     secureStorage.delete(key: 'ff_isKg');
   }
 
@@ -261,7 +264,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setString('ff_user', jsonEncode(value));
   }
 
-  void deleteUser() {
+  void deleteUser({bool resetState = false}) {
+    if (resetState) {
+      _user = null;
+    }
     secureStorage.delete(key: 'ff_user');
   }
 
@@ -272,7 +278,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_workout', value);
   }
 
-  void deleteWorkout() {
+  void deleteWorkout({bool resetState = false}) {
+    if (resetState) {
+      _workout = false;
+    }
     secureStorage.delete(key: 'ff_workout');
   }
 
@@ -284,7 +293,10 @@ class FFAppState extends ChangeNotifier {
         'ff_exercisesets', value.map((x) => jsonEncode(x)).toList());
   }
 
-  void deleteExercisesets() {
+  void deleteExercisesets({bool resetState = false}) {
+    if (resetState) {
+      _exercisesets = [];
+    }
     secureStorage.delete(key: 'ff_exercisesets');
   }
 
@@ -328,7 +340,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setString('ff_activeWorkoutDet', jsonEncode(value));
   }
 
-  void deleteActiveWorkoutDet() {
+  void deleteActiveWorkoutDet({bool resetState = false}) {
+    if (resetState) {
+      _activeWorkoutDet = null;
+    }
     secureStorage.delete(key: 'ff_activeWorkoutDet');
   }
 
@@ -351,7 +366,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_initialLogin', value);
   }
 
-  void deleteInitialLogin() {
+  void deleteInitialLogin({bool resetState = false}) {
+    if (resetState) {
+      _initialLogin = true;
+    }
     secureStorage.delete(key: 'ff_initialLogin');
   }
 
@@ -363,7 +381,10 @@ class FFAppState extends ChangeNotifier {
         'ff_loggedSets', value.map((x) => jsonEncode(x)).toList());
   }
 
-  void deleteLoggedSets() {
+  void deleteLoggedSets({bool resetState = false}) {
+    if (resetState) {
+      _loggedSets = [];
+    }
     secureStorage.delete(key: 'ff_loggedSets');
   }
 
@@ -407,7 +428,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setString('ff_restTimers', jsonEncode(value));
   }
 
-  void deleteRestTimers() {
+  void deleteRestTimers({bool resetState = false}) {
+    if (resetState) {
+      _restTimers = null;
+    }
     secureStorage.delete(key: 'ff_restTimers');
   }
 
@@ -477,7 +501,10 @@ class FFAppState extends ChangeNotifier {
         'ff_warmupSets', value.map((x) => jsonEncode(x)).toList());
   }
 
-  void deleteWarmupSets() {
+  void deleteWarmupSets({bool resetState = false}) {
+    if (resetState) {
+      _warmupSets = [];
+    }
     secureStorage.delete(key: 'ff_warmupSets');
   }
 
@@ -539,7 +566,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_sound', value);
   }
 
-  void deleteSound() {
+  void deleteSound({bool resetState = false}) {
+    if (resetState) {
+      _sound = true;
+    }
     secureStorage.delete(key: 'ff_sound');
   }
 
@@ -662,7 +692,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_heightIsCm', value);
   }
 
-  void deleteHeightIsCm() {
+  void deleteHeightIsCm({bool resetState = false}) {
+    if (resetState) {
+      _heightIsCm = true;
+    }
     secureStorage.delete(key: 'ff_heightIsCm');
   }
 
@@ -673,7 +706,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_bodyWeightIsKg', value);
   }
 
-  void deleteBodyWeightIsKg() {
+  void deleteBodyWeightIsKg({bool resetState = false}) {
+    if (resetState) {
+      _bodyWeightIsKg = true;
+    }
     secureStorage.delete(key: 'ff_bodyWeightIsKg');
   }
 
@@ -731,7 +767,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_notifacations', value);
   }
 
-  void deleteNotifacations() {
+  void deleteNotifacations({bool resetState = false}) {
+    if (resetState) {
+      _notifacations = false;
+    }
     secureStorage.delete(key: 'ff_notifacations');
   }
 
@@ -743,7 +782,10 @@ class FFAppState extends ChangeNotifier {
         'ff_workoutAnalysisState', value.map((x) => jsonEncode(x)).toList());
   }
 
-  void deleteWorkoutAnalysisState() {
+  void deleteWorkoutAnalysisState({bool resetState = false}) {
+    if (resetState) {
+      _workoutAnalysisState = [];
+    }
     secureStorage.delete(key: 'ff_workoutAnalysisState');
   }
 
@@ -788,7 +830,10 @@ class FFAppState extends ChangeNotifier {
         'ff_completedExercises', value.map((x) => jsonEncode(x)).toList());
   }
 
-  void deleteCompletedExercises() {
+  void deleteCompletedExercises({bool resetState = false}) {
+    if (resetState) {
+      _completedExercises = [];
+    }
     secureStorage.delete(key: 'ff_completedExercises');
   }
 
@@ -835,7 +880,10 @@ class FFAppState extends ChangeNotifier {
         : secureStorage.remove('ff_activeWorkoutStartTime');
   }
 
-  void deleteActiveWorkoutStartTime() {
+  void deleteActiveWorkoutStartTime({bool resetState = false}) {
+    if (resetState) {
+      _activeWorkoutStartTime = null;
+    }
     secureStorage.delete(key: 'ff_activeWorkoutStartTime');
   }
 
@@ -846,7 +894,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setString('ff_profile', value);
   }
 
-  void deleteProfile() {
+  void deleteProfile({bool resetState = false}) {
+    if (resetState) {
+      _profile = '';
+    }
     secureStorage.delete(key: 'ff_profile');
   }
 
@@ -857,7 +908,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setInt('ff_analysisCount', value);
   }
 
-  void deleteAnalysisCount() {
+  void deleteAnalysisCount({bool resetState = false}) {
+    if (resetState) {
+      _analysisCount = 0;
+    }
     secureStorage.delete(key: 'ff_analysisCount');
   }
 
@@ -868,7 +922,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setString('ff_analysisCountMonth', value);
   }
 
-  void deleteAnalysisCountMonth() {
+  void deleteAnalysisCountMonth({bool resetState = false}) {
+    if (resetState) {
+      _analysisCountMonth = '';
+    }
     secureStorage.delete(key: 'ff_analysisCountMonth');
   }
 
@@ -908,7 +965,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_signedApple', value);
   }
 
-  void deleteSignedApple() {
+  void deleteSignedApple({bool resetState = false}) {
+    if (resetState) {
+      _signedApple = false;
+    }
     secureStorage.delete(key: 'ff_signedApple');
   }
 
@@ -919,7 +979,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setBool('ff_restore', value);
   }
 
-  void deleteRestore() {
+  void deleteRestore({bool resetState = false}) {
+    if (resetState) {
+      _restore = true;
+    }
     secureStorage.delete(key: 'ff_restore');
   }
 
@@ -930,7 +993,10 @@ class FFAppState extends ChangeNotifier {
     secureStorage.setStringList('ff_generationDates', value);
   }
 
-  void deleteGenerationDates() {
+  void deleteGenerationDates({bool resetState = false}) {
+    if (resetState) {
+      _generationDates = [];
+    }
     secureStorage.delete(key: 'ff_generationDates');
   }
 

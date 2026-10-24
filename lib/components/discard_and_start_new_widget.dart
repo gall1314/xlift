@@ -185,26 +185,15 @@ class _DiscardAndStartNewWidgetState extends State<DiscardAndStartNewWidget> {
                     ),
                     FFButtonWidget(
                       onPressed: () async {
-                        FFAppState().deleteExercisesets();
-                        FFAppState().exercisesets = [];
-
-                        FFAppState().deleteWarmupSets();
-                        FFAppState().warmupSets = [];
-
+                        FFAppState().deleteExercisesets(resetState: true);
+                        FFAppState().deleteWarmupSets(resetState: true);
                         FFAppState().dropSets = [];
-                        FFAppState().deleteRestTimers();
-                        FFAppState().restTimers = null;
-
-                        FFAppState().deleteLoggedSets();
-                        FFAppState().loggedSets = [];
-
-                        FFAppState().deleteActiveWorkoutDet();
-                        FFAppState().activeWorkoutDet = null;
-
+                        FFAppState().deleteRestTimers(resetState: true);
+                        FFAppState().deleteLoggedSets(resetState: true);
+                        FFAppState().deleteActiveWorkoutDet(resetState: true);
                         FFAppState().workout = false;
-                        FFAppState().deleteWorkoutAnalysisState();
-                        FFAppState().workoutAnalysisState = [];
-
+                        FFAppState()
+                            .deleteWorkoutAnalysisState(resetState: true);
                         FFAppState().update(() {});
                         Navigator.pop(context);
 

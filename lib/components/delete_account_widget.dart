@@ -139,44 +139,22 @@ class _DeleteAccountWidgetState extends State<DeleteAccountWidget> {
                     await SQLiteManager.instance.deleteUser(
                       userId: currentUserUid,
                     );
-                    FFAppState().deleteProfile();
-                    FFAppState().profile = '';
-
-                    FFAppState().deleteNotifacations();
-                    FFAppState().notifacations = false;
-
-                    FFAppState().deleteCompletedExercises();
-                    FFAppState().completedExercises = [];
-
-                    FFAppState().deleteActiveWorkoutStartTime();
-                    FFAppState().activeWorkoutStartTime = null;
-
-                    FFAppState().deleteWorkoutAnalysisState();
-                    FFAppState().workoutAnalysisState = [];
-
+                    FFAppState().deleteProfile(resetState: true);
+                    FFAppState().deleteNotifacations(resetState: true);
+                    FFAppState().deleteCompletedExercises(resetState: true);
+                    FFAppState().deleteActiveWorkoutStartTime(resetState: true);
+                    FFAppState().deleteWorkoutAnalysisState(resetState: true);
                     FFAppState().WorkoutSchedule = [];
                     FFAppState().dropSetsCreation = [];
-                    FFAppState().deleteLoggedSets();
-                    FFAppState().loggedSets = [];
-
-                    FFAppState().deleteRestTimers();
-                    FFAppState().restTimers = null;
-
+                    FFAppState().deleteLoggedSets(resetState: true);
+                    FFAppState().deleteRestTimers(resetState: true);
                     FFAppState().timerMode = [];
                     FFAppState().dropSets = [];
-                    FFAppState().deleteWarmupSets();
-                    FFAppState().warmupSets = [];
-
-                    FFAppState().deleteUser();
-                    FFAppState().user = null;
-
+                    FFAppState().deleteWarmupSets(resetState: true);
+                    FFAppState().deleteUser(resetState: true);
                     FFAppState().workout = false;
-                    FFAppState().deleteExercisesets();
-                    FFAppState().exercisesets = [];
-
-                    FFAppState().deleteActiveWorkoutDet();
-                    FFAppState().activeWorkoutDet = null;
-
+                    FFAppState().deleteExercisesets(resetState: true);
+                    FFAppState().deleteActiveWorkoutDet(resetState: true);
                     FFAppState().activeWorkoutTime = '';
                     FFAppState().workoutSeconds = 0;
                     safeSetState(() {});

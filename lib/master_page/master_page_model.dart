@@ -1,5 +1,4 @@
 import '/backend/sqlite/sqlite_manager.dart';
-import '/components/exercise_stats_place_holder_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_util.dart';
@@ -28,6 +27,8 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
 
   String selectedMuscleHistory = 'All';
 
+  int initialLibaryTab = 0;
+
   ///  State fields for stateful widgets in this page.
 
   // Stores action output result for [Backend Call - SQLite (getworkoutExercise)] action in LibraryView widget.
@@ -51,8 +52,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
   late LineGraphPlaceHolderModel lineGraphPlaceHolderModel;
   // Model for pieGraphPlaceHolder component.
   late PieGraphPlaceHolderModel pieGraphPlaceHolderModel;
-  // Model for exerciseStatsPlaceHolder component.
-  late ExerciseStatsPlaceHolderModel exerciseStatsPlaceHolderModel;
   // Stores action output result for [Custom Action - callWorkoutBuilder] action in Button widget.
   dynamic result;
   bool isDataUploading_uploadDataNme = false;
@@ -146,8 +145,6 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
         createModel(context, () => LineGraphPlaceHolderModel());
     pieGraphPlaceHolderModel =
         createModel(context, () => PieGraphPlaceHolderModel());
-    exerciseStatsPlaceHolderModel =
-        createModel(context, () => ExerciseStatsPlaceHolderModel());
   }
 
   @override
@@ -155,6 +152,5 @@ class MasterPageModel extends FlutterFlowModel<MasterPageWidget> {
     tabBarController?.dispose();
     lineGraphPlaceHolderModel.dispose();
     pieGraphPlaceHolderModel.dispose();
-    exerciseStatsPlaceHolderModel.dispose();
   }
 }

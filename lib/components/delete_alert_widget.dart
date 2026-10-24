@@ -4,7 +4,6 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
-import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'delete_alert_model.dart';
@@ -191,17 +190,7 @@ class _DeleteAlertWidgetState extends State<DeleteAlertWidget> {
                           widget.workoutID!,
                           currentUserUid,
                         );
-
-                        context.pushNamed(
-                          MasterPageWidget.routeName,
-                          queryParameters: {
-                            'initialTab': serializeParam(
-                              3,
-                              ParamType.int,
-                            ),
-                          }.withoutNulls,
-                        );
-
+                        Navigator.pop(context);
                         await actions.syncPendingWorkouts();
                       },
                       text: FFLocalizations.of(context).getText(

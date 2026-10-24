@@ -28,7 +28,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// (workoutId) start a saved workout onOpenSummary       - (workoutLogId)
 /// open workout summary onOpenLastAnalysis  - (GetSetAnalysisRow) show the
 /// last analysis; the camera itself is the page's FAB onOpenStats,
-/// onOpenLibrary, onOpenSettings onCreateWorkout     - open the existing
+/// onOpenLibrary, onOpenSettings onOpenTemplates     - Library on the
+/// Templates tab (initialTab = 1) onCreateWorkout     - open the existing
 /// create bottom sheet
 class HomeView extends StatefulWidget {
   const HomeView({
@@ -36,30 +37,32 @@ class HomeView extends StatefulWidget {
     this.width,
     this.height,
     required this.userId,
-    this.isPremium = false,
-    this.analysisCount = 0,
-    this.analysisCountMonth = '',
+    this.isPremium,
+    this.analysisCount,
+    this.analysisCountMonth,
     this.onStartWorkout,
     this.onOpenSummary,
     this.onOpenLastAnalysis,
     this.onOpenStats,
     this.onOpenLibrary,
     this.onOpenSettings,
+    this.onOpenTemplates,
     this.onCreateWorkout,
   });
 
   final double? width;
   final double? height;
   final String userId;
-  final bool isPremium;
-  final int analysisCount;
-  final String analysisCountMonth;
+  final bool? isPremium;
+  final int? analysisCount;
+  final String? analysisCountMonth;
   final Future Function(String workoutId)? onStartWorkout;
   final Future Function(String workoutLogId)? onOpenSummary;
   final Future Function(GetSetAnalysisRow analysis)? onOpenLastAnalysis;
   final Future Function()? onOpenStats;
   final Future Function()? onOpenLibrary;
   final Future Function()? onOpenSettings;
+  final Future Function()? onOpenTemplates;
   final Future Function()? onCreateWorkout;
 
   @override
@@ -199,6 +202,8 @@ class _HomeViewState extends State<HomeView> {
   Color _accentOnDark = const Color(0xFF3FD2B6);
   Color _accentTint = const Color(0xFFE1F4EF);
 
+  bool get _premium => widget.isPremium ?? false;
+
   @override
   void initState() {
     super.initState();
@@ -252,7 +257,9 @@ class _HomeViewState extends State<HomeView> {
   int get _usedThisMonth {
     final now = DateTime.now();
     final cur = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-    final used = widget.analysisCountMonth == cur ? widget.analysisCount : 0;
+    final used = (widget.analysisCountMonth ?? '') == cur
+        ? (widget.analysisCount ?? 0)
+        : 0;
     return used.clamp(0, _kFreeMonthlyLimit);
   }
 
@@ -713,7 +720,8 @@ class _HomeViewState extends State<HomeView> {
             Text('Build your first\nworkout',
                 style: _display(30, color: _kOnDark)),
             const SizedBox(height: 8),
-            Text('Pick exercises yourself or let the AI build one.',
+            Text(
+                'Pick exercises yourself, let the AI build one, or start from a ready-made template.',
                 style: _body(13, color: _kOnDarkMuted)),
             const SizedBox(height: 18),
             _primaryButton('Create workout',
@@ -813,10 +821,10 @@ class _HomeViewState extends State<HomeView> {
 
     String subtitle;
     if (ls == null) {
-      subtitle = widget.isPremium
+      subtitle = _premium
           ? 'Unlimited · film a set with the camera below'
           : '$left of $_kFreeMonthlyLimit free this month · film a set below';
-    } else if (widget.isPremium) {
+    } else if (_premium) {
       subtitle = 'Unlimited · tap to review';
     } else {
       subtitle = '$left of $_kFreeMonthlyLimit free checks left this month';
@@ -849,7 +857,7 @@ class _HomeViewState extends State<HomeView> {
                       style: _body(12, color: _inkMuted),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
-                  if (!widget.isPremium) ...[
+                  if (!_premium) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -1110,7 +1118,9 @@ class _HomeViewState extends State<HomeView> {
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, i) => _workoutCard(list[i]),
             ),
-          ),
+          )
+        else
+          _gutter(_templatesCard()),
         const SizedBox(height: 12),
         _gutter(GestureDetector(
           onTap: () => widget.onCreateWorkout?.call(),
@@ -1131,6 +1141,51 @@ class _HomeViewState extends State<HomeView> {
           ),
         )),
       ],
+    );
+  }
+
+  // Shown only while the user has no workouts: points at the template
+  // catalog, which new users otherwise don't discover.
+  Widget _templatesCard() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => (widget.onOpenTemplates ?? widget.onOpenLibrary)?.call(),
+      child: _lightCard(
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: _accentTint,
+                borderRadius: BorderRadius.circular(_kRadiusInner),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.auto_stories_rounded,
+                  size: 22, color: _accentDeep),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Start from a template',
+                      style: _body(16, w: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Ready-made workouts you can save and start right away.',
+                    style: _body(12, color: _inkMuted),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, size: 22, color: _inkMuted),
+          ],
+        ),
+      ),
     );
   }
 

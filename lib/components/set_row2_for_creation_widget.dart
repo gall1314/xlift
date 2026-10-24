@@ -243,6 +243,29 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                             },
                           ),
                         ),
+                      Text(
+                        valueOrDefault<String>(
+                          widget.setNumber?.toString(),
+                          '-',
+                        ),
+                        style: FlutterFlowTheme.of(context).bodyMedium.override(
+                              font: GoogleFonts.inter(
+                                fontWeight: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontWeight,
+                                fontStyle: FlutterFlowTheme.of(context)
+                                    .bodyMedium
+                                    .fontStyle,
+                              ),
+                              letterSpacing: 0.0,
+                              fontWeight: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontWeight,
+                              fontStyle: FlutterFlowTheme.of(context)
+                                  .bodyMedium
+                                  .fontStyle,
+                            ),
+                      ),
                       FutureBuilder<List<CorrectedPreviosSetRow>>(
                         future: SQLiteManager.instance.correctedPreviosSet(
                           exerciseId: widget.exerciseId!,
