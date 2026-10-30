@@ -310,7 +310,7 @@ class _RestBottomShitWidgetState extends State<RestBottomShitWidget> {
                               padding: EdgeInsets.all(8.0),
                               iconPadding: EdgeInsetsDirectional.fromSTEB(
                                   0.0, 0.0, 0.0, 0.0),
-                              color: FlutterFlowTheme.of(context).secondary,
+                              color: FlutterFlowTheme.of(context).primary,
                               textStyle: FlutterFlowTheme.of(context)
                                   .titleMedium
                                   .override(
