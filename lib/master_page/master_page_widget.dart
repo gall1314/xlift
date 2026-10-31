@@ -4,9 +4,9 @@ import '/components/analyze2_app_after_widget.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
 import '/components/delete_alert_widget.dart';
-import '/components/delete_workout_log_widget.dart';
 import '/components/discard_and_start_new_widget.dart';
 import '/components/discard_workout_widget.dart';
+import '/components/edit_delte2_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_charts.dart';
@@ -438,7 +438,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                             FocusManager.instance.primaryFocus
                                                 ?.unfocus();
                                           },
-                                          child: DeleteWorkoutLogWidget(
+                                          child: EditDelte2Widget(
                                             workoutLogId: workoutLogId,
                                           ),
                                         ),

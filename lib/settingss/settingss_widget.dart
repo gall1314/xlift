@@ -587,6 +587,13 @@ class _SettingssWidgetState extends State<SettingssWidget> {
                                 ),
                               ),
                               Container(
+                                width: double.infinity,
+                                height: 1.0,
+                                decoration: BoxDecoration(
+                                  color: FlutterFlowTheme.of(context).alternate,
+                                ),
+                              ),
+                              Container(
                                 width: MediaQuery.sizeOf(context).width * 1.0,
                                 height: 45.0,
                                 child: custom_widgets.LanguageRow(

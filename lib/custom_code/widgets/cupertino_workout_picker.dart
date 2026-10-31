@@ -12,19 +12,47 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:math' as math;
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
 
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kUnits = {
+  "h": {"en": "h", "es": "h", "he": "שע׳", "de": "Std", "fr": "h"},
+  "m": {"en": "m", "es": "min", "he": "דק׳", "de": "Min", "fr": "min"},
+};
+
+String _unit(String lang, String key) {
+  final m = _kUnits[key]!;
+  return m[lang] ?? m['en']!;
+}
+
+/// Workout date (year | month | day, last 365 days) or duration (h | m)
+/// wheels. Outputs unchanged ("yyyy-MM-dd HH:mm:ss" / milliseconds).
+/// Digits stay LTR; in RTL the wheels mirror and unit suffixes sit left of
+/// their numbers.
 class CupertinoWorkoutPicker extends StatefulWidget {
   const CupertinoWorkoutPicker({
     super.key,
-    required this.isDatePicker, // true = Date, false = Durationff
-    this.initialDate, // לתאריך
-    this.initialMilliseconds, // למשך (ms)
+    required this.isDatePicker, // true = Date, false = Duration
+    this.initialDate,
+    this.initialMilliseconds,
     this.width,
     this.height,
-    this.onDatePickedText, // (String "yyyy-MM-dd HH:mm:ss")כ
+    this.onDatePickedText, // (String "yyyy-MM-dd HH:mm:ss")
     this.onDurationPickedMs, // (int milliseconds)
   });
 
@@ -42,30 +70,25 @@ class CupertinoWorkoutPicker extends StatefulWidget {
 }
 
 class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
-  // ---- CONSTS ----
   static const double _kItemExtent = 42.0;
   static const int _kMaxHours = 5;
 
-  // ---- DATE STATE (3 wheels, with strict range) ----
   late DateTime _now, _minDate, _maxDate;
-  late int _y, _m, _d; // year / month / day
+  late int _y, _m, _d;
   late List<int> _years, _months, _days;
   late FixedExtentScrollController _yCtrl, _mCtrl, _dCtrl;
 
-  // ---- DURATION STATE (2 wheels) ----
-  late int _hour; // 0..5
-  late int _minute; // 0..59 OR 0 when hour==5
+  late int _hour;
+  late int _minute;
 
   @override
   void initState() {
     super.initState();
 
-    // Bounds: today back to a year (date-only, no times)
     _now = DateTime.now();
     _maxDate = DateTime(_now.year, _now.month, _now.day);
     _minDate = _maxDate.subtract(const Duration(days: 365));
 
-    // Init DATE
     final initD =
         _clampDate(widget.initialDate ?? _maxDate, _minDate, _maxDate);
     _y = initD.year;
@@ -81,7 +104,6 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
     _dCtrl = FixedExtentScrollController(
         initialItem: math.max(0, _days.indexOf(_d)));
 
-    // Init DURATION
     final initMs =
         (widget.initialMilliseconds ?? 0).clamp(0, _kMaxHours * 3600 * 1000);
     _hour = (initMs ~/ 3600000);
@@ -102,8 +124,10 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
     final w = widget.width ?? double.infinity;
     final h = widget.height ?? 260.0;
     final theme = Theme.of(context);
+    final String lang = _langOf(context);
+    final ui.TextDirection dir =
+        _kRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr;
 
-    // Single highlight overlay (one rectangle across all wheels)
     Widget _overlay() => IgnorePointer(
           child: Container(
             height: _kItemExtent,
@@ -122,7 +146,6 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
         const TextStyle(fontSize: 20, fontWeight: FontWeight.w600);
 
     if (widget.isDatePicker) {
-      // ----- CUSTOM DATE (years / months / days), only valid range shown -----
       return SafeArea(
         top: false,
         child: SizedBox(
@@ -133,6 +156,7 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
             children: [
               _overlay(),
               Row(
+                textDirection: dir,
                 children: [
                   _wheel<int>(
                     controller: _yCtrl,
@@ -140,11 +164,11 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
                     selectedIndex: _years.indexOf(_y),
                     text: (y) => y.toString(),
                     style: _txt(),
+                    dir: dir,
                     onChangedIndex: (i) {
                       _y = _years[i];
                       HapticFeedback.selectionClick();
 
-                      // Rebuild allowed months for chosen year
                       _months = _calcMonthsForYear(_y);
                       if (!_months.contains(_m)) {
                         _m = (_y == _minDate.year)
@@ -153,7 +177,6 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
                         _mCtrl.jumpToItem(_months.indexOf(_m));
                       }
 
-                      // Rebuild allowed days
                       _days = _calcDaysForYearMonth(_y, _m);
                       if (!_days.contains(_d)) {
                         _d = _clipDay(_d, _days);
@@ -167,8 +190,9 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
                     controller: _mCtrl,
                     values: _months,
                     selectedIndex: _months.indexOf(_m),
-                    text: (m) => _two(m), // month number
+                    text: (m) => _two(m),
                     style: _txt(),
+                    dir: dir,
                     onChangedIndex: (i) {
                       _m = _months[i];
                       HapticFeedback.selectionClick();
@@ -188,6 +212,7 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
                     selectedIndex: _days.indexOf(_d),
                     text: (d) => _two(d),
                     style: _txt(),
+                    dir: dir,
                     onChangedIndex: (i) {
                       _d = _days[i];
                       HapticFeedback.selectionClick();
@@ -202,7 +227,6 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
       );
     }
 
-    // ----- DURATION (0..5h; when 5h -> minutes=00 only) -----
     final hours = List<int>.generate(_kMaxHours + 1, (i) => i);
     final minutes =
         (_hour == _kMaxHours) ? [0] : List<int>.generate(60, (i) => i);
@@ -217,18 +241,20 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
           children: [
             _overlay(),
             Row(
+              textDirection: dir,
               children: [
                 _wheel<int>(
                   values: hours,
                   selectedIndex: hours.indexOf(_hour),
                   text: (v) => _two(v),
                   style: _txt(),
-                  suffix: 'h',
+                  suffix: _unit(lang, 'h'),
+                  dir: dir,
                   onChangedIndex: (i) {
                     _hour = hours[i];
                     if (_hour == _kMaxHours) _minute = 0;
                     HapticFeedback.selectionClick();
-                    setState(() {}); // re-render minutes range
+                    setState(() {});
                     _emitDurationMs();
                   },
                 ),
@@ -238,7 +264,8 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
                       minutes.indexOf(_minute.clamp(0, minutes.last)),
                   text: (v) => _two(v),
                   style: _txt(),
-                  suffix: 'm',
+                  suffix: _unit(lang, 'm'),
+                  dir: dir,
                   onChangedIndex: (i) {
                     _minute = minutes[i];
                     HapticFeedback.selectionClick();
@@ -253,13 +280,13 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
     );
   }
 
-  // ---------- generic wheel (with optional controller) ----------
   Widget _wheel<T>({
     FixedExtentScrollController? controller,
     required List<T> values,
     required int selectedIndex,
     required String Function(T v) text,
     required void Function(int newIndex) onChangedIndex,
+    required ui.TextDirection dir,
     TextStyle? style,
     String? suffix,
   }) {
@@ -272,19 +299,21 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
         itemExtent: _kItemExtent,
         useMagnifier: true,
         magnification: 1.12,
-        selectionOverlay:
-            const SizedBox.shrink(), // ❗ רק ה-highlight הכללי מבחוץ
+        selectionOverlay: const SizedBox.shrink(),
         onSelectedItemChanged: onChangedIndex,
         children: values.map((v) {
           return Center(
             child: Row(
+              // Number first in reading order; suffix after it.
+              textDirection: dir,
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(text(v), style: style),
+                Text(text(v),
+                    textDirection: ui.TextDirection.ltr, style: style),
                 if (suffix != null) ...[
                   const SizedBox(width: 4),
-                  Text(suffix, style: style),
+                  Text(suffix, textDirection: dir, style: style),
                 ],
               ],
             ),
@@ -294,7 +323,6 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
     );
   }
 
-  // ---------- date helpers ----------
   List<int> _calcMonthsForYear(int year) {
     final from = (year == _minDate.year) ? _minDate.month : 1;
     final to = (year == _maxDate.year) ? _maxDate.month : 12;
@@ -302,7 +330,6 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
   }
 
   List<int> _calcDaysForYearMonth(int year, int month) {
-    final first = DateTime(year, month, 1);
     final last = DateTime(year, month + 1, 0).day;
     int from = 1, to = last;
     if (year == _minDate.year && month == _minDate.month) from = _minDate.day;
@@ -317,10 +344,8 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
   }
 
   void _emitDate() {
-    // בוחר תאריך עם זמן השעה/דקה/שנייה הנוכחיים של המכשיר
     final selected = DateTime(_y, _m, _d, _now.hour, _now.minute, _now.second);
-    final txt = _formatDateTime(selected);
-    widget.onDatePickedText?.call(txt);
+    widget.onDatePickedText?.call(_formatDateTime(selected));
   }
 
   void _emitDurationMs() {
@@ -346,6 +371,5 @@ class _CupertinoWorkoutPickerState extends State<CupertinoWorkoutPicker> {
     return '$y-$mo-$da $h:$mi:$s';
   }
 }
-
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the green button on the right!

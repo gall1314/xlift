@@ -1403,41 +1403,17 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
   Widget _header() {
     final top = MediaQuery.of(context).padding.top;
     final total = _selected.length;
+    // Equal-width slots on both sides keep the title exactly centered while
+    // the buttons sit at the edges.
+    const slot = 92.0;
     return Padding(
-      padding: EdgeInsets.fromLTRB(_kGutter, top + 8, _kGutter, 0),
-      child: SizedBox(
-        height: 44,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Title block: centered on the screen, not between the buttons.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 100),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(_t('addExercises'),
-                      style: _display(17, w: FontWeight.w700),
-                      maxLines: 1,
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
-                  Text(
-                    [
-                      if ((widget.workoutName ?? '').trim().isNotEmpty)
-                        widget.workoutName!.trim(),
-                      _t('inWorkout', n: total),
-                    ].join(' · '),
-                    style: _body(12, color: _inkMuted),
-                    maxLines: 1,
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            PositionedDirectional(
-              start: 0,
+      padding: EdgeInsets.fromLTRB(12, top + 8, 12, 0),
+      child: Row(
+        children: [
+          SizedBox(
+            width: slot,
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
               child: _roundIcon(
                 Icons.arrow_back_ios_new_rounded,
                 onTap: () async {
@@ -1451,8 +1427,35 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
                 flip: _isRtl,
               ),
             ),
-            PositionedDirectional(
-              end: 0,
+          ),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_t('addExercises'),
+                    style: _display(17, w: FontWeight.w700),
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text(
+                  [
+                    if ((widget.workoutName ?? '').trim().isNotEmpty)
+                      widget.workoutName!.trim(),
+                    _t('inWorkout', n: total),
+                  ].join(' · '),
+                  style: _body(12, color: _inkMuted),
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: slot,
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap:
@@ -1477,8 +1480,8 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1967,14 +1970,18 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
               onTap: widget.onOpenDetails == null
                   ? null
                   : () => widget.onOpenDetails!(e.id, e.isPublic),
-              child: SizedBox(
+              child: Container(
                 width: 34,
                 height: 34,
-                child: Icon(Icons.show_chart_rounded,
-                    size: 18, color: on ? _accentDeep : _inkFaint),
+                decoration: BoxDecoration(
+                  color: on ? _card : _cardSub,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.insights_rounded,
+                    size: 18, color: on ? _accentDeep : _inkMuted),
               ),
             ),
-            const SizedBox(width: 2),
+            const SizedBox(width: 8),
             // Trailing state: hollow ring → filled check, with a pop.
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -2035,10 +2042,15 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     );
   }
 
-  static ImageProvider _assetFor(String nameEn) => ResizeImage(
-        AssetImage('assets/images/${exerciseImageName(nameEn)}.jpg'),
-        width: (_kRowImage * 3).round(),
-      );
+  /// Decoded at the device's pixel ratio (+ a little headroom for the
+  /// selected-state scale), so the thumbnail is sharp, not blurry.
+  ImageProvider _assetFor(String nameEn) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    return ResizeImage(
+      AssetImage('assets/images/${exerciseImageName(nameEn)}.jpg'),
+      width: (_kRowImage * 1.1 * dpr).round(),
+    );
+  }
 
   /// Decode every catalog image once, right after load, so the list is
   /// warm before the user starts scrolling. Errors (missing files) are

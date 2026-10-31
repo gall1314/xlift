@@ -203,11 +203,10 @@ class _ExerciseHistoryCustomWidgetState
                       padding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 3.0),
                       child: Text(
-                        valueOrDefault<String>(
-                          exerciseHistoryCustomExercise2RowList
-                              .firstOrNull?.name,
-                          'name',
-                        ),
+                        functions.localizedName(
+                            exerciseHistoryCustomExercise2RowList
+                                .firstOrNull?.name,
+                            FFLocalizations.of(context).languageCode),
                         style: FlutterFlowTheme.of(context)
                             .headlineMedium
                             .override(

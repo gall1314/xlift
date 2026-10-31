@@ -12,16 +12,37 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 
+// ---------------- Localization ----------------
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, String> _kOffLabel = {
+  'en': 'off',
+  'es': 'apagado',
+  'he': 'כבוי',
+  'de': 'aus',
+  'fr': 'off',
+};
+
+/// Rest-time wheel: off, then 0:10 → 8:00 in 10s steps.
+///
+/// Emits milliseconds.
 class RestTimerPicker extends StatefulWidget {
   const RestTimerPicker({
     super.key,
     required this.width,
     required this.height,
     required this.initialSeconds,
-
-    // FlutterFlow Action paramגeter: onChangedMs(milliseconds:int)
     this.onChangedMs,
   });
 
@@ -29,8 +50,7 @@ class RestTimerPicker extends StatefulWidget {
   final double height;
   final int initialSeconds;
 
-  /// נזמן את האקשן עם הערך במילישניות בכל שינוי בחירה.
-  /// החתימה הזו תתמפה ל-Action ב-FF עם פרמטר בשם "milliseconds" מסוג int.
+  /// FF Action with an int parameter named "milliseconds".
   final Future<dynamic> Function(int milliseconds)? onChangedMs;
 
   @override
@@ -41,7 +61,7 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
   static const int _kStep = 10;
   static const int _kMin = 10;
   static const int _kMax = 8 * 60;
-  static const int _kOff = 0; // ערך מיוחד ל-off
+  static const int _kOff = 0;
 
   late final List<int> _values;
   late final FixedExtentScrollController _controller;
@@ -51,7 +71,6 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
   void initState() {
     super.initState();
 
-    // רשימת הערכים: קודם off (0), ואז 10..480 בקפיצות של 10
     _values = [
       _kOff,
       for (int s = _kMin; s <= _kMax; s += _kStep) s,
@@ -59,10 +78,8 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
 
     int start;
     if (widget.initialSeconds <= 0) {
-      // אם קיבלנו 0 או שלילי – נתחיל מ-off
       start = _kOff;
     } else {
-      // אחרת – נצמיד לטווח ונעגל לצעד של 10 שניות
       start = widget.initialSeconds.clamp(_kMin, _kMax);
       start = ((start / _kStep).round() * _kStep).clamp(_kMin, _kMax);
     }
@@ -81,6 +98,8 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final String lang = _langOf(context);
+    final String offLabel = _kOffLabel[lang] ?? _kOffLabel['en']!;
     final overlayBorder = theme.dividerColor;
     final overlayFill = theme.colorScheme.onSurface.withOpacity(0.06);
 
@@ -90,7 +109,6 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // קו היילייט מרכזי
           IgnorePointer(
             child: Container(
               height: 42,
@@ -102,8 +120,6 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
               ),
             ),
           ),
-
-          // גלגלת הערכים
           ListWheelScrollView.useDelegate(
             controller: _controller,
             physics: const FixedExtentScrollPhysics(),
@@ -115,16 +131,13 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
             onSelectedItemChanged: (i) async {
               final seconds = _values[i];
 
-              // האפטיק: עדין תמיד + קל כל 5 צעדים (מתייחס לאינדקס)
               HapticFeedback.selectionClick();
               if (i % 5 == 0) HapticFeedback.lightImpact();
 
               setState(() => _selected = seconds);
 
-              // קריאת ה-Action (אם הוגדר), עם הערך במילישניות
               final action = widget.onChangedMs;
               if (action != null) {
-                // אם זה off => 0ms, אחרת seconds * 1000
                 final ms = seconds <= 0 ? 0 : seconds * 1000;
                 await action(ms);
               }
@@ -147,7 +160,12 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
                               : theme.textTheme.titleMedium?.color,
                         ) ??
                         const TextStyle(fontSize: 18),
-                    child: Text(_formatValue(s)),
+                    child: Text(
+                      s <= 0 ? offLabel : _mmss(s),
+                      // Clock digits always LTR; the "off" word follows its
+                      // own script.
+                      textDirection: s <= 0 ? null : ui.TextDirection.ltr,
+                    ),
                   ),
                 );
               },
@@ -158,9 +176,7 @@ class _RestTimerPickerState extends State<RestTimerPicker> {
     );
   }
 
-  // פורמט להצגה: "off" עבור 0, אחרת mm:ss
-  String _formatValue(int s) {
-    if (s <= 0) return 'off';
+  String _mmss(int s) {
     final m = (s ~/ 60).toString().padLeft(2, '0');
     final ss = (s % 60).toString().padLeft(2, '0');
     return '$m:$ss';

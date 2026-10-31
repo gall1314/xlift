@@ -12,39 +12,107 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
-import 'dart:ui' as ui;
+import 'dart:ui' as ui show TextDirection, PlatformDispatcher;
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Single source of truth for supported languages.
-/// Flip `enabled` to show/hide a language in the picker.
-/// `code` must match the keys in the DB JSON ({"en":..,"es":..}).
+// ---------------------------------------------------------------------------
+// Languages
+// ---------------------------------------------------------------------------
+
 class AppLanguage {
+  const AppLanguage(this.code, this.nativeName, this.englishName,
+      {this.enabled = true});
   final String code;
   final String nativeName;
   final String englishName;
   final bool enabled;
-  const AppLanguage(this.code, this.nativeName, this.englishName,
-      {required this.enabled});
 }
 
+/// Flip `enabled` to ship a language. Also add it in FF → Settings →
+/// Languages, otherwise setAppLanguage ignores it.
 const List<AppLanguage> kAppLanguages = [
-  AppLanguage('en', 'English', 'English', enabled: true),
-  AppLanguage('es', 'Español', 'Spanish', enabled: true),
+  AppLanguage('en', 'English', 'English'),
+  AppLanguage('es', 'Español', 'Spanish'),
   AppLanguage('he', 'עברית', 'Hebrew', enabled: false),
   AppLanguage('de', 'Deutsch', 'German', enabled: false),
   AppLanguage('fr', 'Français', 'French', enabled: false),
 ];
 
-/// Device language code (e.g. 'he') if it's one of our *enabled*
-/// languages, otherwise 'en'. Use at startup for first-run default.
-String deviceLanguageOrEnglish() {
-  for (final l in ui.PlatformDispatcher.instance.locales) {
-    final code = l.languageCode.toLowerCase();
-    if (kAppLanguages.any((a) => a.enabled && a.code == code)) return code;
+List<AppLanguage> get kEnabledLanguages =>
+    kAppLanguages.where((l) => l.enabled).toList();
+
+AppLanguage? languageByCode(String? code) {
+  if (code == null) return null;
+  final c = code.trim().toLowerCase();
+  for (final l in kAppLanguages) {
+    if (l.code == c) return l;
   }
-  return 'en';
+  return null;
 }
 
+/// The phone's language if we ship it, else null.
+AppLanguage? deviceLanguageIfSupported() {
+  try {
+    final locale = ui.PlatformDispatcher.instance.locale;
+    final l = languageByCode(locale.languageCode);
+    return (l != null && l.enabled) ? l : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kStrings = {
+  "language": {
+    "en": "Language",
+    "es": "Idioma",
+    "he": "שפה",
+    "de": "Sprache",
+    "fr": "Langue"
+  },
+  "device": {
+    "en": "Device language",
+    "es": "Idioma del dispositivo",
+    "he": "שפת המכשיר",
+    "de": "Gerätesprache",
+    "fr": "Langue de l'appareil"
+  },
+  "done": {
+    "en": "Done",
+    "es": "Listo",
+    "he": "סיום",
+    "de": "Fertig",
+    "fr": "OK"
+  },
+};
+
+String _tr(String lang, String key) {
+  final m = _kStrings[key];
+  return m == null ? key : (m[lang] ?? m['en'] ?? key);
+}
+
+// ---------------------------------------------------------------------------
+// Widget
+// ---------------------------------------------------------------------------
+
+/// Settings row "Language · English ›".
+///
+/// No outer padding — drop it in the same Container as the other preference
+/// rows. Tap opens a bottom sheet with "Device language" (only when the
+/// phone's language is one we ship) followed by every enabled language. Each
+/// pick fires its own callback (do a Set App Language there). Reads the
+/// current language itself.
 class LanguageRow extends StatefulWidget {
   const LanguageRow({
     super.key,
@@ -59,9 +127,6 @@ class LanguageRow extends StatefulWidget {
 
   final double? width;
   final double? height;
-
-  /// One callback per language. Each should contain "Set App Language"
-  /// for that language (plus anything else, e.g. saving to profile).
   final Future Function()? onEnglish;
   final Future Function()? onSpanish;
   final Future Function()? onHebrew;
@@ -73,237 +138,260 @@ class LanguageRow extends StatefulWidget {
 }
 
 class _LanguageRowState extends State<LanguageRow> {
-  List<AppLanguage> get _enabled =>
-      kAppLanguages.where((l) => l.enabled).toList();
-
-  AppLanguage _current(BuildContext context) {
-    final code = FFLocalizations.of(context).languageCode;
-    return kAppLanguages.firstWhere(
-      (l) => l.code == code,
-      orElse: () => kAppLanguages.first,
-    );
-  }
-
-  Future Function()? _callbackFor(String code) {
+  Future<void> _fire(String code) async {
     switch (code) {
       case 'en':
-        return widget.onEnglish;
+        await widget.onEnglish?.call();
+        break;
       case 'es':
-        return widget.onSpanish;
+        await widget.onSpanish?.call();
+        break;
       case 'he':
-        return widget.onHebrew;
+        await widget.onHebrew?.call();
+        break;
       case 'de':
-        return widget.onGerman;
+        await widget.onGerman?.call();
+        break;
       case 'fr':
-        return widget.onFrench;
+        await widget.onFrench?.call();
+        break;
     }
-    return null;
+  }
+
+  Future<void> _openSheet() async {
+    HapticFeedback.selectionClick();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LanguageSheet(
+        onPick: (code) async {
+          Navigator.of(context).pop();
+          await _fire(code);
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    final AppLanguage current = languageByCode(lang) ?? kAppLanguages.first;
 
-    return InkWell(
-      onTap: () => _openSheet(context),
-      child: Container(
-        width: widget.width,
-        height: widget.height ?? 56,
-        padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 0),
-        child: Row(
-          children: [
-            Icon(Icons.language_outlined, size: 22, color: theme.secondaryText),
-            const SizedBox(width: 18),
-            Expanded(
-              child: Text(
-                'Language',
-                style: theme.bodyLarge.override(
-                  fontFamily: theme.bodyLargeFamily,
-                  fontSize: 16,
-                  useGoogleFonts:
-                      GoogleFonts.asMap().containsKey(theme.bodyLargeFamily),
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openSheet,
+        child: SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.language_rounded, size: 24, color: theme.primaryText),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  _tr(lang, 'language'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.bodyMedium.override(
+                    fontFamily: theme.bodyMediumFamily,
+                    fontSize: 16,
+                    useGoogleFonts:
+                        GoogleFonts.asMap().containsKey(theme.bodyMediumFamily),
+                  ),
                 ),
               ),
-            ),
-            Text(
-              _current(context).nativeName,
-              style: theme.bodyLarge.override(
-                fontFamily: theme.bodyLargeFamily,
-                fontSize: 16,
-                color: theme.secondaryText,
-                useGoogleFonts:
-                    GoogleFonts.asMap().containsKey(theme.bodyLargeFamily),
+              const SizedBox(width: 16),
+              Text(
+                current.nativeName,
+                style: theme.bodyMedium.override(
+                  fontFamily: theme.bodyMediumFamily,
+                  fontSize: 16,
+                  color: theme.secondaryText,
+                  useGoogleFonts:
+                      GoogleFonts.asMap().containsKey(theme.bodyMediumFamily),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded,
-                size: 22, color: theme.secondaryText),
-          ],
+              const SizedBox(width: 8),
+              Icon(
+                rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                size: 22,
+                color: theme.primaryText,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _openSheet(BuildContext context) async {
+// ---------------------------------------------------------------------------
+// Bottom sheet
+// ---------------------------------------------------------------------------
+
+class _LanguageSheet extends StatelessWidget {
+  const _LanguageSheet({required this.onPick});
+  final Future<void> Function(String code) onPick;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
-    String selected = _current(context).code;
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    final AppLanguage? device = deviceLanguageIfSupported();
+    final List<AppLanguage> langs = kEnabledLanguages;
+    final double bottom = MediaQuery.of(context).padding.bottom;
 
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.45),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setSheet) {
-            return Container(
-              decoration: BoxDecoration(
-                color: theme.secondaryBackground,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              padding: EdgeInsets.only(
-                top: 10,
-                bottom: MediaQuery.of(ctx).padding.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+    TextStyle title(Color c, {FontWeight w = FontWeight.w400}) =>
+        theme.bodyMedium.override(
+          fontFamily: theme.bodyMediumFamily,
+          fontSize: 16,
+          fontWeight: w,
+          color: c,
+          useGoogleFonts:
+              GoogleFonts.asMap().containsKey(theme.bodyMediumFamily),
+        );
+    TextStyle sub() => theme.bodySmall.override(
+          fontFamily: theme.bodySmallFamily,
+          fontSize: 13,
+          color: theme.secondaryText,
+          useGoogleFonts:
+              GoogleFonts.asMap().containsKey(theme.bodySmallFamily),
+        );
+
+    Widget check(bool on) => Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: on ? theme.primary : Colors.transparent,
+            border: on ? null : Border.all(color: theme.alternate, width: 2),
+          ),
+          child: on
+              ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+              : null,
+        );
+
+    Widget row({
+      required String main,
+      required String secondary,
+      required bool selected,
+      required VoidCallback onTap,
+    }) =>
+        InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 60,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: theme.alternate,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(24, 0, 24, 6),
-                    child: Row(
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Language',
-                            style: theme.headlineSmall.override(
-                              fontFamily: theme.headlineSmallFamily,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              useGoogleFonts: GoogleFonts.asMap()
-                                  .containsKey(theme.headlineSmallFamily),
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          child: Text(
-                            'Done',
-                            style: theme.bodyLarge.override(
-                              fontFamily: theme.bodyLargeFamily,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: theme.primary,
-                              useGoogleFonts: GoogleFonts.asMap()
-                                  .containsKey(theme.bodyLargeFamily),
-                            ),
-                          ),
-                        ),
+                        Text(main,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: title(theme.primaryText,
+                                w: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400)),
+                        const SizedBox(height: 2),
+                        Text(secondary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: sub()),
                       ],
                     ),
                   ),
-                  ..._enabled.map((lang) {
-                    final isSelected = lang.code == selected;
-                    return InkWell(
-                      onTap: () async {
-                        setSheet(() => selected = lang.code);
-                        await _callbackFor(lang.code)?.call();
-                        if (mounted) setState(() {});
-                      },
-                      child: SizedBox(
-                        height: 60,
-                        child: Padding(
-                          padding: const EdgeInsetsDirectional.fromSTEB(
-                              24, 0, 24, 0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      lang.nativeName,
-                                      style: theme.bodyLarge.override(
-                                        fontFamily: theme.bodyLargeFamily,
-                                        fontSize: 16,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w600
-                                            : FontWeight.w400,
-                                        useGoogleFonts: GoogleFonts.asMap()
-                                            .containsKey(theme.bodyLargeFamily),
-                                      ),
-                                    ),
-                                    Text(
-                                      lang.englishName,
-                                      style: theme.bodySmall.override(
-                                        fontFamily: theme.bodySmallFamily,
-                                        fontSize: 13,
-                                        color: theme.secondaryText,
-                                        useGoogleFonts: GoogleFonts.asMap()
-                                            .containsKey(theme.bodySmallFamily),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              isSelected
-                                  ? Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        color: theme.primary,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.check_rounded,
-                                          size: 16, color: Colors.white),
-                                    )
-                                  : Container(
-                                      width: 24,
-                                      height: 24,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                            color: theme.alternate, width: 2),
-                                      ),
-                                    ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                  Padding(
-                    padding:
-                        const EdgeInsetsDirectional.fromSTEB(32, 14, 32, 0),
+                  const SizedBox(width: 12),
+                  check(selected),
+                ],
+              ),
+            ),
+          ),
+        );
+
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.secondaryBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        ),
+        padding: EdgeInsets.only(top: 10, bottom: 16 + bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: theme.alternate,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Row(
+                children: [
+                  Expanded(
                     child: Text(
-                      'Exercise names and tips switch with the app language. Your own custom exercises stay as you wrote them.',
-                      textAlign: TextAlign.center,
-                      style: theme.bodySmall.override(
-                        fontFamily: theme.bodySmallFamily,
-                        fontSize: 12,
-                        color: theme.secondaryText,
-                        lineHeight: 1.5,
+                      _tr(lang, 'language'),
+                      style: theme.headlineSmall.override(
+                        fontFamily: theme.headlineSmallFamily,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
                         useGoogleFonts: GoogleFonts.asMap()
-                            .containsKey(theme.bodySmallFamily),
+                            .containsKey(theme.headlineSmallFamily),
                       ),
+                    ),
+                  ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Text(_tr(lang, 'done'),
+                          style: title(theme.primary, w: FontWeight.w500)),
                     ),
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
+            ),
+            // Device language — only when the phone's language is one we ship.
+            if (device != null) ...[
+              row(
+                main: _tr(lang, 'device'),
+                secondary: device.nativeName,
+                selected: false,
+                onTap: () => onPick(device.code),
+              ),
+              Divider(height: 1, thickness: 1, color: theme.alternate),
+            ],
+            for (final l in langs)
+              row(
+                main: l.nativeName,
+                secondary: l.englishName,
+                selected: l.code == lang,
+                onTap: () => onPick(l.code),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

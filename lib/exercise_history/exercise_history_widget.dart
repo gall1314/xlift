@@ -161,10 +161,9 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                       padding:
                           EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 3.0),
                       child: Text(
-                        valueOrDefault<String>(
-                          exerciseHistoryExercise2RowList.firstOrNull?.name,
-                          'name',
-                        ),
+                        functions.localizedName(
+                            exerciseHistoryExercise2RowList.firstOrNull?.name,
+                            ''),
                         style: FlutterFlowTheme.of(context)
                             .headlineMedium
                             .override(
