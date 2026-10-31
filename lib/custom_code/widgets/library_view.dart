@@ -13,7 +13,9 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' as intl show DateFormat;
 
 /// Self-managed Library screen content (nav bar / FAB live on the page).
 ///
@@ -22,23 +24,29 @@ import 'package:google_fonts/google_fonts.dart';
 /// Runs its own SQLite queries, exposes navigation as callbacks. Fonts and
 /// colors come from FlutterFlowTheme so it matches the rest of the app.
 ///
-/// Parameters: userId                  - current user id (auth) initialTab -
-/// 0 Workouts, 1 Templates, 2 Exercises canGenerate             - false =
-/// Generate is shown locked and taps call onOpenPremium instead (null = true)
-/// onStartWorkout          - (workoutId) onEditWorkout           -
-/// (workoutId) onDeleteWorkout         - (workoutId)  widget reloads
-/// afterwards onOpenTemplate          - (GetWorkoutTemplateRow, workoutId)
-/// onUseTemplate           - (GetWorkoutTemplateRow, workoutId) widget
-/// reloads afterwards onOpenExercise          - (exerciseId, isPublic)
-/// onCreateWorkout         - the existing create bottom sheet
-/// onGenerateWorkout       - AI generator onCreateCustomExercise  - custom
-/// exercise flow onOpenPremium           - paywall bottom sheet
+/// Localization: `languageCode` ('en','es','he','de','fr') drives all UI
+/// strings (see _kStrings), exercise / muscle names (via localizedName) and
+/// text direction (RTL for 'he'). Image lookups always use the English name,
+/// so assets keep working in every language.
+///
+/// Parameters: userId                  - current user id (auth) languageCode
+/// - app language code (Global Properties → Current Language) initialTab - 0
+/// Workouts, 1 Templates, 2 Exercises canGenerate - false = Generate is shown
+/// locked and taps call onOpenPremium instead (null = true) onStartWorkout -
+/// (workoutId) onEditWorkout - (workoutId) onDeleteWorkout         -
+/// (workoutId)  widget reloads afterwards onOpenTemplate          -
+/// (GetWorkoutTemplateRow, workoutId) onUseTemplate - (GetWorkoutTemplateRow,
+/// workoutId) widget reloads afterwards onOpenExercise          -
+/// (exerciseId, isPublic) onCreateWorkout         - the existing create
+/// bottom sheet onGenerateWorkout       - AI generator onCreateCustomExercise
+/// - custom exercise flow onOpenPremium           - paywall bottom sheet
 class LibraryView extends StatefulWidget {
   const LibraryView({
     super.key,
     this.width,
     this.height,
     required this.userId,
+    this.languageCode,
     this.initialTab,
     this.canGenerate,
     this.onStartWorkout,
@@ -56,6 +64,7 @@ class LibraryView extends StatefulWidget {
   final double? width;
   final double? height;
   final String userId;
+  final String? languageCode;
   final int? initialTab;
   final bool? canGenerate;
   final Future Function(String workoutId)? onStartWorkout;
@@ -94,13 +103,310 @@ const _kOnDark = Color(0xFFF2F4F3);
 
 const _kTabular = [FontFeature.tabularFigures()];
 
+// Languages written right-to-left.
+const Set<String> _kRtl = {'he', 'ar'};
+
+// ---------------------------------------------------------------------------
+// UI strings. {n} / {g} / {d} are placeholders. English is the fallback.
+// ---------------------------------------------------------------------------
+const Map<String, Map<String, String>> _kStrings = {
+  "library": {
+    "en": "Library",
+    "es": "Biblioteca",
+    "he": "ספרייה",
+    "de": "Bibliothek",
+    "fr": "Bibliothèque",
+  },
+  "custom": {
+    "en": "Custom",
+    "es": "Personalizado",
+    "he": "מותאם אישית",
+    "de": "Eigene",
+    "fr": "Personnalisé",
+  },
+  "generate": {
+    "en": "Generate",
+    "es": "Generar",
+    "he": "צור אימון",
+    "de": "Generieren",
+    "fr": "Générer",
+  },
+  "workouts": {
+    "en": "Workouts",
+    "es": "Entrenamientos",
+    "he": "אימונים",
+    "de": "Workouts",
+    "fr": "Entraînements",
+  },
+  "templates": {
+    "en": "Templates",
+    "es": "Plantillas",
+    "he": "תבניות",
+    "de": "Vorlagen",
+    "fr": "Modèles",
+  },
+  "exercises": {
+    "en": "Exercises",
+    "es": "Ejercicios",
+    "he": "תרגילים",
+    "de": "Übungen",
+    "fr": "Exercices",
+  },
+  "searchWorkouts": {
+    "en": "Search workouts",
+    "es": "Buscar entrenamientos",
+    "he": "חיפוש אימונים",
+    "de": "Workouts suchen",
+    "fr": "Rechercher des entraînements",
+  },
+  "searchTemplates": {
+    "en": "Search templates",
+    "es": "Buscar plantillas",
+    "he": "חיפוש תבניות",
+    "de": "Vorlagen suchen",
+    "fr": "Rechercher des modèles",
+  },
+  "searchExercises": {
+    "en": "Search exercises",
+    "es": "Buscar ejercicios",
+    "he": "חיפוש תרגילים",
+    "de": "Übungen suchen",
+    "fr": "Rechercher des exercices",
+  },
+  "searchNExercises": {
+    "en": "Search {n} exercises",
+    "es": "Buscar {n} ejercicios",
+    "he": "חיפוש ב-{n} תרגילים",
+    "de": "{n} Übungen durchsuchen",
+    "fr": "Rechercher parmi {n} exercices",
+  },
+  "allMuscles": {
+    "en": "All muscles",
+    "es": "Todos los músculos",
+    "he": "כל השרירים",
+    "de": "Alle Muskeln",
+    "fr": "Tous les muscles",
+  },
+  "allOf": {
+    "en": "All {g}",
+    "es": "Todo {g}",
+    "he": "כל {g}",
+    "de": "Alle {g}",
+    "fr": "Tout {g}",
+  },
+  "chooseMuscleGroup": {
+    "en": "Choose muscle group",
+    "es": "Elige grupo muscular",
+    "he": "בחר קבוצת שרירים",
+    "de": "Muskelgruppe wählen",
+    "fr": "Choisir un groupe musculaire",
+  },
+  "chooseMuscle": {
+    "en": "Choose muscle",
+    "es": "Elige músculo",
+    "he": "בחר שריר",
+    "de": "Muskel wählen",
+    "fr": "Choisir un muscle",
+  },
+  "searchMuscle": {
+    "en": "Search muscle",
+    "es": "Buscar músculo",
+    "he": "חיפוש שריר",
+    "de": "Muskel suchen",
+    "fr": "Rechercher un muscle",
+  },
+  "edit": {
+    "en": "Edit",
+    "es": "Editar",
+    "he": "עריכה",
+    "de": "Bearbeiten",
+    "fr": "Modifier",
+  },
+  "delete": {
+    "en": "Delete",
+    "es": "Eliminar",
+    "he": "מחיקה",
+    "de": "Löschen",
+    "fr": "Supprimer",
+  },
+  "start": {
+    "en": "Start",
+    "es": "Empezar",
+    "he": "התחל",
+    "de": "Start",
+    "fr": "Démarrer",
+  },
+  "use": {
+    "en": "Use",
+    "es": "Usar",
+    "he": "השתמש",
+    "de": "Nutzen",
+    "fr": "Utiliser",
+  },
+  "newWorkout": {
+    "en": "New workout",
+    "es": "Nuevo entrenamiento",
+    "he": "אימון חדש",
+    "de": "Neues Workout",
+    "fr": "Nouvel entraînement",
+  },
+  "noWorkoutsYet": {
+    "en": "No workouts yet",
+    "es": "Aún no hay entrenamientos",
+    "he": "אין אימונים עדיין",
+    "de": "Noch keine Workouts",
+    "fr": "Aucun entraînement pour l'instant",
+  },
+  "noWorkoutsMatch": {
+    "en": "No workouts match",
+    "es": "Ningún entrenamiento coincide",
+    "he": "אין אימונים תואמים",
+    "de": "Keine passenden Workouts",
+    "fr": "Aucun entraînement ne correspond",
+  },
+  "createOneBelow": {
+    "en": "Create one below, or start from a template.",
+    "es": "Crea uno abajo o empieza desde una plantilla.",
+    "he": "צור אחד למטה, או התחל מתבנית.",
+    "de": "Erstelle eines unten oder starte mit einer Vorlage.",
+    "fr": "Créez-en un ci-dessous ou partez d'un modèle.",
+  },
+  "tryAnother": {
+    "en": "Try another muscle or clear the search.",
+    "es": "Prueba otro músculo o borra la búsqueda.",
+    "he": "נסה שריר אחר או נקה את החיפוש.",
+    "de": "Versuche einen anderen Muskel oder lösche die Suche.",
+    "fr": "Essayez un autre muscle ou effacez la recherche.",
+  },
+  "noTemplatesDevice": {
+    "en": "No templates on this device",
+    "es": "No hay plantillas en este dispositivo",
+    "he": "אין תבניות במכשיר הזה",
+    "de": "Keine Vorlagen auf diesem Gerät",
+    "fr": "Aucun modèle sur cet appareil",
+  },
+  "noTemplatesMatch": {
+    "en": "No templates match",
+    "es": "Ninguna plantilla coincide",
+    "he": "אין תבניות תואמות",
+    "de": "Keine passenden Vorlagen",
+    "fr": "Aucun modèle ne correspond",
+  },
+  "catalogNotLoaded": {
+    "en": "The template catalog hasn't been loaded yet.",
+    "es": "El catálogo de plantillas aún no se ha cargado.",
+    "he": "קטלוג התבניות עדיין לא נטען.",
+    "de": "Der Vorlagenkatalog wurde noch nicht geladen.",
+    "fr": "Le catalogue de modèles n'a pas encore été chargé.",
+  },
+  "noExercisesMatch": {
+    "en": "No exercises match",
+    "es": "Ningún ejercicio coincide",
+    "he": "אין תרגילים תואמים",
+    "de": "Keine passenden Übungen",
+    "fr": "Aucun exercice ne correspond",
+  },
+  "other": {
+    "en": "Other",
+    "es": "Otros",
+    "he": "אחר",
+    "de": "Sonstige",
+    "fr": "Autres",
+  },
+  "template": {
+    "en": "Template",
+    "es": "Plantilla",
+    "he": "תבנית",
+    "de": "Vorlage",
+    "fr": "Modèle",
+  },
+  "workout": {
+    "en": "Workout",
+    "es": "Entrenamiento",
+    "he": "אימון",
+    "de": "Workout",
+    "fr": "Entraînement",
+  },
+  "exercisesCount": {
+    "en": "{n} exercises",
+    "es": "{n} ejercicios",
+    "he": "{n} תרגילים",
+    "de": "{n} Übungen",
+    "fr": "{n} exercices",
+  },
+  "minutes": {
+    "en": "~{n} min",
+    "es": "~{n} min",
+    "he": "~{n} דק׳",
+    "de": "~{n} Min.",
+    "fr": "~{n} min",
+  },
+  "neverDone": {
+    "en": "never done",
+    "es": "nunca realizado",
+    "he": "לא בוצע",
+    "de": "nie gemacht",
+    "fr": "jamais fait",
+  },
+  "doneJustNow": {
+    "en": "done just now",
+    "es": "hecho ahora mismo",
+    "he": "בוצע עכשיו",
+    "de": "gerade gemacht",
+    "fr": "fait à l'instant",
+  },
+  "doneHoursAgo": {
+    "en": "done {n}h ago",
+    "es": "hace {n} h",
+    "he": "בוצע לפני {n} שע׳",
+    "de": "vor {n} Std.",
+    "fr": "il y a {n} h",
+  },
+  "doneYesterday": {
+    "en": "done yesterday",
+    "es": "hecho ayer",
+    "he": "בוצע אתמול",
+    "de": "gestern gemacht",
+    "fr": "fait hier",
+  },
+  "doneDaysAgo": {
+    "en": "done {n}d ago",
+    "es": "hace {n} días",
+    "he": "בוצע לפני {n} ימים",
+    "de": "vor {n} Tagen",
+    "fr": "il y a {n} j",
+  },
+  "doneLastDay": {
+    "en": "done last {d}",
+    "es": "el {d} pasado",
+    "he": "בוצע ביום {d} שעבר",
+    "de": "letzten {d}",
+    "fr": "{d} dernier",
+  },
+  "doneWeeksAgo": {
+    "en": "done {n}w ago",
+    "es": "hace {n} sem.",
+    "he": "בוצע לפני {n} שבועות",
+    "de": "vor {n} Wo.",
+    "fr": "il y a {n} sem.",
+  },
+  "failedToLoad": {
+    "en": "Library failed to load",
+    "es": "No se pudo cargar la biblioteca",
+    "he": "טעינת הספרייה נכשלה",
+    "de": "Bibliothek konnte nicht geladen werden",
+    "fr": "Échec du chargement de la bibliothèque",
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Data models
 // ---------------------------------------------------------------------------
 class _Group {
-  const _Group(this.id, this.name, [this.image = '']);
+  const _Group(this.id, this.name, this.nameEn, [this.image = '']);
   final int id;
-  final String name;
+  final String name; // localized (display)
+  final String nameEn; // English (image lookup)
   final String image; // optional asset fallback from the table
 }
 
@@ -123,6 +429,7 @@ class _ExerciseItem {
   _ExerciseItem({
     required this.id,
     required this.name,
+    required this.nameEn,
     required this.equipment,
     required this.hasFormCheck,
     required this.isPublic,
@@ -131,7 +438,8 @@ class _ExerciseItem {
     required this.muscles,
   });
   final int id;
-  final String name;
+  final String name; // localized (display)
+  final String nameEn; // English (assets, search)
   final String equipment;
   final bool hasFormCheck;
   final bool isPublic;
@@ -212,9 +520,11 @@ class _LibraryData {
 }
 
 class _PickItem {
-  const _PickItem(this.id, this.label, this.count, {this.image = ''});
+  const _PickItem(this.id, this.label, this.count,
+      {this.labelEn = '', this.image = ''});
   final int? id;
-  final String label;
+  final String label; // localized
+  final String labelEn; // English (image lookup)
   final int count;
   final String image;
   bool get isAll => id == null;
@@ -247,6 +557,27 @@ class _LibraryViewState extends State<LibraryView> {
   Color _accentDeep = const Color(0xFF0B7D6B);
   Color _accentTint = const Color(0xFFE1F4EF);
 
+  // ---------------------------- localization --------------------------------
+
+  String get _lang {
+    final l = (widget.languageCode ?? 'en').trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  }
+
+  bool get _isRtl => _kRtl.contains(_lang);
+
+  ui.TextDirection get _dir =>
+      _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr;
+
+  String _t(String key, {int? n, String? g, String? d}) {
+    final m = _kStrings[key];
+    var s = m == null ? key : (m[_lang] ?? m['en'] ?? key);
+    if (n != null) s = s.replaceAll('{n}', '$n');
+    if (g != null) s = s.replaceAll('{g}', g);
+    if (d != null) s = s.replaceAll('{d}', d);
+    return s;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -257,7 +588,10 @@ class _LibraryViewState extends State<LibraryView> {
   @override
   void didUpdateWidget(covariant LibraryView old) {
     super.didUpdateWidget(old);
-    if (old.userId != widget.userId) _load();
+    if (old.userId != widget.userId ||
+        old.languageCode != widget.languageCode) {
+      _load();
+    }
   }
 
   @override
@@ -327,16 +661,24 @@ class _LibraryViewState extends State<LibraryView> {
   static String _cap(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
-  static String _ago(DateTime? dt) {
-    if (dt == null) return 'never done';
+  String _dayName(DateTime dt) {
+    try {
+      return intl.DateFormat.E(_lang).format(dt);
+    } catch (_) {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return days[dt.weekday % 7];
+    }
+  }
+
+  String _ago(DateTime? dt) {
+    if (dt == null) return _t('neverDone');
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return 'done just now';
-    if (diff.inHours < 24) return 'done ${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'done yesterday';
-    if (diff.inDays < 7) return 'done ${diff.inDays}d ago';
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    if (diff.inDays < 14) return 'done last ${days[dt.weekday % 7]}';
-    return 'done ${(diff.inDays / 7).floor()}w ago';
+    if (diff.inMinutes < 60) return _t('doneJustNow');
+    if (diff.inHours < 24) return _t('doneHoursAgo', n: diff.inHours);
+    if (diff.inDays == 1) return _t('doneYesterday');
+    if (diff.inDays < 7) return _t('doneDaysAgo', n: diff.inDays);
+    if (diff.inDays < 14) return _t('doneLastDay', d: _dayName(dt));
+    return _t('doneWeeksAgo', n: (diff.inDays / 7).floor());
   }
 
   /// Top primary muscle groups by how many exercises hit them.
@@ -357,13 +699,13 @@ class _LibraryViewState extends State<LibraryView> {
   Future<_LibraryData> _fetch() async {
     final db = SQLiteManager.instance.database;
     final uid = widget.userId;
+    final lang = _lang;
 
     // --- muscle taxonomy ---
     final pmgRows = await db.rawQuery(
         'SELECT id, name, ilustration FROM primary_muscle_group ORDER BY id');
     final mgRows = await db.rawQuery(
-        'SELECT id, name, image_url, primary_muscle_group_id FROM muscle_group '
-        'ORDER BY name COLLATE NOCASE');
+        'SELECT id, name, image_url, primary_muscle_group_id FROM muscle_group');
     final emgRows = await db.rawQuery('''
       SELECT emg.exercise_id, emg.muscle_group_id, emg.is_primary,
              mg.name AS mg_name, mg.primary_muscle_group_id AS pmg_id,
@@ -376,33 +718,47 @@ class _LibraryViewState extends State<LibraryView> {
 
     final primaryGroups = <_Group>[
       for (final r in pmgRows)
-        _Group(_int(r['id']), _str(r['name']), _str(r['ilustration'])),
+        _Group(
+          _int(r['id']),
+          localizedName(_str(r['name']), lang),
+          localizedName(_str(r['name']), 'en'),
+          _str(r['ilustration']),
+        ),
     ];
     final subGroups = <int, List<_Group>>{};
     for (final r in mgRows) {
-      subGroups
-          .putIfAbsent(_int(r['primary_muscle_group_id']), () => [])
-          .add(_Group(_int(r['id']), _str(r['name']), _str(r['image_url'])));
+      subGroups.putIfAbsent(_int(r['primary_muscle_group_id']), () => []).add(
+            _Group(
+              _int(r['id']),
+              localizedName(_str(r['name']), lang),
+              localizedName(_str(r['name']), 'en'),
+              _str(r['image_url']),
+            ),
+          );
+    }
+    // Sub groups sorted by localized name (name column is JSON now).
+    for (final list in subGroups.values) {
+      list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     }
     final exMuscles = <int, List<_MuscleRef>>{};
     for (final r in emgRows) {
       exMuscles.putIfAbsent(_int(r['exercise_id']), () => []).add(_MuscleRef(
             mgId: _int(r['muscle_group_id']),
-            mgName: _str(r['mg_name']),
+            mgName: localizedName(_str(r['mg_name']), lang),
             pmgId: _int(r['pmg_id']),
-            pmgName: _str(r['pmg_name']),
+            pmgName: localizedName(_str(r['pmg_name']), lang),
             isPrimary: _int(r['is_primary']) == 1,
           ));
     }
 
     // --- exercises: catalog + the user's custom ones ---
+    // Sorted in Dart by the localized name (name column is JSON now).
     final exRows = await db.rawQuery('''
       SELECT id, name, equipment, ai_form_analysis, is_public,
              created_by_user_id, illustration
       FROM exercise
       WHERE COALESCE(is_deleted, 0) = 0
         AND (COALESCE(is_public, 0) = 1 OR created_by_user_id = ?)
-      ORDER BY name COLLATE NOCASE
     ''', [uid]);
     final exercises = <_ExerciseItem>[];
     final fcIds = <int>{};
@@ -413,9 +769,11 @@ class _LibraryViewState extends State<LibraryView> {
       final fc = _int(r['ai_form_analysis']) == 1;
       if (fc) fcIds.add(id);
       final ill = _str(r['illustration']);
+      final rawName = _str(r['name']);
       exercises.add(_ExerciseItem(
         id: id,
-        name: _str(r['name']),
+        name: localizedName(rawName, lang),
+        nameEn: localizedName(rawName, 'en'),
         equipment: _str(r['equipment']),
         hasFormCheck: fc,
         isPublic: isPublic,
@@ -424,6 +782,8 @@ class _LibraryViewState extends State<LibraryView> {
         muscles: exMuscles[id] ?? const [],
       ));
     }
+    exercises
+        .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     // --- the user's workouts (template workouts excluded) ---
     final wRows = await db.rawQuery('''
@@ -539,7 +899,7 @@ class _LibraryViewState extends State<LibraryView> {
       }
       workouts.add(_WorkoutItem(
         id: id,
-        name: name.isEmpty ? 'Workout' : _cap(name),
+        name: name.isEmpty ? _t('workout') : _cap(name),
         createdAt: _parse(r['created_at']),
         lastDoneAt: lastDone[id],
         exerciseCount: exIds.toSet().length,
@@ -569,7 +929,7 @@ class _LibraryViewState extends State<LibraryView> {
 
       var name = _str(r['name']);
       if (name.isEmpty) name = _str(r['_workout_name']);
-      if (name.isEmpty) name = 'Template';
+      if (name.isEmpty) name = _t('template');
 
       var groups = _topGroups(refs);
       if (groups.isEmpty) {
@@ -653,9 +1013,14 @@ class _LibraryViewState extends State<LibraryView> {
   List<_ExerciseItem> _filteredExercises({bool applyFc = true}) {
     final d = _data;
     if (d == null) return const [];
+    // Search matches the localized name AND the English name.
     return d.exercises
-        .where((e) => _textMatch(
-            [e.name, e.equipment, for (final m in e.muscles) m.mgName]))
+        .where((e) => _textMatch([
+              e.name,
+              e.nameEn,
+              e.equipment,
+              for (final m in e.muscles) m.mgName
+            ]))
         .where((e) => _muscleMatch(e.primary))
         .where((e) => !applyFc || !_fcOnly || e.hasFormCheck)
         .toList();
@@ -752,7 +1117,7 @@ class _LibraryViewState extends State<LibraryView> {
             children: [
               Icon(Icons.edit_outlined, size: 18, color: _ink),
               const SizedBox(width: 10),
-              Text('Edit', style: _body(14, w: FontWeight.w500)),
+              Text(_t('edit'), style: _body(14, w: FontWeight.w500)),
             ],
           ),
         ),
@@ -764,7 +1129,7 @@ class _LibraryViewState extends State<LibraryView> {
               const Icon(Icons.delete_outline_rounded,
                   size: 18, color: Color(0xFFD64545)),
               const SizedBox(width: 10),
-              Text('Delete',
+              Text(_t('delete'),
                   style: _body(14,
                       color: const Color(0xFFD64545), w: FontWeight.w500)),
             ],
@@ -785,12 +1150,13 @@ class _LibraryViewState extends State<LibraryView> {
     final d = _data;
     if (d == null) return;
     final items = <_PickItem>[
-      _PickItem(null, 'All muscles', _countFor(null, null)),
+      _PickItem(null, _t('allMuscles'), _countFor(null, null)),
       for (final g in d.primaryGroups)
-        _PickItem(g.id, g.name, _countFor(g.id, null), image: g.image),
+        _PickItem(g.id, g.name, _countFor(g.id, null),
+            labelEn: g.nameEn, image: g.image),
     ];
     final picked = await _showPicker(
-        title: 'Choose Muscle group', items: items, selected: _pmgId);
+        title: _t('chooseMuscleGroup'), items: items, selected: _pmgId);
     if (picked == null || !mounted) return;
     setState(() {
       _pmgId = picked.id;
@@ -803,16 +1169,18 @@ class _LibraryViewState extends State<LibraryView> {
     final p = _pmgId;
     if (d == null || p == null) return;
     final pName = d.primaryGroups
-        .firstWhere((g) => g.id == p, orElse: () => const _Group(0, 'group'))
+        .firstWhere((g) => g.id == p,
+            orElse: () => const _Group(0, 'group', 'group'))
         .name;
     final subs = d.subGroups[p] ?? const <_Group>[];
     final items = <_PickItem>[
-      _PickItem(null, 'All ${pName.toLowerCase()}', _countFor(p, null)),
+      _PickItem(null, _t('allOf', g: pName.toLowerCase()), _countFor(p, null)),
       for (final g in subs)
-        _PickItem(g.id, g.name, _countFor(p, g.id), image: g.image),
+        _PickItem(g.id, g.name, _countFor(p, g.id),
+            labelEn: g.nameEn, image: g.image),
     ];
     final picked = await _showPicker(
-        title: 'Choose muscle', items: items, selected: _mgId);
+        title: _t('chooseMuscle'), items: items, selected: _mgId);
     if (picked == null || !mounted) return;
     setState(() => _mgId = picked.id);
   }
@@ -834,98 +1202,103 @@ class _LibraryViewState extends State<LibraryView> {
       builder: (ctx) {
         final maxH = MediaQuery.of(ctx).size.height * 0.85;
         String q = '';
-        return StatefulBuilder(
-          builder: (sctx, setSheet) {
-            final visible = q.isEmpty
-                ? items
-                : items
-                    .where(
-                        (it) => it.isAll || it.label.toLowerCase().contains(q))
-                    .toList();
-            return Padding(
-              padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(sctx).viewInsets.bottom),
-              child: SafeArea(
-                top: false,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxH),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 10),
-                      Container(
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _line,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Text(
-                        title,
-                        style: _display(26, w: FontWeight.w700),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 18),
-                      Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: _kGutter),
-                        child: Container(
-                          height: 48,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
+        return Directionality(
+          textDirection: _dir,
+          child: StatefulBuilder(
+            builder: (sctx, setSheet) {
+              final visible = q.isEmpty
+                  ? items
+                  : items
+                      .where((it) =>
+                          it.isAll ||
+                          it.label.toLowerCase().contains(q) ||
+                          it.labelEn.toLowerCase().contains(q))
+                      .toList();
+              return Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(sctx).viewInsets.bottom),
+                child: SafeArea(
+                  top: false,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxH),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 10),
+                        Container(
+                          width: 36,
+                          height: 4,
                           decoration: BoxDecoration(
-                            color: _card,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: _line),
+                            color: _line,
+                            borderRadius: BorderRadius.circular(2),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.search_rounded,
-                                  size: 20, color: _inkMuted),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  onChanged: (v) => setSheet(
-                                      () => q = v.trim().toLowerCase()),
-                                  style: _body(15),
-                                  cursorColor: _accent,
-                                  textAlignVertical: TextAlignVertical.center,
-                                  decoration: InputDecoration(
-                                    isCollapsed: true,
-                                    border: InputBorder.none,
-                                    hintText: 'Search muscle',
-                                    hintStyle: _body(15, color: _inkMuted),
+                        ),
+                        const SizedBox(height: 22),
+                        Text(
+                          title,
+                          style: _display(26, w: FontWeight.w700),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 18),
+                        Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: _kGutter),
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: _card,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: _line),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search_rounded,
+                                    size: 20, color: _inkMuted),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextField(
+                                    onChanged: (v) => setSheet(
+                                        () => q = v.trim().toLowerCase()),
+                                    style: _body(15),
+                                    cursorColor: _accent,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    decoration: InputDecoration(
+                                      isCollapsed: true,
+                                      border: InputBorder.none,
+                                      hintText: _t('searchMuscle'),
+                                      hintStyle: _body(15, color: _inkMuted),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Flexible(
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
-                          itemCount: visible.length,
-                          separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            thickness: 1,
-                            color: _cardSub,
-                            indent: _kGutter,
-                            endIndent: _kGutter,
+                        const SizedBox(height: 8),
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
+                            itemCount: visible.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: _cardSub,
+                              indent: _kGutter,
+                              endIndent: _kGutter,
+                            ),
+                            itemBuilder: (_, i) => _pickRow(
+                                sctx, visible[i], visible[i].id == selected),
                           ),
-                          itemBuilder: (_, i) => _pickRow(
-                              sctx, visible[i], visible[i].id == selected),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
@@ -947,7 +1320,10 @@ class _LibraryViewState extends State<LibraryView> {
                   : ExerciseAssetImage(
                       width: 64,
                       height: 64,
-                      exerciseName: exerciseImageName(it.label).toString(),
+                      // Assets are keyed by the English name.
+                      exerciseName: exerciseImageName(
+                              it.labelEn.isEmpty ? it.label : it.labelEn)
+                          .toString(),
                       fallbackAsset: it.image.isEmpty
                           ? null
                           : (it.image.contains('/')
@@ -1011,7 +1387,8 @@ class _LibraryViewState extends State<LibraryView> {
           color: color,
           w: w,
           height: 1.05,
-          letterSpacing: -size * 0.02,
+          // Negative tracking looks wrong on Hebrew glyphs.
+          letterSpacing: _isRtl ? 0 : -size * 0.02,
           display: true);
 
   TextStyle _body(double size,
@@ -1019,7 +1396,9 @@ class _LibraryViewState extends State<LibraryView> {
       _ts(size, color: color, w: w);
 
   TextStyle _eyebrow({Color? color}) => _ts(11,
-      color: color ?? _inkMuted, w: FontWeight.w600, letterSpacing: 1.4);
+      color: color ?? _inkMuted,
+      w: FontWeight.w600,
+      letterSpacing: _isRtl ? 0 : 1.4);
 
   Widget _gutter(Widget child) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: _kGutter),
@@ -1030,24 +1409,29 @@ class _LibraryViewState extends State<LibraryView> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      color: _bg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          _gutter(_header()),
-          const SizedBox(height: 16),
-          _gutter(_tabs()),
-          const SizedBox(height: 12),
-          _gutter(_searchField()),
-          const SizedBox(height: 8),
-          _gutter(_filterRow()),
-          const SizedBox(height: 12),
-          Expanded(child: _content()),
-        ],
+    // Own Directionality so the widget is RTL in Hebrew even if the page
+    // around it isn't (and LTR otherwise).
+    return Directionality(
+      textDirection: _dir,
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        color: _bg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 8),
+            _gutter(_header()),
+            const SizedBox(height: 16),
+            _gutter(_tabs()),
+            const SizedBox(height: 12),
+            _gutter(_searchField()),
+            const SizedBox(height: 8),
+            _gutter(_filterRow()),
+            const SizedBox(height: 12),
+            Expanded(child: _content()),
+          ],
+        ),
       ),
     );
   }
@@ -1057,7 +1441,7 @@ class _LibraryViewState extends State<LibraryView> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Expanded(child: Text('Library', style: _display(32))),
+        Expanded(child: Text(_t('library'), style: _display(32))),
         const SizedBox(width: 12),
         _headerAction(),
       ],
@@ -1068,7 +1452,7 @@ class _LibraryViewState extends State<LibraryView> {
     if (_tab == 2) {
       return _pillButton(
         icon: Icons.add_rounded,
-        label: 'Custom',
+        label: _t('custom'),
         bg: _card,
         fg: _ink,
         onTap: () => widget.onCreateCustomExercise?.call(),
@@ -1078,7 +1462,7 @@ class _LibraryViewState extends State<LibraryView> {
       // Locked: quota used up on the free tier. Tap opens the paywall.
       return _pillButton(
         icon: Icons.lock_rounded,
-        label: 'Generate',
+        label: _t('generate'),
         bg: _cardSub,
         fg: _inkMuted,
         onTap: () => widget.onOpenPremium?.call(),
@@ -1086,7 +1470,7 @@ class _LibraryViewState extends State<LibraryView> {
     }
     return _pillButton(
       icon: Icons.auto_awesome_rounded,
-      label: 'Generate',
+      label: _t('generate'),
       bg: _accentTint,
       fg: _accentDeep,
       onTap: () => widget.onGenerateWorkout?.call(),
@@ -1095,7 +1479,7 @@ class _LibraryViewState extends State<LibraryView> {
 
   // --- segmented tabs ---
   Widget _tabs() {
-    const labels = ['Workouts', 'Templates', 'Exercises'];
+    final labels = [_t('workouts'), _t('templates'), _t('exercises')];
     return Container(
       height: 44,
       padding: const EdgeInsets.all(4),
@@ -1143,12 +1527,12 @@ class _LibraryViewState extends State<LibraryView> {
   Widget _searchField() {
     String hint;
     if (_tab == 0) {
-      hint = 'Search workouts';
+      hint = _t('searchWorkouts');
     } else if (_tab == 1) {
-      hint = 'Search templates';
+      hint = _t('searchTemplates');
     } else {
       final n = _data?.exercises.length ?? 0;
-      hint = n > 0 ? 'Search $n exercises' : 'Search exercises';
+      hint = n > 0 ? _t('searchNExercises', n: n) : _t('searchExercises');
     }
     return Container(
       height: 44,
@@ -1221,7 +1605,7 @@ class _LibraryViewState extends State<LibraryView> {
             child: Row(
               children: [
                 _filterChip(
-                  label: pmg?.name ?? 'All muscles',
+                  label: pmg?.name ?? _t('allMuscles'),
                   active: pmg != null,
                   onTap: _pickPrimary,
                   onClear: pmg == null
@@ -1234,7 +1618,7 @@ class _LibraryViewState extends State<LibraryView> {
                 if (pmg != null && subs.length > 1) ...[
                   const SizedBox(width: 6),
                   _filterChip(
-                    label: mg?.name ?? 'All ${pmg.name.toLowerCase()}',
+                    label: mg?.name ?? _t('allOf', g: pmg.name.toLowerCase()),
                     active: mg != null,
                     onTap: _pickSub,
                     onClear:
@@ -1300,7 +1684,7 @@ class _LibraryViewState extends State<LibraryView> {
       onTap: onTap,
       child: Container(
         height: 40,
-        padding: const EdgeInsets.only(left: 12, right: 8),
+        padding: const EdgeInsetsDirectional.only(start: 12, end: 8),
         decoration: BoxDecoration(
           color: active ? _accentTint : _card,
           borderRadius: BorderRadius.circular(_kRadiusInner),
@@ -1339,7 +1723,7 @@ class _LibraryViewState extends State<LibraryView> {
             : Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Library failed to load\n$_error',
+                  '${_t('failedToLoad')}\n$_error',
                   textAlign: TextAlign.center,
                   style: _body(13, color: _inkMuted),
                 ),
@@ -1376,10 +1760,8 @@ class _LibraryViewState extends State<LibraryView> {
     return [
       if (list.isEmpty)
         _gutter(_emptyCard(
-          d.workouts.isEmpty ? 'No workouts yet' : 'No workouts match',
-          d.workouts.isEmpty
-              ? 'Create one below, or start from a template.'
-              : 'Try another muscle or clear the search.',
+          d.workouts.isEmpty ? _t('noWorkoutsYet') : _t('noWorkoutsMatch'),
+          d.workouts.isEmpty ? _t('createOneBelow') : _t('tryAnother'),
         ))
       else
         for (int i = 0; i < list.length; i++) ...[
@@ -1389,7 +1771,7 @@ class _LibraryViewState extends State<LibraryView> {
       if (!filtered || list.isNotEmpty) ...[
         const SizedBox(height: 10),
         _gutter(_dashedButton(
-          'New workout',
+          _t('newWorkout'),
           onTap: () => widget.onCreateWorkout?.call(),
         )),
       ],
@@ -1402,10 +1784,8 @@ class _LibraryViewState extends State<LibraryView> {
       final none = d.templatesTotal == 0;
       return [
         _gutter(_emptyCard(
-          none ? 'No templates on this device' : 'No templates match',
-          none
-              ? "The template catalog hasn't been loaded yet."
-              : 'Try another muscle or clear the search.',
+          none ? _t('noTemplatesDevice') : _t('noTemplatesMatch'),
+          none ? _t('catalogNotLoaded') : _t('tryAnother'),
         )),
       ];
     }
@@ -1422,8 +1802,8 @@ class _LibraryViewState extends State<LibraryView> {
     if (list.isEmpty) {
       return [
         _gutter(_emptyCard(
-          'No exercises match',
-          'Try another muscle or clear the search.',
+          _t('noExercisesMatch'),
+          _t('tryAnother'),
         )),
       ];
     }
@@ -1443,7 +1823,7 @@ class _LibraryViewState extends State<LibraryView> {
     }
 
     final sections = <MapEntry<String, List<_ExerciseItem>>>[];
-    if (custom.isNotEmpty) sections.add(MapEntry('Custom', custom));
+    if (custom.isNotEmpty) sections.add(MapEntry(_t('custom'), custom));
     for (final g in d.primaryGroups) {
       final items = byGroup[g.id];
       if (items != null && items.isNotEmpty)
@@ -1455,7 +1835,7 @@ class _LibraryViewState extends State<LibraryView> {
       sections
           .add(MapEntry(entry.value.first.primary.first.pmgName, entry.value));
     }
-    if (other.isNotEmpty) sections.add(MapEntry('Other', other));
+    if (other.isNotEmpty) sections.add(MapEntry(_t('other'), other));
 
     return [
       for (int s = 0; s < sections.length; s++) ...[
@@ -1486,7 +1866,7 @@ class _LibraryViewState extends State<LibraryView> {
 
   Widget _workoutRow(_WorkoutItem w) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 8, 14),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(_kRadius),
@@ -1503,7 +1883,7 @@ class _LibraryViewState extends State<LibraryView> {
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Text(
-                  '${w.exerciseCount} exercises · ~${w.estMinutes} min · ${_ago(w.lastDoneAt)}',
+                  '${_t('exercisesCount', n: w.exerciseCount)} · ${_t('minutes', n: w.estMinutes)} · ${_ago(w.lastDoneAt)}',
                   style: _body(12, color: _inkMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1514,7 +1894,8 @@ class _LibraryViewState extends State<LibraryView> {
             ),
           ),
           const SizedBox(width: 10),
-          _solidButton('Start', onTap: () => widget.onStartWorkout?.call(w.id)),
+          _solidButton(_t('start'),
+              onTap: () => widget.onStartWorkout?.call(w.id)),
           Builder(
             builder: (ctx) => GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -1536,14 +1917,14 @@ class _LibraryViewState extends State<LibraryView> {
     final busy = _busyTemplate == t.key;
     final meta = <String>[
       if (t.level.isNotEmpty) t.level,
-      '~${t.estMinutes} min',
-      '${t.exerciseCount} exercises',
+      _t('minutes', n: t.estMinutes),
+      _t('exercisesCount', n: t.exerciseCount),
     ].join(' · ');
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _openTemplate(t),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 12, 14),
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(_kRadius),
@@ -1570,7 +1951,7 @@ class _LibraryViewState extends State<LibraryView> {
             ),
             const SizedBox(width: 10),
             _outlineButton(
-              'Use',
+              _t('use'),
               busy: busy,
               onTap: busy ? null : () => _useTemplate(t),
             ),
@@ -1596,7 +1977,8 @@ class _LibraryViewState extends State<LibraryView> {
             ExerciseAssetImage(
               width: 52,
               height: 52,
-              exerciseName: exerciseImageName(e.name).toString(),
+              // Assets are keyed by the English name in every language.
+              exerciseName: exerciseImageName(e.nameEn).toString(),
               illustration: e.illustration,
               borderRadius: 12,
             ),

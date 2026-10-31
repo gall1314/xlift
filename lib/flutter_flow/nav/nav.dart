@@ -668,6 +668,25 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ParamType.String,
             ),
           ),
+        ),
+        FFRoute(
+          name: AddExercisesV3CopyWidget.routeName,
+          path: AddExercisesV3CopyWidget.routePath,
+          builder: (context, params) => AddExercisesV3CopyWidget(
+            alreadySelceted: params.getParam<dynamic>(
+              'alreadySelceted',
+              ParamType.JSON,
+              isList: true,
+            ),
+            workoutName: params.getParam(
+              'workoutName',
+              ParamType.String,
+            ),
+            addUserEx: params.getParam(
+              'addUserEx',
+              ParamType.bool,
+            ),
+          ),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

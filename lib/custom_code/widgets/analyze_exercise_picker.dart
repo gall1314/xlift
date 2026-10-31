@@ -13,6 +13,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
@@ -22,11 +23,15 @@ import 'package:path_provider/path_provider.dart';
 /// Layout: search → Recent (exercises this user already analyzed, newest
 /// first, with last score) → all AI-analyzable exercises grouped by primary
 /// muscle, 3-column grid. Cards show the last score when one exists,
-/// otherwise a small AI badge. Everything is loaded from SQLite by the
-/// widget itself.
+/// otherwise a small AI badge. Everything is loaded from SQLite by the widget
+/// itself.
 ///
-/// [onPick](exerciseId, exerciseName) fires on tap; FF dismisses the sheet
-/// and continues. [onClose] fires from the X.
+/// Localization: `languageCode` drives UI strings, exercise / muscle names
+/// (via localizedName) and text direction (RTL for 'he'). Image lookups use
+/// the English exercise name.
+///
+/// [onPick](exerciseId, exerciseName) fires on tap — exerciseName is the
+/// ENGLISH name (stable key for analyzers). [onClose] fires from the X.
 ///
 /// FF: Bottom Sheet, height ~85%, useSafeArea off, Width/Height Infinity.
 class AnalyzeExercisePicker extends StatefulWidget {
@@ -35,6 +40,7 @@ class AnalyzeExercisePicker extends StatefulWidget {
     this.width,
     this.height,
     required this.userId,
+    this.languageCode,
     this.onPick,
     this.onClose,
   });
@@ -42,6 +48,7 @@ class AnalyzeExercisePicker extends StatefulWidget {
   final double? width;
   final double? height;
   final String userId;
+  final String? languageCode;
   final Future Function(int exerciseId, String exerciseName)? onPick;
   final Future Function()? onClose;
 
@@ -50,28 +57,134 @@ class AnalyzeExercisePicker extends StatefulWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Localization
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+const Map<String, Map<String, String>> _kStrings = {
+  "title": {
+    "en": "Pick an exercise to analyze",
+    "es": "Elige un ejercicio para analizar",
+    "he": "בחר תרגיל לניתוח",
+    "de": "Übung zur Analyse wählen",
+    "fr": "Choisir un exercice à analyser",
+  },
+  "loading": {
+    "en": "Loading…",
+    "es": "Cargando…",
+    "he": "טוען…",
+    "de": "Lädt…",
+    "fr": "Chargement…",
+  },
+  "countWithAi": {
+    "en": "{n} exercises with AI form analysis",
+    "es": "{n} ejercicios con análisis de técnica IA",
+    "he": "{n} תרגילים עם ניתוח טכניקה AI",
+    "de": "{n} Übungen mit KI-Technikanalyse",
+    "fr": "{n} exercices avec analyse IA de la technique",
+  },
+  "searchExercise": {
+    "en": "Search exercise",
+    "es": "Buscar ejercicio",
+    "he": "חיפוש תרגיל",
+    "de": "Übung suchen",
+    "fr": "Rechercher un exercice",
+  },
+  "recent": {
+    "en": "Recent",
+    "es": "Recientes",
+    "he": "אחרונים",
+    "de": "Zuletzt",
+    "fr": "Récents",
+  },
+  "results": {
+    "en": "Results",
+    "es": "Resultados",
+    "he": "תוצאות",
+    "de": "Ergebnisse",
+    "fr": "Résultats",
+  },
+  "other": {
+    "en": "Other",
+    "es": "Otros",
+    "he": "אחר",
+    "de": "Sonstige",
+    "fr": "Autres",
+  },
+  "noneAvailable": {
+    "en": "No exercises available",
+    "es": "No hay ejercicios disponibles",
+    "he": "אין תרגילים זמינים",
+    "de": "Keine Übungen verfügbar",
+    "fr": "Aucun exercice disponible",
+  },
+  "noMatch": {
+    "en": "No exercises match \"{q}\"",
+    "es": "Ningún ejercicio coincide con \"{q}\"",
+    "he": "אין תרגילים התואמים ל-\"{q}\"",
+    "de": "Keine Übungen passen zu \"{q}\"",
+    "fr": "Aucun exercice ne correspond à \"{q}\"",
+  },
+  "justNow": {
+    "en": "just now",
+    "es": "ahora mismo",
+    "he": "עכשיו",
+    "de": "gerade eben",
+    "fr": "à l'instant",
+  },
+  "hoursAgo": {
+    "en": "{n}h ago",
+    "es": "hace {n} h",
+    "he": "לפני {n} שע׳",
+    "de": "vor {n} Std.",
+    "fr": "il y a {n} h",
+  },
+  "daysAgo": {
+    "en": "{n}d ago",
+    "es": "hace {n} d",
+    "he": "לפני {n} ימים",
+    "de": "vor {n} T.",
+    "fr": "il y a {n} j",
+  },
+  "weeksAgo": {
+    "en": "{n}w ago",
+    "es": "hace {n} sem.",
+    "he": "לפני {n} שב׳",
+    "de": "vor {n} Wo.",
+    "fr": "il y a {n} sem.",
+  },
+  "monthsAgo": {
+    "en": "{n}mo ago",
+    "es": "hace {n} meses",
+    "he": "לפני {n} חוד׳",
+    "de": "vor {n} Mon.",
+    "fr": "il y a {n} mois",
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
 
 class _Ex {
   final int id;
-  final String name;
+  final String name; // localized (display)
+  final String nameEn; // English (assets, callback, search)
   final String? illustration;
-  final String muscle;
+  final int muscleId; // primary_muscle_group.id, 9999 = other
+  final String muscle; // localized group name
   double? lastScore;
   DateTime? lastAt;
-  _Ex(this.id, this.name, this.illustration, this.muscle);
+  _Ex(this.id, this.name, this.nameEn, this.illustration, this.muscleId,
+      this.muscle);
 }
 
-const List<String> _kMuscleOrder = [
-  'Legs',
-  'Back',
-  'Chest',
-  'Shoulders',
-  'Arms',
-  'Core',
-  'Other',
-];
+// Section order by primary_muscle_group.id (language independent).
+// 6 Legs, 2 Back, 1 Chest, 3 Shoulders, 4 Biceps, 5 Triceps, 7 Core,
+// 9 Forearms, 8 Neck.
+const List<int> _kMuscleOrder = [6, 2, 1, 3, 4, 5, 7, 9, 8];
+const int _kOtherId = 9999;
 
 class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
   List<_Ex> _all = [];
@@ -80,10 +193,34 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
   String? _docsDir;
   final TextEditingController _search = TextEditingController();
 
+  String get _lang {
+    final l = (widget.languageCode ?? 'en').trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  }
+
+  bool get _isRtl => _kRtl.contains(_lang);
+
+  String _t(String key, {int? n, String? q}) {
+    final m = _kStrings[key];
+    var s = m == null ? key : (m[_lang] ?? m['en'] ?? key);
+    if (n != null) s = s.replaceAll('{n}', '$n');
+    if (q != null) s = s.replaceAll('{q}', q);
+    return s;
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnalyzeExercisePicker old) {
+    super.didUpdateWidget(old);
+    if (old.userId != widget.userId ||
+        old.languageCode != widget.languageCode) {
+      _load();
+    }
   }
 
   @override
@@ -118,13 +255,13 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
     return DateTime.tryParse(s.replaceFirst(' ', 'T'))?.toLocal();
   }
 
-  static String _ago(DateTime d) {
+  String _ago(DateTime d) {
     final diff = DateTime.now().difference(d);
-    if (diff.inMinutes < 60) return 'just now';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
-    return '${(diff.inDays / 30).floor()}mo ago';
+    if (diff.inMinutes < 60) return _t('justNow');
+    if (diff.inHours < 24) return _t('hoursAgo', n: diff.inHours);
+    if (diff.inDays < 7) return _t('daysAgo', n: diff.inDays);
+    if (diff.inDays < 30) return _t('weeksAgo', n: (diff.inDays / 7).floor());
+    return _t('monthsAgo', n: (diff.inDays / 30).floor());
   }
 
   static String _scoreStr(double s) {
@@ -133,47 +270,42 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
   }
 
   // ---------- SQLite ----------
-  /// Exercises with AI analysis + primary muscle. Schema for the muscle
-  /// link differs between projects, so try the likely shapes in order.
+  /// Exercises with AI analysis + their primary muscle group
+  /// (exercise_muscle_group → muscle_group → primary_muscle_group).
   Future<List<Map<String, Object?>>> _queryExercises() async {
     final db = SQLiteManager.instance.database;
-    const candidates = [
-      // 1) join table exercise_muscle_group -> primary_muscle_group
-      '''
-      SELECT e.id AS id, e.name AS name, e.illustration AS illustration,
-        (SELECT pmg.name FROM exercise_muscle_group emg
-           JOIN primary_muscle_group pmg ON pmg.id = emg.primary_muscle_group_id
-          WHERE emg.exercise_id = e.id LIMIT 1) AS muscle_group
-      FROM exercise e
-      WHERE CAST(e.ai_form_analysis AS INTEGER) = 1
-      ORDER BY e.name COLLATE NOCASE''',
-      // 2) direct FK on exercise
-      '''
-      SELECT e.id AS id, e.name AS name, e.illustration AS illustration,
-        pmg.name AS muscle_group
-      FROM exercise e
-      LEFT JOIN primary_muscle_group pmg ON pmg.id = e.primary_muscle_group_id
-      WHERE CAST(e.ai_form_analysis AS INTEGER) = 1
-      ORDER BY e.name COLLATE NOCASE''',
-      // 3) text column on exercise
-      '''
-      SELECT id, name, illustration, muscle_group
-      FROM exercise
-      WHERE CAST(ai_form_analysis AS INTEGER) = 1
-      ORDER BY name COLLATE NOCASE''',
-      // 4) no grouping
-      '''
-      SELECT id, name, illustration, NULL AS muscle_group
-      FROM exercise
-      WHERE CAST(ai_form_analysis AS INTEGER) = 1
-      ORDER BY name COLLATE NOCASE''',
-    ];
-    for (final sql in candidates) {
-      try {
-        return await db.rawQuery(sql);
-      } catch (_) {}
+    try {
+      return await db.rawQuery('''
+        SELECT e.id AS id, e.name AS name, e.illustration AS illustration,
+          (SELECT pmg.id
+             FROM exercise_muscle_group emg
+             JOIN muscle_group mg ON mg.id = emg.muscle_group_id
+             JOIN primary_muscle_group pmg ON pmg.id = mg.primary_muscle_group_id
+            WHERE emg.exercise_id = e.id
+            ORDER BY emg.is_primary DESC, emg.id
+            LIMIT 1) AS pmg_id,
+          (SELECT pmg.name
+             FROM exercise_muscle_group emg
+             JOIN muscle_group mg ON mg.id = emg.muscle_group_id
+             JOIN primary_muscle_group pmg ON pmg.id = mg.primary_muscle_group_id
+            WHERE emg.exercise_id = e.id
+            ORDER BY emg.is_primary DESC, emg.id
+            LIMIT 1) AS pmg_name
+        FROM exercise e
+        WHERE CAST(e.ai_form_analysis AS INTEGER) = 1
+          AND COALESCE(e.is_deleted, 0) = 0
+      ''');
+    } catch (_) {}
+    // Fallback: no grouping.
+    try {
+      return await db.rawQuery('''
+        SELECT id, name, illustration, NULL AS pmg_id, NULL AS pmg_name
+        FROM exercise
+        WHERE CAST(ai_form_analysis AS INTEGER) = 1
+      ''');
+    } catch (_) {
+      return const [];
     }
-    return const [];
   }
 
   /// Latest analysis per exercise for this user (score + when).
@@ -199,16 +331,25 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
       _docsDir = (await getApplicationDocumentsDirectory()).path;
     } catch (_) {}
 
+    final lang = _lang;
     final rows = await _queryExercises();
     final byId = <int, _Ex>{};
     for (final r in rows) {
       final id = _i(r['id']);
-      final name = (r['name'] ?? '').toString().trim();
-      if (id == null || name.isEmpty) continue;
+      final rawName = (r['name'] ?? '').toString().trim();
+      if (id == null || rawName.isEmpty) continue;
       final ill = r['illustration']?.toString().trim();
-      final mg = (r['muscle_group'] ?? '').toString().trim();
-      byId[id] = _Ex(id, name, (ill == null || ill.isEmpty) ? null : ill,
-          mg.isEmpty ? 'Other' : mg);
+      final pmgId = _i(r['pmg_id']);
+      final rawPmg = (r['pmg_name'] ?? '').toString().trim();
+      final pmgName = rawPmg.isEmpty ? '' : localizedName(rawPmg, lang);
+      byId[id] = _Ex(
+        id,
+        localizedName(rawName, lang),
+        localizedName(rawName, 'en'),
+        (ill == null || ill.isEmpty) ? null : ill,
+        pmgId ?? _kOtherId,
+        pmgName.isEmpty ? _t('other') : pmgName,
+      );
     }
 
     // Newest-first, so the first row per exercise is its latest analysis.
@@ -235,30 +376,38 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
     return r.take(6).toList();
   }
 
+  static int _byName(_Ex a, _Ex b) =>
+      a.name.toLowerCase().compareTo(b.name.toLowerCase());
+
   /// Ordered (muscle, exercises) sections.
   List<MapEntry<String, List<_Ex>>> get _sections {
-    final map = <String, List<_Ex>>{};
+    final map = <int, List<_Ex>>{};
+    final names = <int, String>{};
     for (final e in _all) {
-      map.putIfAbsent(e.muscle, () => []).add(e);
+      map.putIfAbsent(e.muscleId, () => []).add(e);
+      names[e.muscleId] = e.muscle;
     }
     final keys = map.keys.toList()
       ..sort((a, b) {
+        if (a == _kOtherId) return 1;
+        if (b == _kOtherId) return -1;
         final ia = _kMuscleOrder.indexOf(a), ib = _kMuscleOrder.indexOf(b);
         if (ia != -1 && ib != -1) return ia.compareTo(ib);
         if (ia != -1) return -1;
         if (ib != -1) return 1;
         return a.compareTo(b);
       });
-    return [
-      for (final k in keys)
-        MapEntry(k, map[k]!..sort((a, b) => a.name.compareTo(b.name)))
-    ];
+    return [for (final k in keys) MapEntry(names[k]!, map[k]!..sort(_byName))];
   }
 
   List<_Ex> get _searchResults {
     final q = _query.trim().toLowerCase();
-    return _all.where((e) => e.name.toLowerCase().contains(q)).toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    return _all
+        .where((e) =>
+            e.name.toLowerCase().contains(q) ||
+            e.nameEn.toLowerCase().contains(q))
+        .toList()
+      ..sort(_byName);
   }
 
   ImageProvider _imageFor(_Ex e) {
@@ -270,7 +419,7 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
       final f2 = File('$_docsDir/exercise_images/$ill');
       if (f2.existsSync()) return FileImage(f2);
     }
-    return AssetImage('assets/images/${e.name.replaceAll(' ', '_')}.jpg');
+    return AssetImage('assets/images/${e.nameEn.replaceAll(' ', '_')}.jpg');
   }
 
   TextStyle _ts(double size, FontWeight w, Color c) {
@@ -286,7 +435,8 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
 
   void _pick(_Ex e) {
     HapticFeedback.selectionClick();
-    widget.onPick?.call(e.id, e.name);
+    // English name: a stable key for analyzer selection downstream.
+    widget.onPick?.call(e.id, e.nameEn);
   }
 
   // ---------- build ----------
@@ -296,115 +446,119 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     final bool searching = _query.trim().isNotEmpty;
 
-    return Container(
-      width: widget.width ?? double.infinity,
-      height: widget.height,
-      decoration: BoxDecoration(
-        color: th.primaryBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Container(
-            width: 44,
-            height: 5,
-            decoration: BoxDecoration(
-              color: th.alternate,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Pick an exercise to analyze',
-                          style: _ts(22, FontWeight.w700, th.primaryText)),
-                      const SizedBox(height: 2),
-                      Text(
-                        _loading
-                            ? 'Loading…'
-                            : '${_all.length} exercises with AI form analysis',
-                        style: _ts(13, FontWeight.w500, th.secondaryText),
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.onClose != null)
-                  GestureDetector(
-                    onTap: () => widget.onClose!(),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: th.secondaryBackground,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: th.alternate),
-                      ),
-                      child: Icon(Icons.close_rounded,
-                          size: 20, color: th.primaryText),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          // Search
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-            child: Container(
-              height: 46,
+    return Directionality(
+      textDirection: _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Container(
+        width: widget.width ?? double.infinity,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: th.primaryBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 44,
+              height: 5,
               decoration: BoxDecoration(
-                color: th.secondaryBackground,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: th.alternate),
+                color: th.alternate,
+                borderRadius: BorderRadius.circular(3),
               ),
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 14, 12, 4),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(width: 12),
-                  Icon(Icons.search_rounded, size: 20, color: th.secondaryText),
-                  const SizedBox(width: 8),
                   Expanded(
-                    child: TextField(
-                      controller: _search,
-                      onChanged: (v) => setState(() => _query = v),
-                      style: _ts(15, FontWeight.w500, th.primaryText),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        hintText: 'Search exercise',
-                        hintStyle: _ts(15, FontWeight.w400, th.secondaryText),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_t('title'),
+                            style: _ts(22, FontWeight.w700, th.primaryText)),
+                        const SizedBox(height: 2),
+                        Text(
+                          _loading
+                              ? _t('loading')
+                              : _t('countWithAi', n: _all.length),
+                          style: _ts(13, FontWeight.w500, th.secondaryText),
+                        ),
+                      ],
                     ),
                   ),
-                  if (searching)
+                  if (widget.onClose != null)
                     GestureDetector(
-                      onTap: () {
-                        _search.clear();
-                        setState(() => _query = '');
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Icon(Icons.cancel_rounded,
-                            size: 18, color: th.secondaryText),
+                      onTap: () => widget.onClose!(),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: th.secondaryBackground,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: th.alternate),
+                        ),
+                        child: Icon(Icons.close_rounded,
+                            size: 20, color: th.primaryText),
                       ),
                     ),
                 ],
               ),
             ),
-          ),
-          Expanded(
-            child: _loading
-                ? Center(child: CircularProgressIndicator(color: th.primary))
-                : searching
-                    ? _searchList(bottomInset)
-                    : _browseList(bottomInset),
-          ),
-        ],
+            // Search
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Container(
+                height: 46,
+                decoration: BoxDecoration(
+                  color: th.secondaryBackground,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: th.alternate),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    Icon(Icons.search_rounded,
+                        size: 20, color: th.secondaryText),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _search,
+                        onChanged: (v) => setState(() => _query = v),
+                        style: _ts(15, FontWeight.w500, th.primaryText),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          hintText: _t('searchExercise'),
+                          hintStyle: _ts(15, FontWeight.w400, th.secondaryText),
+                        ),
+                      ),
+                    ),
+                    if (searching)
+                      GestureDetector(
+                        onTap: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Icon(Icons.cancel_rounded,
+                              size: 18, color: th.secondaryText),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: _loading
+                  ? Center(child: CircularProgressIndicator(color: th.primary))
+                  : searching
+                      ? _searchList(bottomInset)
+                      : _browseList(bottomInset),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -453,7 +607,7 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
       padding: EdgeInsets.only(bottom: 16 + bottomInset),
       children: [
         if (recent.isNotEmpty) ...[
-          _sectionHeader('Recent'),
+          _sectionHeader(_t('recent')),
           SizedBox(
             height: 142,
             child: ListView.separated(
@@ -474,7 +628,7 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
           Padding(
             padding: const EdgeInsets.all(32),
             child: Center(
-              child: Text('No exercises available',
+              child: Text(_t('noneAvailable'),
                   style: _ts(15, FontWeight.w500,
                       FlutterFlowTheme.of(context).secondaryText)),
             ),
@@ -488,14 +642,14 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
     final res = _searchResults;
     if (res.isEmpty) {
       return Center(
-        child: Text('No exercises match "${_query.trim()}"',
+        child: Text(_t('noMatch', q: _query.trim()),
             style: _ts(15, FontWeight.w500, th.secondaryText)),
       );
     }
     return ListView(
       padding: EdgeInsets.only(bottom: 16 + bottomInset),
       children: [
-        _sectionHeader('Results', res.length),
+        _sectionHeader(_t('results'), res.length),
         _grid(res),
       ],
     );
@@ -533,9 +687,9 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
                       ),
                     ),
                   ),
-                  Positioned(
+                  PositionedDirectional(
                     top: 0,
-                    right: 0,
+                    end: 0,
                     child: score == null
                         ? Container(
                             width: 20,

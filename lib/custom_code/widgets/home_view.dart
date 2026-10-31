@@ -13,7 +13,9 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' as intl show DateFormat;
 
 /// Self-managed Home screen content (nav bar / FAB live on the page).
 ///
@@ -21,7 +23,12 @@ import 'package:google_fonts/google_fonts.dart';
 /// callbacks. Fonts and colors come from FlutterFlowTheme so the page matches
 /// the rest of the app.
 ///
-/// Parameters: userId              - current user id (auth) isPremium - true
+/// Localization: `languageCode` ('en','es','he','de','fr') drives all UI
+/// strings (see _kStrings), muscle / exercise names (via localizedName),
+/// dates (intl) and text direction (RTL for 'he').
+///
+/// Parameters: userId              - current user id (auth) languageCode -
+/// app language code (Global Properties → Current Language) isPremium - true
 /// hides the form-check quota meter analysisCount       -
 /// FFAppState().analysisCount analysisCountMonth  -
 /// FFAppState().analysisCountMonth ("YYYY-MM") onStartWorkout      -
@@ -37,6 +44,7 @@ class HomeView extends StatefulWidget {
     this.width,
     this.height,
     required this.userId,
+    this.languageCode,
     this.isPremium,
     this.analysisCount,
     this.analysisCountMonth,
@@ -53,6 +61,7 @@ class HomeView extends StatefulWidget {
   final double? width;
   final double? height;
   final String userId;
+  final String? languageCode;
   final bool? isPremium;
   final int? analysisCount;
   final String? analysisCountMonth;
@@ -92,6 +101,341 @@ const _kOnDarkMuted = Color(0xFF9AAAA6);
 const _kOnDarkPill = Color(0xFFD7E0DE);
 
 const _kTabular = [FontFeature.tabularFigures()];
+
+// Languages written right-to-left.
+const Set<String> _kRtl = {'he', 'ar'};
+
+// ---------------------------------------------------------------------------
+// UI strings. {n} / {m} / {d} are placeholders. English is the fallback.
+// ---------------------------------------------------------------------------
+const Map<String, Map<String, String>> _kStrings = {
+  "goodNight": {
+    "en": "Good night",
+    "es": "Buenas noches",
+    "he": "לילה טוב",
+    "de": "Gute Nacht",
+    "fr": "Bonne nuit",
+  },
+  "goodMorning": {
+    "en": "Good morning",
+    "es": "Buenos días",
+    "he": "בוקר טוב",
+    "de": "Guten Morgen",
+    "fr": "Bonjour",
+  },
+  "goodAfternoon": {
+    "en": "Good afternoon",
+    "es": "Buenas tardes",
+    "he": "צהריים טובים",
+    "de": "Guten Tag",
+    "fr": "Bon après-midi",
+  },
+  "goodEvening": {
+    "en": "Good evening",
+    "es": "Buenas noches",
+    "he": "ערב טוב",
+    "de": "Guten Abend",
+    "fr": "Bonsoir",
+  },
+  "startHere": {
+    "en": "START HERE",
+    "es": "EMPIEZA AQUÍ",
+    "he": "מתחילים כאן",
+    "de": "HIER STARTEN",
+    "fr": "COMMENCEZ ICI",
+  },
+  "buildFirst": {
+    "en": "Build your first\nworkout",
+    "es": "Crea tu primer\nentrenamiento",
+    "he": "בנה את האימון\nהראשון שלך",
+    "de": "Erstelle dein erstes\nWorkout",
+    "fr": "Créez votre premier\nentraînement",
+  },
+  "buildFirstSub": {
+    "en":
+        "Pick exercises yourself, let the AI build one, or start from a ready-made template.",
+    "es":
+        "Elige los ejercicios tú mismo, deja que la IA lo cree o empieza desde una plantilla.",
+    "he": "בחר תרגילים בעצמך, תן ל-AI לבנות אימון, או התחל מתבנית מוכנה.",
+    "de":
+        "Wähle Übungen selbst, lass die KI eines erstellen oder starte mit einer Vorlage.",
+    "fr":
+        "Choisissez vos exercices, laissez l'IA en créer un ou partez d'un modèle.",
+  },
+  "createWorkout": {
+    "en": "Create workout",
+    "es": "Crear entrenamiento",
+    "he": "צור אימון",
+    "de": "Workout erstellen",
+    "fr": "Créer un entraînement",
+  },
+  "upNext": {
+    "en": "UP NEXT",
+    "es": "SIGUIENTE",
+    "he": "הבא בתור",
+    "de": "ALS NÄCHSTES",
+    "fr": "À SUIVRE",
+  },
+  "recovered": {
+    "en": "Recovered",
+    "es": "Recuperado",
+    "he": "התאוששת",
+    "de": "Erholt",
+    "fr": "Récupéré",
+  },
+  "exercisesCount": {
+    "en": "{n} exercises",
+    "es": "{n} ejercicios",
+    "he": "{n} תרגילים",
+    "de": "{n} Übungen",
+    "fr": "{n} exercices",
+  },
+  "minutes": {
+    "en": "~{n} min",
+    "es": "~{n} min",
+    "he": "~{n} דק׳",
+    "de": "~{n} Min.",
+    "fr": "~{n} min",
+  },
+  "withFormCheck": {
+    "en": "{n} with form check",
+    "es": "{n} con análisis de técnica",
+    "he": "{n} עם ניתוח טכניקה",
+    "de": "{n} mit Technik-Check",
+    "fr": "{n} avec analyse de technique",
+  },
+  "startWorkout": {
+    "en": "Start workout",
+    "es": "Empezar entrenamiento",
+    "he": "התחל אימון",
+    "de": "Workout starten",
+    "fr": "Démarrer l'entraînement",
+  },
+  "formCheck": {
+    "en": "Form check",
+    "es": "Análisis de técnica",
+    "he": "ניתוח טכניקה",
+    "de": "Technik-Check",
+    "fr": "Analyse de technique",
+  },
+  "unlimitedFilm": {
+    "en": "Unlimited · film a set with the camera below",
+    "es": "Ilimitado · graba una serie con la cámara de abajo",
+    "he": "ללא הגבלה · צלם סט עם המצלמה למטה",
+    "de": "Unbegrenzt · filme einen Satz mit der Kamera unten",
+    "fr": "Illimité · filmez une série avec la caméra ci-dessous",
+  },
+  "leftFilm": {
+    "en": "{n} of {m} free this month · film a set below",
+    "es": "{n} de {m} gratis este mes · graba una serie abajo",
+    "he": "{n} מתוך {m} חינם החודש · צלם סט למטה",
+    "de": "{n} von {m} gratis diesen Monat · filme einen Satz unten",
+    "fr": "{n} sur {m} gratuits ce mois-ci · filmez une série ci-dessous",
+  },
+  "unlimitedReview": {
+    "en": "Unlimited · tap to review",
+    "es": "Ilimitado · toca para revisar",
+    "he": "ללא הגבלה · הקש לצפייה",
+    "de": "Unbegrenzt · zum Ansehen tippen",
+    "fr": "Illimité · touchez pour revoir",
+  },
+  "leftChecks": {
+    "en": "{n} of {m} free checks left this month",
+    "es": "Te quedan {n} de {m} análisis gratis este mes",
+    "he": "נותרו {n} מתוך {m} ניתוחים חינם החודש",
+    "de": "{n} von {m} Gratis-Checks diesen Monat übrig",
+    "fr": "{n} analyses gratuites sur {m} restantes ce mois-ci",
+  },
+  "thisWeek": {
+    "en": "This week",
+    "es": "Esta semana",
+    "he": "השבוע",
+    "de": "Diese Woche",
+    "fr": "Cette semaine",
+  },
+  "fullStats": {
+    "en": "Full stats",
+    "es": "Estadísticas",
+    "he": "כל הנתונים",
+    "de": "Alle Statistiken",
+    "fr": "Statistiques",
+  },
+  "workouts": {
+    "en": "workouts",
+    "es": "entrenamientos",
+    "he": "אימונים",
+    "de": "Workouts",
+    "fr": "séances",
+  },
+  "sets": {
+    "en": "sets",
+    "es": "series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "séries",
+  },
+  "kgVolume": {
+    "en": "kg volume",
+    "es": "kg volumen",
+    "he": 'ק"ג נפח',
+    "de": "kg Volumen",
+    "fr": "kg volume",
+  },
+  "lastWorkout": {
+    "en": "LAST WORKOUT",
+    "es": "ÚLTIMO ENTRENAMIENTO",
+    "he": "אימון אחרון",
+    "de": "LETZTES WORKOUT",
+    "fr": "DERNIER ENTRAÎNEMENT",
+  },
+  "workout": {
+    "en": "Workout",
+    "es": "Entrenamiento",
+    "he": "אימון",
+    "de": "Workout",
+    "fr": "Entraînement",
+  },
+  "setsCount": {
+    "en": "{n} sets",
+    "es": "{n} series",
+    "he": "{n} סטים",
+    "de": "{n} Sätze",
+    "fr": "{n} séries",
+  },
+  "prs": {
+    "en": "{n} PR",
+    "es": "{n} RP",
+    "he": "{n} שיא",
+    "de": "{n} PR",
+    "fr": "{n} RP",
+  },
+  "prsPlural": {
+    "en": "{n} PRs",
+    "es": "{n} RPs",
+    "he": "{n} שיאים",
+    "de": "{n} PRs",
+    "fr": "{n} RPs",
+  },
+  "myWorkouts": {
+    "en": "My workouts",
+    "es": "Mis entrenamientos",
+    "he": "האימונים שלי",
+    "de": "Meine Workouts",
+    "fr": "Mes entraînements",
+  },
+  "seeAll": {
+    "en": "See all {n}",
+    "es": "Ver los {n}",
+    "he": "הצג את כל ה-{n}",
+    "de": "Alle {n} ansehen",
+    "fr": "Voir les {n}",
+  },
+  "startFromTemplate": {
+    "en": "Start from a template",
+    "es": "Empieza desde una plantilla",
+    "he": "התחל מתבנית",
+    "de": "Mit einer Vorlage starten",
+    "fr": "Partir d'un modèle",
+  },
+  "templateSub": {
+    "en": "Ready-made workouts you can save and start right away.",
+    "es": "Entrenamientos listos que puedes guardar y empezar ya.",
+    "he": "אימונים מוכנים שאפשר לשמור ולהתחיל מיד.",
+    "de": "Fertige Workouts zum Speichern und sofort Loslegen.",
+    "fr": "Des entraînements prêts à enregistrer et à démarrer.",
+  },
+  "start": {
+    "en": "Start",
+    "es": "Empezar",
+    "he": "התחל",
+    "de": "Start",
+    "fr": "Démarrer",
+  },
+  "neverDone": {
+    "en": "never done",
+    "es": "nunca realizado",
+    "he": "לא בוצע",
+    "de": "nie gemacht",
+    "fr": "jamais fait",
+  },
+  "neverDoneCap": {
+    "en": "Never done",
+    "es": "Nunca realizado",
+    "he": "לא בוצע",
+    "de": "Nie gemacht",
+    "fr": "Jamais fait",
+  },
+  "doneAgo": {
+    "en": "Done {d}",
+    "es": "Hecho {d}",
+    "he": "בוצע {d}",
+    "de": "Gemacht {d}",
+    "fr": "Fait {d}",
+  },
+  "justNow": {
+    "en": "just now",
+    "es": "ahora mismo",
+    "he": "עכשיו",
+    "de": "gerade eben",
+    "fr": "à l'instant",
+  },
+  "hoursAgo": {
+    "en": "{n}h ago",
+    "es": "hace {n} h",
+    "he": "לפני {n} שע׳",
+    "de": "vor {n} Std.",
+    "fr": "il y a {n} h",
+  },
+  "yesterday": {
+    "en": "yesterday",
+    "es": "ayer",
+    "he": "אתמול",
+    "de": "gestern",
+    "fr": "hier",
+  },
+  "daysAgo": {
+    "en": "{n}d ago",
+    "es": "hace {n} días",
+    "he": "לפני {n} ימים",
+    "de": "vor {n} Tagen",
+    "fr": "il y a {n} j",
+  },
+  "lastDay": {
+    "en": "last {d}",
+    "es": "el {d} pasado",
+    "he": "ביום {d} שעבר",
+    "de": "letzten {d}",
+    "fr": "{d} dernier",
+  },
+  "weeksAgo": {
+    "en": "{n}w ago",
+    "es": "hace {n} sem.",
+    "he": "לפני {n} שבועות",
+    "de": "vor {n} Wo.",
+    "fr": "il y a {n} sem.",
+  },
+  "today": {
+    "en": "Today",
+    "es": "Hoy",
+    "he": "היום",
+    "de": "Heute",
+    "fr": "Aujourd'hui",
+  },
+  "yesterdayCap": {
+    "en": "Yesterday",
+    "es": "Ayer",
+    "he": "אתמול",
+    "de": "Gestern",
+    "fr": "Hier",
+  },
+  "failedToLoad": {
+    "en": "Home failed to load",
+    "es": "No se pudo cargar la pantalla de inicio",
+    "he": "טעינת מסך הבית נכשלה",
+    "de": "Startseite konnte nicht geladen werden",
+    "fr": "Échec du chargement de l'accueil",
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Data models
@@ -164,7 +508,7 @@ class _LastScore {
   });
   final String setLogId;
   final double score;
-  final String exerciseName;
+  final String exerciseName; // localized
   final DateTime at;
 }
 
@@ -204,10 +548,40 @@ class _HomeViewState extends State<HomeView> {
 
   bool get _premium => widget.isPremium ?? false;
 
+  // ---------------------------- localization --------------------------------
+
+  String get _lang {
+    final l = (widget.languageCode ?? 'en').trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  }
+
+  bool get _isRtl => _kRtl.contains(_lang);
+
+  ui.TextDirection get _dir =>
+      _isRtl ? ui.TextDirection.rtl : ui.TextDirection.ltr;
+
+  String _t(String key, {int? n, int? m, String? d}) {
+    final map = _kStrings[key];
+    var s = map == null ? key : (map[_lang] ?? map['en'] ?? key);
+    if (n != null) s = s.replaceAll('{n}', '$n');
+    if (m != null) s = s.replaceAll('{m}', '$m');
+    if (d != null) s = s.replaceAll('{d}', d);
+    return s;
+  }
+
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeView old) {
+    super.didUpdateWidget(old);
+    if (old.userId != widget.userId ||
+        old.languageCode != widget.languageCode) {
+      _load();
+    }
   }
 
   @override
@@ -290,10 +664,14 @@ class _HomeViewState extends State<HomeView> {
     return d.subtract(Duration(days: d.weekday % 7));
   }
 
-  static List<String> _topMuscles(List<Map<String, Object?>> rows) {
+  /// Top 3 primary muscle groups, localized. Rows are grouped by pmg id so
+  /// the grouping is language independent.
+  List<String> _topMuscles(List<Map<String, Object?>> rows) {
     final out = <String>[];
     for (final r in rows) {
-      final n = (r['name'] ?? '').toString();
+      final raw = (r['name'] ?? '').toString();
+      if (raw.isEmpty) continue;
+      final n = localizedName(raw, _lang);
       if (n.isNotEmpty && !out.contains(n)) out.add(n);
       if (out.length == 3) break;
     }
@@ -332,14 +710,14 @@ class _HomeViewState extends State<HomeView> {
     for (final r in wRows) {
       final id = (r['id'] ?? '').toString();
       final mRows = await db.rawQuery('''
-        SELECT pmg.name AS name, COUNT(*) AS cnt
+        SELECT pmg.id AS pmg_id, pmg.name AS name, COUNT(*) AS cnt
         FROM workout_exercise we
         JOIN exercise_muscle_group emg
           ON emg.exercise_id = we.exercise_id AND emg.is_primary = 1
         JOIN muscle_group mg           ON mg.id = emg.muscle_group_id
         JOIN primary_muscle_group pmg  ON pmg.id = mg.primary_muscle_group_id
         WHERE we.workout_id = ?
-        GROUP BY pmg.name ORDER BY cnt DESC
+        GROUP BY pmg.id ORDER BY cnt DESC
       ''', [id]);
       final exCount = _int(r['exercise_count']);
       workouts.add(_WorkoutRow(
@@ -386,14 +764,14 @@ class _HomeViewState extends State<HomeView> {
       final logId = (r['id'] ?? '').toString();
       final at = _parse(r['created_at']) ?? now;
       final mRows = await db.rawQuery('''
-        SELECT pmg.name AS name, COUNT(*) AS cnt
+        SELECT pmg.id AS pmg_id, pmg.name AS name, COUNT(*) AS cnt
         FROM set_log s
         JOIN exercise_muscle_group emg
           ON emg.exercise_id = s.exercise_id AND emg.is_primary = 1
         JOIN muscle_group mg           ON mg.id = emg.muscle_group_id
         JOIN primary_muscle_group pmg  ON pmg.id = mg.primary_muscle_group_id
         WHERE s.workout_log_id = ?
-        GROUP BY pmg.name ORDER BY cnt DESC
+        GROUP BY pmg.id ORDER BY cnt DESC
       ''', [logId]);
       final prRows = await db.rawQuery('''
         SELECT COUNT(*) AS prs FROM (
@@ -460,7 +838,7 @@ class _HomeViewState extends State<HomeView> {
       lastScore = _LastScore(
         setLogId: (r['set_log_id'] ?? '').toString(),
         score: _dbl(r['score']),
-        exerciseName: (r['name'] ?? '').toString(),
+        exerciseName: localizedName((r['name'] ?? '').toString(), _lang),
         at: _parse(r['analyzed_at']) ?? now,
       );
     }
@@ -480,66 +858,72 @@ class _HomeViewState extends State<HomeView> {
 
   // ------------------------------ formatting --------------------------------
 
-  static String _greeting(DateTime now) {
+  String _greeting(DateTime now) {
     final h = now.hour;
-    if (h < 5) return 'Good night';
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 5) return _t('goodNight');
+    if (h < 12) return _t('goodMorning');
+    if (h < 17) return _t('goodAfternoon');
+    return _t('goodEvening');
   }
 
-  static String _dateLine(DateTime now) {
-    const days = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday'
-    ];
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    return '${days[now.weekday % 7]}, ${months[now.month - 1]} ${now.day}';
+  String _dateLine(DateTime now) {
+    try {
+      // "Saturday, Oct 31" / "שבת, 31 באוק׳" / "sábado, 31 oct"
+      return intl.DateFormat('EEEE, MMM d', _lang).format(now);
+    } catch (_) {
+      return intl.DateFormat('EEEE, MMM d').format(now);
+    }
   }
 
-  static String _ago(DateTime? dt) {
-    if (dt == null) return 'never done';
+  String _dayAbbrev(DateTime dt) {
+    try {
+      return intl.DateFormat.E(_lang).format(dt);
+    } catch (_) {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      return days[dt.weekday % 7];
+    }
+  }
+
+  String _ago(DateTime? dt) {
+    if (dt == null) return _t('neverDone');
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return 'just now';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays == 1) return 'yesterday';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    if (diff.inDays < 14) return 'last ${days[dt.weekday % 7]}';
-    return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inMinutes < 60) return _t('justNow');
+    if (diff.inHours < 24) return _t('hoursAgo', n: diff.inHours);
+    if (diff.inDays == 1) return _t('yesterday');
+    if (diff.inDays < 7) return _t('daysAgo', n: diff.inDays);
+    if (diff.inDays < 14) return _t('lastDay', d: _dayAbbrev(dt));
+    return _t('weeksAgo', n: (diff.inDays / 7).floor());
   }
 
-  static String _dayShort(DateTime dt) {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  String _dayShort(DateTime dt) {
     final today = DateTime.now();
     if (dt.year == today.year &&
         dt.month == today.month &&
         dt.day == today.day) {
-      return 'Today';
+      return _t('today');
     }
     final y = today.subtract(const Duration(days: 1));
     if (dt.year == y.year && dt.month == y.month && dt.day == y.day) {
-      return 'Yesterday';
+      return _t('yesterdayCap');
     }
-    return days[dt.weekday % 7];
+    return _dayAbbrev(dt);
+  }
+
+  /// One-letter weekday labels Sun..Sat in the current language.
+  List<String> _weekLetters() {
+    try {
+      final base = DateTime(2023, 1, 1); // a Sunday
+      return [
+        for (int i = 0; i < 7; i++)
+          intl.DateFormat.E(_lang)
+              .format(base.add(Duration(days: i)))
+              .characters
+              .first
+              .toUpperCase(),
+      ];
+    } catch (_) {
+      return const ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    }
   }
 
   static String _duration(int sec) {
@@ -562,13 +946,13 @@ class _HomeViewState extends State<HomeView> {
   static String _cap(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
-  static String _displayName(_WorkoutRow w) {
+  String _displayName(_WorkoutRow w) {
     if (w.name.isNotEmpty &&
         !w.name.toLowerCase().startsWith('unnamed workout')) {
       return _cap(w.name);
     }
     if (w.muscles.isNotEmpty) return w.muscles.take(2).join(' & ');
-    return 'Workout';
+    return _t('workout');
   }
 
   static String _score(double s) {
@@ -609,7 +993,8 @@ class _HomeViewState extends State<HomeView> {
           color: color,
           w: w,
           height: 1.05,
-          letterSpacing: -size * 0.02,
+          // Negative tracking looks wrong on Hebrew glyphs.
+          letterSpacing: _isRtl ? 0 : -size * 0.02,
           display: true);
 
   TextStyle _body(double size,
@@ -617,7 +1002,9 @@ class _HomeViewState extends State<HomeView> {
       _ts(size, color: color, w: w);
 
   TextStyle _eyebrow({Color? color}) => _ts(11,
-      color: color ?? _inkMuted, w: FontWeight.w600, letterSpacing: 1.4);
+      color: color ?? _inkMuted,
+      w: FontWeight.w600,
+      letterSpacing: _isRtl ? 0 : 1.4);
 
   Widget _gutter(Widget child) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: _kGutter),
@@ -629,50 +1016,53 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     final d = _data;
-    return Container(
-      width: widget.width,
-      height: widget.height,
-      color: _bg,
-      child: d == null
-          ? Center(
-              child: _error == null
-                  ? CircularProgressIndicator(color: _accent, strokeWidth: 2)
-                  : Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Home failed to load\n$_error',
-                        textAlign: TextAlign.center,
-                        style: _body(13, color: _inkMuted),
+    return Directionality(
+      textDirection: _dir,
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        color: _bg,
+        child: d == null
+            ? Center(
+                child: _error == null
+                    ? CircularProgressIndicator(color: _accent, strokeWidth: 2)
+                    : Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          '${_t('failedToLoad')}\n$_error',
+                          textAlign: TextAlign.center,
+                          style: _body(13, color: _inkMuted),
+                        ),
                       ),
-                    ),
-            )
-          : RefreshIndicator(
-              color: _accent,
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(0, 8, 0, _kBottomInset),
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _gutter(_header()),
-                  const SizedBox(height: 20),
-                  _gutter(_hero(d)),
-                  const SizedBox(height: 12),
-                  _gutter(_formCheckCard(d)),
-                  const SizedBox(height: 12),
-                  _gutter(_weekCard(d)),
-                  if (d.lastWorkout != null) ...[
+              )
+            : RefreshIndicator(
+                color: _accent,
+                onRefresh: _load,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 0, _kBottomInset),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    _gutter(_header()),
+                    const SizedBox(height: 20),
+                    _gutter(_hero(d)),
                     const SizedBox(height: 12),
-                    _gutter(_lastWorkoutCard(d.lastWorkout!)),
+                    _gutter(_formCheckCard(d)),
+                    const SizedBox(height: 12),
+                    _gutter(_weekCard(d)),
+                    if (d.lastWorkout != null) ...[
+                      const SizedBox(height: 12),
+                      _gutter(_lastWorkoutCard(d.lastWorkout!)),
+                    ],
+                    const SizedBox(height: 26),
+                    _myWorkouts(d),
                   ],
-                  const SizedBox(height: 26),
-                  _myWorkouts(d),
-                ],
+                ),
               ),
-            ),
+      ),
     );
   }
 
-  // --- header: greeting only, settings on the right ---
+  // --- header: greeting only, settings at the end ---
   Widget _header() {
     final now = DateTime.now();
     return Row(
@@ -715,16 +1105,13 @@ class _HomeViewState extends State<HomeView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('START HERE', style: _eyebrow(color: _accentOnDark)),
+            Text(_t('startHere'), style: _eyebrow(color: _accentOnDark)),
             const SizedBox(height: 14),
-            Text('Build your first\nworkout',
-                style: _display(30, color: _kOnDark)),
+            Text(_t('buildFirst'), style: _display(30, color: _kOnDark)),
             const SizedBox(height: 8),
-            Text(
-                'Pick exercises yourself, let the AI build one, or start from a ready-made template.',
-                style: _body(13, color: _kOnDarkMuted)),
+            Text(_t('buildFirstSub'), style: _body(13, color: _kOnDarkMuted)),
             const SizedBox(height: 18),
-            _primaryButton('Create workout',
+            _primaryButton(_t('createWorkout'),
                 onTap: () => widget.onCreateWorkout?.call()),
           ],
         ),
@@ -739,7 +1126,7 @@ class _HomeViewState extends State<HomeView> {
         children: [
           Row(
             children: [
-              Text('UP NEXT', style: _eyebrow(color: _accentOnDark)),
+              Text(_t('upNext'), style: _eyebrow(color: _accentOnDark)),
               const Spacer(),
               if (rested) ...[
                 Container(
@@ -749,7 +1136,7 @@ class _HomeViewState extends State<HomeView> {
                       color: _accentOnDark, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 6),
-                Text('Recovered', style: _body(12, color: _kOnDarkMuted)),
+                Text(_t('recovered'), style: _body(12, color: _kOnDarkMuted)),
               ],
             ],
           ),
@@ -762,7 +1149,7 @@ class _HomeViewState extends State<HomeView> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${w.exerciseCount} exercises · ~${w.estMinutes} min · ${_ago(w.lastDoneAt)}',
+            '${_t('exercisesCount', n: w.exerciseCount)} · ${_t('minutes', n: w.estMinutes)} · ${_ago(w.lastDoneAt)}',
             style: _body(13, color: _kOnDarkMuted),
           ),
           const SizedBox(height: 14),
@@ -773,7 +1160,7 @@ class _HomeViewState extends State<HomeView> {
               for (final m in w.muscles) _pillDark(m),
               if (w.formCheckCount > 0)
                 _pillDark(
-                  '${w.formCheckCount} with form check',
+                  _t('withFormCheck', n: w.formCheckCount),
                   icon: _FormCheckIcon(size: 12, color: _accentOnDark),
                 ),
             ],
@@ -783,7 +1170,7 @@ class _HomeViewState extends State<HomeView> {
             children: [
               Expanded(
                 child: _primaryButton(
-                  'Start workout',
+                  _t('startWorkout'),
                   icon: Icons.play_arrow_rounded,
                   onTap: () => widget.onStartWorkout?.call(w.id),
                 ),
@@ -822,12 +1209,12 @@ class _HomeViewState extends State<HomeView> {
     String subtitle;
     if (ls == null) {
       subtitle = _premium
-          ? 'Unlimited · film a set with the camera below'
-          : '$left of $_kFreeMonthlyLimit free this month · film a set below';
+          ? _t('unlimitedFilm')
+          : _t('leftFilm', n: left, m: _kFreeMonthlyLimit);
     } else if (_premium) {
-      subtitle = 'Unlimited · tap to review';
+      subtitle = _t('unlimitedReview');
     } else {
-      subtitle = '$left of $_kFreeMonthlyLimit free checks left this month';
+      subtitle = _t('leftChecks', n: left, m: _kFreeMonthlyLimit);
     }
 
     return GestureDetector(
@@ -851,7 +1238,7 @@ class _HomeViewState extends State<HomeView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Form check', style: _body(16, w: FontWeight.w600)),
+                  Text(_t('formCheck'), style: _body(16, w: FontWeight.w600)),
                   const SizedBox(height: 5),
                   Text(subtitle,
                       style: _body(12, color: _inkMuted),
@@ -896,7 +1283,7 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      '${ls.exerciseName.split(' ').last} · ${_dayShort(ls.at)}',
+                      '${ls.exerciseName} · ${_dayShort(ls.at)}',
                       style: _body(10, color: _inkMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -914,7 +1301,7 @@ class _HomeViewState extends State<HomeView> {
 
   // --- this week: circles, centered stats ---
   Widget _weekCard(_HomeData d) {
-    const letters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final letters = _weekLetters();
     final today = DateTime.now().weekday % 7;
     final wk = d.week;
     return _lightCard(
@@ -924,17 +1311,21 @@ class _HomeViewState extends State<HomeView> {
         children: [
           Row(
             children: [
-              Text('This week', style: _body(14, w: FontWeight.w600)),
+              Text(_t('thisWeek'), style: _body(14, w: FontWeight.w600)),
               const Spacer(),
               GestureDetector(
                 onTap: () => widget.onOpenStats?.call(),
                 child: Row(
                   children: [
-                    Text('Full stats',
+                    Text(_t('fullStats'),
                         style:
                             _body(12, color: _accentDeep, w: FontWeight.w500)),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 16, color: _accentDeep),
+                    Icon(
+                        _isRtl
+                            ? Icons.chevron_left_rounded
+                            : Icons.chevron_right_rounded,
+                        size: 16,
+                        color: _accentDeep),
                   ],
                 ),
               ),
@@ -968,9 +1359,9 @@ class _HomeViewState extends State<HomeView> {
           const SizedBox(height: 14),
           Row(
             children: [
-              _stat('${wk.workouts}', 'workouts'),
-              _stat('${wk.sets}', 'sets'),
-              _stat(_kg(wk.volume), 'kg volume'),
+              _stat('${wk.workouts}', _t('workouts')),
+              _stat('${wk.sets}', _t('sets')),
+              _stat(_kg(wk.volume), _t('kgVolume')),
             ],
           ),
         ],
@@ -1017,6 +1408,8 @@ class _HomeViewState extends State<HomeView> {
   Widget _lastWorkoutCard(_LastWorkout l) {
     final hh = l.at.hour.toString().padLeft(2, '0');
     final mm = l.at.minute.toString().padLeft(2, '0');
+    final prText =
+        l.prCount > 1 ? _t('prsPlural', n: l.prCount) : _t('prs', n: l.prCount);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => widget.onOpenSummary?.call(l.logId),
@@ -1028,7 +1421,7 @@ class _HomeViewState extends State<HomeView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'LAST WORKOUT · ${_dayShort(l.at).toUpperCase()} $hh:$mm',
+                    '${_t('lastWorkout')} · ${_dayShort(l.at).toUpperCase()} $hh:$mm',
                     style: _eyebrow(),
                   ),
                   const SizedBox(height: 8),
@@ -1036,7 +1429,7 @@ class _HomeViewState extends State<HomeView> {
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
-                      Text(l.name.isEmpty ? 'Workout' : _cap(l.name),
+                      Text(l.name.isEmpty ? _t('workout') : _cap(l.name),
                           style: _display(20, w: FontWeight.w700)),
                       const SizedBox(width: 8),
                       Flexible(
@@ -1054,10 +1447,10 @@ class _HomeViewState extends State<HomeView> {
                     children: [
                       TextSpan(
                           text:
-                              '${_duration(l.durationSec)} · ${_kg(l.volume)} kg · ${l.sets} sets'),
+                              '${_duration(l.durationSec)} · ${_kg(l.volume)} kg · ${_t('setsCount', n: l.sets)}'),
                       if (l.prCount > 0)
                         TextSpan(
-                          text: ' · ${l.prCount} PR${l.prCount > 1 ? 's' : ''}',
+                          text: ' · $prText',
                           style:
                               _body(13, color: _accentDeep, w: FontWeight.w600),
                         ),
@@ -1096,12 +1489,12 @@ class _HomeViewState extends State<HomeView> {
       children: [
         _gutter(Row(
           children: [
-            Text('My workouts', style: _display(20, w: FontWeight.w700)),
+            Text(_t('myWorkouts'), style: _display(20, w: FontWeight.w700)),
             const Spacer(),
             if (list.isNotEmpty)
               GestureDetector(
                 onTap: () => widget.onOpenLibrary?.call(),
-                child: Text('See all ${list.length}',
+                child: Text(_t('seeAll', n: list.length),
                     style: _body(12, color: _accentDeep, w: FontWeight.w500)),
               ),
           ],
@@ -1135,7 +1528,7 @@ class _HomeViewState extends State<HomeView> {
               children: [
                 Icon(Icons.add_rounded, size: 20, color: _ink),
                 const SizedBox(width: 8),
-                Text('Create workout', style: _body(14, w: FontWeight.w600)),
+                Text(_t('createWorkout'), style: _body(14, w: FontWeight.w600)),
               ],
             ),
           ),
@@ -1169,11 +1562,11 @@ class _HomeViewState extends State<HomeView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Start from a template',
+                  Text(_t('startFromTemplate'),
                       style: _body(16, w: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text(
-                    'Ready-made workouts you can save and start right away.',
+                    _t('templateSub'),
                     style: _body(12, color: _inkMuted),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1182,7 +1575,12 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded, size: 22, color: _inkMuted),
+            Icon(
+                _isRtl
+                    ? Icons.chevron_left_rounded
+                    : Icons.chevron_right_rounded,
+                size: 22,
+                color: _inkMuted),
           ],
         ),
       ),
@@ -1207,7 +1605,8 @@ class _HomeViewState extends State<HomeView> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
-          Text('${w.exerciseCount} exercises · ~${w.estMinutes} min',
+          Text(
+              '${_t('exercisesCount', n: w.exerciseCount)} · ${_t('minutes', n: w.estMinutes)}',
               style: _body(12, color: _inkMuted)),
           const SizedBox(height: 8),
           Text(
@@ -1222,8 +1621,8 @@ class _HomeViewState extends State<HomeView> {
               Expanded(
                 child: Text(
                   w.lastDoneAt == null
-                      ? 'Never done'
-                      : 'Done ${_ago(w.lastDoneAt)}',
+                      ? _t('neverDoneCap')
+                      : _t('doneAgo', d: _ago(w.lastDoneAt)),
                   style: _body(11, color: _inkMuted),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1239,7 +1638,7 @@ class _HomeViewState extends State<HomeView> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
-                  child: Text('Start',
+                  child: Text(_t('start'),
                       style: _body(13, color: _kOnDark, w: FontWeight.w600)),
                 ),
               ),

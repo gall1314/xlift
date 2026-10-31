@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' as intl show DateFormat;
 
 /// "By Muscle" stats tab.
 ///
@@ -30,12 +31,16 @@ import 'package:google_fonts/google_fonts.dart';
 /// needed. Recovery is always computed from the user's full history; the
 /// numbers below it follow [timeRange] and reload when it changes.
 ///
+/// Localization: reads the app language from FFLocalizations (no parameter).
+/// UI strings come from _kStrings, muscle / exercise names from
+/// localizedName, dates from intl; Hebrew renders RTL.
+///
 /// [timeRange]: 'Last 7 days' | 'Last 30 days' | 'Last 90 days'; anything
-/// else ('All', 'All time', empty) means no limit. [isDark]: the app's
-/// dark-mode flag. [onExerciseTap](exerciseId, isPublic): a "Top exercises"
-/// row was tapped. [onRangeChange](range): the button in the "nothing in this
-/// time range" state, with the shortest range that contains the muscle's last
-/// workout.
+/// else ('All', 'All time', empty) means no limit. These are internal keys,
+/// not shown to the user. [isDark]: the app's dark-mode flag.
+/// [onExerciseTap](exerciseId, isPublic): a "Top exercises" row was tapped.
+/// [onRangeChange](range): the button in the "nothing in this time range"
+/// state, with the shortest range that contains the muscle's last workout.
 ///
 /// Recovery thresholds (minutes since last trained): < 1440 recovering, <
 /// 2880 almost ready, < 10080 ready, otherwise not trained lately.
@@ -64,18 +69,285 @@ class MuscleStatsView extends StatefulWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Localization
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// {n} number, {m} muscle name, {r} range label, {a} ago text.
+const Map<String, Map<String, String>> _kStrings = {
+  "noGroups": {
+    "en": "No muscle groups found",
+    "es": "No se encontraron grupos musculares",
+    "he": "לא נמצאו קבוצות שרירים",
+    "de": "Keine Muskelgruppen gefunden",
+    "fr": "Aucun groupe musculaire trouvé",
+  },
+  "noDataYet": {
+    "en": "No data yet",
+    "es": "Sin datos aún",
+    "he": "אין נתונים עדיין",
+    "de": "Noch keine Daten",
+    "fr": "Pas encore de données",
+  },
+  "recovering": {
+    "en": "Recovering",
+    "es": "Recuperando",
+    "he": "בהתאוששות",
+    "de": "Erholt sich",
+    "fr": "En récupération",
+  },
+  "almostReady": {
+    "en": "Almost ready",
+    "es": "Casi listo",
+    "he": "כמעט מוכן",
+    "de": "Fast bereit",
+    "fr": "Presque prêt",
+  },
+  "readyToTrain": {
+    "en": "Ready to train",
+    "es": "Listo para entrenar",
+    "he": "מוכן לאימון",
+    "de": "Bereit zum Training",
+    "fr": "Prêt à entraîner",
+  },
+  "notTrainedLately": {
+    "en": "Not trained lately",
+    "es": "Sin entrenar últimamente",
+    "he": "לא אומן לאחרונה",
+    "de": "Zuletzt nicht trainiert",
+    "fr": "Pas entraîné récemment",
+  },
+  "notTrainedYet": {
+    "en": "Not trained yet",
+    "es": "Aún sin entrenar",
+    "he": "עדיין לא אומן",
+    "de": "Noch nicht trainiert",
+    "fr": "Pas encore entraîné",
+  },
+  "minAgo": {
+    "en": "{n}m ago",
+    "es": "hace {n} min",
+    "he": "לפני {n} דק׳",
+    "de": "vor {n} Min.",
+    "fr": "il y a {n} min",
+  },
+  "hoursAgo": {
+    "en": "{n}h ago",
+    "es": "hace {n} h",
+    "he": "לפני {n} שע׳",
+    "de": "vor {n} Std.",
+    "fr": "il y a {n} h",
+  },
+  "daysAgo": {
+    "en": "{n}d ago",
+    "es": "hace {n} días",
+    "he": "לפני {n} ימים",
+    "de": "vor {n} Tagen",
+    "fr": "il y a {n} j",
+  },
+  "lastTrainedReadyIn": {
+    "en": "Last trained {a} · ready in about {n}h",
+    "es": "Último entreno {a} · listo en unas {n} h",
+    "he": "אומן לאחרונה {a} · מוכן בעוד כ-{n} שע׳",
+    "de": "Zuletzt {a} · bereit in ca. {n} Std.",
+    "fr": "Dernier entraînement {a} · prêt dans env. {n} h",
+  },
+  "lastTrained": {
+    "en": "Last trained {a}",
+    "es": "Último entreno {a}",
+    "he": "אומן לאחרונה {a}",
+    "de": "Zuletzt trainiert {a}",
+    "fr": "Dernier entraînement {a}",
+  },
+  "volumeOf": {
+    "en": "{m} volume",
+    "es": "Volumen de {m}",
+    "he": "נפח {m}",
+    "de": "{m}-Volumen",
+    "fr": "Volume {m}",
+  },
+  "total": {
+    "en": "Total",
+    "es": "Total",
+    "he": 'סה"כ',
+    "de": "Gesamt",
+    "fr": "Total",
+  },
+  "sets": {
+    "en": "Sets",
+    "es": "Series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "Séries",
+  },
+  "change": {
+    "en": "Change",
+    "es": "Cambio",
+    "he": "שינוי",
+    "de": "Änderung",
+    "fr": "Évolution",
+  },
+  "noWeightedSets": {
+    "en":
+        "No weighted sets in this time range, so there is no volume to chart.",
+    "es":
+        "No hay series con peso en este periodo, así que no hay volumen que mostrar.",
+    "he": "אין סטים עם משקל בטווח הזה, אז אין נפח להציג.",
+    "de":
+        "Keine Sätze mit Gewicht in diesem Zeitraum, also kein Volumen zum Anzeigen.",
+    "fr":
+        "Aucune série avec charge sur cette période, donc pas de volume à afficher.",
+  },
+  "oneWorkout": {
+    "en": "One workout so far. The trend appears after the second.",
+    "es": "Un entrenamiento hasta ahora. La tendencia aparece tras el segundo.",
+    "he": "אימון אחד בינתיים. המגמה תופיע אחרי השני.",
+    "de": "Bisher ein Workout. Der Trend erscheint nach dem zweiten.",
+    "fr":
+        "Un entraînement pour l'instant. La tendance apparaît après le deuxième.",
+  },
+  "topExercises": {
+    "en": "Top exercises",
+    "es": "Ejercicios principales",
+    "he": "תרגילים מובילים",
+    "de": "Top-Übungen",
+    "fr": "Exercices principaux",
+  },
+  "setsCount1": {
+    "en": "{n} set",
+    "es": "{n} serie",
+    "he": "סט {n}",
+    "de": "{n} Satz",
+    "fr": "{n} série",
+  },
+  "setsCountN": {
+    "en": "{n} sets",
+    "es": "{n} series",
+    "he": "{n} סטים",
+    "de": "{n} Sätze",
+    "fr": "{n} séries",
+  },
+  "subBreakdown": {
+    "en": "Sub-muscle breakdown",
+    "es": "Desglose por músculo",
+    "he": "פילוח לפי שריר",
+    "de": "Aufteilung nach Muskel",
+    "fr": "Répartition par muscle",
+  },
+  "noDataFor": {
+    "en": "No {m} data yet",
+    "es": "Sin datos de {m} aún",
+    "he": "אין עדיין נתונים ל{m}",
+    "de": "Noch keine Daten für {m}",
+    "fr": "Pas encore de données pour {m}",
+  },
+  "logToSee": {
+    "en": "Log an exercise that targets {m} and it will show up here.",
+    "es": "Registra un ejercicio de {m} y aparecerá aquí.",
+    "he": "תעד תרגיל שעובד על {m} והוא יופיע כאן.",
+    "de": "Trage eine Übung für {m} ein und sie erscheint hier.",
+    "fr": "Enregistrez un exercice ciblant {m} et il apparaîtra ici.",
+  },
+  "noSetsInRange": {
+    "en": "No {m} sets in the {r}",
+    "es": "Sin series de {m} en {r}",
+    "he": "אין סטים של {m} ב{r}",
+    "de": "Keine {m}-Sätze in {r}",
+    "fr": "Aucune série {m} sur {r}",
+  },
+  "olderThanThat": {
+    "en": "Your last {m} workout is older than that.",
+    "es": "Tu último entreno de {m} es anterior.",
+    "he": "האימון האחרון של {m} ישן יותר מזה.",
+    "de": "Dein letztes {m}-Workout liegt länger zurück.",
+    "fr": "Votre dernier entraînement {m} est plus ancien.",
+  },
+  "show": {
+    "en": "Show {r}",
+    "es": "Mostrar {r}",
+    "he": "הצג {r}",
+    "de": "{r} anzeigen",
+    "fr": "Afficher {r}",
+  },
+  "range7": {
+    "en": "last 7 days",
+    "es": "los últimos 7 días",
+    "he": "7 הימים האחרונים",
+    "de": "den letzten 7 Tagen",
+    "fr": "les 7 derniers jours",
+  },
+  "range30": {
+    "en": "last 30 days",
+    "es": "los últimos 30 días",
+    "he": "30 הימים האחרונים",
+    "de": "den letzten 30 Tagen",
+    "fr": "les 30 derniers jours",
+  },
+  "range90": {
+    "en": "last 90 days",
+    "es": "los últimos 90 días",
+    "he": "90 הימים האחרונים",
+    "de": "den letzten 90 Tagen",
+    "fr": "les 90 derniers jours",
+  },
+  "rangeAll": {
+    "en": "all time",
+    "es": "todo el historial",
+    "he": "כל הזמן",
+    "de": "gesamter Zeitraum",
+    "fr": "toute la période",
+  },
+};
+
+String _tr(String lang, String key, {int? n, String? m, String? r, String? a}) {
+  final map = _kStrings[key];
+  var s = map == null ? key : (map[lang] ?? map['en'] ?? key);
+  if (n != null) s = s.replaceAll('{n}', '$n');
+  if (m != null) s = s.replaceAll('{m}', m);
+  if (r != null) s = s.replaceAll('{r}', r);
+  if (a != null) s = s.replaceAll('{a}', a);
+  return s;
+}
+
+/// Human label for an internal range key.
+String _rangeLabel(String lang, String range) {
+  switch (range.trim()) {
+    case 'Last 7 days':
+      return _tr(lang, 'range7');
+    case 'Last 30 days':
+      return _tr(lang, 'range30');
+    case 'Last 90 days':
+      return _tr(lang, 'range90');
+    default:
+      return _tr(lang, 'rangeAll');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 TextStyle _ms(BuildContext ctx, double size, FontWeight w, Color c,
     {double ls = 0, double? height}) {
   final th = FlutterFlowTheme.of(ctx);
+  // Negative tracking looks wrong on Hebrew glyphs.
+  final bool rtl = _kRtl.contains(_langOf(ctx));
   return th.bodyMedium.override(
     fontFamily: th.bodyMediumFamily,
     color: c,
     fontSize: size,
     fontWeight: w,
-    letterSpacing: ls,
+    letterSpacing: rtl && ls < 0 ? 0 : ls,
     lineHeight: height,
     useGoogleFonts: GoogleFonts.asMap().containsKey(th.bodyMediumFamily),
   );
@@ -124,28 +396,14 @@ String _compact(double v) {
   return v.round().toString();
 }
 
-const List<String> _mMonths = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec'
-];
-
-String _mShortDate(DateTime? dt) {
+String _mShortDate(String lang, DateTime? dt) {
   if (dt == null) return '';
-  return '${_mMonths[dt.month - 1]} ${dt.day}';
+  try {
+    return intl.DateFormat.MMMd(lang).format(dt);
+  } catch (_) {
+    return intl.DateFormat.MMMd().format(dt);
+  }
 }
-
-String _mLowerFirst(String s) =>
-    s.isEmpty ? s : '${s[0].toLowerCase()}${s.substring(1)}';
 
 /// Step of 1, 2, 2.5 or 5 times a power of 10 giving about [targetTicks].
 double _mNiceStep(double range, int targetTicks) {
@@ -211,7 +469,7 @@ class _Rec {
   final bool ready;
 }
 
-_Rec _recOf(int? minutes, bool dark) {
+_Rec _recOf(String lang, int? minutes, bool dark) {
   const Color red = Color(0xFFE85A5A);
   const Color orange = Color(0xFFF1A24A);
   const Color teal = Color(0xFF2CCAAE);
@@ -223,7 +481,7 @@ _Rec _recOf(int? minutes, bool dark) {
     return _Rec(
         ring: grey,
         text: greyText,
-        label: 'No data yet',
+        label: _tr(lang, 'noDataYet'),
         frac: 0,
         center: '–',
         ready: false);
@@ -234,7 +492,7 @@ _Rec _recOf(int? minutes, bool dark) {
     return _Rec(
         ring: red,
         text: dark ? red : const Color(0xFFB42318),
-        label: 'Recovering',
+        label: _tr(lang, 'recovering'),
         frac: m / 2880,
         center: '${hoursLeft}h',
         ready: false);
@@ -243,7 +501,7 @@ _Rec _recOf(int? minutes, bool dark) {
     return _Rec(
         ring: orange,
         text: dark ? orange : const Color(0xFF9A5206),
-        label: 'Almost ready',
+        label: _tr(lang, 'almostReady'),
         frac: m / 2880,
         center: '${hoursLeft}h',
         ready: false);
@@ -252,7 +510,7 @@ _Rec _recOf(int? minutes, bool dark) {
     return _Rec(
         ring: teal,
         text: dark ? teal : const Color(0xFF0F766E),
-        label: 'Ready to train',
+        label: _tr(lang, 'readyToTrain'),
         frac: 1,
         center: '',
         ready: true);
@@ -260,28 +518,28 @@ _Rec _recOf(int? minutes, bool dark) {
   return _Rec(
       ring: grey,
       text: greyText,
-      label: 'Not trained lately',
+      label: _tr(lang, 'notTrainedLately'),
       frac: 0,
       center: '–',
       ready: false);
 }
 
-String _lastTrainedText(int? minutes) {
-  if (minutes == null) return 'Not trained yet';
+String _lastTrainedText(String lang, int? minutes) {
+  if (minutes == null) return _tr(lang, 'notTrainedYet');
   final int m = minutes < 0 ? 0 : minutes;
   String ago;
   if (m < 60) {
-    ago = '${m}m ago';
+    ago = _tr(lang, 'minAgo', n: m);
   } else if (m < 1440) {
-    ago = '${m ~/ 60}h ago';
+    ago = _tr(lang, 'hoursAgo', n: m ~/ 60);
   } else {
-    ago = '${m ~/ 1440}d ago';
+    ago = _tr(lang, 'daysAgo', n: m ~/ 1440);
   }
   if (m < 2880) {
     final int hoursLeft = ((2880 - m) / 60).ceil();
-    return 'Last trained $ago · ready in about ${hoursLeft}h';
+    return _tr(lang, 'lastTrainedReadyIn', a: ago, n: hoursLeft);
   }
-  return 'Last trained $ago';
+  return _tr(lang, 'lastTrained', a: ago);
 }
 
 // ---------------------------------------------------------------------------
@@ -291,14 +549,15 @@ String _lastTrainedText(int? minutes) {
 class _Muscle {
   const _Muscle(this.id, this.name, this.minutes);
   final int id;
-  final String name;
+  final String name; // localized
   final int? minutes; // since last trained, null = never
 }
 
 class _TopEx {
-  _TopEx(this.id, this.name, this.isPublic, this.illustration);
+  _TopEx(this.id, this.name, this.nameEn, this.isPublic, this.illustration);
   final int id;
-  final String name;
+  final String name; // localized
+  final String nameEn; // English (image lookup)
   final bool isPublic;
   final String? illustration;
   int sets = 0;
@@ -324,12 +583,14 @@ class _Detail {
   final List<double> sessionVolumes; // per workout, oldest first
   final DateTime? firstDate, lastDate;
   final List<_TopEx> top;
-  final List<MapEntry<String, int>> subs; // sub-muscle -> count, desc
+  final List<MapEntry<String, int>> subs; // sub-muscle (localized) -> count
 }
 
-_Detail _buildDetail(int muscleId, List<Map<String, Object?>> rows) {
+_Detail _buildDetail(
+    String lang, int muscleId, List<Map<String, Object?>> rows) {
   final Set<String> seen = {};
-  final Map<String, int> subCount = {};
+  final Map<int, int> subCount = {}; // keyed by muscle_group.id
+  final Map<int, String> subName = {};
   final List<String> sessionIds = [];
   final Map<String, double> sessionVol = {};
   final Map<String, DateTime?> sessionDate = {};
@@ -340,8 +601,12 @@ _Detail _buildDetail(int muscleId, List<Map<String, Object?>> rows) {
   for (final r in rows) {
     // Every row counts for the sub-muscle split (an exercise can have two
     // primary sub-muscles in the same group).
-    final String sub = (r['sub_muscle'] ?? '').toString().trim();
-    if (sub.isNotEmpty) subCount[sub] = (subCount[sub] ?? 0) + 1;
+    final int subId = _mI(r['sub_muscle_id'], -1);
+    final String subRaw = (r['sub_muscle'] ?? '').toString().trim();
+    if (subId >= 0 && subRaw.isNotEmpty) {
+      subCount[subId] = (subCount[subId] ?? 0) + 1;
+      subName[subId] ??= localizedName(subRaw, lang);
+    }
 
     // Everything else counts each set once.
     final String setId = (r['set_id'] ?? '').toString();
@@ -367,11 +632,13 @@ _Detail _buildDetail(int muscleId, List<Map<String, Object?>> rows) {
 
     final int exId = _mI(r['exercise_id']);
     final String ill = (r['illustration'] ?? '').toString().trim();
+    final String rawName = (r['exercise_name'] ?? '').toString();
     final _TopEx ex = exMap.putIfAbsent(
       exId,
       () => _TopEx(
         exId,
-        (r['exercise_name'] ?? '').toString(),
+        localizedName(rawName, lang),
+        localizedName(rawName, 'en'),
         _mI(r['is_public'], 1) == 1,
         (ill.isEmpty || ill == 'null') ? null : ill,
       ),
@@ -390,8 +657,9 @@ _Detail _buildDetail(int muscleId, List<Map<String, Object?>> rows) {
       final c = b.sets.compareTo(a.sets);
       return c != 0 ? c : a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
-  final List<MapEntry<String, int>> subs = subCount.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
+  final List<MapEntry<String, int>> subs = [
+    for (final e in subCount.entries) MapEntry(subName[e.key] ?? '', e.value)
+  ]..sort((a, b) => b.value.compareTo(a.value));
 
   return _Detail(
     muscleId: muscleId,
@@ -418,11 +686,21 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   bool _loadingDetail = true;
   int _musclesToken = 0;
   int _detailToken = 0;
+  String _lang = 'en';
 
   @override
   void initState() {
     super.initState();
-    _loadMuscles();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l = _langOf(context);
+    if (l != _lang || _loadingMuscles && _muscles.isEmpty) {
+      _lang = l;
+      _loadMuscles();
+    }
   }
 
   @override
@@ -454,6 +732,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   /// history, not limited by the time range).
   Future<void> _loadMuscles() async {
     final int token = ++_musclesToken;
+    final String lang = _lang;
     final List<_Muscle> out = [];
     try {
       final rows = await SQLiteManager.instance.database.rawQuery(
@@ -475,7 +754,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
       for (final r in rows) {
         out.add(_Muscle(
           _mI(r['id']),
-          (r['name'] ?? '').toString().trim(),
+          localizedName((r['name'] ?? '').toString().trim(), lang),
           _mIN(r['minutes_since']),
         ));
       }
@@ -505,6 +784,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   Future<void> _loadDetail() async {
     final int? muscleId = _selectedId;
     final int token = ++_detailToken;
+    final String lang = _lang;
     if (muscleId == null) {
       if (mounted) {
         setState(() {
@@ -533,6 +813,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         'sl.reps AS reps, '
         'sl.weight AS weight, '
         'sl.is_kg AS is_kg, '
+        'mg.id AS sub_muscle_id, '
         'mg.name AS sub_muscle '
         'FROM set_log sl '
         'JOIN workout_log wl ON wl.id = sl.workout_log_id '
@@ -547,7 +828,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         "ORDER BY datetime(replace(wl.created_at,' ','T')) ASC, "
         'sl.created_at ASC';
 
-    _Detail detail = _buildDetail(muscleId, const []);
+    _Detail detail = _buildDetail(lang, muscleId, const []);
     try {
       final rows = await SQLiteManager.instance.database.rawQuery(
         sql,
@@ -555,7 +836,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
             ? [widget.userId, muscleId]
             : [widget.userId, muscleId, modifier],
       );
-      detail = _buildDetail(muscleId, rows);
+      detail = _buildDetail(lang, muscleId, rows);
     } catch (_) {}
     if (!mounted || token != _detailToken) return;
     setState(() {
@@ -599,13 +880,14 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   @override
   Widget build(BuildContext context) {
     final p = _MPal(context, widget.isDark ?? false);
+    final bool rtl = _kRtl.contains(_lang);
 
     Widget body;
     if (_loadingMuscles) {
       body = Center(child: CircularProgressIndicator(color: p.th.primary));
     } else if (_muscles.isEmpty) {
       body = Center(
-        child: Text('No muscle groups found',
+        child: Text(_tr(_lang, 'noGroups'),
             style: _ms(context, 14, FontWeight.w500, p.th.secondaryText)),
       );
     } else {
@@ -641,7 +923,10 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
       );
     }
 
-    return SizedBox(width: widget.width, height: widget.height, child: body);
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: SizedBox(width: widget.width, height: widget.height, child: body),
+    );
   }
 
   BoxDecoration _cardDeco(_MPal p, {bool strong = false}) {
@@ -698,7 +983,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   }
 
   Widget _ringCell(BuildContext ctx, _MPal p, _Muscle m, bool selected) {
-    final _Rec rec = _recOf(m.minutes, p.dark);
+    final _Rec rec = _recOf(_lang, m.minutes, p.dark);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _select(m.id),
@@ -755,7 +1040,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   }
 
   Widget _selectedPanel(BuildContext ctx, _MPal p, _Muscle m) {
-    final _Rec rec = _recOf(m.minutes, p.dark);
+    final _Rec rec = _recOf(_lang, m.minutes, p.dark);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -777,7 +1062,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _lastTrainedText(m.minutes),
+                  _lastTrainedText(_lang, m.minutes),
                   style: _ms(ctx, 13, FontWeight.w400, p.tintSub, height: 1.3),
                 ),
               ],
@@ -785,7 +1070,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
           ),
           const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+            padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 10, 5),
             decoration: BoxDecoration(
               color: p.chipBg,
               borderRadius: BorderRadius.circular(999),
@@ -836,57 +1121,70 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('${m.name} volume',
+          Text(_tr(_lang, 'volumeOf', m: m.name),
               style: _ms(ctx, 16, FontWeight.w700, p.th.primaryText)),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _tile(ctx, p, 'Total', _compact(d.volume), unit: 'kg'),
+                child: _tile(ctx, p, _tr(_lang, 'total'), _compact(d.volume),
+                    unit: 'kg'),
               ),
               const SizedBox(width: 8),
-              Expanded(child: _tile(ctx, p, 'Sets', '${d.sets}')),
+              Expanded(child: _tile(ctx, p, _tr(_lang, 'sets'), '${d.sets}')),
               const SizedBox(width: 8),
               Expanded(
-                child: _tile(ctx, p, 'Change', changeText,
+                child: _tile(ctx, p, _tr(_lang, 'change'), changeText,
                     valueColor: changeColor),
               ),
             ],
           ),
           const SizedBox(height: 12),
           if (hasChart) ...[
-            SizedBox(
-              height: 100,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _VolChartPainter(
-                  values: d.sessionVolumes,
-                  line: p.accent,
-                  fill: p.chartFill,
-                  grid: p.track,
-                  dotFill: p.th.secondaryBackground,
-                  labelStyle: _ms(ctx, 11, FontWeight.w400, p.th.secondaryText),
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.only(left: 36),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // The chart is a time axis (oldest → newest); keep it LTR even in
+            // Hebrew, like every chart in the app.
+            Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Column(
                 children: [
-                  Text(_mShortDate(d.firstDate),
-                      style: _ms(ctx, 11, FontWeight.w400, p.th.secondaryText)),
-                  Text(_mShortDate(d.lastDate),
-                      style: _ms(ctx, 11, FontWeight.w400, p.th.secondaryText)),
+                  SizedBox(
+                    height: 100,
+                    width: double.infinity,
+                    child: CustomPaint(
+                      painter: _VolChartPainter(
+                        values: d.sessionVolumes,
+                        line: p.accent,
+                        fill: p.chartFill,
+                        grid: p.track,
+                        dotFill: p.th.secondaryBackground,
+                        labelStyle:
+                            _ms(ctx, 11, FontWeight.w400, p.th.secondaryText),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 36),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_mShortDate(_lang, d.firstDate),
+                            style: _ms(
+                                ctx, 11, FontWeight.w400, p.th.secondaryText)),
+                        Text(_mShortDate(_lang, d.lastDate),
+                            style: _ms(
+                                ctx, 11, FontWeight.w400, p.th.secondaryText)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ] else
             Text(
               d.volume <= 0
-                  ? 'No weighted sets in this time range, so there is no volume to chart.'
-                  : 'One workout so far. The trend appears after the second.',
+                  ? _tr(_lang, 'noWeightedSets')
+                  : _tr(_lang, 'oneWorkout'),
               style: _ms(ctx, 13, FontWeight.w400, p.th.secondaryText,
                   height: 1.4),
             ),
@@ -914,7 +1212,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
           const SizedBox(height: 3),
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text.rich(
               TextSpan(
                 children: [
@@ -947,7 +1245,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Top exercises',
+          Text(_tr(_lang, 'topExercises'),
               style: _ms(ctx, 16, FontWeight.w700, p.th.primaryText)),
           const SizedBox(height: 6),
           for (int i = 0; i < d.top.length; i++) ...[
@@ -960,6 +1258,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   }
 
   Widget _topRow(BuildContext ctx, _MPal p, _TopEx e) {
+    final bool rtl = _kRtl.contains(_lang);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -979,7 +1278,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
                 child: ExerciseAssetImage(
                   width: 40,
                   height: 40,
-                  exerciseName: exerciseImageName(e.name),
+                  exerciseName: exerciseImageName(e.nameEn),
                   borderRadius: 10,
                   illustration: e.illustration,
                 ),
@@ -995,10 +1294,13 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
               ),
             ),
             const SizedBox(width: 8),
-            Text('${e.sets} set${e.sets == 1 ? '' : 's'}',
+            Text(
+                e.sets == 1
+                    ? _tr(_lang, 'setsCount1', n: e.sets)
+                    : _tr(_lang, 'setsCountN', n: e.sets),
                 style: _ms(ctx, 13, FontWeight.w500, p.th.secondaryText)),
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded,
+            Icon(rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
                 size: 18, color: p.th.secondaryText),
           ],
         ),
@@ -1021,7 +1323,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Sub-muscle breakdown',
+          Text(_tr(_lang, 'subBreakdown'),
               style: _ms(ctx, 16, FontWeight.w700, p.th.primaryText)),
           for (final s in d.subs) ...[
             const SizedBox(height: 12),
@@ -1048,6 +1350,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
                   children: [
                     Positioned.fill(child: Container(color: p.track)),
                     FractionallySizedBox(
+                      alignment: AlignmentDirectional.centerStart,
                       widthFactor: (s.value / safeTotal).clamp(0.0, 1.0),
                       child: Container(
                         decoration: BoxDecoration(
@@ -1073,12 +1376,12 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
 
     String title, subtitle;
     if (m.minutes == null) {
-      title = 'No ${m.name} data yet';
-      subtitle =
-          'Log an exercise that targets ${m.name} and it will show up here.';
+      title = _tr(_lang, 'noDataFor', m: m.name);
+      subtitle = _tr(_lang, 'logToSee', m: m.name);
     } else {
-      title = 'No ${m.name} sets in the ${_mLowerFirst(range)}';
-      subtitle = 'Your last ${m.name} workout is older than that.';
+      title =
+          _tr(_lang, 'noSetsInRange', m: m.name, r: _rangeLabel(_lang, range));
+      subtitle = _tr(_lang, 'olderThanThat', m: m.name);
     }
 
     return Container(
@@ -1129,7 +1432,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Show ${_mLowerFirst(suggested)}',
+                    Text(_tr(_lang, 'show', r: _rangeLabel(_lang, suggested)),
                         style: _ms(ctx, 14, FontWeight.w600, Colors.white)),
                   ],
                 ),

@@ -17,27 +17,28 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' as intl show DateFormat;
 
 /// "By Exercise" stats tab: a Spotlight card that rotates through the user's
 /// exercises (progress chart, best value, best set, sessions, AI form score)
 /// and a list of all exercises with a trend line and % change.
 ///
 /// Fully self-managed: runs one SQLite query itself (all sets of [userId] in
-/// [timeRange]) and computesd everything in Dart. No FlutterFlow query
-/// needed. Reloads when [userId] or [timeRange] changes.
+/// [timeRange]) and computes everything in Dart. No FlutterFlow query needed.
+/// Reloads when [userId], [timeRange] or the app language changes.
+///
+/// Localization: reads the app language from FFLocalizations (no parameter).
+/// UI strings come from _kStrings, exercise names from localizedName, dates
+/// from intl; Hebrew renders RTL (charts stay LTR).
 ///
 /// [timeRange]: 'Last 7 days' | 'Last 30 days' | 'Last 90 days'; anything
-/// else ('All', 'All time', empty) means no limit. [isDark]: the app's
-/// dark-mode flag; picks the light or dark palette.
+/// else ('All', 'All time', empty) means no limit. Internal keys, not shown
+/// to the user. [isDark]: the app's dark-mode flag.
 /// [onExerciseTap](exerciseId, isPublic): fired when a list row or the
 /// Spotlight card is tapped. [onRangeChange](range): fired by the button in
 /// the "nothing in this time range" empty state, with the shortest range that
 /// contains the user's latest workout ('Last 30 days' | 'Last 90 days' | 'All
 /// time').
-///
-/// Illustrations go through ExerciseAssetImage, so user-created exercises
-/// (file name in exercise.illustration, stored under
-/// Documents/exercise_images) and catalog assets both work.
 ///
 /// Metric per exercise: estimated 1RM for weighted exercises, best reps for
 /// bodyweight/assisted exercises, best time for timed exercises.
@@ -66,18 +67,250 @@ class ExerciseStatsView extends StatefulWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Localization
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// {n} number, {u} unit, {r} range label, {s} best-set text.
+const Map<String, Map<String, String>> _kStrings = {
+  "spotlight": {
+    "en": "SPOTLIGHT",
+    "es": "DESTACADO",
+    "he": "בפוקוס",
+    "de": "IM FOKUS",
+    "fr": "À LA UNE",
+  },
+  "bestSet": {
+    "en": "Best set",
+    "es": "Mejor serie",
+    "he": "סט הכי טוב",
+    "de": "Bester Satz",
+    "fr": "Meilleure série",
+  },
+  "sessions": {
+    "en": "Sessions",
+    "es": "Sesiones",
+    "he": "אימונים",
+    "de": "Einheiten",
+    "fr": "Séances",
+  },
+  "aiForm": {
+    "en": "AI form",
+    "es": "Técnica IA",
+    "he": "טכניקה AI",
+    "de": "KI-Technik",
+    "fr": "Technique IA",
+  },
+  "yourExercises": {
+    "en": "Your exercises",
+    "es": "Tus ejercicios",
+    "he": "התרגילים שלך",
+    "de": "Deine Übungen",
+    "fr": "Vos exercices",
+  },
+  "searchExercises": {
+    "en": "Search exercises",
+    "es": "Buscar ejercicios",
+    "he": "חיפוש תרגילים",
+    "de": "Übungen suchen",
+    "fr": "Rechercher des exercices",
+  },
+  "noMatch": {
+    "en": "No exercises match",
+    "es": "Ningún ejercicio coincide",
+    "he": "אין תרגילים תואמים",
+    "de": "Keine passenden Übungen",
+    "fr": "Aucun exercice ne correspond",
+  },
+  "sortTrained": {
+    "en": "Most trained",
+    "es": "Más entrenados",
+    "he": "הכי מאומנים",
+    "de": "Meist trainiert",
+    "fr": "Plus entraînés",
+  },
+  "sortImproved": {
+    "en": "Most improved",
+    "es": "Mayor progreso",
+    "he": "הכי השתפרו",
+    "de": "Größter Fortschritt",
+    "fr": "Plus de progrès",
+  },
+  "sortAz": {
+    "en": "A–Z",
+    "es": "A–Z",
+    "he": "א–ת",
+    "de": "A–Z",
+    "fr": "A–Z",
+  },
+  "new": {
+    "en": "New",
+    "es": "Nuevo",
+    "he": "חדש",
+    "de": "Neu",
+    "fr": "Nouveau",
+  },
+  "bestTime": {
+    "en": "best time",
+    "es": "mejor tiempo",
+    "he": "זמן הכי טוב",
+    "de": "Bestzeit",
+    "fr": "meilleur temps",
+  },
+  "repsBestSet": {
+    "en": "reps, best set",
+    "es": "reps, mejor serie",
+    "he": "חזרות, סט הכי טוב",
+    "de": "Wdh., bester Satz",
+    "fr": "reps, meilleure série",
+  },
+  "est1rm": {
+    "en": "{u} est. 1RM",
+    "es": "{u} 1RM est.",
+    "he": "{u} 1RM משוער",
+    "de": "{u} gesch. 1RM",
+    "fr": "{u} 1RM est.",
+  },
+  "reps": {
+    "en": "{n} reps",
+    "es": "{n} reps",
+    "he": "{n} חזרות",
+    "de": "{n} Wdh.",
+    "fr": "{n} reps",
+  },
+  "bw": {
+    "en": "BW × {n}",
+    "es": "PC × {n}",
+    "he": "משקל גוף × {n}",
+    "de": "KG × {n}",
+    "fr": "PDC × {n}",
+  },
+  "rowSub1": {
+    "en": "Best {s} · 1 session",
+    "es": "Mejor {s} · 1 sesión",
+    "he": "הכי טוב {s} · אימון 1",
+    "de": "Best {s} · 1 Einheit",
+    "fr": "Meilleur {s} · 1 séance",
+  },
+  "rowSubN": {
+    "en": "Best {s} · {n} sessions",
+    "es": "Mejor {s} · {n} sesiones",
+    "he": "הכי טוב {s} · {n} אימונים",
+    "de": "Best {s} · {n} Einheiten",
+    "fr": "Meilleur {s} · {n} séances",
+  },
+  "noWorkoutsIn": {
+    "en": "No workouts in the {r}",
+    "es": "Sin entrenamientos en {r}",
+    "he": "אין אימונים ב{r}",
+    "de": "Keine Workouts in {r}",
+    "fr": "Aucun entraînement sur {r}",
+  },
+  "latestOlder": {
+    "en": "Your latest workout is older than that.",
+    "es": "Tu último entrenamiento es anterior.",
+    "he": "האימון האחרון שלך ישן יותר מזה.",
+    "de": "Dein letztes Workout liegt länger zurück.",
+    "fr": "Votre dernier entraînement est plus ancien.",
+  },
+  "show": {
+    "en": "Show {r}",
+    "es": "Mostrar {r}",
+    "he": "הצג {r}",
+    "de": "{r} anzeigen",
+    "fr": "Afficher {r}",
+  },
+  "noDataYet": {
+    "en": "No exercise data yet",
+    "es": "Aún no hay datos de ejercicios",
+    "he": "אין עדיין נתוני תרגילים",
+    "de": "Noch keine Übungsdaten",
+    "fr": "Pas encore de données d'exercice",
+  },
+  "finishToSee": {
+    "en": "Finish a workout and your progress will show up here.",
+    "es": "Termina un entrenamiento y tu progreso aparecerá aquí.",
+    "he": "סיים אימון וההתקדמות שלך תופיע כאן.",
+    "de": "Beende ein Workout und dein Fortschritt erscheint hier.",
+    "fr": "Terminez un entraînement et vos progrès apparaîtront ici.",
+  },
+  "range7": {
+    "en": "last 7 days",
+    "es": "los últimos 7 días",
+    "he": "7 הימים האחרונים",
+    "de": "den letzten 7 Tagen",
+    "fr": "les 7 derniers jours",
+  },
+  "range30": {
+    "en": "last 30 days",
+    "es": "los últimos 30 días",
+    "he": "30 הימים האחרונים",
+    "de": "den letzten 30 Tagen",
+    "fr": "les 30 derniers jours",
+  },
+  "range90": {
+    "en": "last 90 days",
+    "es": "los últimos 90 días",
+    "he": "90 הימים האחרונים",
+    "de": "den letzten 90 Tagen",
+    "fr": "les 90 derniers jours",
+  },
+  "rangeAll": {
+    "en": "all time",
+    "es": "todo el historial",
+    "he": "כל הזמן",
+    "de": "gesamter Zeitraum",
+    "fr": "toute la période",
+  },
+};
+
+String _tr(String lang, String key, {int? n, String? u, String? r, String? s}) {
+  final map = _kStrings[key];
+  var out = map == null ? key : (map[lang] ?? map['en'] ?? key);
+  if (n != null) out = out.replaceAll('{n}', '$n');
+  if (u != null) out = out.replaceAll('{u}', u);
+  if (r != null) out = out.replaceAll('{r}', r);
+  if (s != null) out = out.replaceAll('{s}', s);
+  return out;
+}
+
+String _rangeLabel(String lang, String range) {
+  switch (range.trim()) {
+    case 'Last 7 days':
+      return _tr(lang, 'range7');
+    case 'Last 30 days':
+      return _tr(lang, 'range30');
+    case 'Last 90 days':
+      return _tr(lang, 'range90');
+    default:
+      return _tr(lang, 'rangeAll');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 TextStyle _xs(BuildContext ctx, double size, FontWeight w, Color c,
     {double ls = 0, double? height}) {
   final th = FlutterFlowTheme.of(ctx);
+  final bool rtl = _kRtl.contains(_langOf(ctx));
   return th.bodyMedium.override(
     fontFamily: th.bodyMediumFamily,
     color: c,
     fontSize: size,
     fontWeight: w,
-    letterSpacing: ls,
+    letterSpacing: rtl && ls < 0 ? 0 : ls,
     lineHeight: height,
     useGoogleFonts: GoogleFonts.asMap().containsKey(th.bodyMediumFamily),
   );
@@ -116,36 +349,21 @@ String _mmss(double seconds) {
   return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 }
 
-const List<String> _monthNames = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec'
-];
-
-String _shortDate(DateTime? dt) {
+String _shortDate(String lang, DateTime? dt) {
   if (dt == null) return '';
-  return '${_monthNames[dt.month - 1]} ${dt.day}';
+  try {
+    return intl.DateFormat.MMMd(lang).format(dt);
+  } catch (_) {
+    return intl.DateFormat.MMMd().format(dt);
+  }
 }
 
-String _deltaText(int? d) {
-  if (d == null) return 'New';
+String _deltaText(String lang, int? d) {
+  if (d == null) return _tr(lang, 'new');
   if (d > 0) return '▲ $d%';
   if (d < 0) return '▼ ${d.abs()}%';
   return '0%';
 }
-
-/// "Last 7 days" -> "last 7 days", "All time" -> "all time".
-String _lowerFirst(String s) =>
-    s.isEmpty ? s : '${s[0].toLowerCase()}${s.substring(1)}';
 
 // ---------------------------------------------------------------------------
 // Palette (light / dark)
@@ -190,6 +408,7 @@ class _ExStat {
   _ExStat({
     required this.id,
     required this.name,
+    required this.nameEn,
     required this.isPublic,
     required this.illustration,
     required this.series,
@@ -205,7 +424,8 @@ class _ExStat {
   });
 
   final int id;
-  final String name;
+  final String name; // localized
+  final String nameEn; // English (image lookup, search)
   final bool isPublic;
   final String? illustration;
   final List<double> series; // one value per session, oldest first
@@ -217,7 +437,7 @@ class _ExStat {
   final int? deltaPct; // null = fewer than 2 sessions
 }
 
-List<_ExStat> _aggregate(List<Map<String, Object?>> rows) {
+List<_ExStat> _aggregate(String lang, List<Map<String, Object?>> rows) {
   final Map<int, List<Map<String, Object?>>> byEx = {};
   final List<int> order = [];
   for (final r in rows) {
@@ -283,7 +503,8 @@ List<_ExStat> _aggregate(List<Map<String, Object?>> rows) {
       } else if (kind == 1) {
         if (reps > 0) {
           metric = reps.toDouble();
-          label = assisted ? '$reps reps' : 'BW × $reps';
+          label =
+              assisted ? _tr(lang, 'reps', n: reps) : _tr(lang, 'bw', n: reps);
         }
       } else {
         if (wRaw > 0 && reps > 0) {
@@ -325,19 +546,21 @@ List<_ExStat> _aggregate(List<Map<String, Object?>> rows) {
     String big, bigUnit;
     if (kind == 2) {
       big = _mmss(best);
-      bigUnit = 'best time';
+      bigUnit = _tr(lang, 'bestTime');
     } else if (kind == 1) {
       big = best.round().toString();
-      bigUnit = 'reps, best set';
+      bigUnit = _tr(lang, 'repsBestSet');
     } else {
       big = _num(best);
-      bigUnit = '$unit est. 1RM';
+      bigUnit = _tr(lang, 'est1rm', u: unit);
     }
 
     final String ill = (first['illustration'] ?? '').toString().trim();
+    final String rawName = (first['exercise_name'] ?? '').toString();
     out.add(_ExStat(
       id: id,
-      name: (first['exercise_name'] ?? '').toString(),
+      name: localizedName(rawName, lang),
+      nameEn: localizedName(rawName, 'en'),
       isPublic: _toI(first['is_public'], 1) == 1,
       illustration: (ill.isEmpty || ill == 'null') ? null : ill,
       series: series,
@@ -360,11 +583,6 @@ List<_ExStat> _aggregate(List<Map<String, Object?>> rows) {
 // ---------------------------------------------------------------------------
 
 class _ExerciseStatsViewState extends State<ExerciseStatsView> {
-  static const List<String> _sortLabels = [
-    'Most trained',
-    'Most improved',
-    'A–Z',
-  ];
   static const Duration _rotateEvery = Duration(seconds: 4);
 
   final TextEditingController _search = TextEditingController();
@@ -377,16 +595,34 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
   bool _playing = true;
   Timer? _timer;
   int _loadToken = 0;
+  String _lang = 'en';
+  bool _started = false;
 
   /// Set only when the current range returned nothing but the user does have
   /// data: the shortest range that contains their latest workout.
   String? _suggestedRange;
 
+  List<String> get _sortLabels => [
+        _tr(_lang, 'sortTrained'),
+        _tr(_lang, 'sortImproved'),
+        _tr(_lang, 'sortAz'),
+      ];
+
   @override
   void initState() {
     super.initState();
-    _load();
     _timer = Timer.periodic(_rotateEvery, (_) => _advance());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l = _langOf(context);
+    if (!_started || l != _lang) {
+      _started = true;
+      _lang = l;
+      _load();
+    }
   }
 
   @override
@@ -446,6 +682,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
 
   Future<void> _load() async {
     final int token = ++_loadToken;
+    final String lang = _lang;
     final String? modifier = _cutoffModifier();
     final String cutoffClause = modifier == null
         ? ''
@@ -480,7 +717,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
         sql,
         modifier == null ? [widget.userId] : [widget.userId, modifier],
       );
-      out = _aggregate(rows);
+      out = _aggregate(lang, rows);
     } catch (_) {}
 
     // Empty with a time limit: is the range hiding data, or is there none?
@@ -504,7 +741,11 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
     final String q = _q.toLowerCase();
     final List<_ExStat> list = q.isEmpty
         ? List<_ExStat>.from(_all)
-        : _all.where((e) => e.name.toLowerCase().contains(q)).toList();
+        : _all
+            .where((e) =>
+                e.name.toLowerCase().contains(q) ||
+                e.nameEn.toLowerCase().contains(q))
+            .toList();
     int byName(_ExStat a, _ExStat b) =>
         a.name.toLowerCase().compareTo(b.name.toLowerCase());
     if (_sort == 0) {
@@ -541,7 +782,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
 
   void _cycleSort() {
     HapticFeedback.selectionClick();
-    setState(() => _sort = (_sort + 1) % _sortLabels.length);
+    setState(() => _sort = (_sort + 1) % 3);
   }
 
   void _toggleSearch() {
@@ -564,6 +805,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
   @override
   Widget build(BuildContext context) {
     final p = _Pal(context, widget.isDark ?? false);
+    final bool rtl = _kRtl.contains(_lang);
 
     Widget body;
     if (_loading) {
@@ -576,9 +818,9 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
         context,
         p,
         icon: Icons.calendar_today_outlined,
-        title: 'No workouts in the ${_lowerFirst(current)}',
-        subtitle: 'Your latest workout is older than that.',
-        buttonLabel: 'Show ${_lowerFirst(suggested)}',
+        title: _tr(_lang, 'noWorkoutsIn', r: _rangeLabel(_lang, current)),
+        subtitle: _tr(_lang, 'latestOlder'),
+        buttonLabel: _tr(_lang, 'show', r: _rangeLabel(_lang, suggested)),
         onButtonTap: () {
           HapticFeedback.selectionClick();
           widget.onRangeChange?.call(suggested);
@@ -590,8 +832,8 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
         context,
         p,
         icon: Icons.show_chart_rounded,
-        title: 'No exercise data yet',
-        subtitle: 'Finish a workout and your progress will show up here.',
+        title: _tr(_lang, 'noDataYet'),
+        subtitle: _tr(_lang, 'finishToSee'),
       );
     } else {
       final view = _view();
@@ -618,7 +860,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
-                child: Text('No exercises match',
+                child: Text(_tr(_lang, 'noMatch'),
                     style:
                         _xs(context, 14, FontWeight.w500, p.th.secondaryText)),
               ),
@@ -629,18 +871,21 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
       );
     }
 
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: body,
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: body,
+      ),
     );
   }
 
   // ---------- spotlight ----------
   Widget _hero(BuildContext ctx, _Pal p, _ExStat e, bool canRotate) {
     final Color deltaColor = p.delta(e.deltaPct);
-    final String from = _shortDate(e.firstDate);
-    final String to = e.sessions > 1 ? _shortDate(e.lastDate) : '';
+    final String from = _shortDate(_lang, e.firstDate);
+    final String to = e.sessions > 1 ? _shortDate(_lang, e.lastDate) : '';
 
     final Widget content = Column(
       key: ValueKey<int>(e.id),
@@ -666,6 +911,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
             children: [
               Text(
                 e.big,
+                textDirection: ui.TextDirection.ltr,
                 style: _xs(ctx, 48, FontWeight.w800, p.heroInk,
                     ls: -1.4, height: 1.05),
               ),
@@ -687,7 +933,8 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  _deltaText(e.deltaPct),
+                  _deltaText(_lang, e.deltaPct),
+                  textDirection: ui.TextDirection.ltr,
                   style: _xs(ctx, 13, FontWeight.w700, deltaColor),
                 ),
               ),
@@ -695,30 +942,37 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
           ),
         ),
         const SizedBox(height: 12),
-        // Chart
-        SizedBox(
-          height: 100,
-          width: double.infinity,
-          child: CustomPaint(
-            painter: _HeroChartPainter(
-              series: e.series,
-              prIndex: e.prIndex,
-              lineColor: p.accent,
-              fillColor: p.chartFill,
-              dotFill: p.dark ? p.heroBg : Colors.white,
-              dotStroke: p.dark ? Colors.white : p.accent,
-              labelStyle: _xs(ctx, 11, FontWeight.w700, p.heroInk),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // Chart: a time axis, always LTR.
+        Directionality(
+          textDirection: ui.TextDirection.ltr,
+          child: Column(
             children: [
-              Text(from, style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
-              Text(to, style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
+              SizedBox(
+                height: 100,
+                width: double.infinity,
+                child: CustomPaint(
+                  painter: _HeroChartPainter(
+                    series: e.series,
+                    prIndex: e.prIndex,
+                    lineColor: p.accent,
+                    fillColor: p.chartFill,
+                    dotFill: p.dark ? p.heroBg : Colors.white,
+                    dotStroke: p.dark ? Colors.white : p.accent,
+                    labelStyle: _xs(ctx, 11, FontWeight.w700, p.heroInk),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(from, style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
+                    Text(to, style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -726,13 +980,16 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
         // Stat tiles
         Row(
           children: [
-            Expanded(child: _heroTile(ctx, p, 'Best set', e.bestSet, false)),
+            Expanded(
+                child:
+                    _heroTile(ctx, p, _tr(_lang, 'bestSet'), e.bestSet, false)),
             const SizedBox(width: 8),
             Expanded(
-                child: _heroTile(ctx, p, 'Sessions', '${e.sessions}', false)),
+                child: _heroTile(
+                    ctx, p, _tr(_lang, 'sessions'), '${e.sessions}', false)),
             const SizedBox(width: 8),
             Expanded(
-              child: _heroTile(ctx, p, 'AI form',
+              child: _heroTile(ctx, p, _tr(_lang, 'aiForm'),
                   e.form == null ? '–' : e.form!.toStringAsFixed(1), true),
             ),
           ],
@@ -758,9 +1015,9 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsetsDirectional.only(start: 4),
                     child: Text(
-                      'SPOTLIGHT',
+                      _tr(_lang, 'spotlight'),
                       style: _xs(ctx, 11, FontWeight.w700, p.accent, ls: 1.4),
                     ),
                   ),
@@ -795,7 +1052,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
               layoutBuilder: (current, previous) => Stack(
-                alignment: Alignment.topLeft,
+                alignment: AlignmentDirectional.topStart,
                 children: [
                   ...previous,
                   if (current != null) current,
@@ -841,7 +1098,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
           const SizedBox(height: 3),
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               value,
               maxLines: 1,
@@ -870,7 +1127,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
       children: [
         Expanded(
           child: Text(
-            'Your exercises',
+            _tr(_lang, 'yourExercises'),
             style: _xs(ctx, 18, FontWeight.w700, p.th.primaryText, ls: -0.2),
           ),
         ),
@@ -949,7 +1206,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                hintText: 'Search exercises',
+                hintText: _tr(_lang, 'searchExercises'),
                 hintStyle: _xs(ctx, 15, FontWeight.w400, p.th.secondaryText),
               ),
               style: _xs(ctx, 15, FontWeight.w400, p.th.primaryText),
@@ -996,8 +1253,9 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
   }
 
   Widget _row(BuildContext ctx, _Pal p, _ExStat e, bool selected) {
-    final String sub =
-        'Best ${e.bestSet} · ${e.sessions} session${e.sessions == 1 ? '' : 's'}';
+    final String sub = e.sessions == 1
+        ? _tr(_lang, 'rowSub1', s: e.bestSet)
+        : _tr(_lang, 'rowSubN', s: e.bestSet, n: e.sessions);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _openExercise(e),
@@ -1019,7 +1277,7 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
                 child: ExerciseAssetImage(
                   width: 44,
                   height: 44,
-                  exerciseName: exerciseImageName(e.name),
+                  exerciseName: exerciseImageName(e.nameEn),
                   borderRadius: 12,
                   illustration: e.illustration,
                 ),
@@ -1052,19 +1310,24 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  width: 52,
-                  height: 18,
-                  child: CustomPaint(
-                    painter: _SparkPainter(
-                      series: e.series,
-                      color: selected ? p.accent : p.sparkIdle,
+                // Sparkline is a time axis: always LTR.
+                Directionality(
+                  textDirection: ui.TextDirection.ltr,
+                  child: SizedBox(
+                    width: 52,
+                    height: 18,
+                    child: CustomPaint(
+                      painter: _SparkPainter(
+                        series: e.series,
+                        color: selected ? p.accent : p.sparkIdle,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _deltaText(e.deltaPct),
+                  _deltaText(_lang, e.deltaPct),
+                  textDirection: ui.TextDirection.ltr,
                   style: _xs(ctx, 12, FontWeight.w700, p.delta(e.deltaPct)),
                 ),
               ],

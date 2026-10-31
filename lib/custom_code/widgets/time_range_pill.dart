@@ -12,6 +12,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -21,18 +22,21 @@ import 'package:google_fonts/google_fonts.dart';
 /// runs to the very bottom of the screen (no safe-area gap); the rows keep a
 /// small inset above the home indicator.
 ///
-/// Options: Last 7 days, Last 30 days, Last 90 days, All time. When
-/// [isPremium] is false, "Last 90 days" and "All time" are locked: tapping
-/// one closes the sheet and fires [onLockedTap] (e.g. open the paywall).
-/// Picking an unlocked row fires [onChanged](range) with the row label
-/// exactly as written.
+/// Options (internal keys, always English): 'Last 7 days', 'Last 30 days',
+/// 'Last 90 days', 'All time'. The user sees them translated; [onChanged] and
+/// [value] always use the English key, so the stats widgets keep working
+/// unchanged. When [isPremium] is false, "Last 90 days" and "All time" are
+/// locked: tapping one closes the sheet and fires [onLockedTap].
 ///
-/// [value] = current range (optional; null/empty/"All" = default, which is
-/// "All time" for premium and "Last 30 days" otherwise). The widget keeps its
-/// own selection, so binding [value] to page state is not required.
+/// [value] = current range key (optional; null/empty/"All" = default, which
+/// is "All time" for premium and "Last 30 days" otherwise). The widget keeps
+/// its own selection, so binding [value] to page state is not required.
+///
+/// Localization: reads the app language from FFLocalizations (no parameter).
+/// Hebrew renders RTL.
 ///
 /// A non-default range gets a teal tint. [alignRight] pushes the pill to the
-/// end of the widget's box (e.g. in a page header).
+/// end of the widget's box (trailing edge in RTL).
 class TimeRangePill extends StatefulWidget {
   const TimeRangePill({
     super.key,
@@ -55,6 +59,64 @@ class TimeRangePill extends StatefulWidget {
 
   @override
   State<TimeRangePill> createState() => _TimeRangePillState();
+}
+
+// ---------------------------------------------------------------------------
+// Localization
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kStrings = {
+  "title": {
+    "en": "Select Time Range",
+    "es": "Elige el periodo",
+    "he": "בחר טווח זמן",
+    "de": "Zeitraum wählen",
+    "fr": "Choisir la période",
+  },
+  "Last 7 days": {
+    "en": "Last 7 days",
+    "es": "Últimos 7 días",
+    "he": "7 ימים אחרונים",
+    "de": "Letzte 7 Tage",
+    "fr": "7 derniers jours",
+  },
+  "Last 30 days": {
+    "en": "Last 30 days",
+    "es": "Últimos 30 días",
+    "he": "30 ימים אחרונים",
+    "de": "Letzte 30 Tage",
+    "fr": "30 derniers jours",
+  },
+  "Last 90 days": {
+    "en": "Last 90 days",
+    "es": "Últimos 90 días",
+    "he": "90 ימים אחרונים",
+    "de": "Letzte 90 Tage",
+    "fr": "90 derniers jours",
+  },
+  "All time": {
+    "en": "All time",
+    "es": "Todo el historial",
+    "he": "כל הזמן",
+    "de": "Gesamter Zeitraum",
+    "fr": "Toute la période",
+  },
+};
+
+String _tr(String lang, String key) {
+  final m = _kStrings[key];
+  return m == null ? key : (m[lang] ?? m['en'] ?? key);
 }
 
 TextStyle _ts(BuildContext ctx, double size, FontWeight w, Color c) {
@@ -111,7 +173,7 @@ class _TimeRangePillState extends State<TimeRangePill> {
     }
   }
 
-  /// Known label -> that label; empty/"All" -> default; anything else as is.
+  /// Known key -> that key; empty/"All" -> default; anything else as is.
   String _norm(String? v) {
     final String s = (v ?? '').trim();
     final String l = s.toLowerCase();
@@ -129,18 +191,23 @@ class _TimeRangePillState extends State<TimeRangePill> {
   Future<void> _openSheet() async {
     if (_sheetOpen) return;
     _sheetOpen = true;
+    final String lang = _langOf(context);
     final String? picked = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
       backgroundColor: Colors.transparent,
-      builder: (_) => _RangeSheet(
-        title: 'Select Time Range',
-        ranges: _ranges,
-        premiumOnly: _premiumOnly,
-        isPremium: _premium,
-        selected: _range,
-        lockedResult: _lockedResult,
+      builder: (_) => Directionality(
+        textDirection:
+            _kRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+        child: _RangeSheet(
+          lang: lang,
+          ranges: _ranges,
+          premiumOnly: _premiumOnly,
+          isPremium: _premium,
+          selected: _range,
+          lockedResult: _lockedResult,
+        ),
       ),
     );
     _sheetOpen = false;
@@ -156,6 +223,8 @@ class _TimeRangePillState extends State<TimeRangePill> {
   @override
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color accent = _accentOf(context);
     final bool active = _range != _defaultRange;
@@ -205,7 +274,7 @@ class _TimeRangePillState extends State<TimeRangePill> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    _range,
+                    _tr(lang, _range),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _ts(context, 14,
@@ -222,14 +291,17 @@ class _TimeRangePillState extends State<TimeRangePill> {
       ),
     );
 
-    return SizedBox(
-      width: widget.width,
-      height: widget.height ?? 44,
-      child: Align(
-        alignment: (widget.alignRight ?? false)
-            ? Alignment.centerRight
-            : Alignment.centerLeft,
-        child: pill,
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height ?? 44,
+        child: Align(
+          alignment: (widget.alignRight ?? false)
+              ? AlignmentDirectional.centerEnd
+              : AlignmentDirectional.centerStart,
+          child: pill,
+        ),
       ),
     );
   }
@@ -241,7 +313,7 @@ class _TimeRangePillState extends State<TimeRangePill> {
 
 class _RangeSheet extends StatelessWidget {
   const _RangeSheet({
-    required this.title,
+    required this.lang,
     required this.ranges,
     required this.premiumOnly,
     required this.isPremium,
@@ -249,7 +321,7 @@ class _RangeSheet extends StatelessWidget {
     required this.lockedResult,
   });
 
-  final String title;
+  final String lang;
   final List<String> ranges;
   final List<bool> premiumOnly;
   final bool isPremium;
@@ -284,7 +356,7 @@ class _RangeSheet extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           Text(
-            title,
+            _tr(lang, 'title'),
             style: _ts(context, 20, FontWeight.w600, th.primaryText),
           ),
           const SizedBox(height: 10),
@@ -303,16 +375,17 @@ class _RangeSheet extends StatelessWidget {
 
   Widget _row(
       BuildContext context, FlutterFlowTheme th, Color accent, int index) {
-    final String label = ranges[index];
+    final String key = ranges[index];
     final bool locked = premiumOnly[index] && !isPremium;
-    final bool isSelected = !locked && label == selected;
+    final bool isSelected = !locked && key == selected;
     final Color fg =
         locked ? th.secondaryText : (isSelected ? accent : th.primaryText);
 
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
-        Navigator.of(context).pop(locked ? lockedResult : label);
+        // Always return the English key, never the translated label.
+        Navigator.of(context).pop(locked ? lockedResult : key);
       },
       child: SizedBox(
         height: 60,
@@ -320,7 +393,7 @@ class _RangeSheet extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              label,
+              _tr(lang, key),
               style: _ts(context, 17,
                   isSelected ? FontWeight.w600 : FontWeight.w500, fg),
             ),

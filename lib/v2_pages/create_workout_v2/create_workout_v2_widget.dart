@@ -408,8 +408,12 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                 child: FFButtonWidget(
                   onPressed: () async {
                     context.goNamed(
-                      AddExercisesV3Widget.routeName,
+                      AddExercisesV3CopyWidget.routeName,
                       queryParameters: {
+                        'addUserEx': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
                         'alreadySelceted': serializeParam(
                           widget.alreadySelceted,
                           ParamType.JSON,
@@ -418,10 +422,6 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                         'workoutName': serializeParam(
                           _model.workoutName,
                           ParamType.String,
-                        ),
-                        'addUserEx': serializeParam(
-                          false,
-                          ParamType.bool,
                         ),
                       }.withoutNulls,
                     );

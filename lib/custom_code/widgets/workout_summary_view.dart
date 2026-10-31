@@ -12,8 +12,10 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' as intl show DateFormat;
 
 /// Full "Workout Summary" page body (history view of one workout_log).
 ///
@@ -24,6 +26,11 @@ import 'package:google_fonts/google_fonts.dart';
 /// getSetAnalysis(setLogId)                  -> AI score ring per set
 ///
 /// set_log.id and set_analysis.id are UUID strings.
+///
+/// Localization: reads the app language from FFLocalizations (no parameter).
+/// Exercise / muscle names from the queries go through localizedName (works
+/// for raw JSON names and plain ones). Strings are kept short on purpose —
+/// stat tiles and chips are narrow. Hebrew renders RTL.
 ///
 /// Callbacks: [onExerciseTap](exerciseId, isPublic) from the ↗ button;
 /// [onAnalysisTap](setLogId, analysisId, analysis) from the AI score ring
@@ -56,6 +63,258 @@ class WorkoutSummaryView extends StatefulWidget {
 
   @override
   State<WorkoutSummaryView> createState() => _WorkoutSummaryViewState();
+}
+
+// ---------------------------------------------------------------------------
+// Localization — short strings only; tiles/chips are narrow.
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// {n} / {m} numbers, {u} unit.
+const Map<String, Map<String, String>> _kStrings = {
+  "workout": {
+    "en": "Workout",
+    "es": "Entrenamiento",
+    "he": "אימון",
+    "de": "Workout",
+    "fr": "Entraînement"
+  },
+  "workoutCaps": {
+    "en": "WORKOUT",
+    "es": "ENTRENO",
+    "he": "אימון",
+    "de": "WORKOUT",
+    "fr": "SÉANCE"
+  },
+  "compare": {
+    "en": "Compare",
+    "es": "Comparar",
+    "he": "השוואה",
+    "de": "Vergleich",
+    "fr": "Comparer"
+  },
+  "sets": {
+    "en": "Sets",
+    "es": "Series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "Séries"
+  },
+  "exercises": {
+    "en": "Exercises",
+    "es": "Ejercicios",
+    "he": "תרגילים",
+    "de": "Übungen",
+    "fr": "Exercices"
+  },
+  "duration": {
+    "en": "Duration",
+    "es": "Duración",
+    "he": "משך",
+    "de": "Dauer",
+    "fr": "Durée"
+  },
+  "volume": {
+    "en": "Volume {u}",
+    "es": "Volumen {u}",
+    "he": "נפח {u}",
+    "de": "Volumen {u}",
+    "fr": "Volume {u}"
+  },
+  "muscleDist": {
+    "en": "Muscle Distribution",
+    "es": "Distribución muscular",
+    "he": "פילוח שרירים",
+    "de": "Muskelverteilung",
+    "fr": "Répartition musculaire"
+  },
+  "groupsSets1": {
+    "en": "1 muscle group · {m} sets",
+    "es": "1 grupo · {m} series",
+    "he": "קבוצה 1 · {m} סטים",
+    "de": "1 Gruppe · {m} Sätze",
+    "fr": "1 groupe · {m} séries"
+  },
+  "groupsSetsN": {
+    "en": "{n} muscle groups · {m} sets",
+    "es": "{n} grupos · {m} series",
+    "he": "{n} קבוצות · {m} סטים",
+    "de": "{n} Gruppen · {m} Sätze",
+    "fr": "{n} groupes · {m} séries"
+  },
+  "exSets1": {
+    "en": "1 exercise · {m} sets",
+    "es": "1 ejercicio · {m} series",
+    "he": "תרגיל 1 · {m} סטים",
+    "de": "1 Übung · {m} Sätze",
+    "fr": "1 exercice · {m} séries"
+  },
+  "exSetsN": {
+    "en": "{n} exercises · {m} sets",
+    "es": "{n} ejercicios · {m} series",
+    "he": "{n} תרגילים · {m} סטים",
+    "de": "{n} Übungen · {m} Sätze",
+    "fr": "{n} exercices · {m} séries"
+  },
+  "bodyweight": {
+    "en": "Bodyweight",
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps"
+  },
+  "timed": {
+    "en": "Timed",
+    "es": "Por tiempo",
+    "he": "לפי זמן",
+    "de": "Zeit",
+    "fr": "Chrono"
+  },
+  "setCaps": {
+    "en": "SET",
+    "es": "SERIE",
+    "he": "סט",
+    "de": "SATZ",
+    "fr": "SÉRIE"
+  },
+  "repsCaps": {
+    "en": "REPS",
+    "es": "REPS",
+    "he": "חזרות",
+    "de": "WDH",
+    "fr": "REPS"
+  },
+  "timeCaps": {
+    "en": "TIME",
+    "es": "TIEMPO",
+    "he": "זמן",
+    "de": "ZEIT",
+    "fr": "TEMPS"
+  },
+  "weightCaps": {
+    "en": "WEIGHT",
+    "es": "PESO",
+    "he": "משקל",
+    "de": "GEWICHT",
+    "fr": "POIDS"
+  },
+  "reps": {
+    "en": "reps",
+    "es": "reps",
+    "he": "חזרות",
+    "de": "Wdh.",
+    "fr": "reps"
+  },
+  "min": {"en": "min", "es": "min", "he": "דק׳", "de": "Min.", "fr": "min"},
+  "bw": {"en": "BW", "es": "PC", "he": "מ״ג", "de": "KG", "fr": "PDC"},
+  "noSets": {
+    "en": "No sets logged",
+    "es": "Sin series registradas",
+    "he": "לא תועדו סטים",
+    "de": "Keine Sätze",
+    "fr": "Aucune série"
+  },
+  "loadFailed": {
+    "en": "Could not load workout",
+    "es": "No se pudo cargar",
+    "he": "טעינת האימון נכשלה",
+    "de": "Laden fehlgeschlagen",
+    "fr": "Chargement impossible"
+  },
+};
+
+String _tr(String lang, String key, {int? n, int? m, String? u}) {
+  final map = _kStrings[key];
+  var s = map == null ? key : (map[lang] ?? map['en'] ?? key);
+  if (n != null) s = s.replaceAll('{n}', '$n');
+  if (m != null) s = s.replaceAll('{m}', '$m');
+  if (u != null) s = s.replaceAll('{u}', u);
+  return s;
+}
+
+/// Equipment values are a fixed English set in the DB — translate the known
+/// ones, pass anything else through.
+const Map<String, Map<String, String>> _kEquip = {
+  "bodyweight": {
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps"
+  },
+  "barbell": {"es": "Barra", "he": "מוט", "de": "Langhantel", "fr": "Barre"},
+  "dumbbell": {
+    "es": "Mancuerna",
+    "he": "משקולת",
+    "de": "Kurzhantel",
+    "fr": "Haltère"
+  },
+  "machine": {
+    "es": "Máquina",
+    "he": "מכונה",
+    "de": "Maschine",
+    "fr": "Machine"
+  },
+  "cable": {"es": "Polea", "he": "פולי", "de": "Kabelzug", "fr": "Poulie"},
+  "bench": {"es": "Banco", "he": "ספסל", "de": "Bank", "fr": "Banc"},
+  "plate": {"es": "Disco", "he": "פלטה", "de": "Scheibe", "fr": "Disque"},
+  "kettlebell": {
+    "es": "Kettlebell",
+    "he": "קטלבל",
+    "de": "Kettlebell",
+    "fr": "Kettlebell"
+  },
+  "trap bar": {
+    "es": "Barra hexagonal",
+    "he": "מוט טראפ",
+    "de": "Trap Bar",
+    "fr": "Trap bar"
+  },
+  "smith machine": {
+    "es": "Máquina Smith",
+    "he": "סמית",
+    "de": "Multipresse",
+    "fr": "Smith"
+  },
+  "resistance band": {
+    "es": "Banda",
+    "he": "גומייה",
+    "de": "Band",
+    "fr": "Élastique"
+  },
+  "sled": {"es": "Trineo", "he": "מזחלת", "de": "Schlitten", "fr": "Traîneau"},
+  "medicine ball": {
+    "es": "Balón medicinal",
+    "he": "כדור כוח",
+    "de": "Medizinball",
+    "fr": "Médecine-ball"
+  },
+  "jump rope": {
+    "es": "Cuerda",
+    "he": "חבל קפיצה",
+    "de": "Springseil",
+    "fr": "Corde à sauter"
+  },
+  "battle ropes": {
+    "es": "Cuerdas de batalla",
+    "he": "חבלי קרב",
+    "de": "Battle Ropes",
+    "fr": "Battle ropes"
+  },
+};
+
+String _equip(String lang, String raw) {
+  if (lang == 'en') return raw;
+  return _kEquip[raw.trim().toLowerCase()]?[lang] ?? raw;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +355,7 @@ class _SetRow {
 
 class _Exercise {
   final int id, setsCount;
-  final String name, total;
+  final String name, nameEn, total;
   final int? pctChange;
   final bool isTimed, isBodyweight, isWeighted, isPublic;
   final String? illustration, equipment, muscleGroup;
@@ -104,6 +363,7 @@ class _Exercise {
   const _Exercise({
     required this.id,
     required this.name,
+    required this.nameEn,
     required this.setsCount,
     required this.total,
     required this.pctChange,
@@ -130,16 +390,21 @@ class _PageData {
 // ---------------------------------------------------------------------------
 
 class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
-  late Future<_PageData> _future;
+  Future<_PageData>? _future;
+  String _lang = 'en';
 
   // Width reserved at the end of each set row for the AI score ring.
   static const double _aiColW = 48;
   static const double _aiRingSize = 40;
 
   @override
-  void initState() {
-    super.initState();
-    _future = _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l = _langOf(context);
+    if (_future == null || l != _lang) {
+      _lang = l;
+      _future = _load();
+    }
   }
 
   @override
@@ -202,13 +467,15 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   Future<_PageData> _load() async {
     final db = SQLiteManager.instance;
     final String wlId = widget.workoutLogId;
+    final String lang = _lang;
 
     final histRows =
         await db.history1(userId: widget.userId, workoutLogId: wlId);
     final h =
         histRows.isNotEmpty ? _rowMap(histRows.first) : <String, dynamic>{};
+    final String rawName = _s(h['workout_name']).trim();
     final summary = _Summary(
-      name: _s(h['workout_name'], 'Workout'),
+      name: rawName.isEmpty ? _tr(lang, 'workout') : rawName,
       createdAt: _s(h['created_at']),
       durationMs: _i(h['duration_seconds']),
       volume: _i(h['volume']),
@@ -220,7 +487,8 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     final muscleRows = await db.muscleGroupSammary(workoutLogId: wlId);
     final muscles = muscleRows.map((r) {
       final m = _rowMap(r);
-      return _Muscle(_s(m['muscle_group_name']), _i(m['sets_for_muscle']));
+      return _Muscle(localizedName(_s(m['muscle_group_name']), lang),
+          _i(m['sets_for_muscle']));
     }).toList()
       ..sort((a, b) => b.sets.compareTo(a.sets));
 
@@ -256,9 +524,13 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           analysisRow,
         ));
       }
+      final String rawEx = _s(m['exercise_name']);
+      final String? rawMg = _sN(m['muscle_group']);
+      final String? rawEq = _sN(m['equipment']);
       exercises.add(_Exercise(
         id: exId,
-        name: _s(m['exercise_name']),
+        name: localizedName(rawEx, lang),
+        nameEn: localizedName(rawEx, 'en'),
         setsCount: _i(m['exercise_sets_count']),
         total: _s(m['exercise_total']),
         pctChange: _iN(m['exercise_percentage_change']),
@@ -267,8 +539,8 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
         isWeighted: _i(m['is_weighted']) == 1,
         isPublic: _i(m['is_public'], 1) == 1,
         illustration: _sN(m['illustration']),
-        equipment: _sN(m['equipment']),
-        muscleGroup: _sN(m['muscle_group']),
+        equipment: rawEq == null ? null : _equip(lang, rawEq),
+        muscleGroup: rawMg == null ? null : localizedName(rawMg, lang),
         sets: sets,
       ));
     }
@@ -296,6 +568,23 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     return t;
   }
 
+  String _niceDate(String raw) {
+    final dt = DateTime.tryParse(raw.trim());
+    if (dt == null) {
+      try {
+        return formatNiceDate(raw);
+      } catch (_) {
+        return raw;
+      }
+    }
+    final local = dt.isUtc ? dt.toLocal() : dt;
+    try {
+      return intl.DateFormat('EEE, MMM d', _lang).format(local);
+    } catch (_) {
+      return intl.DateFormat('EEE, MMM d').format(local);
+    }
+  }
+
   static const List<Color> _muscleColors = [
     Color(0xFF0F766E),
     Color(0xFF14B8A6),
@@ -308,12 +597,13 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   TextStyle _t(BuildContext ctx, double size, FontWeight w, Color c,
       {double ls = 0, double? height}) {
     final th = FlutterFlowTheme.of(ctx);
+    final bool rtl = _kRtl.contains(_lang);
     return th.bodyMedium.override(
       fontFamily: th.bodyMediumFamily,
       color: c,
       fontSize: size,
       fontWeight: w,
-      letterSpacing: ls,
+      letterSpacing: rtl ? 0 : ls,
       lineHeight: height,
       useGoogleFonts: GoogleFonts.asMap().containsKey(th.bodyMediumFamily),
     );
@@ -323,55 +613,59 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   @override
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: Container(
-        color: th.primaryBackground,
-        child: FutureBuilder<_PageData>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('Could not load workout\n${snap.error}',
-                      textAlign: TextAlign.center,
-                      style:
-                          _t(context, 14, FontWeight.w500, th.secondaryText)),
-                ),
-              );
-            }
-            if (!snap.hasData) {
-              return Center(
-                  child: CircularProgressIndicator(color: th.primary));
-            }
-            final d = snap.data!;
-            return Column(
-              children: [
-                _header(context, d.summary),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                    children: [
-                      _hero(context, d.summary),
-                      const SizedBox(height: 14),
-                      if (d.muscles.isNotEmpty) ...[
-                        _muscleCard(context, d.muscles),
-                        const SizedBox(height: 20),
-                      ],
-                      _exercisesHeader(context, d),
-                      const SizedBox(height: 10),
-                      for (final e in d.exercises) ...[
-                        _exerciseCard(context, e),
-                        const SizedBox(height: 12),
-                      ],
-                    ],
+    final bool rtl = _kRtl.contains(_lang);
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: Container(
+          color: th.primaryBackground,
+          child: FutureBuilder<_PageData>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text('${_tr(_lang, 'loadFailed')}\n${snap.error}',
+                        textAlign: TextAlign.center,
+                        style:
+                            _t(context, 14, FontWeight.w500, th.secondaryText)),
                   ),
-                ),
-              ],
-            );
-          },
+                );
+              }
+              if (!snap.hasData) {
+                return Center(
+                    child: CircularProgressIndicator(color: th.primary));
+              }
+              final d = snap.data!;
+              return Column(
+                children: [
+                  _header(context, d.summary),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                      children: [
+                        _hero(context, d.summary),
+                        const SizedBox(height: 14),
+                        if (d.muscles.isNotEmpty) ...[
+                          _muscleCard(context, d.muscles),
+                          const SizedBox(height: 20),
+                        ],
+                        _exercisesHeader(context, d),
+                        const SizedBox(height: 10),
+                        for (final e in d.exercises) ...[
+                          _exerciseCard(context, e),
+                          const SizedBox(height: 12),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -380,17 +674,17 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   // ---------- header ----------
   Widget _header(BuildContext ctx, _Summary s) {
     final th = FlutterFlowTheme.of(ctx);
-    String date = '';
-    try {
-      date = formatNiceDate(s.createdAt);
-    } catch (_) {}
+    final bool rtl = _kRtl.contains(_lang);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
       child: Row(
         children: [
-          _circleBtn(ctx, Icons.chevron_left_rounded, widget.onBack),
+          _circleBtn(
+              ctx,
+              rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+              widget.onBack),
           Expanded(
-            child: Text(date,
+            child: Text(_niceDate(s.createdAt),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -432,8 +726,8 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
           colors: [Color(0xFF14B8A6), Color(0xFF2DD4BF), Color(0xFF5EEAD4)],
         ),
         boxShadow: [
@@ -454,7 +748,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('WORKOUT',
+                    Text(_tr(_lang, 'workoutCaps'),
                         style: _t(ctx, 12, FontWeight.w700,
                             Colors.white.withOpacity(0.85),
                             ls: 1.5)),
@@ -478,7 +772,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Text('Compare',
+                  child: Text(_tr(_lang, 'compare'),
                       style: _t(
                           ctx, 15, FontWeight.w600, const Color(0xFF0F766E))),
                 ),
@@ -488,13 +782,14 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           const SizedBox(height: 18),
           Row(
             children: [
-              _stat(ctx, '${s.totalSets}', 'Sets'),
+              _stat(ctx, '${s.totalSets}', _tr(_lang, 'sets')),
               const SizedBox(width: 8),
-              _stat(ctx, '${s.exerciseCount}', 'Exercises'),
+              _stat(ctx, '${s.exerciseCount}', _tr(_lang, 'exercises')),
               const SizedBox(width: 8),
-              _stat(ctx, _durationLabel(s.durationMs), 'Duration'),
+              _stat(ctx, _durationLabel(s.durationMs), _tr(_lang, 'duration')),
               const SizedBox(width: 8),
-              _stat(ctx, vol, 'Volume ${s.unitLabel.toLowerCase()}'),
+              _stat(
+                  ctx, vol, _tr(_lang, 'volume', u: s.unitLabel.toLowerCase())),
             ],
           ),
         ],
@@ -515,12 +810,16 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(value,
+                  textDirection: ui.TextDirection.ltr,
                   style: _t(ctx, 22, FontWeight.w800, Colors.white)),
             ),
             const SizedBox(height: 2),
+            // FittedBox: a long label (e.g. "Entrenamientos") shrinks
+            // instead of overflowing the narrow tile.
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(label,
+                  maxLines: 1,
                   style: _t(
                       ctx, 11, FontWeight.w600, Colors.white.withOpacity(0.9))),
             ),
@@ -546,11 +845,13 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Muscle Distribution',
+          Text(_tr(_lang, 'muscleDist'),
               style: _t(ctx, 18, FontWeight.w700, th.primaryText)),
           const SizedBox(height: 2),
           Text(
-              '${ms.length} muscle group${ms.length == 1 ? '' : 's'} · $total sets',
+              ms.length == 1
+                  ? _tr(_lang, 'groupsSets1', m: total)
+                  : _tr(_lang, 'groupsSetsN', n: ms.length, m: total),
               style: _t(ctx, 13, FontWeight.w500, th.secondaryText)),
           const SizedBox(height: 14),
           ClipRRect(
@@ -620,10 +921,13 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     return Row(
       children: [
         Expanded(
-          child: Text('Exercises',
+          child: Text(_tr(_lang, 'exercises'),
               style: _t(ctx, 20, FontWeight.w700, th.primaryText)),
         ),
-        Text('$n exercise${n == 1 ? '' : 's'} · ${d.summary.totalSets} sets',
+        Text(
+            n == 1
+                ? _tr(_lang, 'exSets1', m: d.summary.totalSets)
+                : _tr(_lang, 'exSetsN', n: n, m: d.summary.totalSets),
             style: _t(ctx, 13, FontWeight.w500, th.secondaryText)),
       ],
     );
@@ -631,6 +935,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
 
   Widget _exerciseCard(BuildContext ctx, _Exercise e) {
     final th = FlutterFlowTheme.of(ctx);
+    final bool rtl = _kRtl.contains(_lang);
     final bool anyAi = e.sets.any((s) => s.analysisRow != null);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -654,7 +959,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                 child: ExerciseAssetImage(
                   width: 58,
                   height: 58,
-                  exerciseName: exerciseImageName(e.name),
+                  exerciseName: exerciseImageName(e.nameEn),
                   borderRadius: 12,
                   illustration: e.illustration,
                 ),
@@ -687,8 +992,12 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                     shape: BoxShape.circle,
                     border: Border.all(color: th.alternate.withOpacity(0.6)),
                   ),
-                  child: Icon(Icons.arrow_outward_rounded,
-                      size: 20, color: th.secondaryText),
+                  // Mirror the "open" arrow in RTL.
+                  child: Transform.flip(
+                    flipX: rtl,
+                    child: Icon(Icons.arrow_outward_rounded,
+                        size: 20, color: th.secondaryText),
+                  ),
                 ),
               ),
             ],
@@ -700,19 +1009,24 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
               children: [
                 SizedBox(
                     width: 44,
-                    child: Text('SET',
+                    child: Text(_tr(_lang, 'setCaps'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: _t(ctx, 11, FontWeight.w700, th.secondaryText,
                             ls: 1))),
                 Expanded(
                   child: Center(
-                    child: Text(e.isTimed ? 'TIME' : 'REPS',
+                    child: Text(
+                        e.isTimed
+                            ? _tr(_lang, 'timeCaps')
+                            : _tr(_lang, 'repsCaps'),
                         style: _t(ctx, 11, FontWeight.w700, th.secondaryText,
                             ls: 1)),
                   ),
                 ),
                 Expanded(
                   child: Center(
-                    child: Text(e.isTimed ? '' : 'WEIGHT',
+                    child: Text(e.isTimed ? '' : _tr(_lang, 'weightCaps'),
                         style: _t(ctx, 11, FontWeight.w700, th.secondaryText,
                             ls: 1)),
                   ),
@@ -729,7 +1043,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           if (e.sets.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('No sets logged',
+              child: Text(_tr(_lang, 'noSets'),
                   style: _t(ctx, 13, FontWeight.w500, th.secondaryText)),
             ),
         ],
@@ -747,7 +1061,10 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration:
             BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-        child: Text(text, style: _t(ctx, 12, w, fg)),
+        child: Text(text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _t(ctx, 12, w, fg)),
       );
     }
 
@@ -759,9 +1076,9 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     if (e.equipment != null) {
       out.add(chip(e.equipment!, greyBg, greyFg));
     } else if (e.isBodyweight) {
-      out.add(chip('Bodyweight', greyBg, greyFg));
+      out.add(chip(_tr(_lang, 'bodyweight'), greyBg, greyFg));
     }
-    if (e.isTimed) out.add(chip('Timed', greyBg, greyFg));
+    if (e.isTimed) out.add(chip(_tr(_lang, 'timed'), greyBg, greyFg));
     if (e.muscleGroup == null && e.total.trim().isNotEmpty) {
       out.add(chip(e.total, tealBg, tealFg));
     }
@@ -781,7 +1098,9 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   Widget _setRow(BuildContext ctx, _Exercise e, _SetRow s, bool reserveAi) {
     final th = FlutterFlowTheme.of(ctx);
 
+    // Numbers + unit are always LTR ("12 reps", "80 kg") even in Hebrew.
     Widget big(String v, String unit) => RichText(
+          textDirection: ui.TextDirection.ltr,
           text: TextSpan(children: [
             TextSpan(
                 text: v, style: _t(ctx, 17, FontWeight.w700, th.primaryText)),
@@ -797,14 +1116,17 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     Widget mid, right;
     final bool hasW = (s.weight ?? 0) > 0;
     if (e.isTimed) {
-      mid = s.durationMs == null ? dash() : big(_mmss(s.durationMs!), 'min');
+      mid = s.durationMs == null
+          ? dash()
+          : big(_mmss(s.durationMs!), _tr(_lang, 'min'));
       right = hasW ? big(_weightStr(s.weight!), s.isKg ? 'kg' : 'lbs') : dash();
     } else {
-      mid = s.reps == null ? dash() : big('${s.reps}', 'reps');
+      mid = s.reps == null ? dash() : big('${s.reps}', _tr(_lang, 'reps'));
       if (hasW) {
         right = big(_weightStr(s.weight!), s.isKg ? 'kg' : 'lbs');
       } else if (e.isBodyweight || !e.isWeighted) {
-        right = Text('BW', style: _t(ctx, 17, FontWeight.w700, th.primaryText));
+        right = Text(_tr(_lang, 'bw'),
+            style: _t(ctx, 17, FontWeight.w700, th.primaryText));
       } else {
         right = dash();
       }
@@ -839,9 +1161,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
               child: s.analysisRow == null
                   ? null
                   : Align(
-                      alignment: Alignment.centerRight,
-                      // AI score ring (same marker as everywhere in the app).
-                      // The score comes from the set_analysis row.
+                      alignment: AlignmentDirectional.centerEnd,
                       child: AiScoreRing(
                         width: _aiRingSize,
                         height: _aiRingSize,

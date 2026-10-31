@@ -80,3 +80,5 @@ export '/workout_complete/workout_complete_widget.dart'
     show WorkoutCompleteWidget;
 export '/workout_summary_view/workout_summary_view_widget.dart'
     show WorkoutSummaryViewWidget;
+export '/add_exercises_v3_copy/add_exercises_v3_copy_widget.dart'
+    show AddExercisesV3CopyWidget;
