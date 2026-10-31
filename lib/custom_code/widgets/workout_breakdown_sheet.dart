@@ -12,26 +12,123 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
+
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// Short strings only — the row meta line is 12px and single-line.
+const Map<String, Map<String, String>> _kStrings = {
+  "loadErr": {
+    "en": "Could not load breakdown",
+    "es": "No se pudo cargar",
+    "he": "לא ניתן לטעון את הפירוט",
+    "de": "Laden fehlgeschlagen",
+    "fr": "Chargement impossible"
+  },
+  "noSets": {
+    "en": "No sets logged",
+    "es": "Sin series registradas",
+    "he": "לא נרשמו סטים",
+    "de": "Keine Sätze erfasst",
+    "fr": "Aucune série enregistrée"
+  },
+  "header": {
+    "en": "{e} EXERCISES · {s} SETS",
+    "es": "{e} EJERCICIOS · {s} SERIES",
+    "he": "{e} תרגילים · {s} סטים",
+    "de": "{e} ÜBUNGEN · {s} SÄTZE",
+    "fr": "{e} EXERCICES · {s} SÉRIES"
+  },
+  "header1": {
+    "en": "{e} EXERCISE · {s} SETS",
+    "es": "{e} EJERCICIO · {s} SERIES",
+    "he": "תרגיל {e} · {s} סטים",
+    "de": "{e} ÜBUNG · {s} SÄTZE",
+    "fr": "{e} EXERCICE · {s} SÉRIES"
+  },
+  "expandAll": {
+    "en": "Expand all",
+    "es": "Expandir todo",
+    "he": "הרחב הכל",
+    "de": "Alle öffnen",
+    "fr": "Tout ouvrir"
+  },
+  "collapseAll": {
+    "en": "Collapse all",
+    "es": "Contraer todo",
+    "he": "כווץ הכל",
+    "de": "Alle schließen",
+    "fr": "Tout fermer"
+  },
+  "set": {"en": "set", "es": "serie", "he": "סט", "de": "Satz", "fr": "série"},
+  "sets": {
+    "en": "sets",
+    "es": "series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "séries"
+  },
+  "setN": {
+    "en": "Set {n}",
+    "es": "Serie {n}",
+    "he": "סט {n}",
+    "de": "Satz {n}",
+    "fr": "Série {n}"
+  },
+  "reps": {
+    "en": "reps",
+    "es": "reps",
+    "he": "חזרות",
+    "de": "Wdh.",
+    "fr": "reps"
+  },
+  "bodyweight": {
+    "en": "Bodyweight",
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps"
+  },
+  "assist": {
+    "en": "assist",
+    "es": "asist.",
+    "he": "עזרה",
+    "de": "Hilfe",
+    "fr": "assist."
+  },
+};
+
+String _tr(String lang, String key, {Map<String, String>? p}) {
+  final m = _kStrings[key];
+  var s = m == null ? key : (m[lang] ?? m['en'] ?? key);
+  if (p != null) p.forEach((k, v) => s = s.replaceAll('{$k}', v));
+  return s;
+}
+
+/// Wraps numbers/units so they stay LTR inside RTL text.
+String _ltr(String s) => '\u2066$s\u2069';
+
 /// Full "exercise breakdown" bottom sheet for the Workout Complete screen.
 ///
 /// Self-contained: sheet background + rounded top + grab handle + padding +
 /// scrolling, AND the content. Sizes itself to the content up to
-/// maxHeightFraction of the screen (default 0.88), then scrolls - whatever
-/// height FF hands it (Infinite / 100% / Screen Height all work). The area
-/// above the sheet is transparent and closes it on tap.
+/// maxHeightFraction of the screen (default 0.88), then scrolls.
 ///
-/// Runs the `workoutBreakdownSets` SQLite query itself (one row per set,
-/// drops included) and groups by exercise. Each exercise is a collapsible
-/// row: thumbnail · name · "MUSCLE · N sets · total" · % change chip · PR
-/// chip · avg form score chip · chevron. Expanded: one line per set ("Set 1
-/// 10 × 60 kg" / "10 reps · Bodyweight" / "01:30"), drop sets nested, per-set
-/// PR mark and form score.
-///
-/// Open it with a Bottom Sheet action, transparent background, and put ONLY
-/// this widget in the component.
-///
-/// Thumbnails: assets/images/<name with spaces -> '_'>.jpg - same rule as
-/// ExerciseAssetImage + exerciseImageName().
+/// Runs the `workoutBreakdownSets` SQLite query itself and groups by
+/// exercise. Exercise / muscle names come raw from the DB (JSON) and are
+/// localized here via localizedName(); the English name is used for the
+/// thumbnail asset. Reads the app language from FFLocalizations — no param.
 class WorkoutBreakdownSheet extends StatefulWidget {
   const WorkoutBreakdownSheet({
     super.key,
@@ -83,8 +180,8 @@ class _SetRow {
 
 class _Exercise {
   final int id;
-  final String name;
-  final String muscle;
+  final String rawName; // as stored in DB (JSON or plain)
+  final String rawMuscle;
   final bool isTimed;
   final bool isBodyweight;
   final bool isAssisted;
@@ -95,8 +192,8 @@ class _Exercise {
   final List<_SetRow> sets = [];
   _Exercise({
     required this.id,
-    required this.name,
-    required this.muscle,
+    required this.rawName,
+    required this.rawMuscle,
     required this.isTimed,
     required this.isBodyweight,
     required this.isAssisted,
@@ -105,6 +202,10 @@ class _Exercise {
     required this.total,
     required this.pctChange,
   });
+
+  String get nameEn => localizedName(rawName, 'en');
+  String name(String lang) => localizedName(rawName, lang);
+  String muscle(String lang) => localizedName(rawMuscle, lang);
 
   bool get hasPr => sets.any((s) => s.isPr);
   double? get avgScore {
@@ -210,8 +311,8 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
       if (!byId.containsKey(exId)) {
         byId[exId] = _Exercise(
           id: exId,
-          name: _str(_get(r, 'exercise_name')),
-          muscle: _str(_get(r, 'muscle')),
+          rawName: _str(_get(r, 'exercise_name')),
+          rawMuscle: _str(_get(r, 'muscle')),
           isTimed: _bool(_get(r, 'is_timed')),
           isBodyweight: _bool(_get(r, 'is_bodyweight')),
           isAssisted: _bool(_get(r, 'is_assisted')),
@@ -242,9 +343,9 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
 
   // ---------- formatting ----------
 
-  /// Same rule as ExerciseAssetImage + exerciseImageName().
-  static String _assetPath(String exerciseName) =>
-      'assets/images/${exerciseName.replaceAll(' ', '_')}.jpg';
+  /// Same rule as ExerciseAssetImage + exerciseImageName(). English name.
+  static String _assetPath(String exerciseNameEn) =>
+      'assets/images/${exerciseNameEn.replaceAll(' ', '_')}.jpg';
 
   static String _num(double v) {
     String s = v.toStringAsFixed(2);
@@ -270,15 +371,27 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
   }
 
   /// "10 × 60 kg" | "10 reps · Bodyweight" | "10 reps · −20 kg assist" | "01:30"
-  String _setLine(_Exercise ex, _SetRow s) {
-    if (ex.isTimed) return _time(s.durSec);
+  String _setLine(String lang, _Exercise ex, _SetRow s) {
+    if (ex.isTimed) return _ltr(_time(s.durSec));
+    final String reps = '${_ltr('${s.reps}')} ${_tr(lang, 'reps')}';
     if (ex.isAssisted) {
       return s.weight > 0
-          ? '${s.reps} reps · −${_num(s.weight)} ${ex.unit} assist'
-          : '${s.reps} reps';
+          ? '$reps · ${_ltr('−${_num(s.weight)} ${ex.unit}')} ${_tr(lang, 'assist')}'
+          : reps;
     }
-    if (s.weight <= 0) return '${s.reps} reps · Bodyweight';
-    return '${s.reps} × ${_num(s.weight)} ${ex.unit}';
+    if (s.weight <= 0) return '$reps · ${_tr(lang, 'bodyweight')}';
+    return _ltr('${s.reps} × ${_num(s.weight)} ${ex.unit}');
+  }
+
+  /// `exercise_total` comes from SQL in English ("1,200 kg", "45 reps",
+  /// "Bodyweight", "12:30"). Swap the known English words; numbers/units
+  /// stay as-is and LTR.
+  String _total(String lang, String raw) {
+    if (raw.isEmpty) return '';
+    var s = raw;
+    s = s.replaceAll('Bodyweight', _tr(lang, 'bodyweight'));
+    s = s.replaceAll(RegExp(r'\breps?\b'), _tr(lang, 'reps'));
+    return lang == 'en' ? s : _ltr(s);
   }
 
   static String _score(double v) {
@@ -291,6 +404,8 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
     final bool dark =
         widget.isDark ?? (Theme.of(context).brightness == Brightness.dark);
     final Color accent = widget.accentColor ?? const Color(0xFF1AAE9F);
@@ -323,7 +438,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
         height: 80,
         child: Center(
           child: Text(
-            _error != null ? 'Could not load breakdown' : 'No sets logged',
+            _tr(lang, _error != null ? 'loadErr' : 'noSets'),
             style: TextStyle(fontSize: 13, color: muted),
           ),
         ),
@@ -342,10 +457,13 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
               children: [
                 Expanded(
                   child: Text(
-                    '${_exercises.length} EXERCISES · $totalSets SETS',
+                    _tr(lang, _exercises.length == 1 ? 'header1' : 'header',
+                        p: {'e': '${_exercises.length}', 's': '$totalSets'}),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
-                      letterSpacing: 1.5,
+                      letterSpacing: rtl ? 0 : 1.5,
                       fontWeight: FontWeight.w600,
                       color: muted,
                     ),
@@ -363,7 +481,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Text(
-                      allOpen ? 'Collapse all' : 'Expand all',
+                      _tr(lang, allOpen ? 'collapseAll' : 'expandAll'),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -376,7 +494,8 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
             ),
           ),
           for (int i = 0; i < _exercises.length; i++) ...[
-            _exerciseRow(_exercises[i], accent, text, muted, tile, down),
+            _exerciseRow(
+                lang, rtl, _exercises[i], accent, text, muted, tile, down),
             if (i < _exercises.length - 1)
               Divider(height: 1, thickness: 1, color: line),
           ],
@@ -384,7 +503,6 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
       );
     }
 
-    // The sheet itself: content-sized, capped at maxH, scrolls beyond.
     final Widget sheetBox = ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxH),
       child: Container(
@@ -396,7 +514,6 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // grab handle
             Padding(
               padding: const EdgeInsets.only(top: 12, bottom: 14),
               child: Container(
@@ -419,29 +536,29 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
       ),
     );
 
-    // Whatever height FF forces on us (Infinite / 100% / fixed), Align
-    // loosens it so the sheet sizes itself and sits at the bottom. The
-    // transparent area above closes the sheet on tap, like a real barrier.
-    return Material(
-      color: Colors.transparent,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: const SizedBox.expand(),
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(context).maybePop(),
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {}, // swallow taps on the sheet itself
-              child: sheetBox,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                child: sheetBox,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -455,6 +572,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
       ),
       child: Text(
         label,
+        textDirection: ui.TextDirection.ltr,
         style:
             TextStyle(fontSize: size, fontWeight: FontWeight.w700, color: fg),
       ),
@@ -471,7 +589,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
         height: 48,
         color: tile,
         child: Image.asset(
-          _assetPath(ex.name),
+          _assetPath(ex.nameEn),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => fallback,
         ),
@@ -479,16 +597,18 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
     );
   }
 
-  Widget _exerciseRow(_Exercise ex, Color accent, Color text, Color muted,
-      Color tile, Color down) {
+  Widget _exerciseRow(String lang, bool rtl, _Exercise ex, Color accent,
+      Color text, Color muted, Color tile, Color down) {
     final bool open = _open.contains(ex.id);
     final int? pct = ex.pctChange;
     final double? avg = ex.avgScore;
+    final String muscle = ex.muscle(lang);
+    final String total = _total(lang, ex.total);
 
     final String meta = [
-      if (ex.muscle.isNotEmpty) ex.muscle.toUpperCase(),
-      '${ex.setsCount} ${ex.setsCount == 1 ? 'set' : 'sets'}',
-      if (ex.total.isNotEmpty) ex.total,
+      if (muscle.isNotEmpty) (rtl ? muscle : muscle.toUpperCase()),
+      '${_ltr('${ex.setsCount}')} ${_tr(lang, ex.setsCount == 1 ? 'set' : 'sets')}',
+      if (total.isNotEmpty) total,
     ].join(' · ');
 
     return Column(
@@ -514,7 +634,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        ex.name,
+                        ex.name(lang),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -574,12 +694,13 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
           alignment: Alignment.topCenter,
           child: open
               ? Padding(
-                  padding: const EdgeInsets.only(left: 60, bottom: 8),
+                  padding:
+                      const EdgeInsetsDirectional.only(start: 60, bottom: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (final s in ex.sets)
-                        _setRow(ex, s, accent, text, muted),
+                        _setRow(lang, rtl, ex, s, accent, text, muted),
                     ],
                   ),
                 )
@@ -589,11 +710,11 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
     );
   }
 
-  Widget _setRow(
-      _Exercise ex, _SetRow s, Color accent, Color text, Color muted) {
+  Widget _setRow(String lang, bool rtl, _Exercise ex, _SetRow s, Color accent,
+      Color text, Color muted) {
     final bool drop = s.isDrop;
     return Padding(
-      padding: EdgeInsets.only(left: drop ? 16 : 0),
+      padding: EdgeInsetsDirectional.only(start: drop ? 16 : 0),
       child: SizedBox(
         height: 34,
         child: Row(
@@ -601,13 +722,17 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
             SizedBox(
               width: 52,
               child: Text(
-                drop ? '↳' : 'Set ${s.setNumber}',
+                drop
+                    ? (rtl ? '↲' : '↳')
+                    : _tr(lang, 'setN', p: {'n': '${s.setNumber}'}),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 13, color: muted),
               ),
             ),
             Expanded(
               child: Text(
-                _setLine(ex, s),
+                _setLine(lang, ex, s),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -619,7 +744,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
             ),
             if (s.isPr)
               Padding(
-                padding: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsetsDirectional.only(start: 8),
                 child: Text(
                   'PR',
                   style: TextStyle(
@@ -631,7 +756,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
               ),
             if (s.score != null)
               Padding(
-                padding: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsetsDirectional.only(start: 8),
                 child:
                     _chip(_score(s.score!), accent, accent.withOpacity(0.12)),
               ),

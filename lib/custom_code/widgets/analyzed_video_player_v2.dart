@@ -38,6 +38,11 @@ import 'package:video_player/video_player.dart';
 /// segments end AFTER the lockout flash, so the flash of rep i is shown while
 /// the pill still says rep i.
 ///
+/// v2.2: HUD labels (REP, GOOD REP / NEEDS WORK, DEPTH) and user-facing
+/// errors are translated from the app language (FFLocalizations, no
+/// parameter). The HUD layout itself is not mirrored for RTL — it is a video
+/// overlay. Analyzer feedback text is shown as stored.
+///
 /// Parameter names are compatible with the old widget so it can be swapped in
 /// place. New: autoplay, goodColor, badColor, accentColor.
 class AnalyzedVideoPlayerV2 extends StatefulWidget {
@@ -70,6 +75,69 @@ class AnalyzedVideoPlayerV2 extends StatefulWidget {
 
   @override
   State<AnalyzedVideoPlayerV2> createState() => _AnalyzedVideoPlayerV2State();
+}
+
+// ---------------- Localization ----------------
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+// Short on purpose: painted on the video HUD.
+const Map<String, Map<String, String>> _kStrings = {
+  "rep": {"en": "REP", "es": "REP", "he": "חזרה", "de": "WDH", "fr": "REP"},
+  "goodRep": {
+    "en": "GOOD REP",
+    "es": "BUENA REP",
+    "he": "חזרה טובה",
+    "de": "GUTE WDH",
+    "fr": "BONNE REP"
+  },
+  "needsWork": {
+    "en": "NEEDS WORK",
+    "es": "A MEJORAR",
+    "he": "לשיפור",
+    "de": "VERBESSERN",
+    "fr": "À REVOIR"
+  },
+  "depth": {
+    "en": "DEPTH",
+    "es": "PROF.",
+    "he": "עומק",
+    "de": "TIEFE",
+    "fr": "PROF."
+  },
+  "invalidResult": {
+    "en": "Invalid analysis result",
+    "es": "Resultado de análisis no válido",
+    "he": "תוצאת ניתוח לא תקינה",
+    "de": "Ungültiges Analyseergebnis",
+    "fr": "Résultat d'analyse invalide"
+  },
+  "videoNotFound": {
+    "en": "Video file not found",
+    "es": "No se encontró el vídeo",
+    "he": "קובץ הווידאו לא נמצא",
+    "de": "Videodatei nicht gefunden",
+    "fr": "Fichier vidéo introuvable"
+  },
+};
+
+String _tr(String lang, String key) {
+  final m = _kStrings[key];
+  return m == null ? key : (m[lang] ?? m['en'] ?? key);
+}
+
+/// metric_label from the analyzers is English ("DEPTH", "ROM"...). Translate
+/// the known ones, pass anything else through.
+String _metricLabel(String lang, String raw) {
+  if (raw.trim().toUpperCase() == 'DEPTH') return _tr(lang, 'depth');
+  return raw;
 }
 
 class _RepSegment {
@@ -155,7 +223,10 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
     try {
       final input = widget.analysisResult;
       if (input == null || input is! Map) {
-        setState(() => _errorMessage = 'Invalid analysis result');
+        if (mounted) {
+          setState(
+              () => _errorMessage = _tr(_langOf(context), 'invalidResult'));
+        }
         return;
       }
       final Map result = _unwrapResult(input);
@@ -174,7 +245,10 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
       if (path.startsWith('file://')) path = path.substring(7);
       final File file = File(path);
       if (!file.existsSync()) {
-        setState(() => _errorMessage = 'Video file not found');
+        if (mounted) {
+          setState(
+              () => _errorMessage = _tr(_langOf(context), 'videoNotFound'));
+        }
         return;
       }
 
@@ -570,6 +644,7 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
     if (_fullscreenOpen || _controller == null) return;
     _fullscreenOpen = true;
     HapticFeedback.selectionClick();
+    final String lang = _langOf(context);
     Navigator.of(context, rootNavigator: true)
         .push(PageRouteBuilder(
           opaque: true,
@@ -580,7 +655,8 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
             body: SafeArea(
               child: Stack(
                 children: [
-                  Positioned.fill(child: _surface(fullscreen: true)),
+                  Positioned.fill(
+                      child: _surface(fullscreen: true, lang: lang)),
                   Positioned(
                     top: 8,
                     left: 8,
@@ -635,18 +711,22 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
         child: Center(child: CircularProgressIndicator(color: _accent)),
       );
     }
-    return SizedBox(
-      width: w,
-      height: h,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: _surface(fullscreen: false),
+    // The player is a video HUD: always LTR regardless of app language.
+    return Directionality(
+      textDirection: ui.TextDirection.ltr,
+      child: SizedBox(
+        width: w,
+        height: h,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: _surface(fullscreen: false, lang: _langOf(context)),
+        ),
       ),
     );
   }
 
   /// Video + overlay + controls. Shared by inline and fullscreen.
-  Widget _surface({required bool fullscreen}) {
+  Widget _surface({required bool fullscreen, required String lang}) {
     final controller = _controller!;
     return AnimatedBuilder(
       animation: controller,
@@ -697,6 +777,7 @@ class _AnalyzedVideoPlayerV2State extends State<AnalyzedVideoPlayerV2> {
                       if (frame != null)
                         CustomPaint(
                           painter: _OverlayPainterV2(
+                            lang: lang,
                             frame: frame,
                             totalReps: _totalReps,
                             showSkeleton: widget.showSkeleton,
@@ -1012,6 +1093,7 @@ class _BarbellBbox {
 
 class _OverlayPainterV2 extends CustomPainter {
   _OverlayPainterV2({
+    required this.lang,
     required this.frame,
     required this.totalReps,
     required this.showSkeleton,
@@ -1026,6 +1108,7 @@ class _OverlayPainterV2 extends CustomPainter {
     required this.accent,
   });
 
+  final String lang;
   final _FrameData frame;
   final int totalReps;
   final bool showSkeleton;
@@ -1160,8 +1243,8 @@ class _OverlayPainterV2 extends CustomPainter {
     final double labelSize = math.max(9.0, h * 0.022);
     final double numSize = math.max(22.0, h * 0.075);
     final double totalSize = math.max(12.0, h * 0.032);
-    final label = _tp(
-        'REP', labelSize, FontWeight.w700, Colors.white.withOpacity(0.85),
+    final label = _tp(_tr(lang, 'rep'), labelSize, FontWeight.w700,
+        Colors.white.withOpacity(0.85),
         letterSpacing: 1.5);
     final num = _tp('${frame.reps}', numSize, FontWeight.w800, Colors.white);
     final tot = _tp(totalReps > 0 ? ' / $totalReps' : '', totalSize,
@@ -1207,8 +1290,11 @@ class _OverlayPainterV2 extends CustomPainter {
             ..strokeCap = StrokeCap.round
             ..style = PaintingStyle.stroke);
     }
-    final rl = _tp(frame.metricLabel, math.max(7.5, radius * 0.26),
-        FontWeight.w700, Colors.white.withOpacity(0.85),
+    final rl = _tp(
+        _metricLabel(lang, frame.metricLabel),
+        math.max(7.5, radius * 0.26),
+        FontWeight.w700,
+        Colors.white.withOpacity(0.85),
         letterSpacing: 0.8);
     final rp = _tp('${(pct * 100).round()}%', math.max(11.0, radius * 0.42),
         FontWeight.w800, Colors.white);
@@ -1240,7 +1326,7 @@ class _OverlayPainterV2 extends CustomPainter {
       }
       if (showPill) {
         final bool g = segGood!;
-        final pillTp = _tp(g ? 'GOOD REP' : 'NEEDS WORK',
+        final pillTp = _tp(g ? _tr(lang, 'goodRep') : _tr(lang, 'needsWork'),
             math.max(10.0, h * 0.024), FontWeight.w800, Colors.white,
             letterSpacing: 1.0);
         final double pw = pillTp.width + 20, ph = pillTp.height + 10;
@@ -1259,6 +1345,7 @@ class _OverlayPainterV2 extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _OverlayPainterV2 old) =>
+      old.lang != lang ||
       old.frame != frame ||
       old.landmarks != landmarks ||
       old.flashColor != flashColor ||

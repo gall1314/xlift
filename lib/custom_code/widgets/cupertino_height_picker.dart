@@ -12,9 +12,38 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kUnits = {
+  "cm": {"en": "cm", "es": "cm", "he": "ס״מ", "de": "cm", "fr": "cm"},
+  "ft": {"en": "ft", "es": "ft", "he": "פיט", "de": "ft", "fr": "ft"},
+  "in": {"en": "in", "es": "in", "he": "אינץ׳", "de": "in", "fr": "in"},
+};
+
+String _unit(String lang, String key) {
+  final m = _kUnits[key]!;
+  return m[lang] ?? m['en']!;
+}
+
+/// Height picker: cm wheel, or feet + inches wheels.
+///
+/// Digits stay LTR; in RTL each unit label sits to the left of its wheel and
+/// the feet/inches pair reads right-to-left (feet on the right).
 class CupertinoHeightPicker extends StatefulWidget {
   const CupertinoHeightPicker({
     super.key,
@@ -143,8 +172,18 @@ class _CupertinoHeightPickerState extends State<CupertinoHeightPicker> {
         ),
       );
 
+  Widget _num(BuildContext context, int v) => Center(
+        child: Text(v.toString(),
+            textDirection: ui.TextDirection.ltr, style: _valueStyle(context)),
+      );
+
   @override
   Widget build(BuildContext context) {
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    final ui.TextDirection dir =
+        rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr;
+
     return SizedBox(
       width: widget.width,
       height: widget.height,
@@ -156,6 +195,7 @@ class _CupertinoHeightPickerState extends State<CupertinoHeightPicker> {
           // ================= CM MODE =================
           if (widget.isCm)
             Row(
+              textDirection: dir,
               children: [
                 Expanded(
                   child: CupertinoPicker(
@@ -167,24 +207,14 @@ class _CupertinoHeightPickerState extends State<CupertinoHeightPicker> {
                     onSelectedItemChanged: (index) {
                       _cmCurrent = _cmValues[index];
                       HapticFeedback.selectionClick();
-                      widget.onChanged?.call(
-                        _cmCurrent.toDouble(),
-                        1, // 1 = cm
-                      );
+                      widget.onChanged?.call(_cmCurrent.toDouble(), 1);
                     },
-                    children: _cmValues
-                        .map(
-                          (v) => Center(
-                            child:
-                                Text(v.toString(), style: _valueStyle(context)),
-                          ),
-                        )
-                        .toList(),
+                    children: _cmValues.map((v) => _num(context, v)).toList(),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(right: 24),
-                  child: Text('cm', style: _unitStyle(context)),
+                  padding: const EdgeInsetsDirectional.only(end: 24),
+                  child: Text(_unit(lang, 'cm'), style: _unitStyle(context)),
                 ),
               ],
             ),
@@ -192,6 +222,7 @@ class _CupertinoHeightPickerState extends State<CupertinoHeightPicker> {
           // ================= IN MODE (FEET + INCHES) =================
           if (!widget.isCm)
             Row(
+              textDirection: dir,
               children: [
                 // FEET
                 Expanded(
@@ -208,16 +239,13 @@ class _CupertinoHeightPickerState extends State<CupertinoHeightPicker> {
                     },
                     children: [
                       for (int f = _minFeet; f <= _maxFeet; f++)
-                        Center(
-                          child:
-                              Text(f.toString(), style: _valueStyle(context)),
-                        ),
+                        _num(context, f),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text('ft', style: _unitStyle(context)),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: Text(_unit(lang, 'ft'), style: _unitStyle(context)),
                 ),
 
                 // INCHES
@@ -234,17 +262,13 @@ class _CupertinoHeightPickerState extends State<CupertinoHeightPicker> {
                       _emitInches();
                     },
                     children: [
-                      for (int i = 0; i <= 11; i++)
-                        Center(
-                          child:
-                              Text(i.toString(), style: _valueStyle(context)),
-                        ),
+                      for (int i = 0; i <= 11; i++) _num(context, i),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(right: 24),
-                  child: Text('in', style: _unitStyle(context)),
+                  padding: const EdgeInsetsDirectional.only(end: 24),
+                  child: Text(_unit(lang, 'in'), style: _unitStyle(context)),
                 ),
               ],
             ),

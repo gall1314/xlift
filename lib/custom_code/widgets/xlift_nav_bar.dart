@@ -908,3 +908,6 @@ class _AiCameraGlyphPainter extends CustomPainter {
 }
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!
+
+// Set your widget name, define your parameter, and then add the
+// boilerplate code using the `</>` button on the right!

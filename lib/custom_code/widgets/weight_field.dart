@@ -13,9 +13,40 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:async';
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 
-/// Self-contained gym weight field + custom numpad (Xlift style).
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kStrings = {
+  "kg": {"en": "Kg", "es": "Kg", "he": "ק״ג", "de": "Kg", "fr": "Kg"},
+  "lbs": {"en": "Lbs", "es": "Lb", "he": "ליב׳", "de": "Lbs", "fr": "Lb"},
+  "noWeight": {
+    "en": "No added weight",
+    "es": "Sin peso extra",
+    "he": "ללא משקל נוסף",
+    "de": "Ohne Zusatzgewicht",
+    "fr": "Sans charge"
+  },
+};
+
+String _tr(String lang, String key) {
+  final m = _kStrings[key];
+  return m == null ? key : (m[lang] ?? m['en'] ?? key);
+}
+
+/// Self-contained gym weight field + custom numpad.
 ///
 /// Reads everything for this set straight from loggedSets, with
 /// String/int-safe id matching. Typed text always STAYS. Caret behaves like a
@@ -25,20 +56,20 @@ import 'package:flutter/services.dart';
 ///
 /// Bodyweight mode (showAsPlusButton): the set shows "+" while it has no
 /// weight. Tapping "+" opens the pad; if an earlier set of this exercise has
-/// a weight it is adopted immediately (committed to loggedSets, so mark-done
-/// saves it with no extra logic). The pad has a "No added weight" button that
-/// clears the weight and brings "+" back.
+/// a weight it is adopted immediately. The pad has a "No added weight" button
+/// that clears the weight and brings "+" back.
 ///
 /// The pad lives in an Overlay (not a modal sheet): there is NO barrier, so a
-/// tap outside the pad closes it AND still reaches whatever was tapped (e.g.
-/// the reps field opens in the same tap). Tapping this field again while open
-/// closes the pad. Open/close are animated like the system keyboard (slide up
-/// 260ms easeOut, slide down 200ms easeIn).
+/// tap outside the pad closes it AND still reaches whatever was tapped.
+/// Tapping this field again while open closes the pad. Open/close are
+/// animated like the system keyboard.
 ///
 /// External reset: the locally typed value is dropped ONLY when loggedSets
-/// TRANSITIONS from having a weight for this set to having none (e.g. "Reset
-/// Set") while the pad is closed. A state that never held the value (null ->
-/// null, e.g. the commit hasn't landed yet) never clears what the user typed.
+/// TRANSITIONS from having a weight for this set to having none while the pad
+/// is closed.
+///
+/// Localization: reads the app language itself; the pad header flips in RTL,
+/// the digit grid stays LTR like a real keyboard.
 class WeightField extends StatefulWidget {
   const WeightField({
     super.key,
@@ -98,7 +129,6 @@ class _WeightFieldState extends State<WeightField>
   OverlayEntry? _padEntry;
   bool _closing = false;
 
-  // Keyboard-like slide: up 260ms easeOut, down 200ms easeIn.
   late final AnimationController _slide = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 260),
@@ -132,7 +162,6 @@ class _WeightFieldState extends State<WeightField>
     return v?.toString().toLowerCase() == 'true';
   }
 
-  /// This set's entry in an arbitrary loggedSets list - String/int-safe.
   Map? _entryIn(List<dynamic>? ls) {
     if (ls == null || widget.exerciseId == null || widget.setNumber == null) {
       return null;
@@ -153,7 +182,6 @@ class _WeightFieldState extends State<WeightField>
 
   bool get _isDone => _toBool(_ownEntry?['isDone']);
 
-  /// Previous set's weight (> 0 only) - String/int-safe.
   double? get _prevWeight {
     final ls = widget.loggedSets;
     if (ls == null || widget.exerciseId == null || widget.setNumber == null) {
@@ -222,9 +250,6 @@ class _WeightFieldState extends State<WeightField>
     super.didUpdateWidget(old);
     if (_editing || !_hasTyped || _typed == null) return;
 
-    // External reset = TRANSITION from "state had a weight for this set" to
-    // "state has none". A state that never held it (commit not landed yet,
-    // or the action didn't write) must NOT wipe what the user typed.
     final double? before =
         old.value ?? _toDouble(_entryIn(old.loggedSets)?['weight']);
     final double? now = _ownFromState;
@@ -270,7 +295,6 @@ class _WeightFieldState extends State<WeightField>
     widget.onValueCommitted?.call(v);
   }
 
-  /// "No added weight": clear this set's weight and bring "+" back.
   void _clearWeight() {
     HapticFeedback.selectionClick();
     setState(() {
@@ -328,7 +352,6 @@ class _WeightFieldState extends State<WeightField>
     _scrollClearOfPad(animate: true);
   }
 
-  /// True if a global pointer position lands on this field itself.
   bool _hitsSelf(Offset globalPos) {
     try {
       final box = context.findRenderObject() as RenderBox?;
@@ -344,8 +367,6 @@ class _WeightFieldState extends State<WeightField>
     if (_isDone || _editing) return;
     HapticFeedback.selectionClick();
 
-    // Re-tapped while the previous pad is still sliding down: drop it now
-    // so we never end up with two entries.
     if (_padEntry != null) {
       _padEntry!.remove();
       _padEntry = null;
@@ -357,8 +378,6 @@ class _WeightFieldState extends State<WeightField>
       SystemChannels.textInput.invokeMethod('TextInput.hide');
     } catch (_) {}
 
-    // Plus-tap inheritance: adopt the previous set's weight right away, so
-    // mark-done saves it without any hint logic on the FF side.
     if (widget.showAsPlusButton && _shown == null) {
       final double? prev = _prevWeight;
       print('[weightField] plusTap ex=${widget.exerciseId} '
@@ -368,6 +387,8 @@ class _WeightFieldState extends State<WeightField>
 
     final bool dark =
         widget.isDark ?? (Theme.of(context).brightness == Brightness.dark);
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
 
     setState(() => _editing = true);
     _startCaret();
@@ -376,10 +397,6 @@ class _WeightFieldState extends State<WeightField>
     _padEntry = OverlayEntry(
       builder: (_) => Stack(
         children: [
-          // No barrier: sees every tap outside the pad, closes the pad, and
-          // lets the tap continue to whatever is underneath (e.g. the reps
-          // field). Taps on this field itself are handled by its own onTap
-          // (toggle), so ignore them here.
           Positioned.fill(
             child: Listener(
               behavior: HitTestBehavior.translucent,
@@ -399,6 +416,9 @@ class _WeightFieldState extends State<WeightField>
                 initial: _shown,
                 isKg: widget.isKg,
                 dark: dark,
+                rtl: rtl,
+                unitLabel: _tr(lang, widget.isKg ? 'kg' : 'lbs'),
+                noWeightLabel: _tr(lang, 'noWeight'),
                 step: _effectiveStep,
                 bodyweightMode: widget.showAsPlusButton,
                 onChanged: _liveCommit,
@@ -420,8 +440,6 @@ class _WeightFieldState extends State<WeightField>
     _stopCaret();
     if (mounted && _editing) setState(() => _editing = false);
 
-    // Slide down, then remove. orCancel: if something interrupts the
-    // animation we still fall through and clean up.
     try {
       await _slide.reverse().orCancel;
     } catch (_) {}
@@ -464,8 +482,6 @@ class _WeightFieldState extends State<WeightField>
         (dark ? const Color(0xFF6B7683) : const Color(0xFF9CA3AF));
     final double fs = widget.fontSize ?? 16;
 
-    // Like a real TextField: while editing an EMPTY field, hide the
-    // hint - the caret blinks alone, centered.
     final bool caretAlone = _editing && empty;
     final String display = caretAlone
         ? ''
@@ -487,7 +503,9 @@ class _WeightFieldState extends State<WeightField>
               )
             : null,
         child: Center(
+          // Digits are LTR in every language; caret sits after the number.
           child: Row(
+            textDirection: ui.TextDirection.ltr,
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -495,6 +513,7 @@ class _WeightFieldState extends State<WeightField>
                 Text(
                   display,
                   textAlign: TextAlign.center,
+                  textDirection: ui.TextDirection.ltr,
                   maxLines: 1,
                   style: TextStyle(
                     fontSize: fs,
@@ -531,6 +550,9 @@ class _NumpadSheet extends StatefulWidget {
     required this.initial,
     required this.isKg,
     required this.dark,
+    required this.rtl,
+    required this.unitLabel,
+    required this.noWeightLabel,
     required this.step,
     required this.bodyweightMode,
     required this.onChanged,
@@ -541,6 +563,9 @@ class _NumpadSheet extends StatefulWidget {
   final double? initial;
   final bool isKg;
   final bool dark;
+  final bool rtl;
+  final String unitLabel;
+  final String noWeightLabel;
   final double step;
   final bool bodyweightMode;
   final void Function(double? value) onChanged;
@@ -680,6 +705,7 @@ class _NumpadSheetState extends State<_NumpadSheet> {
               child: Center(
                 child: child ??
                     Text(shown,
+                        textDirection: ui.TextDirection.ltr,
                         style: TextStyle(
                           fontSize: shown.length > 1 ? 19 : 21,
                           fontWeight: FontWeight.w600,
@@ -697,8 +723,9 @@ class _NumpadSheetState extends State<_NumpadSheet> {
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.of(context).padding.bottom;
     final display = _text.isEmpty ? '0' : _text;
+    final ui.TextDirection headerDir =
+        widget.rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr;
 
-    // Material so text/ink render correctly inside the Overlay.
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -727,17 +754,22 @@ class _NumpadSheetState extends State<_NumpadSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // Header flips in RTL: -step on the right, +step on the left,
+            // unit after the number in reading order.
             Row(
+              textDirection: headerDir,
               children: [
                 _stepBtn('-${_WeightFieldState.fmt(widget.step)}',
                     () => _stepBy(-widget.step)),
                 Expanded(
                   child: Row(
+                    textDirection: headerDir,
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(display,
+                          textDirection: ui.TextDirection.ltr,
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
@@ -745,7 +777,8 @@ class _NumpadSheetState extends State<_NumpadSheet> {
                             color: _textColor,
                           )),
                       const SizedBox(width: 4),
-                      Text(widget.isKg ? 'Kg' : 'Lbs',
+                      Text(widget.unitLabel,
+                          textDirection: headerDir,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -758,7 +791,6 @@ class _NumpadSheetState extends State<_NumpadSheet> {
                     () => _stepBy(widget.step)),
               ],
             ),
-            // Bodyweight-only exercises: clear the weight, "+" comes back.
             if (widget.bodyweightMode)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -772,7 +804,10 @@ class _NumpadSheetState extends State<_NumpadSheet> {
                       border: Border.all(color: _accent.withOpacity(0.6)),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text('No added weight',
+                    child: Text(widget.noWeightLabel,
+                        textDirection: headerDir,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -782,10 +817,17 @@ class _NumpadSheetState extends State<_NumpadSheet> {
                 ),
               ),
             const SizedBox(height: 6),
-            Row(children: [_key('1'), _key('2'), _key('3')]),
-            Row(children: [_key('4'), _key('5'), _key('6')]),
-            Row(children: [_key('7'), _key('8'), _key('9')]),
-            Row(children: [
+            // Digit grid: always LTR like a real keyboard.
+            Row(
+                textDirection: ui.TextDirection.ltr,
+                children: [_key('1'), _key('2'), _key('3')]),
+            Row(
+                textDirection: ui.TextDirection.ltr,
+                children: [_key('4'), _key('5'), _key('6')]),
+            Row(
+                textDirection: ui.TextDirection.ltr,
+                children: [_key('7'), _key('8'), _key('9')]),
+            Row(textDirection: ui.TextDirection.ltr, children: [
               _key('.'),
               _key('0'),
               _key('',
@@ -812,6 +854,7 @@ class _NumpadSheetState extends State<_NumpadSheet> {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(label,
+            textDirection: ui.TextDirection.ltr,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,

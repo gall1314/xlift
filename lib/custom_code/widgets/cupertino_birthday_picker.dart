@@ -12,9 +12,103 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// Short month names (3-4 chars so the wheel stays narrow).
+const Map<String, List<String>> _kMonths = {
+  'en': [
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC'
+  ],
+  'es': [
+    'ENE',
+    'FEB',
+    'MAR',
+    'ABR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AGO',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DIC'
+  ],
+  'he': [
+    'ינו׳',
+    'פבר׳',
+    'מרץ',
+    'אפר׳',
+    'מאי',
+    'יוני',
+    'יולי',
+    'אוג׳',
+    'ספט׳',
+    'אוק׳',
+    'נוב׳',
+    'דצמ׳'
+  ],
+  'de': [
+    'JAN',
+    'FEB',
+    'MÄR',
+    'APR',
+    'MAI',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OKT',
+    'NOV',
+    'DEZ'
+  ],
+  'fr': [
+    'JANV',
+    'FÉVR',
+    'MARS',
+    'AVR',
+    'MAI',
+    'JUIN',
+    'JUIL',
+    'AOÛT',
+    'SEPT',
+    'OCT',
+    'NOV',
+    'DÉC'
+  ],
+};
+
+List<String> _monthsOf(String lang) => _kMonths[lang] ?? _kMonths['en']!;
+
+/// Birthday picker: year | month | day wheels.
+///
+/// Emits yyyy-MM-dd (unchanged). Month names follow the app language; digits
+/// stay LTR; in RTL the wheels mirror (year on the right).
 class CupertinoBirthdayPicker extends StatefulWidget {
   const CupertinoBirthdayPicker({
     super.key,
@@ -24,7 +118,6 @@ class CupertinoBirthdayPicker extends StatefulWidget {
     this.onDateChanged, // yyyy-MM-dd
   });
 
-  // FlutterFlow reגquired
   final double width;
   final double height;
 
@@ -38,21 +131,6 @@ class CupertinoBirthdayPicker extends StatefulWidget {
 
 class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
   static const double _itemExtent = 42.0;
-
-  static const List<String> _months = [
-    'JAN',
-    'FEB',
-    'MAR',
-    'APR',
-    'MAY',
-    'JUN',
-    'JUL',
-    'AUG',
-    'SEP',
-    'OCT',
-    'NOV',
-    'DEC',
-  ];
 
   late final DateTime _today;
   late final int _minYear;
@@ -119,6 +197,9 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
   @override
   Widget build(BuildContext context) {
     final style = _txt(context);
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    final List<String> months = _monthsOf(lang);
 
     return SizedBox(
       width: widget.width,
@@ -128,12 +209,14 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
         children: [
           _overlay(context),
           Row(
+            textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
             children: [
               _wheel(
                 controller: _yCtrl,
                 values: _years,
                 text: (v) => v.toString(),
                 style: style,
+                ltr: true,
                 onChanged: (v) {
                   _y = v;
                   _days = _calcDays(_y, _m);
@@ -146,8 +229,9 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
               _wheel(
                 controller: _mCtrl,
                 values: List.generate(12, (i) => i + 1),
-                text: (v) => _months[v - 1],
+                text: (v) => months[v - 1],
                 style: style,
+                ltr: !rtl,
                 onChanged: (v) {
                   _m = v;
                   _days = _calcDays(_y, _m);
@@ -162,6 +246,7 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
                 values: _days,
                 text: (v) => v.toString().padLeft(2, '0'),
                 style: style,
+                ltr: true,
                 onChanged: (v) {
                   _d = v;
                   HapticFeedback.selectionClick();
@@ -180,6 +265,7 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
     required List<int> values,
     required String Function(int) text,
     required TextStyle style,
+    required bool ltr,
     required void Function(int) onChanged,
   }) {
     return Expanded(
@@ -191,7 +277,12 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
         selectionOverlay: const SizedBox.shrink(),
         onSelectedItemChanged: (i) => onChanged(values[i]),
         children: values
-            .map((v) => Center(child: Text(text(v), style: style)))
+            .map((v) => Center(
+                  child: Text(text(v),
+                      textDirection:
+                          ltr ? ui.TextDirection.ltr : ui.TextDirection.rtl,
+                      style: style),
+                ))
             .toList(),
       ),
     );
@@ -214,6 +305,5 @@ class _CupertinoBirthdayPickerState extends State<CupertinoBirthdayPicker> {
     widget.onDateChanged?.call('$y-$m-$d');
   }
 }
-
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the green button on the right!

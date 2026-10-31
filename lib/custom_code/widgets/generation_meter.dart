@@ -12,6 +12,23 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// Three small pills showing how many AI generations were used in the last 7
+/// days.
+///
+/// Fills from the start edge (left in LTR, right in RTL).
 class GenerationMeter extends StatefulWidget {
   const GenerationMeter({
     super.key,
@@ -47,17 +64,19 @@ class _GenerationMeterState extends State<GenerationMeter> {
 
     final Color filled = widget.usedColor ?? const Color(0xFF14B8A6);
     final Color empty = widget.emptyColor ?? const Color(0xFFD1D5DB);
+    final bool rtl = _kRtl.contains(_langOf(context));
 
     return SizedBox(
       width: widget.width,
       height: widget.height ?? 6,
       child: Row(
+        textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
         mainAxisSize: MainAxisSize.min,
         children: List.generate(limit, (i) {
           return Container(
             width: 18,
             height: widget.height ?? 6,
-            margin: EdgeInsets.only(right: i < limit - 1 ? 4 : 0),
+            margin: EdgeInsetsDirectional.only(end: i < limit - 1 ? 4 : 0),
             decoration: BoxDecoration(
               color: i < used ? filled : empty,
               borderRadius: BorderRadius.circular(3),

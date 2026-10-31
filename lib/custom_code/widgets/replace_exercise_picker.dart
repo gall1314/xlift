@@ -12,6 +12,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 
 /// "Replace Exercise" — designed to live inside a FlutterFlow Bottom Sheet
@@ -22,7 +23,12 @@ import 'package:flutter/services.dart';
 /// + flags) The best match is pre-selected on load. Reads the workout's
 /// loggedSets as-is and warns only when done sets exist for the current
 /// exercise (they get deleted on replace). Calls [onReplace] with the choice
-/// and whether the user also wants the saved plan updated.
+/// (exerciseName = ENGLISH name, a stable key) and whether the user also
+/// wants the saved plan updated.
+///
+/// Localization: reads the app language from FFLocalizations (no parameter).
+/// Exercise / muscle names go through localizedName (JSON or plain), filters
+/// and image lookups use the English name. Hebrew renders RTL.
 class ReplaceExercisePicker extends StatefulWidget {
   const ReplaceExercisePicker({
     super.key,
@@ -48,30 +54,289 @@ class ReplaceExercisePicker extends StatefulWidget {
   State<ReplaceExercisePicker> createState() => _ReplaceExercisePickerState();
 }
 
+// ---------- localization ----------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// {n} number, {x} name, {q} query.
+const Map<String, Map<String, String>> _kStrings = {
+  "title": {
+    "en": "Replace Exercise",
+    "es": "Reemplazar ejercicio",
+    "he": "החלפת תרגיל",
+    "de": "Übung ersetzen",
+    "fr": "Remplacer l'exercice"
+  },
+  "create": {
+    "en": "Create",
+    "es": "Crear",
+    "he": "צור",
+    "de": "Neu",
+    "fr": "Créer"
+  },
+  "loadFailed": {
+    "en": "Could not load exercises",
+    "es": "No se pudieron cargar los ejercicios",
+    "he": "טעינת התרגילים נכשלה",
+    "de": "Übungen konnten nicht geladen werden",
+    "fr": "Impossible de charger les exercices"
+  },
+  "tryAgain": {
+    "en": "Try again",
+    "es": "Reintentar",
+    "he": "נסה שוב",
+    "de": "Erneut versuchen",
+    "fr": "Réessayer"
+  },
+  "replacing": {
+    "en": "Replacing",
+    "es": "Reemplazando",
+    "he": "מחליף את",
+    "de": "Ersetzt",
+    "fr": "Remplacement de"
+  },
+  "currentExercise": {
+    "en": "Current exercise",
+    "es": "Ejercicio actual",
+    "he": "התרגיל הנוכחי",
+    "de": "Aktuelle Übung",
+    "fr": "Exercice actuel"
+  },
+  "warnSets1": {
+    "en": "The 1 set you logged for {x} will be deleted.",
+    "es": "La serie que registraste de {x} se eliminará.",
+    "he": "הסט שתיעדת ב{x} יימחק.",
+    "de": "Der eingetragene Satz für {x} wird gelöscht.",
+    "fr": "La série enregistrée pour {x} sera supprimée."
+  },
+  "warnSetsN": {
+    "en": "The {n} sets you logged for {x} will be deleted.",
+    "es": "Las {n} series que registraste de {x} se eliminarán.",
+    "he": "{n} הסטים שתיעדת ב{x} יימחקו.",
+    "de": "Die {n} eingetragenen Sätze für {x} werden gelöscht.",
+    "fr": "Les {n} séries enregistrées pour {x} seront supprimées."
+  },
+  "smart": {
+    "en": "Smart",
+    "es": "Smart",
+    "he": "חכם",
+    "de": "Smart",
+    "fr": "Smart"
+  },
+  "allExercises": {
+    "en": "All exercises",
+    "es": "Todos",
+    "he": "כל התרגילים",
+    "de": "Alle Übungen",
+    "fr": "Tous"
+  },
+  "all": {"en": "All", "es": "Todos", "he": "הכל", "de": "Alle", "fr": "Tous"},
+  "searchExercises": {
+    "en": "Search exercises",
+    "es": "Buscar ejercicios",
+    "he": "חיפוש תרגילים",
+    "de": "Übungen suchen",
+    "fr": "Rechercher des exercices"
+  },
+  "noSmart": {
+    "en": "No smart matches for this exercise.",
+    "es": "No hay sugerencias para este ejercicio.",
+    "he": "אין התאמות חכמות לתרגיל הזה.",
+    "de": "Keine passenden Vorschläge für diese Übung.",
+    "fr": "Aucune suggestion pour cet exercice."
+  },
+  "noEquip": {
+    "en": "No matches with this equipment.",
+    "es": "Nada con este equipamiento.",
+    "he": "אין התאמות עם הציוד הזה.",
+    "de": "Nichts mit diesem Equipment.",
+    "fr": "Rien avec cet équipement."
+  },
+  "noneInGroup": {
+    "en": "No exercises in this group.",
+    "es": "No hay ejercicios en este grupo.",
+    "he": "אין תרגילים בקבוצה הזו.",
+    "de": "Keine Übungen in dieser Gruppe.",
+    "fr": "Aucun exercice dans ce groupe."
+  },
+  "noMatch": {
+    "en": "No exercises match \"{q}\"",
+    "es": "Ningún ejercicio coincide con \"{q}\"",
+    "he": "אין תרגילים התואמים ל-\"{q}\"",
+    "de": "Keine Übungen passen zu \"{q}\"",
+    "fr": "Aucun exercice ne correspond à \"{q}\""
+  },
+  "bestMatch": {
+    "en": "Best match",
+    "es": "Mejor opción",
+    "he": "הכי מתאים",
+    "de": "Top-Treffer",
+    "fr": "Meilleur choix"
+  },
+  "form": {
+    "en": "Form",
+    "es": "Técnica",
+    "he": "טכניקה",
+    "de": "Technik",
+    "fr": "Technique"
+  },
+  "updatePlan": {
+    "en": "Also update my plan",
+    "es": "Actualizar también mi plan",
+    "he": "עדכן גם את התוכנית",
+    "de": "Auch meinen Plan ändern",
+    "fr": "Mettre aussi à jour mon plan"
+  },
+  "planOn": {
+    "en": "Replaced in this workout plan from now on",
+    "es": "Se reemplaza en este plan a partir de ahora",
+    "he": "יוחלף בתוכנית האימון מעכשיו",
+    "de": "Ab jetzt in diesem Plan ersetzt",
+    "fr": "Remplacé dans ce plan désormais"
+  },
+  "planOff": {
+    "en": "Off: swap for today only",
+    "es": "No: solo por hoy",
+    "he": "כבוי: החלפה להיום בלבד",
+    "de": "Aus: nur für heute",
+    "fr": "Non : seulement aujourd'hui"
+  },
+  "pickExercise": {
+    "en": "Pick an exercise",
+    "es": "Elige un ejercicio",
+    "he": "בחר תרגיל",
+    "de": "Übung wählen",
+    "fr": "Choisir un exercice"
+  },
+  "replaceWith": {
+    "en": "Replace with {x}",
+    "es": "Reemplazar por {x}",
+    "he": "החלף ב{x}",
+    "de": "Ersetzen durch {x}",
+    "fr": "Remplacer par {x}"
+  },
+};
+
+String _tr(String lang, String key, {int? n, String? x, String? q}) {
+  final m = _kStrings[key];
+  var s = m == null ? key : (m[lang] ?? m['en'] ?? key);
+  if (n != null) s = s.replaceAll('{n}', '$n');
+  if (x != null) s = s.replaceAll('{x}', x);
+  if (q != null) s = s.replaceAll('{q}', q);
+  return s;
+}
+
+/// Equipment values are a fixed English set in the DB.
+const Map<String, Map<String, String>> _kEquip = {
+  "bodyweight": {
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps"
+  },
+  "barbell": {"es": "Barra", "he": "מוט", "de": "Langhantel", "fr": "Barre"},
+  "dumbbell": {
+    "es": "Mancuerna",
+    "he": "משקולת",
+    "de": "Kurzhantel",
+    "fr": "Haltère"
+  },
+  "machine": {
+    "es": "Máquina",
+    "he": "מכונה",
+    "de": "Maschine",
+    "fr": "Machine"
+  },
+  "cable": {"es": "Polea", "he": "פולי", "de": "Kabelzug", "fr": "Poulie"},
+  "bench": {"es": "Banco", "he": "ספסל", "de": "Bank", "fr": "Banc"},
+  "plate": {"es": "Disco", "he": "פלטה", "de": "Scheibe", "fr": "Disque"},
+  "kettlebell": {
+    "es": "Kettlebell",
+    "he": "קטלבל",
+    "de": "Kettlebell",
+    "fr": "Kettlebell"
+  },
+  "trap bar": {
+    "es": "Barra hexagonal",
+    "he": "מוט טראפ",
+    "de": "Trap Bar",
+    "fr": "Trap bar"
+  },
+  "smith machine": {
+    "es": "Máquina Smith",
+    "he": "סמית",
+    "de": "Multipresse",
+    "fr": "Smith"
+  },
+  "resistance band": {
+    "es": "Banda",
+    "he": "גומייה",
+    "de": "Band",
+    "fr": "Élastique"
+  },
+  "sled": {"es": "Trineo", "he": "מזחלת", "de": "Schlitten", "fr": "Traîneau"},
+  "medicine ball": {
+    "es": "Balón medicinal",
+    "he": "כדור כוח",
+    "de": "Medizinball",
+    "fr": "Médecine-ball"
+  },
+  "jump rope": {
+    "es": "Cuerda",
+    "he": "חבל קפיצה",
+    "de": "Springseil",
+    "fr": "Corde à sauter"
+  },
+  "battle ropes": {
+    "es": "Cuerdas de batalla",
+    "he": "חבלי קרב",
+    "de": "Battle Ropes",
+    "fr": "Battle ropes"
+  },
+};
+
+String _equip(String lang, String raw) {
+  if (raw.isEmpty || lang == 'en') return raw;
+  return _kEquip[raw.trim().toLowerCase()]?[lang] ?? raw;
+}
+
 class _Ex {
   _Ex({
     required this.id,
     required this.name,
+    required this.nameEn,
     this.category = '',
+    this.categoryEn = '',
     this.muscles = const [],
     this.equipment = '',
     this.formCheck = false,
   });
 
   final int id;
-  final String name;
-  final String category; // parent group: Chest, Back, Legs...
-  final List<String> muscles; // specific groups: Quads, Lats...
-  final String equipment;
+  final String name; // localized
+  final String nameEn; // English (image, callback)
+  final String category; // localized parent group
+  final String categoryEn; // English parent group (filter key)
+  final List<String> muscles; // localized specific groups
+  final String equipment; // raw English (filter key)
   final bool formCheck;
 
-  String get subtitle {
+  String subtitle(String lang) {
     final m = muscles.isNotEmpty ? muscles.first : category;
-    return [m, equipment].where((x) => x.isNotEmpty).join(' · ');
+    return [m, _equip(lang, equipment)].where((x) => x.isNotEmpty).join(' · ');
   }
 
   /// Same mapping as the exerciseImageName custom function.
-  String get imageName => name.replaceAll(' ', '_');
+  String get imageName => nameEn.replaceAll(' ', '_');
 }
 
 class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
@@ -80,32 +345,44 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     'Back',
     'Legs',
     'Shoulders',
-    'Arms',
-    'Core'
+    'Biceps',
+    'Triceps',
+    'Core',
+    'Forearms',
+    'Neck',
   ];
+  static const String _all = '__all__';
 
   bool _loading = true;
   String? _error;
   bool _busy = false;
+  String _lang = 'en';
+  bool _started = false;
 
-  List<_Ex> _all = [];
+  List<_Ex> _all_ = [];
   List<_Ex> _smart = [];
   _Ex? _current;
 
   bool _smartTab = true;
-  String _equipFilter = 'All';
-  String _muscleFilter = 'All';
+  String _equipFilter = _all; // raw English equipment
+  String _muscleFilter = _all; // English category
   String _query = '';
   int? _selectedId;
-  String _selectedName = '';
+  String _selectedName = ''; // localized, for the button
+  String _selectedNameEn = ''; // for the callback
   bool _updatePlan = false;
 
   final _searchCtrl = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final l = _langOf(context);
+    if (!_started || l != _lang) {
+      _started = true;
+      _lang = l;
+      _load();
+    }
   }
 
   @override
@@ -153,6 +430,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
 
   // ---------- data ----------
   Future<void> _load() async {
+    final lang = _lang;
     setState(() {
       _loading = true;
       _error = null;
@@ -166,17 +444,24 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       for (final r in allRows) {
         final d = r.data;
         final id = _i(d['exercise_id']);
-        final name = _s(d['exercise_name']);
-        if (id == null || name.isEmpty || byId.containsKey(id)) continue;
+        final rawName = _s(d['exercise_name']);
+        if (id == null || rawName.isEmpty || byId.containsKey(id)) continue;
         final muscles = [
           d['sub_muscle_1'],
           d['sub_muscle_2'],
           d['sub_muscle_3']
-        ].map(_s).where((x) => x.isNotEmpty).toList();
+        ]
+            .map(_s)
+            .where((x) => x.isNotEmpty)
+            .map((x) => localizedName(x, lang))
+            .toList();
+        final rawCat = _s(d['primary_muscle_1']);
         byId[id] = _Ex(
           id: id,
-          name: name,
-          category: _s(d['primary_muscle_1']),
+          name: localizedName(rawName, lang),
+          nameEn: localizedName(rawName, 'en'),
+          category: localizedName(rawCat, lang),
+          categoryEn: localizedName(rawCat, 'en'),
           muscles: muscles,
           equipment: _s(d['equipment']),
           formCheck: _b(d['ai_form_analysis']),
@@ -193,12 +478,15 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
         if (base != null) {
           smart.add(base);
         } else {
-          final name = _s(d['name']);
-          if (name.isEmpty) continue;
+          final rawName = _s(d['name']);
+          if (rawName.isEmpty) continue;
+          final rawCat = _s(d['primary_muscles']).split(',').first.trim();
           smart.add(_Ex(
             id: id,
-            name: name,
-            category: _s(d['primary_muscles']).split(',').first.trim(),
+            name: localizedName(rawName, lang),
+            nameEn: localizedName(rawName, 'en'),
+            category: localizedName(rawCat, lang),
+            categoryEn: localizedName(rawCat, 'en'),
             equipment: _s(d['equipment_type']),
           ));
         }
@@ -209,17 +497,19 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
 
       if (!mounted) return;
       setState(() {
-        _all = all;
+        _all_ = all;
         _smart = smart;
         _current = byId[widget.exerciseId];
         _loading = false;
-        _equipFilter = 'All';
+        _equipFilter = _all;
         if (smart.isNotEmpty) {
           _selectedId = smart.first.id;
           _selectedName = smart.first.name;
+          _selectedNameEn = smart.first.nameEn;
         } else {
           _selectedId = null;
           _selectedName = '';
+          _selectedNameEn = '';
           _smartTab = false;
         }
       });
@@ -227,11 +517,12 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Could not load exercises';
+        _error = _tr(lang, 'loadFailed');
       });
     }
   }
 
+  /// Equipment chips: raw English keys, ordered by frequency.
   List<String> get _equipChips {
     final counts = <String, int>{};
     for (final e in _smart) {
@@ -240,28 +531,40 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     }
     final keys = counts.keys.toList()
       ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
-    return keys.length > 1 ? ['All', ...keys] : [];
+    return keys.length > 1 ? [_all, ...keys] : [];
   }
 
+  /// Muscle chips: English category keys in catalog order.
   List<String> get _muscleChips {
-    final cats = _all.map((e) => e.category).where((c) => c.isNotEmpty).toSet();
+    final cats =
+        _all_.map((e) => e.categoryEn).where((c) => c.isNotEmpty).toSet();
     final ordered = [
       ..._categoryOrder.where(cats.contains),
       ...(cats.where((c) => !_categoryOrder.contains(c)).toList()..sort()),
     ];
-    return ['All', ...ordered];
+    return [_all, ...ordered];
+  }
+
+  /// Localized label for an English category key.
+  String _catLabel(String en) {
+    for (final e in _all_) {
+      if (e.categoryEn == en) return e.category;
+    }
+    return en;
   }
 
   List<_Ex> get _smartVisible => _smart
-      .where((e) => _equipFilter == 'All' || e.equipment == _equipFilter)
+      .where((e) => _equipFilter == _all || e.equipment == _equipFilter)
       .toList();
 
   List<_Ex> get _allVisible {
     final q = _query.trim().toLowerCase();
-    return _all
+    return _all_
         .where((e) =>
-            (_muscleFilter == 'All' || e.category == _muscleFilter) &&
-            (q.isEmpty || e.name.toLowerCase().contains(q)))
+            (_muscleFilter == _all || e.categoryEn == _muscleFilter) &&
+            (q.isEmpty ||
+                e.name.toLowerCase().contains(q) ||
+                e.nameEn.toLowerCase().contains(q)))
         .toList();
   }
 
@@ -271,9 +574,11 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       if (_selectedId == e.id) {
         _selectedId = null;
         _selectedName = '';
+        _selectedNameEn = '';
       } else {
         _selectedId = e.id;
         _selectedName = e.name;
+        _selectedNameEn = e.nameEn;
       }
     });
   }
@@ -283,7 +588,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     HapticFeedback.mediumImpact();
     setState(() => _busy = true);
     try {
-      await widget.onReplace?.call(_selectedId!, _selectedName, _updatePlan);
+      // English name: a stable key downstream.
+      await widget.onReplace?.call(_selectedId!, _selectedNameEn, _updatePlan);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -303,32 +609,36 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     final theme = FlutterFlowTheme.of(context);
     final mq = MediaQuery.of(context);
     final h = widget.height ?? mq.size.height * 0.8;
+    final bool rtl = _kRtl.contains(_lang);
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: Container(
-        width: widget.width,
-        height: h,
-        color: theme.primaryBackground,
-        child: Column(
-          children: [
-            _header(theme),
-            if (_loading)
-              Expanded(
-                child: Center(
-                  child: CircularProgressIndicator(color: theme.primary),
-                ),
-              )
-            else if (_error != null)
-              Expanded(child: _errorView(theme))
-            else ...[
-              _currentCard(theme),
-              _tabs(theme),
-              if (_smartTab) _equipRow(theme) else _searchAndMuscles(theme),
-              Expanded(child: _list(theme)),
-              _bottomBar(theme, mq.padding.bottom),
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: Container(
+          width: widget.width,
+          height: h,
+          color: theme.primaryBackground,
+          child: Column(
+            children: [
+              _header(theme),
+              if (_loading)
+                Expanded(
+                  child: Center(
+                    child: CircularProgressIndicator(color: theme.primary),
+                  ),
+                )
+              else if (_error != null)
+                Expanded(child: _errorView(theme))
+              else ...[
+                _currentCard(theme),
+                _tabs(theme),
+                if (_smartTab) _equipRow(theme) else _searchAndMuscles(theme),
+                Expanded(child: _list(theme)),
+                _bottomBar(theme, mq.padding.bottom),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -341,7 +651,6 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // drag handle
           Container(
             width: 40,
             height: 4,
@@ -360,8 +669,10 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
               ),
               Expanded(
                 child: Text(
-                  'Replace Exercise',
+                  _tr(_lang, 'title'),
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -376,7 +687,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                     : TextButton(
                         onPressed: () => widget.onCreate!(),
                         child: Text(
-                          'Create',
+                          _tr(_lang, 'create'),
+                          maxLines: 1,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -402,7 +714,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
           const SizedBox(height: 12),
           TextButton(
             onPressed: _load,
-            child: Text('Try again',
+            child: Text(_tr(_lang, 'tryAgain'),
                 style: TextStyle(
                     fontWeight: FontWeight.w700, color: theme.primary)),
           ),
@@ -414,7 +726,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
   Widget _currentCard(FlutterFlowTheme theme) {
     final cur = _current;
     final sets = _doneSetsForCurrent;
-    final name = cur?.name ?? 'Current exercise';
+    final name = cur?.name ?? _tr(_lang, 'currentExercise');
     final chips = <String>[
       if (cur != null)
         ...(cur.muscles.isNotEmpty ? cur.muscles : [cur.category]),
@@ -431,7 +743,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Replacing',
+          Text(_tr(_lang, 'replacing'),
               style: TextStyle(fontSize: 12, color: theme.secondaryText)),
           const SizedBox(height: 2),
           Text(
@@ -488,7 +800,9 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'The $sets ${sets == 1 ? 'set' : 'sets'} you logged for $name will be deleted.',
+                      sets == 1
+                          ? _tr(_lang, 'warnSets1', x: name)
+                          : _tr(_lang, 'warnSetsN', n: sets, x: name),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -536,12 +850,16 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                       color: on ? theme.primary : theme.secondaryText),
                   const SizedBox(width: 6),
                 ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: on ? theme.primary : theme.secondaryText,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: on ? theme.primary : theme.secondaryText,
+                    ),
                   ),
                 ),
               ],
@@ -560,32 +878,33 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       ),
       child: Row(
         children: [
-          tab('Smart', _smartTab, () => setState(() => _smartTab = true),
+          tab(_tr(_lang, 'smart'), _smartTab,
+              () => setState(() => _smartTab = true),
               icon: Icons.auto_awesome_rounded),
           const SizedBox(width: 3),
-          tab('All exercises', !_smartTab,
+          tab(_tr(_lang, 'allExercises'), !_smartTab,
               () => setState(() => _smartTab = false)),
         ],
       ),
     );
   }
 
-  Widget _chipRow(FlutterFlowTheme theme, List<String> items, String active,
-      void Function(String) onTap) {
-    if (items.isEmpty) return const SizedBox(height: 8);
+  Widget _chipRow(FlutterFlowTheme theme, List<String> keys, String active,
+      String Function(String) label, void Function(String) onTap) {
+    if (keys.isEmpty) return const SizedBox(height: 8);
     return SizedBox(
       height: 50,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-        itemCount: items.length,
+        itemCount: keys.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) {
-          final on = items[i] == active;
+          final on = keys[i] == active;
           return GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
-              onTap(items[i]);
+              onTap(keys[i]);
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
@@ -597,7 +916,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                 border: Border.all(color: on ? theme.primary : theme.alternate),
               ),
               child: Text(
-                items[i],
+                keys[i] == _all ? _tr(_lang, 'all') : label(keys[i]),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -611,8 +930,12 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     );
   }
 
-  Widget _equipRow(FlutterFlowTheme theme) => _chipRow(theme, _equipChips,
-      _equipFilter, (v) => setState(() => _equipFilter = v));
+  Widget _equipRow(FlutterFlowTheme theme) => _chipRow(
+      theme,
+      _equipChips,
+      _equipFilter,
+      (k) => _equip(_lang, k),
+      (v) => setState(() => _equipFilter = v));
 
   Widget _searchAndMuscles(FlutterFlowTheme theme) {
     return Column(
@@ -639,7 +962,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
-                    hintText: 'Search exercises',
+                    hintText: _tr(_lang, 'searchExercises'),
                     hintStyle:
                         TextStyle(fontSize: 16, color: theme.secondaryText),
                   ),
@@ -657,7 +980,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
             ],
           ),
         ),
-        _chipRow(theme, _muscleChips, _muscleFilter,
+        _chipRow(theme, _muscleChips, _muscleFilter, _catLabel,
             (v) => setState(() => _muscleFilter = v)),
       ],
     );
@@ -667,11 +990,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     if (_smartTab) {
       final items = _smartVisible;
       if (items.isEmpty) {
-        return _empty(
-            theme,
-            _smart.isEmpty
-                ? 'No smart matches for this exercise.'
-                : 'No matches with this equipment.');
+        return _empty(theme,
+            _smart.isEmpty ? _tr(_lang, 'noSmart') : _tr(_lang, 'noEquip'));
       }
       final bestId = _smart.isNotEmpty ? _smart.first.id : null;
       return ListView.builder(
@@ -687,13 +1007,13 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
       return _empty(
           theme,
           _query.trim().isEmpty
-              ? 'No exercises in this group.'
-              : 'No exercises match "${_query.trim()}"');
+              ? _tr(_lang, 'noneInGroup')
+              : _tr(_lang, 'noMatch', q: _query.trim()));
     }
     final entries = <Object>[];
     String letter = '';
     for (final e in items) {
-      final l = e.name[0].toUpperCase();
+      final l = e.name.isEmpty ? '' : e.name[0].toUpperCase();
       if (l != letter) {
         letter = l;
         entries.add(l);
@@ -802,9 +1122,9 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                                 color: theme.primary,
                                 borderRadius: BorderRadius.circular(999),
                               ),
-                              child: const Text(
-                                'Best match',
-                                style: TextStyle(
+                              child: Text(
+                                _tr(_lang, 'bestMatch'),
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white,
@@ -815,7 +1135,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                           ],
                           Expanded(
                             child: Text(
-                              e.subtitle,
+                              e.subtitle(_lang),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -845,7 +1165,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                             size: 13, color: theme.primary),
                         const SizedBox(width: 3),
                         Text(
-                          'Form',
+                          _tr(_lang, 'form'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -885,7 +1205,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
     return Semantics(
       button: true,
       toggled: _updatePlan,
-      label: 'Also update my plan',
+      label: _tr(_lang, 'updatePlan'),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
@@ -901,7 +1221,7 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Also update my plan',
+                      _tr(_lang, 'updatePlan'),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -911,8 +1231,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                     const SizedBox(height: 2),
                     Text(
                       _updatePlan
-                          ? 'Replaced in this workout plan from now on'
-                          : 'Off: swap for today only',
+                          ? _tr(_lang, 'planOn')
+                          : _tr(_lang, 'planOff'),
                       style:
                           TextStyle(fontSize: 12, color: theme.secondaryText),
                     ),
@@ -933,8 +1253,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                   duration: const Duration(milliseconds: 180),
                   curve: Curves.easeOut,
                   alignment: _updatePlan
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
+                      ? AlignmentDirectional.centerEnd
+                      : AlignmentDirectional.centerStart,
                   child: Container(
                     width: 22,
                     height: 22,
@@ -991,8 +1311,8 @@ class _ReplaceExercisePickerState extends State<ReplaceExercisePicker> {
                     )
                   : Text(
                       _selectedId == null
-                          ? 'Pick an exercise'
-                          : 'Replace with $_selectedName',
+                          ? _tr(_lang, 'pickExercise')
+                          : _tr(_lang, 'replaceWith', x: _selectedName),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

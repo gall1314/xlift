@@ -12,17 +12,77 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
+
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// Unit labels. Keyed by the English unit FF passes in (lowercase).
+/// Unknown units are shown as-is.
+const Map<String, Map<String, String>> _kUnits = {
+  "kg": {"en": "kg", "es": "kg", "he": "ק״ג", "de": "kg", "fr": "kg"},
+  "lb": {"en": "lb", "es": "lb", "he": "ליב׳", "de": "lb", "fr": "lb"},
+  "lbs": {"en": "lbs", "es": "lb", "he": "ליב׳", "de": "lbs", "fr": "lb"},
+  "reps": {
+    "en": "reps",
+    "es": "reps",
+    "he": "חזרות",
+    "de": "Wdh.",
+    "fr": "reps"
+  },
+  "rep": {"en": "rep", "es": "rep", "he": "חזרה", "de": "Wdh.", "fr": "rep"},
+  "sets": {
+    "en": "sets",
+    "es": "series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "séries"
+  },
+  "set": {"en": "set", "es": "serie", "he": "סט", "de": "Satz", "fr": "série"},
+  "exercises": {
+    "en": "exercises",
+    "es": "ejercicios",
+    "he": "תרגילים",
+    "de": "Übungen",
+    "fr": "exercices"
+  },
+  "min": {"en": "min", "es": "min", "he": "דק׳", "de": "Min", "fr": "min"},
+  "sec": {"en": "sec", "es": "s", "he": "שנ׳", "de": "Sek", "fr": "s"},
+  "cal": {"en": "cal", "es": "cal", "he": "קל׳", "de": "kcal", "fr": "cal"},
+  "kcal": {
+    "en": "kcal",
+    "es": "kcal",
+    "he": "קק״ל",
+    "de": "kcal",
+    "fr": "kcal"
+  },
+  "prs": {"en": "PRs", "es": "PRs", "he": "שיאים", "de": "PRs", "fr": "PRs"},
+  "pr": {"en": "PR", "es": "PR", "he": "שיא", "de": "PR", "fr": "PR"},
+};
+
+String _unit(String lang, String raw) {
+  final m = _kUnits[raw.trim().toLowerCase()];
+  if (m == null) return raw;
+  return m[lang] ?? m['en'] ?? raw;
+}
 
 /// Hero number for the Workout Complete screen.
 ///
 /// Takes the value as a STRING ("150", "60.5", "10081") plus a unit, and
-/// counts up from 0 to the value with an ease-out curve. The unit is visible
-/// from the first frame so the row is centered throughout. Keeps the same
-/// number of decimals as the input while counting, adds thousands
-/// separators ("10,081"), and from [compactFrom] upwards shows a compact
-/// form ("10.1K"). Never overflows: scales down to fit its width.
-/// Tap the number to replay the animation.
+/// counts up from 0 to the value with an ease-out curve. Unit is translated
+/// from the English value FF passes ("kg", "reps"...). In RTL languages the
+/// unit sits on the left of the number; digits always render LTR.
 class HeroCounter extends StatefulWidget {
   const HeroCounter({
     super.key,
@@ -45,7 +105,7 @@ class HeroCounter extends StatefulWidget {
   final double? width;
   final double? height;
   final String value; // "150" | "60.5" | "10081"
-  final String? unit; // "kg" | "reps"
+  final String? unit; // "kg" | "reps" (English key)
   final Color? color;
   final Color? unitColor;
   final double? fontSize; // default 120
@@ -142,10 +202,15 @@ class _HeroCounterState extends State<HeroCounter>
 
   @override
   Widget build(BuildContext context) {
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
     final Color c = widget.color ?? const Color(0xFF2CD4C3);
     final Color uc = widget.unitColor ?? c;
     final double fs = widget.fontSize ?? 120;
     final double ufs = widget.unitFontSize ?? 28;
+    final String unit = (widget.unit == null || widget.unit!.trim().isEmpty)
+        ? ''
+        : _unit(lang, widget.unit!);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -160,6 +225,9 @@ class _HeroCounterState extends State<HeroCounter>
             return FittedBox(
               fit: BoxFit.scaleDown,
               child: Row(
+                // Number first in reading order; unit after it (left in RTL).
+                textDirection:
+                    rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
@@ -167,6 +235,7 @@ class _HeroCounterState extends State<HeroCounter>
                   Text(
                     _fmt(shown),
                     maxLines: 1,
+                    textDirection: ui.TextDirection.ltr,
                     style: TextStyle(
                       fontFamily: widget.fontFamily,
                       fontSize: fs,
@@ -177,10 +246,13 @@ class _HeroCounterState extends State<HeroCounter>
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                  if (widget.unit != null && widget.unit!.isNotEmpty) ...[
+                  if (unit.isNotEmpty) ...[
                     const SizedBox(width: 6),
                     Text(
-                      widget.unit!,
+                      unit,
+                      maxLines: 1,
+                      textDirection:
+                          rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                       style: TextStyle(
                         fontFamily: widget.fontFamily,
                         fontSize: ufs,

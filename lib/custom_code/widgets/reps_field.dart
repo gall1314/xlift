@@ -13,7 +13,29 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:async';
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
+
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, String> _kRepsLabel = {
+  'en': 'Reps',
+  'es': 'Reps',
+  'he': 'חזרות',
+  'de': 'Wdh.',
+  'fr': 'Reps',
+};
 
 /// Reps twin of WeightField - same look, colors, caret, push, live commit -
 /// integers only.
@@ -34,6 +56,9 @@ import 'package:flutter/services.dart';
 /// External reset: if this set's reps disappear from loggedSets while the pad
 /// is NOT open (e.g. "Reset Set"), the locally typed value is dropped and the
 /// field falls back to the hint.
+///
+/// Localization: reads the app language itself; the pad header flips in RTL,
+/// the digit grid stays LTR like a real keyboard.
 class RepsField extends StatefulWidget {
   const RepsField({
     super.key,
@@ -321,6 +346,9 @@ class _RepsFieldState extends State<RepsField>
 
     final bool dark =
         widget.isDark ?? (Theme.of(context).brightness == Brightness.dark);
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    final String label = _kRepsLabel[lang] ?? _kRepsLabel['en']!;
 
     setState(() => _editing = true);
     _startCaret();
@@ -352,6 +380,8 @@ class _RepsFieldState extends State<RepsField>
                 initial: _shown,
                 stepBase: _stepBase,
                 dark: dark,
+                rtl: rtl,
+                label: label,
                 onChanged: _liveCommit,
                 onMeasured: _onPadMeasured,
               ),
@@ -370,8 +400,6 @@ class _RepsFieldState extends State<RepsField>
     _stopCaret();
     if (mounted && _editing) setState(() => _editing = false);
 
-    // Slide down, then remove. orCancel: if something interrupts the
-    // animation we still fall through and clean up.
     try {
       await _slide.reverse().orCancel;
     } catch (_) {}
@@ -422,7 +450,9 @@ class _RepsFieldState extends State<RepsField>
               )
             : null,
         child: Center(
+          // Digits are LTR in every language; caret sits after the number.
           child: Row(
+            textDirection: ui.TextDirection.ltr,
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -430,6 +460,7 @@ class _RepsFieldState extends State<RepsField>
                 Text(
                   display,
                   textAlign: TextAlign.center,
+                  textDirection: ui.TextDirection.ltr,
                   maxLines: 1,
                   style: TextStyle(
                     fontSize: fs,
@@ -466,6 +497,8 @@ class _RepsPadSheet extends StatefulWidget {
     required this.initial,
     required this.stepBase,
     required this.dark,
+    required this.rtl,
+    required this.label,
     required this.onChanged,
     required this.onMeasured,
   });
@@ -473,6 +506,8 @@ class _RepsPadSheet extends StatefulWidget {
   final int? initial;
   final int stepBase;
   final bool dark;
+  final bool rtl;
+  final String label;
   final void Function(int? value) onChanged;
   final void Function(double height) onMeasured;
 
@@ -596,6 +631,8 @@ class _RepsPadSheetState extends State<_RepsPadSheet> {
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.of(context).padding.bottom;
     final display = _text.isEmpty ? '0' : _text;
+    final ui.TextDirection headerDir =
+        widget.rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr;
 
     // Material so text/ink render correctly inside the Overlay.
     return Material(
@@ -626,16 +663,21 @@ class _RepsPadSheetState extends State<_RepsPadSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
+            // Header flips in RTL: -1 on the right, +1 on the left, label
+            // after the number in reading order.
             Row(
+              textDirection: headerDir,
               children: [
                 _stepBtn('-1', () => _stepBy(-1)),
                 Expanded(
                   child: Row(
+                    textDirection: headerDir,
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(display,
+                          textDirection: ui.TextDirection.ltr,
                           style: TextStyle(
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
@@ -643,7 +685,8 @@ class _RepsPadSheetState extends State<_RepsPadSheet> {
                             color: _textColor,
                           )),
                       const SizedBox(width: 4),
-                      Text('Reps',
+                      Text(widget.label,
+                          textDirection: headerDir,
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -656,10 +699,17 @@ class _RepsPadSheetState extends State<_RepsPadSheet> {
               ],
             ),
             const SizedBox(height: 6),
-            Row(children: [_key('1'), _key('2'), _key('3')]),
-            Row(children: [_key('4'), _key('5'), _key('6')]),
-            Row(children: [_key('7'), _key('8'), _key('9')]),
-            Row(children: [
+            // Digit grid: always LTR like a real keyboard.
+            Row(
+                textDirection: ui.TextDirection.ltr,
+                children: [_key('1'), _key('2'), _key('3')]),
+            Row(
+                textDirection: ui.TextDirection.ltr,
+                children: [_key('4'), _key('5'), _key('6')]),
+            Row(
+                textDirection: ui.TextDirection.ltr,
+                children: [_key('7'), _key('8'), _key('9')]),
+            Row(textDirection: ui.TextDirection.ltr, children: [
               _key(''),
               _key('0'),
               _key('',
@@ -686,6 +736,7 @@ class _RepsPadSheetState extends State<_RepsPadSheet> {
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(label,
+            textDirection: ui.TextDirection.ltr,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,

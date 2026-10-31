@@ -12,8 +12,138 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 import '/custom_code/actions/save_analyzed_video_to_gallery.dart';
+
+// ---------------- Localization ----------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+/// {n} number.
+const Map<String, Map<String, String>> _kStrings = {
+  "save": {
+    "en": "Save analyzed video",
+    "es": "Guardar vídeo analizado",
+    "he": "שמור את הווידאו המנותח",
+    "de": "Analysiertes Video speichern",
+    "fr": "Enregistrer la vidéo analysée"
+  },
+  "savedTitle": {
+    "en": "Saved to Photos",
+    "es": "Guardado en Fotos",
+    "he": "נשמר בתמונות",
+    "de": "In Fotos gespeichert",
+    "fr": "Enregistré dans Photos"
+  },
+  "savedSub": {
+    "en": "Find it in your Photos library",
+    "es": "Lo encontrarás en tu galería",
+    "he": "תמצא אותו בספריית התמונות",
+    "de": "Du findest es in deiner Fotos-Mediathek",
+    "fr": "Retrouvez-la dans votre photothèque"
+  },
+  "errTitle": {
+    "en": "Couldn't save the video",
+    "es": "No se pudo guardar el vídeo",
+    "he": "לא הצלחנו לשמור את הווידאו",
+    "de": "Video konnte nicht gespeichert werden",
+    "fr": "Impossible d'enregistrer la vidéo"
+  },
+  "errSub": {
+    "en": "Tap the button to try again",
+    "es": "Toca el botón para reintentar",
+    "he": "הקש על הכפתור כדי לנסות שוב",
+    "de": "Zum Wiederholen tippen",
+    "fr": "Touchez le bouton pour réessayer"
+  },
+  "errShort": {
+    "en": "Couldn't save — tap to retry",
+    "es": "Error — toca para reintentar",
+    "he": "השמירה נכשלה — הקש לניסיון חוזר",
+    "de": "Fehler — zum Wiederholen tippen",
+    "fr": "Échec — touchez pour réessayer"
+  },
+  "stillTitle": {
+    "en": "Still saving… {n}%",
+    "es": "Guardando… {n}%",
+    "he": "עדיין שומר… {n}%",
+    "de": "Speichert noch… {n}%",
+    "fr": "Enregistrement… {n}%"
+  },
+  "stillSub": {
+    "en": "Keep the app open, almost there",
+    "es": "Mantén la app abierta, ya casi",
+    "he": "השאר את האפליקציה פתוחה, כמעט סיימנו",
+    "de": "App geöffnet lassen, fast fertig",
+    "fr": "Gardez l'app ouverte, c'est presque fini"
+  },
+  "savingTitle": {
+    "en": "Saving your video…",
+    "es": "Guardando tu vídeo…",
+    "he": "שומר את הווידאו…",
+    "de": "Video wird gespeichert…",
+    "fr": "Enregistrement de la vidéo…"
+  },
+  "savingSub": {
+    "en": "Takes about 20–30 seconds. Keep the app open.",
+    "es": "Tarda unos 20–30 segundos. Mantén la app abierta.",
+    "he": "לוקח כ-20–30 שניות. השאר את האפליקציה פתוחה.",
+    "de": "Dauert ca. 20–30 Sekunden. App geöffnet lassen.",
+    "fr": "Environ 20–30 secondes. Gardez l'app ouverte."
+  },
+  "stExtract": {
+    "en": "Preparing…",
+    "es": "Preparando…",
+    "he": "מכין…",
+    "de": "Vorbereiten…",
+    "fr": "Préparation…"
+  },
+  "stRender": {
+    "en": "Drawing overlays…",
+    "es": "Dibujando capas…",
+    "he": "מצייר שכבות…",
+    "de": "Overlays zeichnen…",
+    "fr": "Dessin des calques…"
+  },
+  "stEncode": {
+    "en": "Encoding…",
+    "es": "Codificando…",
+    "he": "מקודד…",
+    "de": "Kodieren…",
+    "fr": "Encodage…"
+  },
+  "stSave": {
+    "en": "Saving to Photos…",
+    "es": "Guardando en Fotos…",
+    "he": "שומר בתמונות…",
+    "de": "In Fotos speichern…",
+    "fr": "Enregistrement dans Photos…"
+  },
+  "stWork": {
+    "en": "Working…",
+    "es": "Procesando…",
+    "he": "עובד…",
+    "de": "Arbeitet…",
+    "fr": "Traitement…"
+  },
+};
+
+String _tr(String lang, String key, {int? n}) {
+  final m = _kStrings[key];
+  var s = m == null ? key : (m[lang] ?? m['en'] ?? key);
+  if (n != null) s = s.replaceAll('{n}', '$n');
+  return s;
+}
 
 // ============================================================================
 // Global export registry. The render runs independently of any widget, keyed
@@ -90,6 +220,9 @@ class _ExportJobs {
 /// toolbars/corners. Otherwise a full-width pill with label. Progress
 /// survives closing and reopening the sheet (global job registry). Pass the
 /// same [analysisResult] you pass to the analyzed video player.
+///
+/// Localization: reads the app language from FFLocalizations (no parameter).
+/// [label] still overrides the idle caption when given.
 class SaveAnalyzedVideoButton extends StatefulWidget {
   const SaveAnalyzedVideoButton({
     super.key,
@@ -117,13 +250,14 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
     with SingleTickerProviderStateMixin {
   late String _key;
   ValueNotifier<_JobState>? _job;
-  _JobState? _shownFinal; // saved/error we already reacted to
   bool _justFinishedShown = false;
 
   late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1100),
   )..repeat(reverse: true);
+
+  String get _lang => _langOf(context);
 
   @override
   void initState() {
@@ -154,12 +288,13 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
     final s = _job?.value;
     setState(() {});
     if (s == null) return;
+    final lang = _lang;
     if (s.phase == _JobPhase.saved && !_justFinishedShown) {
       _justFinishedShown = true;
       HapticFeedback.mediumImpact();
       _showSnack(
-        title: 'Saved to Photos',
-        subtitle: 'Find it in the Xlift album',
+        title: _tr(lang, 'savedTitle'),
+        subtitle: _tr(lang, 'savedSub'),
         icon: Icons.check_rounded,
       );
       Future.delayed(const Duration(seconds: 3), () {
@@ -169,8 +304,8 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
       _justFinishedShown = true;
       HapticFeedback.heavyImpact();
       _showSnack(
-        title: "Couldn't save the video",
-        subtitle: 'Tap the button to try again',
+        title: _tr(lang, 'errTitle'),
+        subtitle: _tr(lang, 'errSub'),
         icon: Icons.error_outline_rounded,
         danger: true,
       );
@@ -199,6 +334,7 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
   }) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
+    final bool rtl = _kRtl.contains(_lang);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
@@ -207,49 +343,52 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
         duration: duration,
         backgroundColor: const Color(0xFF1E2731),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        content: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: danger ? const Color(0xFFE5484D) : _accent,
-                shape: BoxShape.circle,
+        content: Directionality(
+          textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: danger ? const Color(0xFFE5484D) : _accent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 18, color: Colors.white),
               ),
-              child: Icon(icon, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          color: Color(0xFFB8C1CC), fontSize: 13)),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: const TextStyle(
+                            color: Color(0xFFB8C1CC), fontSize: 13)),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   void _tap() {
+    final lang = _lang;
     final s = _job?.value;
     if (s != null && s.phase == _JobPhase.running) {
-      // Already saving this video - just remind.
       HapticFeedback.selectionClick();
       _showSnack(
-        title: 'Still saving… ${(s.progress * 100).round()}%',
-        subtitle: 'Keep the app open, almost there',
+        title: _tr(lang, 'stillTitle', n: (s.progress * 100).round()),
+        subtitle: _tr(lang, 'stillSub'),
         icon: Icons.hourglass_top_rounded,
         duration: const Duration(seconds: 2),
       );
@@ -258,32 +397,33 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
     HapticFeedback.selectionClick();
     _justFinishedShown = false;
     _showSnack(
-      title: 'Saving your video…',
-      subtitle: 'Takes about 20–30 seconds. Keep the app open.',
+      title: _tr(lang, 'savingTitle'),
+      subtitle: _tr(lang, 'savingSub'),
       icon: Icons.movie_creation_outlined,
       duration: const Duration(seconds: 4),
     );
     _attach(_ExportJobs.start(_key, widget.analysisResult));
   }
 
-  String _stageText(String stage) {
+  String _stageText(String lang, String stage) {
     switch (stage) {
       case 'extract':
-        return 'Preparing…';
+        return _tr(lang, 'stExtract');
       case 'render':
-        return 'Drawing overlays…';
+        return _tr(lang, 'stRender');
       case 'encode':
-        return 'Encoding…';
+        return _tr(lang, 'stEncode');
       case 'save':
-        return 'Saving to Photos…';
+        return _tr(lang, 'stSave');
       default:
-        return 'Working…';
+        return _tr(lang, 'stWork');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final String lang = _lang;
     final Color accent = _accent;
     final _JobState? s = _job?.value;
     final bool running = s?.phase == _JobPhase.running;
@@ -291,10 +431,16 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
     final bool error = s?.phase == _JobPhase.error && _justFinishedShown;
     final double progress = (s?.progress ?? 0).clamp(0.0, 1.0);
 
-    if (widget.compact)
-      return _compact(accent, running, saved, error, progress);
-    return _full(
-        theme, accent, running, saved, error, progress, s?.stage ?? '');
+    final Widget body = widget.compact
+        ? _compact(accent, running, saved, error, progress)
+        : _full(theme, lang, accent, running, saved, error, progress,
+            s?.stage ?? '');
+
+    return Directionality(
+      textDirection:
+          _kRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: body,
+    );
   }
 
   // ---------------- compact: 48x48 circle with progress ring ----------------
@@ -370,13 +516,25 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
   }
 
   // ---------------- full-width pill ----------------
-  Widget _full(FlutterFlowTheme theme, Color accent, bool running, bool saved,
-      bool error, double progress, String stage) {
+  Widget _full(FlutterFlowTheme theme, String lang, Color accent, bool running,
+      bool saved, bool error, double progress, String stage) {
     final double h = widget.height ?? 52;
     final Color bg = error
         ? const Color(0xFFE5484D)
         : (saved ? const Color(0xFF2E9E6B) : accent);
-    final String label = widget.label ?? 'Save analyzed video';
+    final String? custom =
+        (widget.label ?? '').trim().isEmpty ? null : widget.label;
+    final String label = custom ?? _tr(lang, 'save');
+
+    Widget txt(String s, {double size = 16}) => Flexible(
+          child: Text(s,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: size,
+                  fontWeight: FontWeight.w600)),
+        );
 
     Widget child;
     if (running) {
@@ -395,37 +553,26 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
             ),
           ),
           const SizedBox(width: 12),
-          Text('${_stageText(stage)} $pct%',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600)),
+          txt('${_stageText(lang, stage)} $pct%', size: 15),
         ],
       );
     } else if (saved) {
-      child = const Row(
+      child = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-          SizedBox(width: 8),
-          Text('Saved to Photos',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
+          const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          txt(_tr(lang, 'savedTitle')),
         ],
       );
     } else if (error) {
-      child = const Row(
+      child = Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-          SizedBox(width: 8),
-          Text("Couldn't save — tap to retry",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600)),
+          const Icon(Icons.error_outline_rounded,
+              color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          txt(_tr(lang, 'errShort'), size: 15),
         ],
       );
     } else {
@@ -434,11 +581,7 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
         children: [
           const Icon(Icons.download_rounded, color: Colors.white, size: 20),
           const SizedBox(width: 8),
-          Text(label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
+          txt(label),
         ],
       );
     }
@@ -456,11 +599,11 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
               height: h,
               color: bg,
             ),
-            // Progress fill sweeping left -> right behind the label.
+            // Progress fill sweeping from the start edge behind the label.
             if (running)
               Positioned.fill(
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: FractionallySizedBox(
                     widthFactor: progress,
                     child: Container(color: Colors.white.withOpacity(0.18)),
@@ -470,7 +613,10 @@ class _SaveAnalyzedVideoButtonState extends State<SaveAnalyzedVideoButton>
             SizedBox(
               width: widget.width ?? double.infinity,
               height: h,
-              child: Center(child: child),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Center(child: child),
+              ),
             ),
           ],
         ),

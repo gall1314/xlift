@@ -12,14 +12,20 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Tappable exercise header: illustration (45x45, radius 8) + name.
 ///
-/// Pass the DISPLAY name ("Box Squat"); the widget calls exerciseImageName()
-/// itself to resolve the asset. [illustration] = bare file name for custom
-/// exercises (same as ExerciseAssetImage), empty for catalog.
+/// Pass the RAW exercise.name from the DB — either the JSON translations
+/// ({"en":"Box Squat","es":...}) or a plain string (not yet migrated / custom
+/// exercise). The widget resolves the display name in the app language and
+/// always uses the ENGLISH name for the image lookup, so assets keep working
+/// in every language. Reads the language from FFLocalizations (no parameter).
+///
+/// [illustration] = bare file name for custom exercises (same as
+/// ExerciseAssetImage), empty for catalog.
 ///
 /// Press feedback: while the finger is down (tap or long-press) the image and
 /// text fade to ~40% and shrink slightly, then spring back. [onTap] fires on
@@ -56,6 +62,17 @@ class ExerciseHeaderButton extends StatefulWidget {
   State<ExerciseHeaderButton> createState() => _ExerciseHeaderButtonState();
 }
 
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
 class _ExerciseHeaderButtonState extends State<ExerciseHeaderButton> {
   bool _pressed = false;
 
@@ -66,6 +83,10 @@ class _ExerciseHeaderButtonState extends State<ExerciseHeaderButton> {
   @override
   Widget build(BuildContext context) {
     final theme = FlutterFlowTheme.of(context);
+    final String lang = _langOf(context);
+    final String display = localizedName(widget.exerciseName, lang);
+    final String nameEn = localizedName(widget.exerciseName, 'en');
+
     final TextStyle style = theme.titleMedium.override(
       fontFamily: theme.titleMediumFamily,
       color: widget.textColor ?? theme.primaryText,
@@ -74,54 +95,58 @@ class _ExerciseHeaderButtonState extends State<ExerciseHeaderButton> {
       useGoogleFonts: GoogleFonts.asMap().containsKey(theme.titleMediumFamily),
     );
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _setPressed(true),
-      onTapCancel: () => _setPressed(false),
-      onTapUp: (_) {
-        _setPressed(false);
-        HapticFeedback.selectionClick();
-        widget.onTap?.call();
-      },
-      // Long press: keep the dimmed state until release, then fire too.
-      onLongPressStart: (_) => _setPressed(true),
-      onLongPressEnd: (_) {
-        _setPressed(false);
-        HapticFeedback.selectionClick();
-        widget.onTap?.call();
-      },
-      onLongPressCancel: () => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
-        child: AnimatedOpacity(
-          opacity: _pressed ? 0.4 : 1.0,
+    return Directionality(
+      textDirection:
+          _kRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _setPressed(true),
+        onTapCancel: () => _setPressed(false),
+        onTapUp: (_) {
+          _setPressed(false);
+          HapticFeedback.selectionClick();
+          widget.onTap?.call();
+        },
+        // Long press: keep the dimmed state until release, then fire too.
+        onLongPressStart: (_) => _setPressed(true),
+        onLongPressEnd: (_) {
+          _setPressed(false);
+          HapticFeedback.selectionClick();
+          widget.onTap?.call();
+        },
+        onLongPressCancel: () => _setPressed(false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.97 : 1.0,
           duration: const Duration(milliseconds: 120),
-          child: SizedBox(
-            width: widget.width,
-            height: widget.height,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ExerciseAssetImage(
-                  width: widget.imageSize,
-                  height: widget.imageSize,
-                  exerciseName: exerciseImageName(widget.exerciseName),
-                  borderRadius: widget.imageRadius,
-                  illustration: widget.illustration,
-                ),
-                SizedBox(width: widget.gap),
-                Flexible(
-                  child: Text(
-                    widget.exerciseName,
-                    style: style,
-                    maxLines: widget.maxLines,
-                    overflow: TextOverflow.ellipsis,
+          curve: Curves.easeOut,
+          child: AnimatedOpacity(
+            opacity: _pressed ? 0.4 : 1.0,
+            duration: const Duration(milliseconds: 120),
+            child: SizedBox(
+              width: widget.width,
+              height: widget.height,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ExerciseAssetImage(
+                    width: widget.imageSize,
+                    height: widget.imageSize,
+                    exerciseName: exerciseImageName(nameEn),
+                    borderRadius: widget.imageRadius,
+                    illustration: widget.illustration,
                   ),
-                ),
-              ],
+                  SizedBox(width: widget.gap),
+                  Flexible(
+                    child: Text(
+                      display,
+                      style: style,
+                      maxLines: widget.maxLines,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

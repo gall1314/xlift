@@ -15,40 +15,21 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // ============================================================================
 // XliftCameraRecorder  —  FlutterFlow Custom Widget
 // ----------------------------------------------------------------------------
-// v7 — Calm redesign (built on the v5 camera logic, which is unchanged):
-//   * Clean camera: thin rule-of-thirds grid + large corner frame, one hint
-//     line, native-style controls. No scan line, glow or ghost figure.
-//   * Setup tips are a centered card with a small animated figure of the
-//     actual exercise (20 supported exercises, matched by name).
-//   * Full bleed: the widget paints over the whole screen egven if the host
-//     page keeps its safe area.
-//   * Gallery button, ".5x | 1x" lens pill, REC timer.
+// v8 — Localization on top of v7 (camera logic unchanged):
+//   * exerciseName stays the ENGLISH analyzer key (matching the animation and
+//     everything downstream). The title / tips card show the name in the app
+//     language, looked up from the exercise table by its English name.
+//   * All UI strings translated; tips card + permission card flip in RTL.
+//     Camera chrome (shutter, lens pill, close/? buttons) stays LTR like a
+//     native camera.
 //
-// Camera behaviour kept from v2-v5: permission overlay, wakelock, gallery
-// upload, native-camera-like lifecycle (inactive = ignore, paused = stop and
-// keep the clip, deliver on resume), hidden status bar, guarded stop.
-//
-// ----------------------------------------------------------------------------
 // FlutterFlow setup
-// ----------------------------------------------------------------------------
-// 1) Pubspec Dependencies:
-//        camera: ^0.11.0
-//        permission_handler: ^11.3.1
-//        wakelock_plus: ^1.2.8
-//        image_picker: ^1.1.2
-//
-// 2) iOS Info.plist:
-//        NSCameraUsageDescription = "Record video to analyze exercise form"
-//        NSPhotoLibraryUsageDescription = "Pick a video to analyze exercise form"
-//
-// 3) Custom Widget parameters:
-//        width / height   : double (set both to Infinite)
-//        exerciseName     : String  (optional) picks the animation + tips
-//        showGuidance     : Boolean (optional, default true) show tips first
-//        onVideoRecorded  : Action with Callback Parameter
-//                           name = videoFile, type = Uploaded File
-//        onClose          : Action (no parameters)
-//        onDontShowAgain  : Action (no parameters)
+//   Pubspec: camera ^0.11.0, permission_handler ^11.3.1, wakelock_plus ^1.2.8,
+//            image_picker ^1.1.2
+//   iOS Info.plist: NSCameraUsageDescription, NSPhotoLibraryUsageDescription
+//   Parameters: width/height (Infinite), exerciseName (String, English),
+//               showGuidance (Boolean), onVideoRecorded(videoFile: Uploaded
+//               File), onClose, onDontShowAgain
 // ============================================================================
 
 import 'dart:async';
@@ -59,6 +40,227 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
+// ---------------------------------------------------------------------------
+// Localization
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kStrings = {
+  "aiFormCheck": {
+    "en": "AI Form Check",
+    "es": "Análisis de técnica",
+    "he": "ניתוח טכניקה",
+    "de": "KI-Technikcheck",
+    "fr": "Analyse de la technique"
+  },
+  "setup": {
+    "en": "Set up your shot",
+    "es": "Prepara la toma",
+    "he": "הכנת הצילום",
+    "de": "Aufnahme einrichten",
+    "fr": "Préparez la prise"
+  },
+  "gotIt": {
+    "en": "Got it",
+    "es": "Entendido",
+    "he": "הבנתי",
+    "de": "Verstanden",
+    "fr": "Compris"
+  },
+  "dontShow": {
+    "en": "Don't show this again",
+    "es": "No volver a mostrar",
+    "he": "לא להציג שוב",
+    "de": "Nicht mehr anzeigen",
+    "fr": "Ne plus afficher"
+  },
+  "hintRec": {
+    "en": "Finish your set, then tap stop",
+    "es": "Termina la serie y pulsa stop",
+    "he": "סיים את הסט ולחץ עצור",
+    "de": "Satz beenden, dann Stopp",
+    "fr": "Finissez la série, puis stop"
+  },
+  "hintIdle": {
+    "en": "Keep your whole body in view",
+    "es": "Mantén todo el cuerpo a la vista",
+    "he": "שמור על כל הגוף בפריים",
+    "de": "Ganzen Körper im Bild halten",
+    "fr": "Gardez tout le corps dans le cadre"
+  },
+  "angleSide": {
+    "en": "Film from the side",
+    "es": "Graba desde el lado",
+    "he": "צלם מהצד",
+    "de": "Von der Seite filmen",
+    "fr": "Filmez de côté"
+  },
+  "angleSideFront": {
+    "en": "Film from the side or front",
+    "es": "Graba de lado o de frente",
+    "he": "צלם מהצד או מלפנים",
+    "de": "Von der Seite oder vorne",
+    "fr": "De côté ou de face"
+  },
+  "angleSubPullup": {
+    "en": "Both angles work for pull-ups.",
+    "es": "Ambos ángulos sirven para dominadas.",
+    "he": "שתי הזוויות עובדות למתח.",
+    "de": "Beide Winkel passen für Klimmzüge.",
+    "fr": "Les deux angles conviennent aux tractions."
+  },
+  "angleSubPress": {
+    "en": "Front works for counting, side gives full feedback.",
+    "es": "De frente cuenta reps; de lado da más feedback.",
+    "he": "מלפנים סופר חזרות, מהצד נותן משוב מלא.",
+    "de": "Vorne zählt Wdh., seitlich volles Feedback.",
+    "fr": "De face pour compter, de côté pour tout le feedback."
+  },
+  "angleSub": {
+    "en": "Phone at 90° to your body.",
+    "es": "Teléfono a 90° de tu cuerpo.",
+    "he": "הטלפון ב-90° לגוף.",
+    "de": "Handy im 90°-Winkel zum Körper.",
+    "fr": "Téléphone à 90° du corps."
+  },
+  "bodyTitle": {
+    "en": "Whole body in frame",
+    "es": "Todo el cuerpo en cuadro",
+    "he": "כל הגוף בפריים",
+    "de": "Ganzer Körper im Bild",
+    "fr": "Tout le corps dans le cadre"
+  },
+  "bodySub": {
+    "en": "Head to feet, through the whole rep.",
+    "es": "De la cabeza a los pies, toda la rep.",
+    "he": "מהראש עד הרגליים, לאורך כל החזרה.",
+    "de": "Kopf bis Fuß, die ganze Wdh.",
+    "fr": "De la tête aux pieds, toute la rep."
+  },
+  "distTitle": {
+    "en": "About 3 m away, phone still",
+    "es": "A unos 3 m, teléfono fijo",
+    "he": "כ-3 מ׳ מרחק, טלפון יציב",
+    "de": "Ca. 3 m Abstand, Handy ruhig",
+    "fr": "À 3 m environ, téléphone stable"
+  },
+  "distSub": {
+    "en": "Prop it up. No room? Switch to .5x.",
+    "es": "Apóyalo. ¿Poco espacio? Usa .5x.",
+    "he": "השען אותו. אין מקום? עבור ל-.5x.",
+    "de": "Abstellen. Zu eng? Auf .5x wechseln.",
+    "fr": "Posez-le. Pas de place ? Passez en .5x."
+  },
+  "lightTitle": {
+    "en": "Only you, well lit",
+    "es": "Solo tú, bien iluminado",
+    "he": "רק אתה, בתאורה טובה",
+    "de": "Nur du, gut beleuchtet",
+    "fr": "Vous seul, bien éclairé"
+  },
+  "lightSub": {
+    "en": "Keep other people out of the shot.",
+    "es": "Que no haya otras personas en la toma.",
+    "he": "בלי אנשים אחרים בפריים.",
+    "de": "Keine anderen Personen im Bild.",
+    "fr": "Personne d'autre dans le cadre."
+  },
+  "about3m": {
+    "en": "about 3 m",
+    "es": "unos 3 m",
+    "he": "כ-3 מ׳",
+    "de": "ca. 3 m",
+    "fr": "env. 3 m"
+  },
+  "permTitle": {
+    "en": "Camera access needed",
+    "es": "Se necesita la cámara",
+    "he": "נדרשת גישה למצלמה",
+    "de": "Kamerazugriff nötig",
+    "fr": "Accès caméra requis"
+  },
+  "permSub": {
+    "en": "To record and analyze your form, allow camera access in Settings.",
+    "es": "Para grabar y analizar tu técnica, permite la cámara en Ajustes.",
+    "he": "כדי לצלם ולנתח את הטכניקה, אפשר גישה למצלמה בהגדרות.",
+    "de":
+        "Erlaube den Kamerazugriff in den Einstellungen, um deine Technik zu analysieren.",
+    "fr":
+        "Pour filmer et analyser votre technique, autorisez la caméra dans Réglages."
+  },
+  "openSettings": {
+    "en": "Open Settings",
+    "es": "Abrir Ajustes",
+    "he": "פתח הגדרות",
+    "de": "Einstellungen öffnen",
+    "fr": "Ouvrir Réglages"
+  },
+  "notNow": {
+    "en": "Not now",
+    "es": "Ahora no",
+    "he": "לא עכשיו",
+    "de": "Nicht jetzt",
+    "fr": "Pas maintenant"
+  },
+  "noCamera": {
+    "en": "No camera found on this device",
+    "es": "No se encontró cámara",
+    "he": "לא נמצאה מצלמה במכשיר",
+    "de": "Keine Kamera gefunden",
+    "fr": "Aucune caméra trouvée"
+  },
+  "semClose": {
+    "en": "Close camera",
+    "es": "Cerrar cámara",
+    "he": "סגור מצלמה",
+    "de": "Kamera schließen",
+    "fr": "Fermer la caméra"
+  },
+  "semTips": {
+    "en": "Show filming tips",
+    "es": "Ver consejos",
+    "he": "הצג טיפים לצילום",
+    "de": "Tipps anzeigen",
+    "fr": "Voir les conseils"
+  },
+  "semGallery": {
+    "en": "Pick a video from your library",
+    "es": "Elegir vídeo de la galería",
+    "he": "בחר וידאו מהגלריה",
+    "de": "Video aus Mediathek wählen",
+    "fr": "Choisir une vidéo"
+  },
+  "semStart": {
+    "en": "Start recording",
+    "es": "Empezar a grabar",
+    "he": "התחל הקלטה",
+    "de": "Aufnahme starten",
+    "fr": "Démarrer"
+  },
+  "semStop": {
+    "en": "Stop recording",
+    "es": "Detener grabación",
+    "he": "עצור הקלטה",
+    "de": "Aufnahme stoppen",
+    "fr": "Arrêter"
+  },
+};
+
+String _tr(String lang, String key) {
+  final m = _kStrings[key];
+  return m == null ? key : (m[lang] ?? m['en'] ?? key);
+}
 
 class XliftCameraRecorder extends StatefulWidget {
   const XliftCameraRecorder({
@@ -75,7 +277,8 @@ class XliftCameraRecorder extends StatefulWidget {
   final double? width;
   final double? height;
 
-  /// Exercise name, used for the title, the animation and the tips.
+  /// ENGLISH exercise name (analyzer key). Picks the animation + tips; the
+  /// displayed name is resolved to the app language from the DB.
   final String? exerciseName;
 
   /// Show the setup tips when the camera opens. Default true.
@@ -177,7 +380,7 @@ class _Pose {
   });
 
   final Offset head, sh, elbow, wrist, hip, knee, ankle, toe;
-  final Offset? knee2, ankle2; // rear leg (only when it is visible)
+  final Offset? knee2, ankle2;
 
   static Offset _l(Offset a, Offset b, double t) =>
       Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
@@ -208,7 +411,6 @@ class _ExAnim {
   final _Fixture fixture;
 }
 
-// Body "cores": head, shoulder, hip, knee, ankle, toe as x,y pairs.
 const List<double> _cStand = [
   0.50, 0.15, 0.50, 0.27, 0.49, 0.55, 0.50, 0.75, 0.49, 0.93, 0.57, 0.94 //
 ];
@@ -222,7 +424,6 @@ const List<double> _cDeadlift = [
   0.66, 0.43, 0.60, 0.53, 0.40, 0.66, 0.54, 0.77, 0.49, 0.93, 0.57, 0.94 //
 ];
 
-/// Builds a pose from a core plus arm offsets relative to the shoulder.
 _Pose _mk(List<double> c, Offset eOff, Offset wOff) {
   final Offset sh = Offset(c[2], c[3]);
   return _Pose(
@@ -435,31 +636,30 @@ class _Tip {
   final String title, sub;
 }
 
-List<_Tip> _tipsOf(_Ex ex) {
+List<_Tip> _tipsOf(_Ex ex, String lang) {
   final _Tip angle;
   if (ex == _Ex.pullup) {
-    angle = const _Tip(Icons.swap_horiz_rounded, 'Film from the side or front',
-        'Both angles work for pull-ups.');
+    angle = _Tip(Icons.swap_horiz_rounded, _tr(lang, 'angleSideFront'),
+        _tr(lang, 'angleSubPullup'));
   } else if (ex == _Ex.press) {
-    angle = const _Tip(Icons.swap_horiz_rounded, 'Film from the side',
-        'Front works for counting, side gives full feedback.');
+    angle = _Tip(Icons.swap_horiz_rounded, _tr(lang, 'angleSide'),
+        _tr(lang, 'angleSubPress'));
   } else {
-    angle = const _Tip(Icons.swap_horiz_rounded, 'Film from the side',
-        'Phone at 90° to your body.');
+    angle = _Tip(Icons.swap_horiz_rounded, _tr(lang, 'angleSide'),
+        _tr(lang, 'angleSub'));
   }
   return [
     angle,
-    const _Tip(Icons.crop_free_rounded, 'Whole body in frame',
-        'Head to feet, through the whole rep.'),
-    const _Tip(Icons.stay_current_portrait_rounded,
-        'About 3 m away, phone still', 'Prop it up. No room? Switch to .5x.'),
-    const _Tip(Icons.wb_sunny_outlined, 'Only you, well lit',
-        'Keep other people out of the shot.'),
+    _Tip(Icons.crop_free_rounded, _tr(lang, 'bodyTitle'), _tr(lang, 'bodySub')),
+    _Tip(Icons.stay_current_portrait_rounded, _tr(lang, 'distTitle'),
+        _tr(lang, 'distSub')),
+    _Tip(Icons.wb_sunny_outlined, _tr(lang, 'lightTitle'),
+        _tr(lang, 'lightSub')),
   ];
 }
 
-String _angleLabel(_Ex ex) =>
-    ex == _Ex.pullup ? 'Film from the side or front' : 'Film from the side';
+String _angleLabel(_Ex ex, String lang) =>
+    _tr(lang, ex == _Ex.pullup ? 'angleSideFront' : 'angleSide');
 
 // ---------------------------------------------------------------------------
 // State
@@ -467,40 +667,37 @@ String _angleLabel(_Ex ex) =>
 
 class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     with WidgetsBindingObserver, TickerProviderStateMixin {
-  // --- Recording quality --------------------------------------------------
   static const ResolutionPreset _resolution = ResolutionPreset.veryHigh;
 
   CameraController? _controller;
   bool _initialized = false;
   bool _showGuidance = true;
   bool _isRecording = false;
-  bool _busy = false; // blocks double taps during start/stop
+  bool _busy = false;
   String? _error;
-  // [v2] True when camera permission was denied - shows the settings overlay.
   bool _permissionDenied = false;
 
-  // [v5] A clip that was stopped because the app got backgrounded while
-  // recording. Delivered on resume.
   XFile? _pendingClip;
   bool _delivering = false;
 
-  // --- Ultra-wide (0.5x) support via LENS SWITCHING ------------------------
   List<CameraDescription> _backCams = [];
-  CameraDescription? _mainCam; // standard wide = "1x"
-  CameraDescription? _ultraWideCam; // ultra-wide = "0.5x" (null if none)
+  CameraDescription? _mainCam;
+  CameraDescription? _ultraWideCam;
   bool _wideAvailable = false;
   bool _isWide = false;
 
-  // [v4] Gallery picker.
   final ImagePicker _picker = ImagePicker();
 
-  // [v7] UI animation + recording timer + full-bleed origin.
-  late final AnimationController _loop; // figure + REC dot
-  late final AnimationController _intro; // tips card entrance
+  late final AnimationController _loop;
+  late final AnimationController _intro;
   Timer? _recTimer;
   int _recSeconds = 0;
   Offset _origin = Offset.zero;
   final List<Timer> _measureTimers = [];
+
+  /// Raw DB name (JSON) for the English exerciseName; null until looked up.
+  String? _rawName;
+  bool _nameLookedUp = false;
 
   _Ex get _ex => _exOf(widget.exerciseName);
 
@@ -508,9 +705,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // [v3] Keep the screen awake while the camera is open.
     WakelockPlus.enable();
-    // [v5] Full screen: hide status bar while the camera is open.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     _showGuidance = widget.showGuidance ?? true;
@@ -524,19 +719,55 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     );
     if (_showGuidance) _intro.forward();
 
-    // [v7] The page transition moves this widget; re-measure a few times.
     for (final int ms in const [120, 400, 900]) {
       _measureTimers.add(Timer(Duration(milliseconds: ms), _measure));
     }
 
+    _lookupName();
     _setupCamera();
+  }
+
+  @override
+  void didUpdateWidget(covariant XliftCameraRecorder old) {
+    super.didUpdateWidget(old);
+    if (old.exerciseName != widget.exerciseName) {
+      _nameLookedUp = false;
+      _rawName = null;
+      _lookupName();
+    }
+  }
+
+  /// Find the DB row by its English name so the title can be translated.
+  Future<void> _lookupName() async {
+    if (_nameLookedUp) return;
+    _nameLookedUp = true;
+    final String en = (widget.exerciseName ?? '').trim();
+    if (en.isEmpty) return;
+    try {
+      final rows = await SQLiteManager.instance.database.rawQuery(
+        "SELECT name FROM exercise "
+        "WHERE name = ? OR (json_valid(name) AND json_extract(name,'\$.en') = ?) "
+        "LIMIT 1",
+        [en, en],
+      );
+      if (rows.isNotEmpty && mounted) {
+        setState(() => _rawName = rows.first['name']?.toString());
+      }
+    } catch (_) {}
+  }
+
+  /// Display name in the app language (falls back to the English key).
+  String _displayName(String lang) {
+    final String en = (widget.exerciseName ?? '').trim();
+    if (_rawName == null || _rawName!.isEmpty) return en;
+    final String s = localizedName(_rawName, lang);
+    return s.isEmpty ? en : s;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     WakelockPlus.disable();
-    // [v5] Restore the normal system UI.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     for (final t in _measureTimers) {
       t.cancel();
@@ -548,7 +779,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     super.dispose();
   }
 
-  // [v7] Where this widget sits on the screen, so it can paint full bleed.
   void _measure() {
     if (!mounted) return;
     final ro = context.findRenderObject();
@@ -563,12 +793,10 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
   }
 
-  // [v5] Lifecycle like the native Camera app.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.inactive:
-        // Dynamic Island / Control Center / notification banner: ignore.
         return;
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
@@ -584,17 +812,14 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   Future<void> _onBackgrounded() async {
     final c = _controller;
     if (c == null) return;
-    _controller = null; // clear first so _openController won't re-dispose it
+    _controller = null;
 
-    // If a recording is in flight, stop it cleanly and KEEP the file.
     if (_isRecording) {
       try {
         if (c.value.isRecordingVideo) {
           _pendingClip = await c.stopVideoRecording();
         }
-      } catch (_) {
-        // Nothing to keep - the OS already killed the session.
-      }
+      } catch (_) {}
       _isRecording = false;
       _stopRecTimer();
     }
@@ -611,19 +836,16 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   }
 
   Future<void> _onResumed() async {
-    // Re-enable immersive mode (iOS drops it when the app is backgrounded).
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    // A clip survived the background trip -> deliver it, exactly like Stop.
     if (_pendingClip != null && !_delivering) {
       final XFile clip = _pendingClip!;
       _pendingClip = null;
       await _deliverFile(clip, picked: false);
-      return; // the callback usually navigates away; don't reopen the camera
+      return;
     }
 
     if (_controller == null) {
-      // [v2] The user may have just enabled camera access in Settings.
       _permissionDenied = false;
       _setupCamera();
     }
@@ -633,7 +855,9 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        if (mounted) setState(() => _error = 'No camera found on this device');
+        if (mounted) {
+          setState(() => _error = _tr(_langOf(context), 'noCamera'));
+        }
         return;
       }
 
@@ -645,7 +869,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
         _mainCam = cameras.first;
         _ultraWideCam = null;
       } else {
-        _mainCam = _backCams.first; // wide = 1x
+        _mainCam = _backCams.first;
         _ultraWideCam = _backCams.length >= 2 ? _backCams.last : null;
       }
       _wideAvailable = _ultraWideCam != null;
@@ -656,7 +880,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
 
       if (mounted) setState(() => _initialized = true);
     } catch (e) {
-      // [v2] Distinguish permission denial from other camera failures.
       final String msg = e.toString();
       final bool isPermission = msg.contains('CameraAccessDenied') ||
           msg.contains('AccessDenied') ||
@@ -754,7 +977,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   Future<void> _stopRecording() async {
     final c = _controller;
     if (c == null || !_isRecording || _busy) return;
-    // [v5] Guard: never call stop when the controller isn't recording.
     if (!c.value.isRecordingVideo) {
       _stopRecTimer();
       if (mounted) setState(() => _isRecording = false);
@@ -780,7 +1002,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     }
   }
 
-  /// Hands a clip (recorded or picked) to FlutterFlow.
   Future<void> _deliverFile(XFile file, {required bool picked}) async {
     if (_delivering) return;
     _delivering = true;
@@ -791,8 +1012,8 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
           : '.mp4';
       final uploaded = FFUploadedFile(
         name: picked
-            ? 'xlift_upload_${DateTime.now().millisecondsSinceEpoch}$ext'
-            : 'xlift_${DateTime.now().millisecondsSinceEpoch}.mp4',
+            ? 'upload_${DateTime.now().millisecondsSinceEpoch}$ext'
+            : 'rec_${DateTime.now().millisecondsSinceEpoch}.mp4',
         bytes: bytes,
       );
       if (widget.onVideoRecorded != null) {
@@ -803,8 +1024,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     }
   }
 
-  // [v4] Pick a video from the gallery and deliver it through the same
-  // callback as a recorded clip. Silently returns if the user cancels.
   Future<void> _pickFromGallery() async {
     if (_isRecording || _busy) return;
     setState(() => _busy = true);
@@ -812,7 +1031,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
       final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
       if (file == null) {
         if (mounted) setState(() => _busy = false);
-        return; // user cancelled
+        return;
       }
       await _deliverFile(file, picked: true);
       if (mounted) setState(() => _busy = false);
@@ -842,7 +1061,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     }
   }
 
-  // [v7] Tips card open / close.
   void _openGuidance() {
     if (_isRecording) return;
     setState(() => _showGuidance = true);
@@ -865,12 +1083,13 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
 
   @override
   Widget build(BuildContext context) {
-    // [v7] Full bleed: lay out against the real screen, not the host box.
     final MediaQueryData mq = MediaQueryData.fromView(View.of(context));
     final Size screen = mq.size;
     final EdgeInsets insets = mq.viewPadding;
     WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
 
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
     final bool camUi = !_permissionDenied && _error == null;
     final bool liveUi = camUi && !_showGuidance;
 
@@ -888,6 +1107,8 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
           child: SizedBox(
             width: screen.width,
             height: screen.height,
+            // Camera chrome is LTR like a native camera; text-heavy overlays
+            // (tips, permission) get their own Directionality below.
             child: Directionality(
               textDirection: ui.TextDirection.ltr,
               child: Stack(
@@ -896,12 +1117,13 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                   Container(color: Colors.black),
                   if (!_permissionDenied) _cameraLayer(),
                   if (camUi) _frameLayer(insets),
-                  if (liveUi) _topInfo(insets),
-                  if (liveUi) _hint(insets),
-                  if (liveUi) _controls(insets),
-                  if (camUi && _showGuidance) _guidanceOverlay(insets),
-                  if (_permissionDenied) _permissionOverlay(),
-                  if (!_permissionDenied) _closeButton(insets),
+                  if (liveUi) _topInfo(insets, lang),
+                  if (liveUi) _hint(insets, lang),
+                  if (liveUi) _controls(insets, lang),
+                  if (camUi && _showGuidance)
+                    _guidanceOverlay(insets, lang, rtl),
+                  if (_permissionDenied) _permissionOverlay(lang, rtl),
+                  if (!_permissionDenied) _closeButton(insets, lang),
                 ],
               ),
             ),
@@ -948,7 +1170,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     );
   }
 
-  // Rule-of-thirds grid + large corner frame. Never blocks touches.
   Widget _frameLayer(EdgeInsets insets) {
     final double target = _showGuidance ? 0.25 : (_isRecording ? 0.4 : 0.75);
     return IgnorePointer(
@@ -983,12 +1204,12 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     );
   }
 
-  Widget _closeButton(EdgeInsets insets) {
+  Widget _closeButton(EdgeInsets insets, String lang) {
     return Positioned(
       left: 12,
       top: insets.top + 8,
       child: _roundButton(
-        label: 'Close camera',
+        label: _tr(lang, 'semClose'),
         onTap: _handleClose,
         child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
       ),
@@ -998,9 +1219,11 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   String _mmss(int s) =>
       '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
 
-  // Title (ready) or REC timer (recording), plus the "?" tips button.
-  Widget _topInfo(EdgeInsets insets) {
-    final String name = (widget.exerciseName ?? '').trim();
+  Widget _topInfo(EdgeInsets insets, String lang) {
+    final String name = _displayName(lang);
+    final bool rtl = _kRtl.contains(lang);
+    final ui.TextDirection dir =
+        rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr;
     final Widget center = _isRecording
         ? Container(
             key: const ValueKey('rec'),
@@ -1042,9 +1265,10 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                name.isEmpty ? 'AI Form Check' : name,
+                name.isEmpty ? _tr(lang, 'aiFormCheck') : name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                textDirection: dir,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -1054,7 +1278,8 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
               ),
               const SizedBox(height: 2),
               Text(
-                _angleLabel(_ex),
+                _angleLabel(_ex, lang),
+                textDirection: dir,
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.75),
                   fontSize: 12,
@@ -1085,7 +1310,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
               Positioned(
                 right: 12,
                 child: _roundButton(
-                  label: 'Show filming tips',
+                  label: _tr(lang, 'semTips'),
                   onTap: _openGuidance,
                   child: const Text(
                     '?',
@@ -1103,10 +1328,9 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     );
   }
 
-  Widget _hint(EdgeInsets insets) {
-    final String text = _isRecording
-        ? 'Finish your set, then tap stop'
-        : 'Keep your whole body in view';
+  Widget _hint(EdgeInsets insets, String lang) {
+    final String text = _tr(lang, _isRecording ? 'hintRec' : 'hintIdle');
+    final bool rtl = _kRtl.contains(lang);
     return Positioned(
       left: 0,
       right: 0,
@@ -1124,6 +1348,8 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
               ),
               child: Text(
                 text,
+                textDirection:
+                    rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -1179,7 +1405,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
     );
   }
 
-  Widget _controls(EdgeInsets insets) {
+  Widget _controls(EdgeInsets insets, String lang) {
     final bool side = !_isRecording;
     return Positioned(
       left: 0,
@@ -1188,7 +1414,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // [v4] Gallery - hidden while recording.
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
@@ -1201,7 +1426,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                     duration: const Duration(milliseconds: 180),
                     child: Semantics(
                       button: true,
-                      label: 'Pick a video from your library',
+                      label: _tr(lang, 'semGallery'),
                       child: GestureDetector(
                         onTap: _busy ? null : _pickFromGallery,
                         child: Container(
@@ -1223,7 +1448,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
           ),
           Semantics(
             button: true,
-            label: _isRecording ? 'Stop recording' : 'Start recording',
+            label: _tr(lang, _isRecording ? 'semStop' : 'semStart'),
             child: GestureDetector(
               onTap: _busy
                   ? null
@@ -1276,9 +1501,9 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   // Tips card (centered)
   // -------------------------------------------------------------------------
 
-  Widget _guidanceOverlay(EdgeInsets insets) {
-    final List<_Tip> tips = _tipsOf(_ex);
-    final String name = (widget.exerciseName ?? '').trim();
+  Widget _guidanceOverlay(EdgeInsets insets, String lang, bool rtl) {
+    final List<_Tip> tips = _tipsOf(_ex, lang);
+    final String name = _displayName(lang);
 
     Widget tipRow(int i) {
       final double start = 0.30 + i * 0.12;
@@ -1355,13 +1580,13 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Set up your shot',
+            Text(
+              _tr(lang, 'setup'),
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
+                letterSpacing: rtl ? 0 : -0.3,
               ),
             ),
             if (name.isNotEmpty) ...[
@@ -1381,9 +1606,17 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                 color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: _SetupPainter(anim: _animOf(_ex), loop: _loop),
+              // The illustration is a fixed LTR drawing.
+              child: Directionality(
+                textDirection: ui.TextDirection.ltr,
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _SetupPainter(
+                      anim: _animOf(_ex),
+                      loop: _loop,
+                      distanceLabel: _tr(lang, 'about3m'),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1405,9 +1638,10 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
-                  'Got it',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                child: Text(
+                  _tr(lang, 'gotIt'),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -1416,7 +1650,7 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
               child: TextButton(
                 onPressed: _dontShowAgain,
                 child: Text(
-                  "Don't show this again",
+                  _tr(lang, 'dontShow'),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.65),
                     fontSize: 14,
@@ -1438,7 +1672,6 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
         return Stack(
           fit: StackFit.expand,
           children: [
-            // Scrim: also swallows taps so the camera controls stay inert.
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {},
@@ -1463,14 +1696,16 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
           ],
         );
       },
-      child: card,
+      child: Directionality(
+        textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+        child: card,
+      ),
     );
   }
 
-  // [v2] Shown when camera permission is denied.
-  Widget _permissionOverlay() {
+  Widget _permissionOverlay(String lang, bool rtl) {
     return Directionality(
-      textDirection: ui.TextDirection.ltr,
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
       child: Container(
         color: Colors.black,
         alignment: Alignment.center,
@@ -1498,20 +1733,20 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                     size: 28, color: Color(0xFF1D9E75)),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Camera access needed',
+              Text(
+                _tr(lang, 'permTitle'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF1A1A1A),
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'To record and analyze your form, allow camera access in Settings.',
+              Text(
+                _tr(lang, 'permSub'),
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                     fontSize: 14, height: 1.4, color: Color(0xFF6B6B6B)),
               ),
               const SizedBox(height: 20),
@@ -1529,9 +1764,10 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Open Settings',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  child: Text(
+                    _tr(lang, 'openSettings'),
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
@@ -1540,9 +1776,10 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                 height: 44,
                 child: TextButton(
                   onPressed: _handleClose,
-                  child: const Text(
-                    'Not now',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF6B6B6B)),
+                  child: Text(
+                    _tr(lang, 'notNow'),
+                    style:
+                        const TextStyle(fontSize: 14, color: Color(0xFF6B6B6B)),
                   ),
                 ),
               ),
@@ -1558,18 +1795,16 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
 // Painters
 // ---------------------------------------------------------------------------
 
-/// Thin rule-of-thirds grid + four large corner brackets.
 class _FramePainter extends CustomPainter {
   _FramePainter({required this.opacity, required this.insets});
 
-  final double opacity; // bracket opacity
+  final double opacity;
   final EdgeInsets insets;
 
   @override
   void paint(Canvas canvas, Size size) {
     final double w = size.width, h = size.height;
 
-    // Grid.
     final Paint grid = Paint()
       ..color = Colors.white.withOpacity(0.10)
       ..strokeWidth = 1;
@@ -1578,7 +1813,6 @@ class _FramePainter extends CustomPainter {
     canvas.drawLine(Offset(0, h / 3), Offset(w, h / 3), grid);
     canvas.drawLine(Offset(0, 2 * h / 3), Offset(w, 2 * h / 3), grid);
 
-    // Brackets: almost the whole screen, between the title and the hint.
     final Rect r = Rect.fromLTRB(
       20,
       insets.top + 72,
@@ -1596,25 +1830,21 @@ class _FramePainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
 
     final Path path = Path()
-      // top-left
       ..moveTo(r.left, r.top + rad + arm)
       ..lineTo(r.left, r.top + rad)
       ..arcToPoint(Offset(r.left + rad, r.top),
           radius: const Radius.circular(rad))
       ..lineTo(r.left + rad + arm, r.top)
-      // top-right
       ..moveTo(r.right - rad - arm, r.top)
       ..lineTo(r.right - rad, r.top)
       ..arcToPoint(Offset(r.right, r.top + rad),
           radius: const Radius.circular(rad))
       ..lineTo(r.right, r.top + rad + arm)
-      // bottom-right
       ..moveTo(r.right, r.bottom - rad - arm)
       ..lineTo(r.right, r.bottom - rad)
       ..arcToPoint(Offset(r.right - rad, r.bottom),
           radius: const Radius.circular(rad))
       ..lineTo(r.right - rad - arm, r.bottom)
-      // bottom-left
       ..moveTo(r.left + rad + arm, r.bottom)
       ..lineTo(r.left + rad, r.bottom)
       ..arcToPoint(Offset(r.left, r.bottom - rad),
@@ -1628,21 +1858,22 @@ class _FramePainter extends CustomPainter {
       old.opacity != opacity || old.insets != insets;
 }
 
-/// Setup illustration: phone on a stand, "about 3 m", and the animated
-/// exercise figure inside a small teal frame.
 class _SetupPainter extends CustomPainter {
-  _SetupPainter({required this.anim, required this.loop})
-      : super(repaint: loop);
+  _SetupPainter({
+    required this.anim,
+    required this.loop,
+    required this.distanceLabel,
+  }) : super(repaint: loop);
 
   final _ExAnim anim;
   final Animation<double> loop;
+  final String distanceLabel;
 
   @override
   void paint(Canvas canvas, Size size) {
     final double w = size.width, h = size.height;
     if (w <= 0 || h <= 0) return;
 
-    // Figure box: a square on the right.
     final double side = h - 20;
     final Rect box = Rect.fromLTWH(w - 18 - side, 6, side, side);
 
@@ -1650,7 +1881,7 @@ class _SetupPainter extends CustomPainter {
           box.left + (0.05 + p.dx * 0.90) * box.width,
           box.top + (0.07 + p.dy * 0.90) * box.height,
         );
-    final double u = box.height * 0.90; // unit length in pixels
+    final double u = box.height * 0.90;
     final double groundY = m(const Offset(0, 0.95)).dy;
 
     final Paint faint = Paint()
@@ -1680,10 +1911,8 @@ class _SetupPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // Ground.
     canvas.drawLine(Offset(14, groundY), Offset(w - 14, groundY), faint);
 
-    // Phone on a stand.
     const double px = 26, pw = 16, ph = 30;
     final Rect phone = Rect.fromLTWH(px, groundY - 14 - ph, pw, ph);
     final Paint phonePaint = Paint()
@@ -1697,7 +1926,6 @@ class _SetupPainter extends CustomPainter {
         Offset(px + pw / 2, groundY), phonePaint);
     canvas.drawLine(Offset(px, groundY), Offset(px + pw, groundY), phonePaint);
 
-    // Distance: dashed line + label.
     final double dx0 = px + pw + 14, dx1 = box.left - 10;
     if (dx1 - dx0 > 30) {
       final Paint dash = Paint()
@@ -1711,7 +1939,7 @@ class _SetupPainter extends CustomPainter {
       }
       final TextPainter tp = TextPainter(
         text: TextSpan(
-          text: 'about 3 m',
+          text: distanceLabel,
           style: TextStyle(
             color: Colors.white.withOpacity(0.75),
             fontSize: 12,
@@ -1728,7 +1956,6 @@ class _SetupPainter extends CustomPainter {
       }
     }
 
-    // Teal frame around the figure.
     const double fa = 8;
     final Rect fr =
         Rect.fromLTRB(box.left - 2, box.top + 2, box.right + 2, groundY + 3);
@@ -1747,7 +1974,6 @@ class _SetupPainter extends CustomPainter {
       ..lineTo(fr.left, fr.bottom - fa);
     canvas.drawPath(frame, teal);
 
-    // Fixtures (bar, bench, box).
     switch (anim.fixture) {
       case _Fixture.none:
         break;
@@ -1785,17 +2011,14 @@ class _SetupPainter extends CustomPainter {
         break;
     }
 
-    // Pose: ease, with a short hold at both ends.
     final double raw = ((loop.value - 0.12) / 0.76).clamp(0.0, 1.0);
     final _Pose p = _Pose.lerp(anim.a, anim.b, Curves.easeInOut.transform(raw));
 
-    // Rear leg first (dimmer).
     if (p.knee2 != null && p.ankle2 != null) {
       canvas.drawLine(m(p.hip), m(p.knee2!), dim);
       canvas.drawLine(m(p.knee2!), m(p.ankle2!), dim);
     }
 
-    // Body.
     canvas.drawLine(m(p.sh), m(p.hip), white);
     canvas.drawLine(m(p.hip), m(p.knee), white);
     canvas.drawLine(m(p.knee), m(p.ankle), white);
@@ -1804,7 +2027,6 @@ class _SetupPainter extends CustomPainter {
     canvas.drawLine(m(p.elbow), m(p.wrist), white);
     canvas.drawCircle(m(p.head), u * 0.06, white);
 
-    // Equipment.
     Offset? at;
     double r = u * 0.065;
     switch (anim.prop) {
@@ -1837,5 +2059,7 @@ class _SetupPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SetupPainter old) =>
-      old.anim != anim || old.loop != loop;
+      old.anim != anim ||
+      old.loop != loop ||
+      old.distanceLabel != distanceLabel;
 }

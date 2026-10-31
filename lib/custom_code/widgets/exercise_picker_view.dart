@@ -12,41 +12,39 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:convert' show jsonDecode;
 import 'dart:ui' as ui;
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
 
-/// Full-screen exercise picker, shared by every "add exercises" flow
-/// (create workout, edit workout, live workout, routine editing).
+/// Full-screen exercise picker, shared by every "add exercises" flow (create
+/// workout, edit workout, live workout, routine editing).
 ///
 /// Runs its own SQLite queries (catalog + custom + recent), holds its own
 /// selection state and hands the result back through [onConfirm]. The page
 /// decides what to do with it (exerciseSets vs exerciseSetsCreation).
 ///
 /// Sections: Recent (set_log, last 30 days) · Custom (the user's) · All
-/// (catalog, grouped by primary muscle group like the Library).
-/// Filters: muscle group → sub-muscle (existing sheet look), equipment
-/// (multi-select sheet with counts), AI-form-only toggle, text search.
+/// (catalog, grouped by primary muscle group like the Library). Filters:
+/// muscle group → sub-muscle (existing sheet look), equipment (multi-select
+/// sheet with counts), AI-form-only toggle, text search.
 ///
 /// Localization: `languageCode` ('en','es','he','de','fr') drives all UI
 /// strings (_kStrings), exercise / muscle names (localizedName), equipment
 /// labels (_kEquipment) and text direction (RTL for 'he'). Images are keyed
 /// by the English name in every language.
 ///
-/// Parameters:
-///   userId             - current user id (auth)
-///   languageCode       - Global Properties → Current Language
-///   originalSelection  - the exercises already in the workout, same list
-///                        you keep in App State (items with exerciseId /
-///                        exercise_id). May be null or empty.
-///   workoutName        - optional, shown under the title
-///   onConfirm          - (List<dynamic> selected) every selected exercise
-///                        (kept + new) as maps:
-///                        {exerciseId, exerciseName, isBodyweight,
-///                         isAssisted, isPublic, isTimeBased, equipment}
-///                        Feed it to initializeWorkoutExerciseSetsFromSelection.
-///   onOpenDetails      - (exerciseId, isPublic) the stats button on a row
-///   onCreate           - the "Create" button (custom exercise flow)
-///   onBack             - the back arrow (null = Navigator.pop)
+/// Parameters: userId             - current user id (auth) languageCode -
+/// Global Properties → Current Language originalSelection  - the exercises
+/// already in the workout: the App State list as-is (structs, maps or JSON —
+/// anything with exerciseId / exercise_id). May be null or empty. workoutName
+/// - optional, shown under the title onConfirm          - (List<dynamic>
+/// selected) every selected exercise (kept + new) as maps: {exerciseId,
+/// exerciseName, isBodyweight, isAssisted, isPublic, isTimeBased, equipment}
+/// Feed it to initializeWorkoutExerciseSetsFromSelection. onOpenDetails -
+/// (exerciseId, isPublic) the stats button on a row onCreate           - the
+/// "Create" button (custom exercise flow) onBack             - the back arrow
+/// (null = Navigator.pop)
 class ExercisePickerView extends StatefulWidget {
   const ExercisePickerView({
     super.key,
@@ -594,7 +592,11 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
         old.languageCode != widget.languageCode) {
       _load();
     }
-    if (!identical(old.originalSelection, widget.originalSelection)) {
+    // FlutterFlow rebuilds with a fresh list instance on every state change;
+    // only reseed when the ids actually changed, so taps are never undone.
+    final newIds = _idsOf(widget.originalSelection);
+    if (newIds.length != _originalIds.length ||
+        !newIds.every(_originalIds.contains)) {
       _seedSelection();
     }
   }
@@ -624,13 +626,42 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     _accentTint = Color.alphaBlend(p.withOpacity(0.13), _card);
   }
 
+  /// Exercise id of one App State item, whatever shape it has: a Map, a
+  /// FlutterFlow struct (toMap / .exerciseId), a JSON string, or an int.
+  static int _idOf(dynamic e) {
+    if (e == null) return 0;
+    if (e is int || e is num) return _int(e);
+    if (e is Map) return _int(e['exerciseId'] ?? e['exercise_id']);
+    if (e is String) {
+      try {
+        final m = jsonDecode(e);
+        if (m is Map) return _int(m['exerciseId'] ?? m['exercise_id']);
+      } catch (_) {}
+      return _int(e);
+    }
+    try {
+      final m = (e as dynamic).toMap();
+      if (m is Map) return _int(m['exerciseId'] ?? m['exercise_id']);
+    } catch (_) {}
+    try {
+      return _int((e as dynamic).exerciseId);
+    } catch (_) {}
+    return 0;
+  }
+
+  static List<int> _idsOf(List<dynamic>? list) {
+    final out = <int>[];
+    for (final e in list ?? const []) {
+      final id = _idOf(e);
+      if (id > 0 && !out.contains(id)) out.add(id);
+    }
+    return out;
+  }
+
   void _seedSelection() {
     _originalIds.clear();
     _selected.clear();
-    for (final e in widget.originalSelection ?? const []) {
-      if (e is! Map) continue;
-      final id = _int(e['exerciseId'] ?? e['exercise_id']);
-      if (id <= 0 || _originalIds.contains(id)) continue;
+    for (final id in _idsOf(widget.originalSelection)) {
       _originalIds.add(id);
       _selected.add(id);
     }
@@ -644,6 +675,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
         _data = d;
         _error = null;
       });
+      _warmImages(d.exercises);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = '$e');
@@ -727,8 +759,8 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
           ));
     }
 
-    // Catalog + the user's custom exercises. No illustration column: images
-    // come from assets by English name (custom ones by file name).
+    // Catalog + the user's custom exercises. Images come from assets by
+    // English name; custom ones by their illustration file name.
     final exRows = await db.rawQuery('''
       SELECT id, name, equipment, ai_form_analysis, is_public,
              created_by_user_id, illustration, is_bodyweight, is_assisted,
@@ -840,6 +872,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
   bool _isSelected(int id) => _selected.contains(id);
 
   void _toggle(int id) {
+    HapticFeedback.selectionClick();
     setState(() {
       if (!_selected.remove(id)) _selected.add(id);
     });
@@ -1372,63 +1405,80 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     final total = _selected.length;
     return Padding(
       padding: EdgeInsets.fromLTRB(_kGutter, top + 8, _kGutter, 0),
-      child: Row(
-        children: [
-          _roundIcon(
-            Icons.arrow_back_ios_new_rounded,
-            onTap: () async {
-              if (widget.onBack != null) {
-                await widget.onBack!();
-              } else {
-                Navigator.of(context).maybePop();
-              }
-            },
-            // Arrow points "back" in both directions.
-            flip: _isRtl,
-          ),
-          Expanded(
-            child: Column(
-              children: [
-                Text(_t('addExercises'),
-                    style: _display(17, w: FontWeight.w700),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    if ((widget.workoutName ?? '').trim().isNotEmpty)
-                      widget.workoutName!.trim(),
-                    _t('inWorkout', n: total),
-                  ].join(' · '),
-                  style: _body(12, color: _inkMuted),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: widget.onCreate == null ? null : () => widget.onCreate!(),
-            child: Container(
-              height: 40,
-              padding: const EdgeInsetsDirectional.only(start: 10, end: 14),
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+      child: SizedBox(
+        height: 44,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Title block: centered on the screen, not between the buttons.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 100),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_rounded, size: 18, color: _accentDeep),
-                  const SizedBox(width: 4),
-                  Text(_t('create'),
-                      style: _body(14, w: FontWeight.w700, color: _accentDeep)),
+                  Text(_t('addExercises'),
+                      style: _display(17, w: FontWeight.w700),
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if ((widget.workoutName ?? '').trim().isNotEmpty)
+                        widget.workoutName!.trim(),
+                      _t('inWorkout', n: total),
+                    ].join(' · '),
+                    style: _body(12, color: _inkMuted),
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
-          ),
-        ],
+            PositionedDirectional(
+              start: 0,
+              child: _roundIcon(
+                Icons.arrow_back_ios_new_rounded,
+                onTap: () async {
+                  if (widget.onBack != null) {
+                    await widget.onBack!();
+                  } else {
+                    Navigator.of(context).maybePop();
+                  }
+                },
+                // Arrow points "back" in both directions.
+                flip: _isRtl,
+              ),
+            ),
+            PositionedDirectional(
+              end: 0,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap:
+                    widget.onCreate == null ? null : () => widget.onCreate!(),
+                child: Container(
+                  height: 40,
+                  padding: const EdgeInsetsDirectional.only(start: 10, end: 14),
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 18, color: _accentDeep),
+                      const SizedBox(width: 4),
+                      Text(_t('create'),
+                          style: _body(14,
+                              w: FontWeight.w700, color: _accentDeep)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1756,14 +1806,9 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     }
 
     final bottom = MediaQuery.of(context).padding.bottom;
-    return RefreshIndicator(
-      color: _accent,
-      onRefresh: _load,
-      child: ListView(
-        padding: EdgeInsets.fromLTRB(0, 0, 0, 24 + bottom),
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: children,
-      ),
+    return ListView(
+      padding: EdgeInsets.fromLTRB(0, 0, 0, 24 + bottom),
+      children: children,
     );
   }
 
@@ -1793,7 +1838,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
                 _row(items[i]),
                 if (i < items.length - 1)
                   Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 76),
+                    padding: const EdgeInsetsDirectional.only(start: 78),
                     child: Divider(height: 1, thickness: 1, color: _cardSub),
                   ),
               ],
@@ -1806,6 +1851,8 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
 
   Widget _row(_Ex e) {
     final on = _isSelected(e.id);
+    // Position in the workout (1-based) — shown on the badge when selected.
+    final order = on ? _selected.indexOf(e.id) + 1 : 0;
     final fp = e.firstPrimary;
     final sub = <String>[
       if (e.equipment.isNotEmpty) _eq(e.equipment),
@@ -1816,53 +1863,74 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _toggle(e.id),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
         color: on ? _accentTint : Colors.transparent,
-        padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 10, 10),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
         child: Row(
           children: [
+            // Illustration: pops slightly, gets a ring and an order badge.
             SizedBox(
               width: _kRowImage,
               height: _kRowImage,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Container(
-                    width: _kRowImage,
-                    height: _kRowImage,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(_kRadiusInner),
-                      border: on ? Border.all(color: _accent, width: 2) : null,
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: ExerciseAssetImage(
+                  AnimatedScale(
+                    scale: on ? 1.06 : 1.0,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutBack,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
                       width: _kRowImage,
                       height: _kRowImage,
-                      exerciseName: exerciseImageName(e.nameEn).toString(),
-                      illustration: e.illustration,
-                      borderRadius: _kRadiusInner,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(_kRadiusInner),
+                        border: Border.all(
+                            color: on ? _accent : Colors.transparent, width: 2),
+                        boxShadow: on
+                            ? [
+                                BoxShadow(
+                                  color: _accent.withOpacity(0.28),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                            : const [],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _rowImage(e),
                     ),
                   ),
-                  if (on)
-                    PositionedDirectional(
-                      end: -5,
-                      bottom: -5,
+                  PositionedDirectional(
+                    end: -7,
+                    bottom: -7,
+                    child: AnimatedScale(
+                      scale: on ? 1 : 0,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutBack,
                       child: Container(
-                        width: 20,
-                        height: 20,
+                        constraints: const BoxConstraints(minWidth: 22),
+                        height: 22,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
                         decoration: BoxDecoration(
-                          color: _accent,
-                          shape: BoxShape.circle,
+                          color: _accentDeep,
+                          borderRadius: BorderRadius.circular(11),
                           border: Border.all(color: _accentTint, width: 2),
                         ),
-                        child: const Icon(Icons.check_rounded,
-                            size: 12, color: Colors.white),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$order',
+                          style: _body(11,
+                              w: FontWeight.w800, color: Colors.white),
+                        ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1872,7 +1940,8 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
                       Flexible(
                         child: Text(e.name,
                             style: _body(15,
-                                w: on ? FontWeight.w700 : FontWeight.w600),
+                                w: on ? FontWeight.w700 : FontWeight.w600,
+                                color: on ? _accentDeep : _ink),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
@@ -1892,27 +1961,93 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onOpenDetails == null
                   ? null
                   : () => widget.onOpenDetails!(e.id, e.isPublic),
-              child: Container(
+              child: SizedBox(
                 width: 34,
                 height: 34,
-                decoration: BoxDecoration(
-                  color: on ? _card : _cardSub,
-                  shape: BoxShape.circle,
-                ),
-                child:
-                    Icon(Icons.show_chart_rounded, size: 18, color: _inkMuted),
+                child: Icon(Icons.show_chart_rounded,
+                    size: 18, color: on ? _accentDeep : _inkFaint),
+              ),
+            ),
+            const SizedBox(width: 2),
+            // Trailing state: hollow ring → filled check, with a pop.
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: on ? _accent : Colors.transparent,
+                border: Border.all(
+                    color: on ? _accent : _line, width: on ? 0 : 1.5),
+              ),
+              child: AnimatedScale(
+                scale: on ? 1 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutBack,
+                child: const Icon(Icons.check_rounded,
+                    size: 15, color: Colors.white),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Catalog images are rendered here directly from assets, decoded once at
+  /// a small size and kept in the image cache, so fast scrolling never shows
+  /// a placeholder. Custom exercises keep going through ExerciseAssetImage.
+  Widget _rowImage(_Ex e) {
+    if (e.illustration != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(_kRadiusInner),
+        child: ExerciseAssetImage(
+          width: _kRowImage,
+          height: _kRowImage,
+          exerciseName: exerciseImageName(e.nameEn).toString(),
+          illustration: e.illustration,
+          borderRadius: _kRadiusInner,
+        ),
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_kRadiusInner),
+      child: Image(
+        image: _assetFor(e.nameEn),
+        width: _kRowImage,
+        height: _kRowImage,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => Container(
+          width: _kRowImage,
+          height: _kRowImage,
+          color: _cardSub,
+          child: Icon(Icons.fitness_center_rounded, size: 20, color: _inkFaint),
+        ),
+      ),
+    );
+  }
+
+  static ImageProvider _assetFor(String nameEn) => ResizeImage(
+        AssetImage('assets/images/${exerciseImageName(nameEn)}.jpg'),
+        width: (_kRowImage * 3).round(),
+      );
+
+  /// Decode every catalog image once, right after load, so the list is
+  /// warm before the user starts scrolling. Errors (missing files) are
+  /// swallowed; the row shows its fallback icon.
+  void _warmImages(List<_Ex> list) {
+    for (final e in list) {
+      if (e.illustration != null) continue;
+      precacheImage(_assetFor(e.nameEn), context, onError: (_, __) {});
+    }
   }
 
   // --------------------------------- CTA ------------------------------------

@@ -10,7 +10,6 @@ export 'cupertino_weight_picker.dart' show CupertinoWeightPicker;
 export 'weight_stepper_text_field.dart' show WeightStepperTextField;
 export 'weekly_day_tabs_widget.dart' show WeeklyDayTabsWidget;
 export 'workout_calendar_widget.dart' show WorkoutCalendarWidget;
-export 'blob_image_widget.dart' show BlobImageWidget;
 export 'squat_analyzed_video_player.dart' show SquatAnalyzedVideoPlayer;
 export 'exercise_asset_image.dart' show ExerciseAssetImage;
 export 'simple_video_player.dart' show SimpleVideoPlayer;
@@ -19,7 +18,6 @@ export 'squat_analyzed_video_player_heavy.dart'
 export 'live_squat_camera_widget.dart' show LiveSquatCameraWidget;
 export 'local_profile_image.dart' show LocalProfileImage;
 export 'xlift_camera_recorder.dart' show XliftCameraRecorder;
-export 'muscle_heatmap.dart' show MuscleHeatmap;
 export 'dashed_new_workout_button.dart' show DashedNewWorkoutButton;
 export 'ai_loading_indicator.dart' show AiLoadingIndicator;
 export 'ai_loading_bar.dart' show AiLoadingBar;
