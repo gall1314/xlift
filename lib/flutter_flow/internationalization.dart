@@ -2492,34 +2492,34 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   {
     'sejf5l86': {
       'en': 'Rest Timer',
-      'es': '',
+      'es': 'Temporizador de descanso',
     },
     '63zlom13': {
       'en': 'Pause',
-      'es': '',
+      'es': 'Pausa',
     },
     'r3nsru9k': {
       'en': 'Continue',
-      'es': '',
+      'es': 'Continuar',
     },
   },
   // cancelRest
   {
     '0cxjgs5u': {
       'en': 'Cancel Rest Timer',
-      'es': '',
+      'es': 'Cancelar temporizador de descanso',
     },
     'jqxmif5y': {
       'en': 'Are you sure you want to cancel your rest time?',
-      'es': '',
+      'es': '¿Estás seguro de que quieres cancelar tu tiempo de descanso?',
     },
     'n5j0lo5r': {
       'en': 'No',
-      'es': '',
+      'es': 'No',
     },
     'ddmo7jlw': {
       'en': 'Yes, Cancel',
-      'es': '',
+      'es': 'Sí, cancelar',
     },
   },
   // manual
@@ -4129,34 +4129,40 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   {
     'puqvmecu': {
       'en': '',
-      'es': '',
+      'es':
+          'Para tomar una foto o grabar un video, esta aplicación requiere permiso para acceder a la cámara.',
     },
     'k7zrocf6': {
       'en': 'g',
-      'es': '',
+      'es': 'gramo',
     },
     '7n7jdtmv': {
       'en': '',
-      'es': '',
+      'es':
+          'Para subir datos, esta aplicación necesita permiso para acceder a la biblioteca de fotos.',
     },
     'nevaih88': {
       'en':
           'We use your camera to track your form and count reps during your workout.\n',
-      'es': '',
+      'es':
+          'Utilizamos tu cámara para monitorizar tu postura y contar las repeticiones durante tu entrenamiento.',
     },
     'zk63ynvm': {
       'en':
           '\n We use your microphone to capture sound with your workout videos (no talking needed!).',
-      'es': '',
+      'es':
+          'Utilizamos tu micrófono para capturar el sonido de tus vídeos de entrenamiento (¡no es necesario hablar!).',
     },
     '0hnogjqz': {
       'en':
           'we save your workout videos to your device so you can review your progress anytime.',
-      'es': '',
+      'es':
+          'Guardamos tus vídeos de entrenamiento en tu dispositivo para que puedas revisar tu progreso en cualquier momento.',
     },
     's9lvuq67': {
       'en': 'We use notifications to remind you when rest ends.\n',
-      'es': '',
+      'es':
+          'Utilizamos notificaciones para recordarte cuándo termina el descanso.',
     },
     '22fhjbdl': {
       'en': '',
@@ -4199,6 +4205,10 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
     '4rw4l8e2': {
+      'en': '',
+      'es': '',
+    },
+    'zmnwi1qp': {
       'en': '',
       'es': '',
     },

@@ -7342,3 +7342,25 @@ bool isSetTechniquePerfect(
     return false;
   }
 }
+
+String localizedName(
+  String? rawName,
+  String languageCode,
+) {
+  if (rawName == null || rawName.isEmpty) return '';
+
+  final s = rawName.trim();
+  if (!s.startsWith('{')) return rawName; // plain text, not migrated
+
+  Map? map;
+  try {
+    final decoded = jsonDecode(s);
+    if (decoded is Map) map = decoded;
+  } catch (_) {}
+  if (map == null) return rawName;
+
+  final v = map[languageCode] ?? map['en'];
+  if (v != null && v.toString().isNotEmpty) return v.toString();
+  if (map.isNotEmpty) return map.values.first.toString();
+  return '';
+}

@@ -62,15 +62,12 @@ Future<List<GetAllExercisesRow>> performGetAllExercises(
 SELECT
   e.id             AS exercise_id,
   e.name           AS exercise_name,
-  e.illustration   AS illustration,
-  -- category (primary_muscle_group) of the main muscle
   (SELECT p.name
      FROM exercise_muscle_group g
      JOIN muscle_group m ON m.id = g.muscle_group_id
      JOIN primary_muscle_group p ON p.id = m.primary_muscle_group_id
     WHERE g.exercise_id = e.id AND g.is_primary = 1
     ORDER BY g.id LIMIT 1) AS primary_muscle_1,
-  -- a second category, only if a second is_primary=1 muscle belongs to a different category
   (SELECT p.name
      FROM exercise_muscle_group g
      JOIN muscle_group m ON m.id = g.muscle_group_id
@@ -82,7 +79,6 @@ SELECT
                     WHERE g1.exercise_id = e.id AND g1.is_primary = 1
                     ORDER BY g1.id LIMIT 1)
     ORDER BY g.id LIMIT 1) AS primary_muscle_2,
-  -- muscles: main muscle first, then the rest (2nd primary if any, then secondaries)
   (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
     WHERE g.exercise_id = e.id ORDER BY g.is_primary DESC, g.id LIMIT 1 OFFSET 0) AS sub_muscle_1,
   (SELECT m.name FROM exercise_muscle_group g JOIN muscle_group m ON m.id = g.muscle_group_id
@@ -103,7 +99,6 @@ class GetAllExercisesRow extends SqliteRow {
 
   int get exerciseId => data['exercise_id'] as int;
   String get exerciseName => data['exercise_name'] as String;
-  String? get illustration => data['illustration'] as String?;
   String get primaryMuscle1 => data['primary_muscle_1'] as String;
   String? get primaryMuscle2 => data['primary_muscle_2'] as String?;
   String? get subMuscle1 => data['sub_muscle_1'] as String?;

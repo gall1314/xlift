@@ -61,3 +61,4 @@ export 'vision_pose_test_button.dart' show VisionPoseTestButton;
 export 'home_view.dart' show HomeView;
 export 'analyze_exercise_picker.dart' show AnalyzeExercisePicker;
 export 'library_view.dart' show LibraryView;
+export 'language_row.dart' show LanguageRow;

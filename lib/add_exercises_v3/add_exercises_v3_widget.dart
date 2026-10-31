@@ -936,8 +936,9 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                             4.0),
                                                                         child:
                                                                             Text(
-                                                                          recentItem
-                                                                              .exerciseName,
+                                                                          functions.localizedName(
+                                                                              recentItem.exerciseName,
+                                                                              FFLocalizations.of(context).languageCode),
                                                                           style: FlutterFlowTheme.of(context)
                                                                               .titleMedium
                                                                               .override(
@@ -1713,7 +1714,7 @@ class _AddExercisesV3WidgetState extends State<AddExercisesV3Widget> {
                                                                             Padding(
                                                                               padding: EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 4.0),
                                                                               child: Text(
-                                                                                columnGetAllExercisesRow.exerciseName,
+                                                                                functions.localizedName(columnGetAllExercisesRow.exerciseName, FFLocalizations.of(context).languageCode),
                                                                                 style: FlutterFlowTheme.of(context).titleMedium.override(
                                                                                       font: GoogleFonts.interTight(
                                                                                         fontWeight: FontWeight.w600,

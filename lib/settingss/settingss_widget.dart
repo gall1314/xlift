@@ -586,6 +586,23 @@ class _SettingssWidgetState extends State<SettingssWidget> {
                                   ),
                                 ),
                               ),
+                              Container(
+                                width: MediaQuery.sizeOf(context).width * 1.0,
+                                height: 45.0,
+                                child: custom_widgets.LanguageRow(
+                                  width: MediaQuery.sizeOf(context).width * 1.0,
+                                  height: 45.0,
+                                  onEnglish: () async {
+                                    setAppLanguage(context, 'en');
+                                  },
+                                  onSpanish: () async {
+                                    setAppLanguage(context, 'es');
+                                  },
+                                  onHebrew: () async {},
+                                  onGerman: () async {},
+                                  onFrench: () async {},
+                                ),
+                              ),
                             ].divide(SizedBox(height: 10.0)),
                           ),
                         ),

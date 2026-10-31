@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart'
     show ChangeNotifier, Color, Colors, VoidCallback;
-import '/backend/schema/structs/index.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:csv/csv.dart';
 import 'package:synchronized/synchronized.dart';
@@ -175,67 +174,6 @@ class FFAppState extends ChangeNotifier {
   }
 
   late FlutterSecureStorage secureStorage;
-
-  bool _Searchactive = false;
-  bool get Searchactive => _Searchactive;
-  set Searchactive(bool value) {
-    _Searchactive = value;
-  }
-
-  List<SetsStruct> _listofsets = [
-    SetsStruct.fromSerializableMap(
-        jsonDecode('{\"setnumber\":\"0\",\"weight\":\"0\",\"deci\":\"true\"}'))
-  ];
-  List<SetsStruct> get listofsets => _listofsets;
-  set listofsets(List<SetsStruct> value) {
-    _listofsets = value;
-  }
-
-  void addToListofsets(SetsStruct value) {
-    listofsets.add(value);
-  }
-
-  void removeFromListofsets(SetsStruct value) {
-    listofsets.remove(value);
-  }
-
-  void removeAtIndexFromListofsets(int index) {
-    listofsets.removeAt(index);
-  }
-
-  void updateListofsetsAtIndex(
-    int index,
-    SetsStruct Function(SetsStruct) updateFn,
-  ) {
-    listofsets[index] = updateFn(_listofsets[index]);
-  }
-
-  void insertAtIndexInListofsets(int index, SetsStruct value) {
-    listofsets.insert(index, value);
-  }
-
-  ListofsetsStruct _newlist = ListofsetsStruct.fromSerializableMap(jsonDecode(
-      '{\"exerciseid\":\"none\",\"set\":\"[\\\"{\\\\\\\"setnumber\\\\\\\":\\\\\\\"0\\\\\\\",\\\\\\\"weight\\\\\\\":\\\\\\\"0\\\\\\\",\\\\\\\"deci\\\\\\\":\\\\\\\"true\\\\\\\"}\\\"]\"}'));
-  ListofsetsStruct get newlist => _newlist;
-  set newlist(ListofsetsStruct value) {
-    _newlist = value;
-  }
-
-  void updateNewlistStruct(Function(ListofsetsStruct) updateFn) {
-    updateFn(_newlist);
-  }
-
-  int _reps = 0;
-  int get reps => _reps;
-  set reps(int value) {
-    _reps = value;
-  }
-
-  int _weight = 0;
-  int get weight => _weight;
-  set weight(int value) {
-    _weight = value;
-  }
 
   bool _check = false;
   bool get check => _check;
