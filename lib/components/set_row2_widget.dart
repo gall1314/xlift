@@ -910,7 +910,8 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                               _model.result3Copy = await actions
                                                   .analyzeExerciseVideoAction(
                                                 _model.videoUrl!,
-                                                widget.exerciseName!,
+                                                functions.localizedName(
+                                                    widget.exerciseName, 'en'),
                                                 10.0,
                                               );
                                               if (functions.isAnalysisValid(

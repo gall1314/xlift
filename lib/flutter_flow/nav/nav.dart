@@ -687,6 +687,30 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ParamType.bool,
             ),
           ),
+        ),
+        FFRoute(
+          name: AddExercisesMidSeissionCopyWidget.routeName,
+          path: AddExercisesMidSeissionCopyWidget.routePath,
+          builder: (context, params) => AddExercisesMidSeissionCopyWidget(
+            alreadySelceted: params.getParam<dynamic>(
+              'alreadySelceted',
+              ParamType.JSON,
+              isList: true,
+            ),
+            workoutId: params.getParam(
+              'workoutId',
+              ParamType.String,
+            ),
+            addUserEx: params.getParam(
+              'addUserEx',
+              ParamType.bool,
+            ),
+            userExlist: params.getParam<dynamic>(
+              'userExlist',
+              ParamType.JSON,
+              isList: true,
+            ),
+          ),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

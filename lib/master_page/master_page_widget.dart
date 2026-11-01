@@ -1795,6 +1795,10 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                             analysisCountMonth:
                                                                 FFAppState()
                                                                     .analysisCountMonth,
+                                                            languageCode:
+                                                                FFLocalizations.of(
+                                                                        context)
+                                                                    .languageCode,
                                                             onStartWorkout:
                                                                 (workoutId) async {
                                                               if (FFAppState()

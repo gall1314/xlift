@@ -763,7 +763,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                         iconPadding:
                             EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
                         iconColor: FlutterFlowTheme.of(context).info,
-                        color: FlutterFlowTheme.of(context).secondary,
+                        color: FlutterFlowTheme.of(context).primary,
                         textStyle:
                             FlutterFlowTheme.of(context).titleSmall.override(
                                   font: GoogleFonts.interTight(

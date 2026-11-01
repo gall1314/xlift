@@ -5405,7 +5405,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                         backgroundColor:
                                                             FlutterFlowTheme.of(
                                                                     context)
-                                                                .secondary,
+                                                                .primary,
                                                         textStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)

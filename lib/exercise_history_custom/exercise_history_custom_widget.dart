@@ -2536,7 +2536,7 @@ class _ExerciseHistoryCustomWidgetState
                                                         backgroundColor:
                                                             FlutterFlowTheme.of(
                                                                     context)
-                                                                .secondary,
+                                                                .primary,
                                                         textStyle:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -5025,7 +5025,7 @@ class _ExerciseHistoryCustomWidgetState
                                                                   ),
                                                                   color: FlutterFlowTheme.of(
                                                                           context)
-                                                                      .secondary,
+                                                                      .primary,
                                                                   fontSize:
                                                                       38.0,
                                                                   letterSpacing:

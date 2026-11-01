@@ -422,15 +422,15 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                           FFButtonWidget(
                             onPressed: () async {
                               context.pushNamed(
-                                AddExercisesMidSeissionWidget.routeName,
+                                AddExercisesMidSeissionCopyWidget.routeName,
                                 queryParameters: {
-                                  'addUserEx': serializeParam(
-                                    false,
-                                    ParamType.bool,
-                                  ),
                                   'workoutId': serializeParam(
                                     widget.workoutId,
                                     ParamType.String,
+                                  ),
+                                  'addUserEx': serializeParam(
+                                    false,
+                                    ParamType.bool,
                                   ),
                                 }.withoutNulls,
                               );

@@ -120,6 +120,7 @@ class _AddExercisesV3CopyWidgetState extends State<AddExercisesV3CopyWidget> {
             languageCode: FFLocalizations.of(context).languageCode,
             workoutName: widget.workoutName,
             originalSelection: widget.alreadySelceted,
+            isLiveWorkout: false,
             onConfirm: (selected) async {
               _model.add =
                   await actions.initializeWorkoutExerciseSetsFromSelection(
@@ -156,44 +157,43 @@ class _AddExercisesV3CopyWidgetState extends State<AddExercisesV3CopyWidget> {
 
               safeSetState(() {});
             },
-            onOpenDetails: (exerciseId, isPublic) async {
-              if (exerciseId == 1) {
-                context.pushNamed(
-                  ExerciseHistoryWidget.routeName,
-                  queryParameters: {
-                    'exerciseId': serializeParam(
-                      exerciseId,
-                      ParamType.int,
-                    ),
-                    'overview': serializeParam(
-                      true,
-                      ParamType.bool,
-                    ),
-                    'analytics': serializeParam(
-                      false,
-                      ParamType.bool,
-                    ),
-                  }.withoutNulls,
-                );
-              } else {
-                context.pushNamed(
-                  ExerciseHistoryCustomWidget.routeName,
-                  queryParameters: {
-                    'exerciseId': serializeParam(
-                      exerciseId,
-                      ParamType.int,
-                    ),
-                    'overview': serializeParam(
-                      false,
-                      ParamType.bool,
-                    ),
-                    'analytics': serializeParam(
-                      false,
-                      ParamType.bool,
-                    ),
-                  }.withoutNulls,
-                );
-              }
+            onOpenDetails: (exerciseId) async {
+              context.pushNamed(
+                ExerciseHistoryWidget.routeName,
+                queryParameters: {
+                  'exerciseId': serializeParam(
+                    exerciseId,
+                    ParamType.int,
+                  ),
+                  'overview': serializeParam(
+                    true,
+                    ParamType.bool,
+                  ),
+                  'analytics': serializeParam(
+                    false,
+                    ParamType.bool,
+                  ),
+                }.withoutNulls,
+              );
+            },
+            onOpenCustomDetails: (exerciseId) async {
+              context.pushNamed(
+                ExerciseHistoryCustomWidget.routeName,
+                queryParameters: {
+                  'exerciseId': serializeParam(
+                    exerciseId,
+                    ParamType.int,
+                  ),
+                  'overview': serializeParam(
+                    true,
+                    ParamType.bool,
+                  ),
+                  'analytics': serializeParam(
+                    false,
+                    ParamType.bool,
+                  ),
+                }.withoutNulls,
+              );
             },
             onCreate: () async {
               context.pushNamed(CreateUserExerciseWidget.routeName);
