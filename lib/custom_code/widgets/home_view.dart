@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl show DateFormat;
+import '/flutter_flow/internationalization.dart' show FFLocalizations;
 
 /// Self-managed Home screen content (nav bar / FAB live on the page).
 ///
@@ -23,28 +24,30 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 /// callbacks. Fonts and colors come from FlutterFlowTheme so the page matches
 /// the rest of the app.
 ///
-/// Localization: `languageCode` ('en','es','he','de','fr') drives all UI
-/// strings (see _kStrings), muscle / exercise names (via localizedName),
-/// dates (intl) and text direction (RTL for 'he').
+/// Localization: the app language is read from FFLocalizations (the same
+/// value the app uses everywhere) and drives all UI strings (see _kStrings),
+/// muscle / exercise names (via localizedName), dates (intl) and text
+/// direction (RTL for 'he'). Supported: 'en','es','he','de','fr'; anything
+/// else falls back to English.
 ///
-/// Parameters: userId              - current user id (auth) languageCode -
-/// app language code (Global Properties → Current Language) isPremium - true
-/// hides the form-check quota meter analysisCount       -
-/// FFAppState().analysisCount analysisCountMonth  -
-/// FFAppState().analysisCountMonth ("YYYY-MM") onStartWorkout      -
-/// (workoutId) start a saved workout onOpenSummary       - (workoutLogId)
-/// open workout summary onOpenLastAnalysis  - (GetSetAnalysisRow) show the
-/// last analysis; the camera itself is the page's FAB onOpenStats,
-/// onOpenLibrary, onOpenSettings onOpenTemplates     - Library on the
-/// Templates tab (initialTab = 1) onCreateWorkout     - open the existing
-/// create bottom sheet
+/// Parameters:
+///   userId             - current user id (auth)
+///   isPremium          - true hides the form-check quota meter
+///   analysisCount      - FFAppState().analysisCount
+///   analysisCountMonth - FFAppState().analysisCountMonth ("YYYY-MM")
+///   onStartWorkout     - (workoutId) start a saved workout
+///   onOpenSummary      - (workoutLogId) open workout summary
+///   onOpenLastAnalysis - (GetSetAnalysisRow) show the last analysis; the
+///                        camera itself is the page's FAB
+///   onOpenStats, onOpenLibrary, onOpenSettings
+///   onOpenTemplates    - Library on the Templates tab (initialTab = 1)
+///   onCreateWorkout    - open the existing create bottom sheet
 class HomeView extends StatefulWidget {
   const HomeView({
     super.key,
     this.width,
     this.height,
     required this.userId,
-    this.languageCode,
     this.isPremium,
     this.analysisCount,
     this.analysisCountMonth,
@@ -61,7 +64,6 @@ class HomeView extends StatefulWidget {
   final double? width;
   final double? height;
   final String userId;
-  final String? languageCode;
   final bool? isPremium;
   final int? analysisCount;
   final String? analysisCountMonth;
@@ -533,6 +535,11 @@ class _HomeViewState extends State<HomeView> {
   String? _error;
   int _heroOffset = 0;
 
+  // App language ('en','es','he','de','fr'), resolved from FFLocalizations in
+  // didChangeDependencies (inherited widgets aren't available in initState).
+  String _lang = 'en';
+  bool _langResolved = false;
+
   // Palette, resolved from FlutterFlowTheme in didChangeDependencies.
   Color _bg = const Color(0xFFF2F4F3);
   Color _card = const Color(0xFFFFFFFF);
@@ -550,8 +557,16 @@ class _HomeViewState extends State<HomeView> {
 
   // ---------------------------- localization --------------------------------
 
-  String get _lang {
-    final l = (widget.languageCode ?? 'en').trim().toLowerCase();
+  /// Current app language from FFLocalizations, normalized to a bare code
+  /// ('zh_Hans' -> 'zh'). Falls back to the widget locale, then English.
+  String _currentLang() {
+    String code;
+    try {
+      code = FFLocalizations.of(context).languageCode;
+    } catch (_) {
+      code = Localizations.maybeLocaleOf(context)?.languageCode ?? 'en';
+    }
+    final l = code.trim().toLowerCase().split('_').first;
     return l.isEmpty ? 'en' : l;
   }
 
@@ -570,18 +585,9 @@ class _HomeViewState extends State<HomeView> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
   void didUpdateWidget(covariant HomeView old) {
     super.didUpdateWidget(old);
-    if (old.userId != widget.userId ||
-        old.languageCode != widget.languageCode) {
-      _load();
-    }
+    if (old.userId != widget.userId) _load();
   }
 
   @override
@@ -604,6 +610,16 @@ class _HomeViewState extends State<HomeView> {
     _accentOnDark =
         h.withLightness((h.lightness * 1.3).clamp(0.0, 0.85)).toColor();
     _accentTint = Color.alphaBlend(p.withOpacity(0.13), _card);
+
+    // Language: the first resolution triggers the initial load; a later
+    // change (user switched language in settings) reloads so muscle and
+    // exercise names come back localized.
+    final lang = _currentLang();
+    if (!_langResolved || lang != _lang) {
+      _lang = lang;
+      _langResolved = true;
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -691,17 +707,21 @@ class _HomeViewState extends State<HomeView> {
     final now = DateTime.now();
 
     // --- saved workouts ---
+    // last_done_at is a correlated subquery, not a JOIN on workout_log: a
+    // join would repeat every exercise row once per log and inflate counts
+    // (5 exercises x 3 logs showed as "15 with form check").
     final wRows = await db.rawQuery('''
       SELECT
         w.id, w.name, w.created_at,
         COUNT(DISTINCT we.id) AS exercise_count,
-        MAX(wl.created_at)    AS last_done_at,
-        SUM(CASE WHEN e.ai_form_analysis = 1 THEN 1 ELSE 0 END) AS fc_count,
+        COUNT(DISTINCT CASE WHEN e.ai_form_analysis = 1 THEN we.id END)
+          AS fc_count,
+        (SELECT MAX(wl.created_at) FROM workout_log wl
+          WHERE wl.workout_id = w.id) AS last_done_at,
         (SELECT COUNT(*) FROM exercise_sets es WHERE es.workout_id = w.id) AS set_count
       FROM workout w
       LEFT JOIN workout_exercise we ON we.workout_id = w.id
       LEFT JOIN exercise e          ON e.id = we.exercise_id
-      LEFT JOIN workout_log wl      ON wl.workout_id = w.id
       WHERE w.user_id = ? AND COALESCE(w.is_deleted, 0) = 0
       GROUP BY w.id, w.name, w.created_at
     ''', [uid]);

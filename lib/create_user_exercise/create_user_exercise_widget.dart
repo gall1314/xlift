@@ -145,20 +145,11 @@ class _CreateUserExerciseWidgetState extends State<CreateUserExerciseWidget> {
                     );
 
                     context.pushNamed(
-                      AddExercisesV3Widget.routeName,
+                      AddExercisesV3CopyWidget.routeName,
                       queryParameters: {
                         'addUserEx': serializeParam(
                           true,
                           ParamType.bool,
-                        ),
-                        'workoutName': serializeParam(
-                          widget.workoutName,
-                          ParamType.String,
-                        ),
-                        'alreadySelceted': serializeParam(
-                          widget.alreadySelected,
-                          ParamType.JSON,
-                          isList: true,
                         ),
                       }.withoutNulls,
                     );

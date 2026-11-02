@@ -1,4 +1,3 @@
-import '/backend/sqlite/sqlite_manager.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/instant_timer.dart';
 import '/index.dart';
@@ -33,16 +32,10 @@ class AddExercisesForEditModel
   ///  State fields for stateful widgets in this page.
 
   InstantTimer? instantTimerHome;
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode;
-  TextEditingController? textController;
-  String? Function(BuildContext, String?)? textControllerValidator;
-  // Stores action output result for [Custom Action - syncExerciseSetsWithSelectedIds] action in Button widget.
-  List<dynamic>? updatedList;
-  // Stores action output result for [Custom Action - syncExerciseRestTimesWithSelectedIds] action in Button widget.
-  dynamic newRest;
-  // Stores action output result for [Backend Call - SQLite (getUserExercise)] action in Text widget.
-  List<GetUserExerciseRow>? exex;
+  // Stores action output result for [Custom Action - syncExerciseSetsWithSelectedIds] action in ExercisePickerView widget.
+  List<dynamic>? updatedListCopy;
+  // Stores action output result for [Custom Action - syncExerciseRestTimesWithSelectedIds] action in ExercisePickerView widget.
+  dynamic newRestCopy;
 
   @override
   void initState(BuildContext context) {}
@@ -50,7 +43,5 @@ class AddExercisesForEditModel
   @override
   void dispose() {
     instantTimerHome?.cancel();
-    textFieldFocusNode?.dispose();
-    textController?.dispose();
   }
 }

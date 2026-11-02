@@ -1005,60 +1005,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
-  // addExercisesForEdit
-  {
-    '92eullnx': {
-      'en': 'Search exercise',
-      'es': '',
-    },
-    'i3lcqx9t': {
-      'en': 'Recent Exercises',
-      'es': '',
-    },
-    '2xnri1os': {
-      'en': 'Custom Exercises',
-      'es': '',
-    },
-    '915djoas': {
-      'en': 'All Exercises',
-      'es': '',
-    },
-    'dnsj8jwq': {
-      'en': 'Add Exercises',
-      'es': '',
-    },
-    'pukhy0mh': {
-      'en': 'Create',
-      'es': '',
-    },
-  },
-  // addExercisesForWorklogEdit
-  {
-    'h56vao67': {
-      'en': 'Search exercise',
-      'es': '',
-    },
-    'fyb57ztx': {
-      'en': 'Recent Exercises',
-      'es': '',
-    },
-    '7iuw8mqa': {
-      'en': 'Custom Exercises',
-      'es': '',
-    },
-    'i1w6fjf9': {
-      'en': 'All Exercises',
-      'es': '',
-    },
-    'my4n57qq': {
-      'en': 'Add Exercises',
-      'es': '',
-    },
-    'lo89ffm5': {
-      'en': 'Create',
-      'es': '',
-    },
-  },
   // profEditV2
   {
     '6vw3sskc': {

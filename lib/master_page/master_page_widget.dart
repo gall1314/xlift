@@ -187,7 +187,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                   EditWorkoutV2Widget.routeName,
                                   queryParameters: {
                                     'shouldInit': serializeParam(
-                                      false,
+                                      true,
                                       ParamType.bool,
                                     ),
                                     'workoutId': serializeParam(
@@ -1795,10 +1795,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                             analysisCountMonth:
                                                                 FFAppState()
                                                                     .analysisCountMonth,
-                                                            languageCode:
-                                                                FFLocalizations.of(
-                                                                        context)
-                                                                    .languageCode,
                                                             onStartWorkout:
                                                                 (workoutId) async {
                                                               if (FFAppState()

@@ -11,24 +11,65 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+/// Rebuilds the rest-times map from the picker's result.
+///
+/// [selectedExercises] is the list ExercisePickerView hands to onConfirm
+/// (maps with exerciseId); plain ints and JSON strings are accepted too.
+/// Existing rest times are kept, new exercises start at 0, dropped
+/// exercises are removed.
 dynamic syncExerciseRestTimesWithSelectedIds(
   dynamic existingRestTimes,
-  List<int> selectedExerciseIds,
+  List<dynamic> selectedExercises,
 ) {
-  final Map<String, int> current = (existingRestTimes is Map<String, int>)
-      ? Map<String, int>.from(existingRestTimes)
-      : {};
+  int idOf(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is Map) return idOf(v['exerciseId'] ?? v['exercise_id']);
+    if (v is String) {
+      final n = int.tryParse(v.trim());
+      if (n != null) return n;
+      try {
+        final m = jsonDecode(v);
+        if (m is Map) return idOf(m['exerciseId'] ?? m['exercise_id']);
+      } catch (_) {}
+      return 0;
+    }
+    try {
+      final m = (v as dynamic).toMap();
+      if (m is Map) return idOf(m['exerciseId'] ?? m['exercise_id']);
+    } catch (_) {}
+    try {
+      return idOf((v as dynamic).exerciseId);
+    } catch (_) {}
+    return 0;
+  }
+
+  // Existing map may arrive as Map<String,int>, Map<String,dynamic> or a
+  // JSON string — normalize to Map<String,int>.
+  final Map<String, int> current = {};
+  dynamic src = existingRestTimes;
+  if (src is String) {
+    try {
+      src = jsonDecode(src);
+    } catch (_) {
+      src = null;
+    }
+  }
+  if (src is Map) {
+    src.forEach((k, v) {
+      final secs = v is int ? v : (v is num ? v.toInt() : int.tryParse('$v'));
+      if (secs != null) current['$k'] = secs;
+    });
+  }
 
   final Map<String, int> result = {};
 
-  for (final exerciseId in selectedExerciseIds) {
+  for (final picked in selectedExercises) {
+    final exerciseId = idOf(picked);
+    if (exerciseId <= 0) continue;
     final key = exerciseId.toString();
-
-    if (current.containsKey(key)) {
-      result[key] = current[key] ?? 0;
-    } else {
-      result[key] = 0;
-    }
+    result[key] = current[key] ?? 0;
   }
 
   return result;

@@ -83,8 +83,25 @@ class _ExerciseAssetImageState extends State<ExerciseAssetImage> {
     }
   }
 
-  Widget _icon() =>
-      const Icon(Icons.image_not_supported, size: 48, color: Colors.grey);
+  /// No image anywhere: a quiet dumbbell on a soft tile, in the app's
+  /// palette, scaled to the box so it works at 52px and at 160px alike.
+  Widget _icon() {
+    final th = FlutterFlowTheme.of(context);
+    final double side =
+        widget.width < widget.height ? widget.width : widget.height;
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      color: Color.alphaBlend(
+          th.primaryText.withOpacity(0.05), th.secondaryBackground),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.fitness_center_rounded,
+        size: (side * 0.38).clamp(16.0, 56.0),
+        color: th.secondaryText.withOpacity(0.6),
+      ),
+    );
+  }
 
   Widget _assetImage() {
     return Image.asset(
