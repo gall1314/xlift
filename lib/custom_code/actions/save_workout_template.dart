@@ -21,6 +21,9 @@ import 'xlift_log_add.dart';
 /// workout_exercise ids are generated internally. Empty/null name ->
 /// "Unnamed Workout N". rest_seconds gets restDurations[exerciseId]
 /// AS-IS (ms, default 90000). Superset flags come from exerciseSets.
+/// EXERCISE ORDER ("order" column) follows the position of each exercise
+/// in exerciseSets - the on-screen order - not the order of
+/// alreadySelected.
 /// All progress lines go through xliftLogAdd -> visible live in the
 /// DebugConsole widget AND in the real console.
 ///
@@ -222,22 +225,43 @@ Future<dynamic> saveWorkoutTemplate(
               }));
       mark('workout');
 
-      // exerciseSets keyed by exerciseId (superset info + sets)
+      // exerciseSets keyed by exerciseId (superset info + sets) and the
+      // on-screen position of each exercise (drives "order").
       final Map<int, Map<String, dynamic>> exSetsById = {};
-      for (final e in exerciseSets) {
+      final Map<int, int> positionById = {};
+      for (int i = 0; i < exerciseSets.length; i++) {
+        final e = exerciseSets[i];
         if (e is! Map) continue;
         final int? exId = toInt(e['exerciseId']);
         if (exId == null) continue;
         exSetsById[exId] = Map<String, dynamic>.from(e);
+        positionById.putIfAbsent(exId, () => i);
       }
+
+      // alreadySelected in exerciseSets order (stable for ties).
+      final List<Map<String, dynamic>> selectedOrdered = [];
+      for (final raw in alreadySelected) {
+        if (raw is Map) selectedOrdered.add(Map<String, dynamic>.from(raw));
+      }
+      final List<int> idx = List<int>.generate(selectedOrdered.length, (i) => i)
+        ..sort((a, b) {
+          final int? ea = toInt(selectedOrdered[a]['exerciseId'] ??
+              selectedOrdered[a]['exercise_id']);
+          final int? eb = toInt(selectedOrdered[b]['exerciseId'] ??
+              selectedOrdered[b]['exercise_id']);
+          final int pa = ea == null ? 1 << 30 : (positionById[ea] ?? 1 << 30);
+          final int pb = eb == null ? 1 << 30 : (positionById[eb] ?? 1 << 30);
+          if (pa != pb) return pa.compareTo(pb);
+          return a.compareTo(b);
+        });
 
       // ---- 3. workout_exercises ----
       final Map<int, String> weIdByExerciseId = {};
       int savedExercises = 0;
       int order = 0;
 
-      for (final raw in alreadySelected) {
-        if (raw is! Map) continue;
+      for (final i in idx) {
+        final Map<String, dynamic> raw = selectedOrdered[i];
         final int? exerciseId = toInt(raw['exerciseId'] ?? raw['exercise_id']);
         if (exerciseId == null || exerciseId <= 0) continue;
 
@@ -516,5 +540,6 @@ Future<dynamic> saveWorkoutTemplate(
     }
   }
 }
+
 // Set your action name, define your arguments and return parameter,
 // and then add the boilerplate code using the `</>` button on the right!

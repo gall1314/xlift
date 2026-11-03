@@ -356,6 +356,30 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                           safeSetState(() {});
                                         },
                                 ),
+                                Container(
+                                  width: 88.0,
+                                  height: 34.0,
+                                  child: custom_widgets.ExerciseFinishButton(
+                                    width: 88.0,
+                                    height: 34.0,
+                                    exerciseId: widget.exerciseId!,
+                                    exerciseName: widget.exerciseName,
+                                    exerciseSets: FFAppState().exercisesets,
+                                    loggedSets: FFAppState().loggedSets,
+                                    completedExercises:
+                                        FFAppState().completedExercises,
+                                    onApply:
+                                        (loggedSets, completedExercises) async {
+                                      FFAppState().loggedSets = _model.mark2!
+                                          .toList()
+                                          .cast<dynamic>();
+                                      FFAppState().completedExercises =
+                                          loggedSets.toList().cast<dynamic>();
+                                      _model.updatePage(() {});
+                                      HapticFeedback.mediumImpact();
+                                    },
+                                  ),
+                                ),
                                 FlutterFlowIconButton(
                                   borderColor:
                                       FlutterFlowTheme.of(context).alternate,
@@ -931,7 +955,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                 );
                                 FFAppState().exercisesets =
                                     _model.addSet!.toList().cast<dynamic>();
-                                safeSetState(() {});
+                                _model.updatePage(() {});
 
                                 safeSetState(() {});
                               },

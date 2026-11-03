@@ -85,6 +85,7 @@ class _AddExercisesForWorklogEditWidgetState
             languageCode: FFLocalizations.of(context).languageCode,
             isLiveWorkout: false,
             originalSelection: widget.alreadySelceted,
+            liveExerciseSets: FFAppState().exerciseSetsCretion,
             onConfirm: (selected) async {
               _model.addedCopy =
                   await actions.addExercisesToExerciseSetsInWorkout(
@@ -94,7 +95,16 @@ class _AddExercisesForWorklogEditWidgetState
               FFAppState().exerciseSetsCretion =
                   _model.addedCopy!.toList().cast<dynamic>();
               safeSetState(() {});
-              context.safePop();
+
+              context.pushNamed(
+                WorkoutLogEditV2Widget.routeName,
+                queryParameters: {
+                  'workoutLogId': serializeParam(
+                    widget.workoutLOgId,
+                    ParamType.String,
+                  ),
+                }.withoutNulls,
+              );
 
               safeSetState(() {});
             },

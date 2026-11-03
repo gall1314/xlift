@@ -142,6 +142,8 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                               userId: currentUserUid,
                               initialTab: widget.initialTab,
                               canGenerate: false,
+                              languageCode:
+                                  FFLocalizations.of(context).languageCode,
                               onStartWorkout: (workoutId) async {
                                 if (FFAppState().workout) {
                                   await showDialog(

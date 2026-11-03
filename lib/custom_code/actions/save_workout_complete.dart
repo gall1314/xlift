@@ -24,11 +24,13 @@ import 'xlift_log_add.dart';
 /// loops and written straight to workout_log.volume - no read query,
 /// no separate update step.
 ///
-/// SET NUMBERING: loggedSets arrives in ENTRY order (not display order),
-/// so regular sets are first sorted by (exerciseId, setNumber), then done
+/// SET NUMBERING / ORDER: loggedSets arrives in ENTRY order (not display
+/// order), so regular sets are first sorted by (position of the exercise
+/// in exerciseSets, setNumber) - the on-screen workout order - then done
 /// sets are renumbered sequentially PER EXERCISE (done sets 1,3 -> saved
-/// as 1,2). Drop sets and analyses are matched to their parent by the
-/// ORIGINAL setNumber (that's how they arrive from App State) but
+/// as 1,2). Rows are inserted in that order, so set_log rowid follows the
+/// workout order. Drop sets and analyses are matched to their parent by
+/// the ORIGINAL setNumber (that's how they arrive from App State) but
 /// persisted with the renumbered value so parent/drop stay consistent.
 ///
 /// DURATION: duration_seconds is written as NULL unless the set carries a
@@ -200,12 +202,15 @@ Future<dynamic> saveWorkoutComplete(
         'exerciseSets=${exerciseSets == null ? "null(!volume counts all)" : exSets.length}');
     mark('normalize-args');
 
-    // ---- assisted exercise ids from exerciseSets (no DB read) ----
+    // ---- assisted ids + workout order from exerciseSets (no DB read) ----
     final Set<int> assistedIds = {};
-    for (final e in exSets) {
+    final Map<int, int> orderByExercise = {}; // exerciseId -> position
+    for (int i = 0; i < exSets.length; i++) {
+      final e = exSets[i];
       if (e is! Map) continue;
       final int? exId = asIntOrNull(e['exerciseId'] ?? e['exercise_id']);
       if (exId == null) continue;
+      orderByExercise.putIfAbsent(exId, () => i);
       if (truthy(e['isAssisted'] ?? e['is_assisted'])) {
         assistedIds.add(exId);
       }
@@ -325,11 +330,15 @@ Future<dynamic> saveWorkoutComplete(
 
       // ---- 2. regular sets (volume accumulated in-memory) ----
       // loggedSets is in ENTRY order, not display order - sort a copy by
-      // (exerciseId, setNumber) so renumbering follows the on-screen order.
+      // (position in exerciseSets, setNumber) so insertion and renumbering
+      // follow the on-screen workout order.
       final List<dynamic> orderedSets = List<dynamic>.from(sets)
         ..sort((a, b) {
           final int ea = a is Map ? asInt(a['exerciseId']) : 0;
           final int eb = b is Map ? asInt(b['exerciseId']) : 0;
+          final int pa = orderByExercise[ea] ?? 1 << 30;
+          final int pb = orderByExercise[eb] ?? 1 << 30;
+          if (pa != pb) return pa.compareTo(pb);
           if (ea != eb) return ea.compareTo(eb);
           final int na = a is Map ? asInt(a['setNumber']) : 0;
           final int nb = b is Map ? asInt(b['setNumber']) : 0;
