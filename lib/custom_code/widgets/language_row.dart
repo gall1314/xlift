@@ -29,14 +29,14 @@ class AppLanguage {
   final bool enabled;
 }
 
-/// Flip `enabled` to ship a language. Also add it in FF → Settings →
-/// Languages, otherwise setAppLanguage ignores it.
+/// All shipped. To pull one back, add `enabled: false`. Every enabled code
+/// must also exist in FF → Settings → Languages.
 const List<AppLanguage> kAppLanguages = [
   AppLanguage('en', 'English', 'English'),
   AppLanguage('es', 'Español', 'Spanish'),
-  AppLanguage('he', 'עברית', 'Hebrew', enabled: false),
-  AppLanguage('de', 'Deutsch', 'German', enabled: false),
-  AppLanguage('fr', 'Français', 'French', enabled: false),
+  AppLanguage('he', 'עברית', 'Hebrew'),
+  AppLanguage('de', 'Deutsch', 'German'),
+  AppLanguage('fr', 'Français', 'French'),
 ];
 
 List<AppLanguage> get kEnabledLanguages =>
@@ -372,7 +372,6 @@ class _LanguageSheet extends StatelessWidget {
                 ],
               ),
             ),
-            // Device language — only when the phone's language is one we ship.
             if (device != null) ...[
               row(
                 main: _tr(lang, 'device'),

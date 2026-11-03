@@ -1,6 +1,4 @@
 // Export pages
-export '/workout_afterview/workout_afterview_widget.dart'
-    show WorkoutAfterviewWidget;
 export '/exercise_history/exercise_history_widget.dart'
     show ExerciseHistoryWidget;
 export '/settingss/settingss_widget.dart' show SettingssWidget;
@@ -41,7 +39,6 @@ export '/create_user_exercise_mid_session/create_user_exercise_mid_session_widge
     show CreateUserExerciseMidSessionWidget;
 export '/routine_builder/routine_builder_widget.dart' show RoutineBuilderWidget;
 export '/select_workouts/select_workouts_widget.dart' show SelectWorkoutsWidget;
-export '/calender/calender_widget.dart' show CalenderWidget;
 export '/exercise_history_custom/exercise_history_custom_widget.dart'
     show ExerciseHistoryCustomWidget;
 export '/test/test_widget.dart' show TestWidget;
@@ -52,7 +49,6 @@ export '/test3/test3_widget.dart' show Test3Widget;
 export '/videopage_h_e_v_y/videopage_h_e_v_y_widget.dart'
     show VideopageHEVYWidget;
 export '/live_squat/live_squat_widget.dart' show LiveSquatWidget;
-export '/barbelll/barbelll_widget.dart' show BarbelllWidget;
 export '/camera/camera_widget.dart' show CameraWidget;
 export '/ai_custom_muscels/ai_custom_muscels_widget.dart'
     show AiCustomMuscelsWidget;

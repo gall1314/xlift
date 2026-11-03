@@ -450,6 +450,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                   context.pushNamed(
                                       PremiumPaywallPageWidget.routeName);
                                 },
+                                onCompare: (workoutLogId) async {},
                               ),
                             ),
                           ),
@@ -503,22 +504,16 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                     font:
                                                         GoogleFonts.interTight(
                                                       fontWeight:
-                                                          FlutterFlowTheme.of(
-                                                                  context)
-                                                              .headlineMedium
-                                                              .fontWeight,
+                                                          FontWeight.w800,
                                                       fontStyle:
                                                           FlutterFlowTheme.of(
                                                                   context)
                                                               .headlineMedium
                                                               .fontStyle,
                                                     ),
+                                                    fontSize: 32.0,
                                                     letterSpacing: 0.0,
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .headlineMedium
-                                                            .fontWeight,
+                                                    fontWeight: FontWeight.w800,
                                                     fontStyle:
                                                         FlutterFlowTheme.of(
                                                                 context)
@@ -2356,22 +2351,6 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                           .testBarbellDetection(
                                                                     _model
                                                                         .uploadedLocalFile_uploadDataEut,
-                                                                  );
-
-                                                                  context
-                                                                      .pushNamed(
-                                                                    BarbelllWidget
-                                                                        .routeName,
-                                                                    queryParameters:
-                                                                        {
-                                                                      'result':
-                                                                          serializeParam(
-                                                                        _model
-                                                                            .barb,
-                                                                        ParamType
-                                                                            .JSON,
-                                                                      ),
-                                                                    }.withoutNulls,
                                                                   );
 
                                                                   safeSetState(

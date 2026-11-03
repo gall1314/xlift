@@ -187,6 +187,7 @@ class _DeleteWorkoutLogWidgetState extends State<DeleteWorkoutLogWidget> {
                         await SQLiteManager.instance.deleteSetLogs(
                           workoutLogId: widget.workoutLogId!,
                         );
+                        Navigator.pop(context);
                       },
                       text: FFLocalizations.of(context).getText(
                         'xx67eva2' /* Delete */,

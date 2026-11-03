@@ -30,18 +30,16 @@ import '/flutter_flow/internationalization.dart' show FFLocalizations;
 /// direction (RTL for 'he'). Supported: 'en','es','he','de','fr'; anything
 /// else falls back to English.
 ///
-/// Parameters:
-///   userId             - current user id (auth)
-///   isPremium          - true hides the form-check quota meter
-///   analysisCount      - FFAppState().analysisCount
-///   analysisCountMonth - FFAppState().analysisCountMonth ("YYYY-MM")
-///   onStartWorkout     - (workoutId) start a saved workout
-///   onOpenSummary      - (workoutLogId) open workout summary
-///   onOpenLastAnalysis - (GetSetAnalysisRow) show the last analysis; the
-///                        camera itself is the page's FAB
-///   onOpenStats, onOpenLibrary, onOpenSettings
-///   onOpenTemplates    - Library on the Templates tab (initialTab = 1)
-///   onCreateWorkout    - open the existing create bottom sheet
+/// Parameters: userId             - current user id (auth) isPremium - true
+/// hides the form-check quota meter analysisCount      -
+/// FFAppState().analysisCount analysisCountMonth -
+/// FFAppState().analysisCountMonth ("YYYY-MM") onStartWorkout     -
+/// (workoutId) start a saved workout onOpenSummary      - (workoutLogId) open
+/// workout summary onOpenLastAnalysis - (GetSetAnalysisRow) show the last
+/// analysis; the camera itself is the page's FAB onOpenStats, onOpenLibrary,
+/// onOpenSettings onOpenTemplates    - Library on the Templates tab
+/// (initialTab = 1) onCreateWorkout    - open the existing create bottom
+/// sheet
 class HomeView extends StatefulWidget {
   const HomeView({
     super.key,
@@ -96,6 +94,11 @@ const double _kMinPerSet = 3.5;
 const double _kRadius = 16;
 const double _kRadiusInner = 12;
 
+// Saved workouts listed on Home: the most-performed ones in the recent
+// window, most recent first on ties. The rest live behind "See all".
+const int _kMaxHomeWorkouts = 3;
+const int _kRecentDays = 28;
+
 // The one intentional dark surface (hero card), fixed in both themes.
 const _kDark = Color(0xFF0F1D1B);
 const _kOnDark = Color(0xFFF2F4F3);
@@ -140,11 +143,11 @@ const Map<String, Map<String, String>> _kStrings = {
     "fr": "Bonsoir",
   },
   "startHere": {
-    "en": "START HERE",
-    "es": "EMPIEZA AQUÍ",
+    "en": "Start here",
+    "es": "Empieza aquí",
     "he": "מתחילים כאן",
-    "de": "HIER STARTEN",
-    "fr": "COMMENCEZ ICI",
+    "de": "Hier starten",
+    "fr": "Commencez ici",
   },
   "buildFirst": {
     "en": "Build your first\nworkout",
@@ -172,18 +175,25 @@ const Map<String, Map<String, String>> _kStrings = {
     "fr": "Créer un entraînement",
   },
   "upNext": {
-    "en": "UP NEXT",
-    "es": "SIGUIENTE",
+    "en": "Up next",
+    "es": "Siguiente",
     "he": "הבא בתור",
-    "de": "ALS NÄCHSTES",
-    "fr": "À SUIVRE",
+    "de": "Als Nächstes",
+    "fr": "À suivre",
   },
   "recovered": {
-    "en": "Recovered",
-    "es": "Recuperado",
-    "he": "התאוששת",
-    "de": "Erholt",
-    "fr": "Récupéré",
+    "en": "Muscles recovered",
+    "es": "Músculos recuperados",
+    "he": "השרירים התאוששו",
+    "de": "Muskeln erholt",
+    "fr": "Muscles récupérés",
+  },
+  "recovering": {
+    "en": "Still recovering",
+    "es": "Aún recuperándose",
+    "he": "עדיין בהתאוששות",
+    "de": "Noch in Erholung",
+    "fr": "Encore en récupération",
   },
   "exercisesCount": {
     "en": "{n} exercises",
@@ -248,6 +258,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "{n} von {m} Gratis-Checks diesen Monat übrig",
     "fr": "{n} analyses gratuites sur {m} restantes ce mois-ci",
   },
+  "lastCheck": {
+    "en": "Last check",
+    "es": "Último análisis",
+    "he": "ניתוח אחרון",
+    "de": "Letzter Check",
+    "fr": "Dernière analyse",
+  },
   "thisWeek": {
     "en": "This week",
     "es": "Esta semana",
@@ -284,11 +301,11 @@ const Map<String, Map<String, String>> _kStrings = {
     "fr": "kg volume",
   },
   "lastWorkout": {
-    "en": "LAST WORKOUT",
-    "es": "ÚLTIMO ENTRENAMIENTO",
+    "en": "Last workout",
+    "es": "Último entrenamiento",
     "he": "אימון אחרון",
-    "de": "LETZTES WORKOUT",
-    "fr": "DERNIER ENTRAÎNEMENT",
+    "de": "Letztes Workout",
+    "fr": "Dernier entraînement",
   },
   "workout": {
     "en": "Workout",
@@ -451,6 +468,7 @@ class _WorkoutRow {
     required this.muscles,
     required this.formCheckCount,
     required this.estMinutes,
+    required this.recentCount,
   });
   final String id;
   final String name;
@@ -459,6 +477,9 @@ class _WorkoutRow {
   final List<String> muscles;
   final int formCheckCount;
   final int estMinutes;
+
+  /// Times performed in the last _kRecentDays. Drives the My workouts order.
+  final int recentCount;
 
   bool get isRested =>
       lastDoneAt == null ||
@@ -706,6 +727,37 @@ class _HomeViewState extends State<HomeView> {
     final uid = widget.userId;
     final now = DateTime.now();
 
+    // --- recent logs: feed both "this week" and the per-workout recent
+    // counts that order My workouts. One query, dates compared in Dart. ---
+    final weekStart = _startOfWeekSunday(now);
+    final recentStart = now.subtract(const Duration(days: _kRecentDays));
+    final wkRows = await db.rawQuery('''
+      SELECT wl.id, wl.workout_id, wl.created_at, wl.volume,
+             (SELECT COUNT(*) FROM set_log s
+               WHERE s.workout_log_id = wl.id AND s.is_dropset = 0) AS sets
+      FROM workout_log wl WHERE wl.user_id = ?
+      ORDER BY wl.created_at DESC LIMIT 120
+    ''', [uid]);
+    final perDay = List<int>.filled(7, 0);
+    final recentCounts = <String, int>{};
+    int wkWorkouts = 0, wkSets = 0;
+    double wkVol = 0;
+    for (final r in wkRows) {
+      final at = _parse(r['created_at']);
+      if (at == null) continue;
+      if (!at.isBefore(recentStart)) {
+        final wid = (r['workout_id'] ?? '').toString();
+        if (wid.isNotEmpty) {
+          recentCounts[wid] = (recentCounts[wid] ?? 0) + 1;
+        }
+      }
+      if (at.isBefore(weekStart)) continue;
+      wkWorkouts++;
+      wkSets += _int(r['sets']);
+      wkVol += _dbl(r['volume']);
+      perDay[at.weekday % 7]++;
+    }
+
     // --- saved workouts ---
     // last_done_at is a correlated subquery, not a JOIN on workout_log: a
     // join would repeat every exercise row once per log and inflate counts
@@ -748,10 +800,12 @@ class _HomeViewState extends State<HomeView> {
         muscles: _topMuscles(mRows),
         formCheckCount: _int(r['fc_count']),
         estMinutes: _estimate(exCount, _int(r['set_count'])),
+        recentCount: recentCounts[id] ?? 0,
       ));
     }
 
-    // Rested first (never / >=7d), then oldest-done.
+    // Hero order: rested first (never / >=7d), then oldest-done.
+    // (My workouts uses its own order, see _myWorkouts.)
     workouts.sort((a, b) {
       int tier(_WorkoutRow w) {
         if (w.lastDoneAt == null) return 0;
@@ -820,27 +874,6 @@ class _HomeViewState extends State<HomeView> {
         muscles: _topMuscles(mRows),
         prCount: prRows.isEmpty ? 0 : _int(prRows.first['prs']),
       );
-    }
-
-    // --- this week (Sun..Sat, local) ---
-    final weekStart = _startOfWeekSunday(now);
-    final wkRows = await db.rawQuery('''
-      SELECT wl.id, wl.created_at, wl.volume,
-             (SELECT COUNT(*) FROM set_log s
-               WHERE s.workout_log_id = wl.id AND s.is_dropset = 0) AS sets
-      FROM workout_log wl WHERE wl.user_id = ?
-      ORDER BY wl.created_at DESC LIMIT 60
-    ''', [uid]);
-    final perDay = List<int>.filled(7, 0);
-    int wkWorkouts = 0, wkSets = 0;
-    double wkVol = 0;
-    for (final r in wkRows) {
-      final at = _parse(r['created_at']);
-      if (at == null || at.isBefore(weekStart)) continue;
-      wkWorkouts++;
-      wkSets += _int(r['sets']);
-      wkVol += _dbl(r['volume']);
-      perDay[at.weekday % 7]++;
     }
 
     // --- last form score ---
@@ -982,6 +1015,8 @@ class _HomeViewState extends State<HomeView> {
 
   // ------------------------------ typography --------------------------------
   // Built from the app theme so Home uses the same family as every other page.
+  // Three levels only: display (greeting / hero / stats), card title (16),
+  // meta (12-13). Labels are sentence case, never tracked uppercase.
 
   TextStyle _ts(
     double size, {
@@ -1021,10 +1056,10 @@ class _HomeViewState extends State<HomeView> {
           {Color? color, FontWeight w = FontWeight.w400}) =>
       _ts(size, color: color, w: w);
 
-  TextStyle _eyebrow({Color? color}) => _ts(11,
-      color: color ?? _inkMuted,
-      w: FontWeight.w600,
-      letterSpacing: _isRtl ? 0 : 1.4);
+  TextStyle _label({Color? color}) =>
+      _ts(12, color: color ?? _inkMuted, w: FontWeight.w500);
+
+  TextStyle _cardTitle() => _body(16, w: FontWeight.w600);
 
   Widget _gutter(Widget child) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: _kGutter),
@@ -1073,7 +1108,7 @@ class _HomeViewState extends State<HomeView> {
                       const SizedBox(height: 12),
                       _gutter(_lastWorkoutCard(d.lastWorkout!)),
                     ],
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 12),
                     _myWorkouts(d),
                   ],
                 ),
@@ -1092,11 +1127,11 @@ class _HomeViewState extends State<HomeView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_dateLine(now).toUpperCase(), style: _eyebrow()),
-              const SizedBox(height: 6),
+              Text(_dateLine(now), style: _label()),
+              const SizedBox(height: 4),
               Text(
                 _greeting(now),
-                style: _display(32),
+                style: _display(28),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1125,9 +1160,9 @@ class _HomeViewState extends State<HomeView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_t('startHere'), style: _eyebrow(color: _accentOnDark)),
-            const SizedBox(height: 14),
-            Text(_t('buildFirst'), style: _display(30, color: _kOnDark)),
+            Text(_t('startHere'), style: _label(color: _accentOnDark)),
+            const SizedBox(height: 12),
+            Text(_t('buildFirst'), style: _display(28, color: _kOnDark)),
             const SizedBox(height: 8),
             Text(_t('buildFirstSub'), style: _body(13, color: _kOnDarkMuted)),
             const SizedBox(height: 18),
@@ -1139,31 +1174,40 @@ class _HomeViewState extends State<HomeView> {
     }
 
     final w = d.workouts[_heroOffset % d.workouts.length];
-    final rested = w.muscles.isNotEmpty && w.isRested;
+    final hasMuscles = w.muscles.isNotEmpty;
+    final rested = hasMuscles && w.isRested;
     return _darkCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(_t('upNext'), style: _eyebrow(color: _accentOnDark)),
+              Text(_t('upNext'), style: _label(color: _accentOnDark)),
               const Spacer(),
-              if (rested) ...[
+              // Recovery status: muscles of this workout have had >= 48h.
+              if (hasMuscles) ...[
                 Container(
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                      color: _accentOnDark, shape: BoxShape.circle),
+                    color: rested ? _accentOnDark : _kOnDarkMuted,
+                    shape: BoxShape.circle,
+                  ),
                 ),
                 const SizedBox(width: 6),
-                Text(_t('recovered'), style: _body(12, color: _kOnDarkMuted)),
+                Text(
+                  rested ? _t('recovered') : _t('recovering'),
+                  style: _body(12,
+                      color: rested ? _kOnDarkPill : _kOnDarkMuted,
+                      w: FontWeight.w500),
+                ),
               ],
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Text(
             _displayName(w),
-            style: _display(34, color: _kOnDark),
+            style: _display(28, color: _kOnDark),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1247,18 +1291,18 @@ class _HomeViewState extends State<HomeView> {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: _accentTint,
+                color: _cardSub,
                 borderRadius: BorderRadius.circular(_kRadiusInner),
               ),
               alignment: Alignment.center,
-              child: _FormCheckIcon(size: 24, color: _accentDeep),
+              child: _FormCheckIcon(size: 24, color: _ink),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_t('formCheck'), style: _body(16, w: FontWeight.w600)),
+                  Text(_t('formCheck'), style: _cardTitle()),
                   const SizedBox(height: 5),
                   Text(subtitle,
                       style: _body(12, color: _inkMuted),
@@ -1290,18 +1334,28 @@ class _HomeViewState extends State<HomeView> {
             if (ls != null) ...[
               const SizedBox(width: 12),
               SizedBox(
-                width: 84,
+                width: 88,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _ScoreRing(
                       score: ls.score,
                       label: _score(ls.score),
+                      suffix: '/10',
                       color: _accent,
                       track: _line,
-                      labelStyle: _display(16, w: FontWeight.w800),
+                      labelStyle: _display(15, w: FontWeight.w800),
+                      suffixStyle:
+                          _body(9, color: _inkMuted, w: FontWeight.w600),
                     ),
                     const SizedBox(height: 5),
+                    Text(
+                      _t('lastCheck'),
+                      style: _body(10, color: _inkMuted, w: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
                     Text(
                       '${ls.exerciseName} · ${_dayShort(ls.at)}',
                       style: _body(10, color: _inkMuted),
@@ -1331,24 +1385,10 @@ class _HomeViewState extends State<HomeView> {
         children: [
           Row(
             children: [
-              Text(_t('thisWeek'), style: _body(14, w: FontWeight.w600)),
+              Text(_t('thisWeek'), style: _cardTitle()),
               const Spacer(),
-              GestureDetector(
-                onTap: () => widget.onOpenStats?.call(),
-                child: Row(
-                  children: [
-                    Text(_t('fullStats'),
-                        style:
-                            _body(12, color: _accentDeep, w: FontWeight.w500)),
-                    Icon(
-                        _isRtl
-                            ? Icons.chevron_left_rounded
-                            : Icons.chevron_right_rounded,
-                        size: 16,
-                        color: _accentDeep),
-                  ],
-                ),
-              ),
+              _linkButton(_t('fullStats'),
+                  onTap: () => widget.onOpenStats?.call()),
             ],
           ),
           const SizedBox(height: 16),
@@ -1405,7 +1445,7 @@ class _HomeViewState extends State<HomeView> {
         shape: BoxShape.circle,
         color: today ? _card : Colors.transparent,
         border: Border.all(
-          color: today ? _accent : _line,
+          color: today ? _ink : _line,
           width: today ? 2 : 1.5,
         ),
       ),
@@ -1415,7 +1455,7 @@ class _HomeViewState extends State<HomeView> {
   Widget _stat(String value, String label) => Expanded(
         child: Column(
           children: [
-            Text(value, style: _display(26), textAlign: TextAlign.center),
+            Text(value, style: _display(24), textAlign: TextAlign.center),
             const SizedBox(height: 3),
             Text(label,
                 style: _body(11, color: _inkMuted),
@@ -1441,16 +1481,16 @@ class _HomeViewState extends State<HomeView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${_t('lastWorkout')} · ${_dayShort(l.at).toUpperCase()} $hh:$mm',
-                    style: _eyebrow(),
+                    '${_t('lastWorkout')} · ${_dayShort(l.at)} $hh:$mm',
+                    style: _label(),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(l.name.isEmpty ? _t('workout') : _cap(l.name),
-                          style: _display(20, w: FontWeight.w700)),
+                          style: _display(18, w: FontWeight.w700)),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -1501,61 +1541,137 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  // --- my workouts: full-bleed horizontal shelf ---
+  // --- my workouts: one card, the 3 most-performed recently, create below ---
   Widget _myWorkouts(_HomeData d) {
     final list = d.workouts;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _gutter(Row(
-          children: [
-            Text(_t('myWorkouts'), style: _display(20, w: FontWeight.w700)),
-            const Spacer(),
-            if (list.isNotEmpty)
-              GestureDetector(
-                onTap: () => widget.onOpenLibrary?.call(),
-                child: Text(_t('seeAll', n: list.length),
-                    style: _body(12, color: _accentDeep, w: FontWeight.w500)),
-              ),
-          ],
-        )),
-        const SizedBox(height: 12),
-        if (list.isNotEmpty)
-          SizedBox(
-            height: 156,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: _kGutter),
-              physics: const BouncingScrollPhysics(),
-              itemCount: list.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (_, i) => _workoutCard(list[i]),
-            ),
-          )
-        else
+
+    // Empty state: templates pointer + create, no list header.
+    if (list.isEmpty) {
+      return Column(
+        children: [
           _gutter(_templatesCard()),
-        const SizedBox(height: 12),
-        _gutter(GestureDetector(
-          onTap: () => widget.onCreateWorkout?.call(),
-          child: Container(
-            height: 54,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_kRadius),
-              border: Border.all(color: _inkFaint, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 12),
+          _gutter(_createButton()),
+        ],
+      );
+    }
+
+    // Relevance: most performed in the recent window, then most recent.
+    // Independent of the hero order (which prefers rested / long-unused).
+    final ranked = [...list]..sort((a, b) {
+        final c = b.recentCount.compareTo(a.recentCount);
+        if (c != 0) return c;
+        final al = a.lastDoneAt, bl = b.lastDoneAt;
+        if (al == null && bl == null) return 0;
+        if (al == null) return 1;
+        if (bl == null) return -1;
+        return bl.compareTo(al);
+      });
+    final shown = ranked.take(_kMaxHomeWorkouts).toList();
+
+    return _gutter(_lightCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(_t('myWorkouts'), style: _cardTitle()),
+              const Spacer(),
+              _linkButton(_t('seeAll', n: list.length),
+                  onTap: () => widget.onOpenLibrary?.call()),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final w in shown) _workoutRow(w),
+          const SizedBox(height: 12),
+          _createButton(),
+        ],
+      ),
+    ));
+  }
+
+  Widget _workoutRow(_WorkoutRow w) {
+    final meta = [
+      _t('exercisesCount', n: w.exerciseCount),
+      _t('minutes', n: w.estMinutes),
+      if (w.muscles.isNotEmpty) w.muscles.join(', '),
+    ].join(' · ');
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: _cardSub)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.add_rounded, size: 20, color: _ink),
-                const SizedBox(width: 8),
-                Text(_t('createWorkout'), style: _body(14, w: FontWeight.w600)),
+                Text(
+                  _displayName(w),
+                  style: _body(15, w: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  meta,
+                  style: _body(12, color: _inkMuted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  w.lastDoneAt == null
+                      ? _t('neverDoneCap')
+                      : _t('doneAgo', d: _ago(w.lastDoneAt)),
+                  style: _body(11, color: _inkFaint),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
-        )),
-      ],
+          const SizedBox(width: 12),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => widget.onStartWorkout?.call(w.id),
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: _line, width: 1.5),
+              ),
+              alignment: Alignment.center,
+              child: Text(_t('start'),
+                  style: _body(13, color: _ink, w: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  Widget _createButton() => GestureDetector(
+        onTap: () => widget.onCreateWorkout?.call(),
+        child: Container(
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_kRadiusInner),
+            border: Border.all(color: _inkFaint, width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_rounded, size: 20, color: _ink),
+              const SizedBox(width: 8),
+              Text(_t('createWorkout'), style: _body(14, w: FontWeight.w600)),
+            ],
+          ),
+        ),
+      );
 
   // Shown only while the user has no workouts: points at the template
   // catalog, which new users otherwise don't discover.
@@ -1570,20 +1686,18 @@ class _HomeViewState extends State<HomeView> {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: _accentTint,
+                color: _cardSub,
                 borderRadius: BorderRadius.circular(_kRadiusInner),
               ),
               alignment: Alignment.center,
-              child: Icon(Icons.auto_stories_rounded,
-                  size: 22, color: _accentDeep),
+              child: Icon(Icons.auto_stories_rounded, size: 22, color: _ink),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_t('startFromTemplate'),
-                      style: _body(16, w: FontWeight.w600)),
+                  Text(_t('startFromTemplate'), style: _cardTitle()),
                   const SizedBox(height: 4),
                   Text(
                     _t('templateSub'),
@@ -1603,68 +1717,6 @@ class _HomeViewState extends State<HomeView> {
                 color: _inkMuted),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _workoutCard(_WorkoutRow w) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(_kRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _displayName(w),
-            style: _body(16, w: FontWeight.w600),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-              '${_t('exercisesCount', n: w.exerciseCount)} · ${_t('minutes', n: w.estMinutes)}',
-              style: _body(12, color: _inkMuted)),
-          const SizedBox(height: 8),
-          Text(
-            w.muscles.join(' · '),
-            style: _body(12, color: _inkMuted),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  w.lastDoneAt == null
-                      ? _t('neverDoneCap')
-                      : _t('doneAgo', d: _ago(w.lastDoneAt)),
-                  style: _body(11, color: _inkMuted),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => widget.onStartWorkout?.call(w.id),
-                child: Container(
-                  height: 34,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: _kDark,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(_t('start'),
-                      style: _body(13, color: _kOnDark, w: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -1691,6 +1743,29 @@ class _HomeViewState extends State<HomeView> {
           borderRadius: BorderRadius.circular(_kRadius),
         ),
         child: child,
+      );
+
+  // Secondary in-card link (Full stats / See all): muted, never accent, so
+  // the accent stays reserved for primary actions.
+  Widget _linkButton(String text, {VoidCallback? onTap}) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(text,
+                  style: _body(12, color: _inkMuted, w: FontWeight.w500)),
+              Icon(
+                  _isRtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 16,
+                  color: _inkMuted),
+            ],
+          ),
+        ),
       );
 
   Widget _pillDark(String text, {Widget? icon}) => Container(
@@ -1743,12 +1818,16 @@ class _ScoreRing extends StatelessWidget {
     required this.color,
     required this.track,
     required this.labelStyle,
+    this.suffix,
+    this.suffixStyle,
   });
   final double score;
   final String label;
+  final String? suffix;
   final Color color;
   final Color track;
   final TextStyle labelStyle;
+  final TextStyle? suffixStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -1762,7 +1841,17 @@ class _ScoreRing extends StatelessWidget {
             size: const Size(50, 50),
             painter: _RingPainter(score.clamp(0, 10) / 10, color, track),
           ),
-          Text(label, style: labelStyle),
+          Text.rich(
+            TextSpan(
+              text: label,
+              style: labelStyle,
+              children: [
+                if (suffix != null)
+                  TextSpan(text: suffix, style: suffixStyle ?? labelStyle),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );

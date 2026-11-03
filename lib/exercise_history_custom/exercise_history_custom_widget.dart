@@ -402,7 +402,7 @@ class _ExerciseHistoryCustomWidgetState
                                                               .transparent,
                                                           onTap: () async {
                                                             context.pushNamed(
-                                                              WorkoutAfterviewWidget
+                                                              WorkoutSummaryViewWidget
                                                                   .routeName,
                                                               queryParameters: {
                                                                 'workoutLogId':

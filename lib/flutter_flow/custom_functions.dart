@@ -7364,3 +7364,300 @@ String localizedName(
   if (map.isNotEmpty) return map.values.first.toString();
   return '';
 }
+
+String localizeStatText(
+  String? text,
+  String languageCode,
+) {
+  if (text == null || text.isEmpty) return '';
+  final String lang = languageCode.trim().toLowerCase();
+  String s = text;
+
+  // 1) Replace every embedded {"en":...} JSON name with its translation.
+  String pickName(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        final v = decoded[lang] ?? decoded['en'];
+        if (v != null && v.toString().isNotEmpty) return v.toString();
+        if (decoded.isNotEmpty) return decoded.values.first.toString();
+      }
+    } catch (_) {}
+    return raw;
+  }
+
+  s = s.replaceAllMapped(RegExp(r'\{[^{}]*\}'), (m) => pickName(m.group(0)!));
+  if (lang == 'en' || lang.isEmpty) return s;
+
+  // 2) Phrase templates. {0},{1},{2},{3} = regex groups.
+  const Map<String, Map<String, String>> T = {
+    r'^this workout$': {
+      'es': 'este entreno',
+      'he': 'האימון הזה',
+      'de': 'dieses Workout',
+      'fr': 'cette séance'
+    },
+    r'^Total volume$': {
+      'es': 'Volumen total',
+      'he': 'נפח כולל',
+      'de': 'Gesamtvolumen',
+      'fr': 'Volume total'
+    },
+    r'^Total reps$': {
+      'es': 'Reps totales',
+      'he': 'סה״כ חזרות',
+      'de': 'Wdh. gesamt',
+      'fr': 'Reps totales'
+    },
+    r'^Previous best (.+) kg$': {
+      'es': 'Mejor anterior {0} kg',
+      'he': 'שיא קודם {0} ק״ג',
+      'de': 'Bisher bestes {0} kg',
+      'fr': 'Record précédent {0} kg'
+    },
+    r'^Highest volume for (.+)$': {
+      'es': 'Mayor volumen en {0}',
+      'he': 'הנפח הגבוה ביותר ב{0}',
+      'de': 'Höchstes Volumen für {0}',
+      'fr': 'Volume record pour {0}'
+    },
+    r'^First (.+) logged$': {
+      'es': 'Primer {0} registrado',
+      'he': 'פעם ראשונה: {0}',
+      'de': 'Erstes {0} erfasst',
+      'fr': 'Première séance {0}'
+    },
+    r'^NEW PERSONAL RECORD$': {
+      'es': 'NUEVO RÉCORD',
+      'he': 'שיא אישי חדש',
+      'de': 'NEUER REKORD',
+      'fr': 'NOUVEAU RECORD'
+    },
+    r'^(\d+) NEW PERSONAL RECORDS$': {
+      'es': '{0} NUEVOS RÉCORDS',
+      'he': '{0} שיאים חדשים',
+      'de': '{0} NEUE REKORDE',
+      'fr': '{0} NOUVEAUX RECORDS'
+    },
+    r'^VOLUME RECORD$': {
+      'es': 'RÉCORD DE VOLUMEN',
+      'he': 'שיא נפח',
+      'de': 'VOLUMENREKORD',
+      'fr': 'RECORD DE VOLUME'
+    },
+    r'^NEW MOVE: (.+)$': {
+      'es': 'NUEVO: {U0}',
+      'he': 'תרגיל חדש: {0}',
+      'de': 'NEU: {U0}',
+      'fr': 'NOUVEAU : {U0}'
+    },
+    r'^(\d+) NEW MOVES$': {
+      'es': '{0} EJERCICIOS NUEVOS',
+      'he': '{0} תרגילים חדשים',
+      'de': '{0} NEUE ÜBUNGEN',
+      'fr': '{0} NOUVEAUX EXERCICES'
+    },
+    r'^FIRST TIME$': {
+      'es': 'PRIMERA VEZ',
+      'he': 'פעם ראשונה',
+      'de': 'ERSTES MAL',
+      'fr': 'PREMIÈRE FOIS'
+    },
+    r'^UP FROM LAST TIME$': {
+      'es': 'MEJOR QUE LA ÚLTIMA VEZ',
+      'he': 'יותר מהפעם הקודמת',
+      'de': 'BESSER ALS LETZTES MAL',
+      'fr': 'MIEUX QUE LA DERNIÈRE FOIS'
+    },
+    r'^FASTER THAN LAST TIME$': {
+      'es': 'MÁS RÁPIDO QUE LA ÚLTIMA VEZ',
+      'he': 'מהיר מהפעם הקודמת',
+      'de': 'SCHNELLER ALS LETZTES MAL',
+      'fr': 'PLUS RAPIDE QUE LA DERNIÈRE FOIS'
+    },
+    r'^WORKOUT #(\d+)$': {
+      'es': 'ENTRENO #{0}',
+      'he': 'אימון מס׳ {0}',
+      'de': 'WORKOUT #{0}',
+      'fr': 'SÉANCE #{0}'
+    },
+    r'^(.+) DAY DONE$': {
+      'es': 'DÍA DE {U0} HECHO',
+      'he': 'אימון {0} הושלם',
+      'de': '{U0}-TAG GESCHAFFT',
+      'fr': 'JOUR {U0} TERMINÉ'
+    },
+    r'^SHOWED UP$': {
+      'es': 'PRESENTE',
+      'he': 'הגעת, זה מה שחשוב',
+      'de': 'DABEI GEWESEN',
+      'fr': 'PRÉSENT'
+    },
+    r'^Form$': {
+      'es': 'Técnica',
+      'he': 'טכניקה',
+      'de': 'Technik',
+      'fr': 'Technique'
+    },
+    r'^Reps$': {'es': 'Reps', 'he': 'חזרות', 'de': 'Wdh.', 'fr': 'Reps'},
+    r'^kg$': {'es': 'kg', 'he': 'ק״ג', 'de': 'kg', 'fr': 'kg'},
+    r'^reps$': {'es': 'reps', 'he': 'חזרות', 'de': 'Wdh.', 'fr': 'reps'},
+    r'^(.+) kg total · (.+)$': {
+      'es': '{0} kg en total · {1}',
+      'he': '{0} ק״ג סה״כ · {1}',
+      'de': '{0} kg gesamt · {1}',
+      'fr': '{0} kg au total · {1}'
+    },
+    r'^(.+) kg total$': {
+      'es': '{0} kg en total',
+      'he': '{0} ק״ג סה״כ',
+      'de': '{0} kg gesamt',
+      'fr': '{0} kg au total'
+    },
+    r'^([▲▼]) (.+)% vs last (.+)$': {
+      'es': '{0} {1}% vs último {2}',
+      'he': '{0} {1}% לעומת הפעם הקודמת של {2}',
+      'de': '{0} {1}% vs. letztes {2}',
+      'fr': '{0} {1}% vs dernier {2}'
+    },
+    r'^(\d+) exercise · (\d+) set$': {
+      'es': '{0} ejercicio · {1} serie',
+      'he': 'תרגיל {0} · סט {1}',
+      'de': '{0} Übung · {1} Satz',
+      'fr': '{0} exercice · {1} série'
+    },
+    r'^(\d+) exercise · (\d+) sets$': {
+      'es': '{0} ejercicio · {1} series',
+      'he': 'תרגיל {0} · {1} סטים',
+      'de': '{0} Übung · {1} Sätze',
+      'fr': '{0} exercice · {1} séries'
+    },
+    r'^(\d+) exercises · (\d+) set$': {
+      'es': '{0} ejercicios · {1} serie',
+      'he': '{0} תרגילים · סט {1}',
+      'de': '{0} Übungen · {1} Satz',
+      'fr': '{0} exercices · {1} série'
+    },
+    r'^(\d+) exercises · (\d+) sets$': {
+      'es': '{0} ejercicios · {1} series',
+      'he': '{0} תרגילים · {1} סטים',
+      'de': '{0} Übungen · {1} Sätze',
+      'fr': '{0} exercices · {1} séries'
+    },
+  };
+
+  // Nested: translate the inner comparison before the outer "kg total · …".
+  for (final entry in T.entries) {
+    final re = RegExp(entry.key);
+    final m = re.firstMatch(s);
+    if (m == null) continue;
+    String out = entry.value[lang] ?? s;
+    for (int i = 1; i <= m.groupCount; i++) {
+      String g = m.group(i) ?? '';
+      // Inner "▲ 6.3% vs last X" inside the "kg total · …" line.
+      if (entry.key.startsWith(r'^(.+) kg total · ') && i == 2) {
+        g = localizeStatText(g, languageCode);
+      }
+      out = out.replaceAll('{U${i - 1}}', g.toUpperCase());
+      out = out.replaceAll('{${i - 1}}', g);
+    }
+    return out;
+  }
+
+  // 3) Date: "Tue, Nov 3 · 13:23"
+  final dm = RegExp(
+          r'^(Sun|Mon|Tue|Wed|Thu|Fri|Sat), (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d+) · (.+)$')
+      .firstMatch(s);
+  if (dm != null) {
+    const days = {
+      'es': ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
+      'he': ['יום א׳', 'יום ב׳', 'יום ג׳', 'יום ד׳', 'יום ה׳', 'יום ו׳', 'שבת'],
+      'de': ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+      'fr': ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'],
+    };
+    const months = {
+      'es': [
+        'ene',
+        'feb',
+        'mar',
+        'abr',
+        'may',
+        'jun',
+        'jul',
+        'ago',
+        'sep',
+        'oct',
+        'nov',
+        'dic'
+      ],
+      'he': [
+        'בינו׳',
+        'בפבר׳',
+        'במרץ',
+        'באפר׳',
+        'במאי',
+        'ביוני',
+        'ביולי',
+        'באוג׳',
+        'בספט׳',
+        'באוק׳',
+        'בנוב׳',
+        'בדצמ׳'
+      ],
+      'de': [
+        'Jan',
+        'Feb',
+        'Mär',
+        'Apr',
+        'Mai',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Dez'
+      ],
+      'fr': [
+        'janv',
+        'févr',
+        'mars',
+        'avr',
+        'mai',
+        'juin',
+        'juil',
+        'août',
+        'sept',
+        'oct',
+        'nov',
+        'déc'
+      ],
+    };
+    const enDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const enMonths = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final dl = days[lang];
+    final ml = months[lang];
+    if (dl != null && ml != null) {
+      final d = dl[enDays.indexOf(dm.group(1)!)];
+      final mo = ml[enMonths.indexOf(dm.group(2)!)];
+      final day = dm.group(3)!;
+      final time = dm.group(4)!;
+      return lang == 'de' ? '$d, $day. $mo · $time' : '$d, $day $mo · $time';
+    }
+  }
+
+  return s;
+}

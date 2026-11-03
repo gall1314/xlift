@@ -1,0 +1,4 @@
+NSCameraUsageDescription = "Nous utilisons votre caméra pour suivre votre posture et compter les répétitions pendant votre entraînement.";
+NSMicrophoneUsageDescription = "Nous utilisons votre microphone pour enregistrer le son de vos vidéos d'entraînement (pas besoin de parler !).";
+NSPhotoLibraryUsageDescription = "Nous enregistrons vos vidéos d'entraînement sur votre appareil afin que vous puissiez consulter vos progrès à tout moment.";
+PermissionGroupNotification = "Nous utilisons des notifications pour vous rappeler la fin de votre pause.";

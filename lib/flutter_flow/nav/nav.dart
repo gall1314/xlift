@@ -90,16 +90,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               : SignInWelcomePage6Widget(),
         ),
         FFRoute(
-          name: WorkoutAfterviewWidget.routeName,
-          path: WorkoutAfterviewWidget.routePath,
-          builder: (context, params) => WorkoutAfterviewWidget(
-            workoutLogId: params.getParam(
-              'workoutLogId',
-              ParamType.String,
-            ),
-          ),
-        ),
-        FFRoute(
           name: ExerciseHistoryWidget.routeName,
           path: ExerciseHistoryWidget.routePath,
           builder: (context, params) => ExerciseHistoryWidget(
@@ -382,11 +372,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           ),
         ),
         FFRoute(
-          name: CalenderWidget.routeName,
-          path: CalenderWidget.routePath,
-          builder: (context, params) => CalenderWidget(),
-        ),
-        FFRoute(
           name: ExerciseHistoryCustomWidget.routeName,
           path: ExerciseHistoryCustomWidget.routePath,
           builder: (context, params) => ExerciseHistoryCustomWidget(
@@ -461,16 +446,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: LiveSquatWidget.routeName,
           path: LiveSquatWidget.routePath,
           builder: (context, params) => LiveSquatWidget(),
-        ),
-        FFRoute(
-          name: BarbelllWidget.routeName,
-          path: BarbelllWidget.routePath,
-          builder: (context, params) => BarbelllWidget(
-            result: params.getParam(
-              'result',
-              ParamType.JSON,
-            ),
-          ),
         ),
         FFRoute(
           name: CameraWidget.routeName,

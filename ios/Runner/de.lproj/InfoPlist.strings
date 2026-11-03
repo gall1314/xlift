@@ -1,0 +1,4 @@
+NSCameraUsageDescription = "Wir nutzen Ihre Kamera, um Ihre Haltung zu erfassen und die Wiederholungen während Ihres Trainings zu zählen.";
+NSMicrophoneUsageDescription = "Wir verwenden Ihr Mikrofon, um den Ton Ihrer Trainingsvideos aufzunehmen (Sie müssen nicht sprechen!).";
+NSPhotoLibraryUsageDescription = "Wir speichern Ihre Trainingsvideos auf Ihrem Gerät, damit Sie Ihre Fortschritte jederzeit überprüfen können.";
+PermissionGroupNotification = "Wir verwenden Benachrichtigungen, um Sie daran zu erinnern, wenn die Ruhezeit endet.";

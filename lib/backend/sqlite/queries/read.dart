@@ -6935,6 +6935,8 @@ Future<List<WorkoutHeroStatRow>> performWorkoutHeroStat(
 --   hero_value, hero_unit, hero_title, hero_subtitle, badge, comparison,
 --   duration_text, sets_text, stat3_value, stat3_label, breakdown_label
 -- Run AFTER saveWorkoutComplete. duration_seconds is stored in MILLISECONDS.
+-- Text comes out in English with raw JSON names; pass every text column
+-- through localizeStatText(text, languageCode) in the UI.
 
 WITH
 cur AS (
@@ -7057,8 +7059,8 @@ top_muscle AS (
   JOIN exercise_muscle_group emg ON emg.exercise_id = c.exercise_id
   JOIN muscle_group mg ON mg.id = emg.muscle_group_id
   WHERE COALESCE(emg.is_primary, 0) = 1 AND c.is_dropset = 0
-  GROUP BY mg.name
-  ORDER BY COUNT(*) DESC, mg.name
+  GROUP BY mg.id
+  ORDER BY COUNT(*) DESC, mg.id
   LIMIT 1
 ),
 
@@ -7153,21 +7155,22 @@ SELECT
     ELSE ''
   END AS hero_subtitle,
 
-  /* badge ladder - always non-empty */
+  /* badge ladder - always non-empty. Names stay raw (JSON); the UI
+     function localizes + uppercases them. */
   CASE
     WHEN r.t = 'pr' THEN
       CASE WHEN pc.n = 1 THEN 'NEW PERSONAL RECORD'
            ELSE pc.n || ' NEW PERSONAL RECORDS' END
     WHEN r.t = 'volume_record'                        THEN 'VOLUME RECORD'
     WHEN nm.n > 0 AND r.t <> 'first' THEN
-      CASE WHEN nm.n = 1 THEN 'NEW MOVE: ' || UPPER(nm.first_name)
+      CASE WHEN nm.n = 1 THEN 'NEW MOVE: ' || nm.first_name
            ELSE nm.n || ' NEW MOVES' END
     WHEN r.t = 'first'                                THEN 'FIRST TIME'
     WHEN d.dir = 1                                    THEN 'UP FROM LAST TIME'
     WHEN d.faster = 1                                 THEN 'FASTER THAN LAST TIME'
     WHEN wn.n IN (10, 25) OR (wn.n >= 50 AND wn.n % 50 = 0)
                                                       THEN 'WORKOUT #' || wn.n
-    WHEN tm.muscle IS NOT NULL                        THEN UPPER(tm.muscle) || ' DAY DONE'
+    WHEN tm.muscle IS NOT NULL                        THEN tm.muscle || ' DAY DONE'
     ELSE                                                   'SHOWED UP'
   END AS badge,
 

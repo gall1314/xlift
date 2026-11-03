@@ -12,10 +12,12 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
-import 'dart:ui' as ui;
+// Set your widget name, define your parameter, and then add the
+// boilerplate code using the `</>` butimport 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl show DateFormat;
+import 'dart:ui' as ui;
 
 /// Full History page body: search field, period + muscle filter pills (both
 /// bottom sheets built in), workout cards and empty states.
@@ -26,17 +28,24 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 ///
 /// Period keys (internal, English): Last 7 days, Last 30 days, Last 90 days,
 /// All time. Shown translated. When [isPremium] is false, "Last 90 days" and
-/// "All time" are locked (tapping one fires [onLockedTap]) and the default
-/// is "Last 30 days"; for premium the default is "All time".
+/// "All time" are locked (tapping one fires [onLockedTap]) and the default is
+/// "Last 30 days"; for premium the default is "All time".
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 /// Muscle names come from the DB JSON via localizedName; filtering by muscle
-/// is done on the English name so it is language independent. Hebrew
-/// renders RTL.
+/// is done on the English name so it is language independent. Hebrew renders
+/// RTL.
 ///
 /// Callbacks: [onWorkoutTap](workoutLogId) from a card tap and
 /// [onMenuTap](workoutLogId) from the card's options button. The list reloads
 /// when either action finishes.
+///
+/// Compare mode ([compareMode] = true): same look and filters, but a card tap
+/// selects it (single selection, highlighted), the options button is hidden,
+/// and a "Compare" CTA floats at the bottom. It is enabled once a workout is
+/// selected and fires [onCompare](workoutLogId). [onWorkoutTap] / [onMenuTap]
+/// are not called in this mode. Pass the already-chosen workout as
+/// [excludeWorkoutLogId] so it is left out of the list.
 ///
 /// Optional: change [reloadToken] (any different int) to force a reload.
 /// Pull-to-refresh also reloads.
@@ -51,6 +60,9 @@ class HistoryView extends StatefulWidget {
     this.onWorkoutTap,
     this.onMenuTap,
     this.onLockedTap,
+    this.compareMode,
+    this.onCompare,
+    this.excludeWorkoutLogId,
   });
 
   final double? width;
@@ -61,6 +73,12 @@ class HistoryView extends StatefulWidget {
   final Future Function(String workoutLogId)? onWorkoutTap;
   final Future Function(String workoutLogId)? onMenuTap;
   final Future Function()? onLockedTap;
+  final bool? compareMode;
+  final Future Function(String workoutLogId)? onCompare;
+
+  /// A workout_log_id to hide from the list (the one already picked for a
+  /// comparison). Empty / null = hide nothing.
+  final String? excludeWorkoutLogId;
 
   @override
   State<HistoryView> createState() => _HistoryViewState();
@@ -328,6 +346,27 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Zusammenfassung ansehen",
     "fr": "Voir le résumé complet",
   },
+  "tapToSelect": {
+    "en": "Tap to select",
+    "es": "Toca para seleccionar",
+    "he": "הקש לבחירה",
+    "de": "Zum Auswählen tippen",
+    "fr": "Touchez pour sélectionner",
+  },
+  "selected": {
+    "en": "Selected",
+    "es": "Seleccionado",
+    "he": "נבחר",
+    "de": "Ausgewählt",
+    "fr": "Sélectionné",
+  },
+  "compare": {
+    "en": "Compare",
+    "es": "Comparar",
+    "he": "השווה",
+    "de": "Vergleichen",
+    "fr": "Comparer",
+  },
 };
 
 String _tr(String lang, String key, {int? n, String? r}) {
@@ -457,7 +496,12 @@ class _HistoryViewState extends State<HistoryView> {
   bool _sheetOpen = false;
   static List<String>? _muscleRawCache; // raw DB names, loaded once per run
 
+  // Compare mode: the one selected workout_log_id.
+  String? _selectedId;
+
   bool get _premium => widget.isPremium ?? false;
+  bool get _compare => widget.compareMode ?? false;
+  String get _excludeId => (widget.excludeWorkoutLogId ?? '').trim();
   String get _defaultPeriod => _premium ? 'All time' : 'Last 30 days';
   String get _lang => _langOf(context);
 
@@ -481,6 +525,9 @@ class _HistoryViewState extends State<HistoryView> {
     if (old.userId != widget.userId || old.reloadToken != widget.reloadToken) {
       _load();
     }
+    if ((old.compareMode ?? false) != _compare) _selectedId = null;
+    // The excluded workout can't stay selected.
+    if (_selectedId != null && _selectedId == _excludeId) _selectedId = null;
   }
 
   @override
@@ -522,8 +569,13 @@ class _HistoryViewState extends State<HistoryView> {
     final String q = _q.toLowerCase();
     final String? muscleEn = _muscle?.en.toLowerCase();
     final String lang = _lang;
+    final String exclude = _excludeId;
 
     return _rows.where((r) {
+      if (exclude.isNotEmpty &&
+          (r['workout_log_id'] ?? '').toString() == exclude) {
+        return false;
+      }
       if (cutoff != null) {
         final dt = _parseDate((r['created_at'] ?? '').toString());
         if (dt != null && dt.isBefore(cutoff)) return false;
@@ -650,6 +702,11 @@ class _HistoryViewState extends State<HistoryView> {
   // ---------- card actions ----------
   Future<void> _tapWorkout(String id) async {
     FocusScope.of(context).unfocus();
+    if (_compare) {
+      // Single selection; tapping the selected card deselects it.
+      setState(() => _selectedId = _selectedId == id ? null : id);
+      return;
+    }
     await widget.onWorkoutTap?.call(id);
     if (mounted) _load();
   }
@@ -658,6 +715,13 @@ class _HistoryViewState extends State<HistoryView> {
     FocusScope.of(context).unfocus();
     await widget.onMenuTap?.call(id);
     if (mounted) _load();
+  }
+
+  Future<void> _tapCompare() async {
+    final String? id = _selectedId;
+    if (id == null) return;
+    FocusScope.of(context).unfocus();
+    await widget.onCompare?.call(id);
   }
 
   // ---------- build ----------
@@ -710,11 +774,33 @@ class _HistoryViewState extends State<HistoryView> {
               key: ValueKey(id),
               data: filtered[i],
               lang: lang,
+              selectable: _compare,
+              selected: _compare && id == _selectedId,
               onTap: () => _tapWorkout(id),
               onMenuTap: () => _tapMenu(id),
             );
           },
         ),
+      );
+    }
+
+    // Compare CTA floats over the list; the list's bottom padding (120)
+    // already keeps the last card clear of it.
+    if (_compare) {
+      body = Stack(
+        children: [
+          Positioned.fill(child: body),
+          PositionedDirectional(
+            start: 16,
+            end: 16,
+            bottom: 16 + MediaQuery.of(context).padding.bottom,
+            child: _CompareButton(
+              label: _tr(lang, 'compare'),
+              enabled: _selectedId != null,
+              onTap: _tapCompare,
+            ),
+          ),
+        ],
       );
     }
 
@@ -840,12 +926,18 @@ class _WorkoutCard extends StatefulWidget {
     required this.lang,
     required this.onTap,
     required this.onMenuTap,
+    this.selectable = false,
+    this.selected = false,
   });
 
   final Map<String, dynamic> data;
   final String lang;
   final VoidCallback onTap;
   final VoidCallback onMenuTap;
+
+  /// Compare mode: no options button, footer shows the selection hint.
+  final bool selectable;
+  final bool selected;
 
   @override
   State<_WorkoutCard> createState() => _WorkoutCardState();
@@ -966,6 +1058,8 @@ class _WorkoutCardState extends State<_WorkoutCard> {
     final String lang = widget.lang;
     final bool rtl = _kRtl.contains(lang);
     final Map<String, dynamic> d = widget.data;
+    final bool selectable = widget.selectable;
+    final bool selected = widget.selected;
 
     final String rawName = (d['workout_name'] ?? '').toString().trim();
     final String name = rawName.isEmpty ? _tr(lang, 'workout') : rawName;
@@ -977,12 +1071,18 @@ class _WorkoutCardState extends State<_WorkoutCard> {
     final int analyzedSets = _toInt(d['analyzed_sets']);
     final List<String> muscles = _musclesLoc(d['main_muscle_groups'], lang);
 
-    final Widget card = Container(
+    final Widget card = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       decoration: BoxDecoration(
-        color: th.secondaryBackground,
+        color: selected
+            ? Color.alphaBlend(th.primary.withOpacity(dark ? 0.22 : 0.16),
+                th.secondaryBackground)
+            : th.secondaryBackground,
         borderRadius: BorderRadius.circular(20),
-        border: dark ? Border.all(color: th.alternate) : null,
+        border: selected
+            ? Border.all(color: accent, width: 2)
+            : (dark ? Border.all(color: th.alternate) : null),
         boxShadow: dark
             ? null
             : const [
@@ -1063,23 +1163,24 @@ class _WorkoutCardState extends State<_WorkoutCard> {
                   ],
                 ),
               ),
-              Transform.translate(
-                offset: Offset(rtl ? -12 : 12, -10),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    tooltip: _tr(lang, 'workoutOptions'),
-                    icon: Icon(Icons.more_vert_rounded,
-                        size: 20, color: th.secondaryText),
-                    onPressed: () {
-                      HapticFeedback.selectionClick();
-                      widget.onMenuTap();
-                    },
+              if (!selectable)
+                Transform.translate(
+                  offset: Offset(rtl ? -12 : 12, -10),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: _tr(lang, 'workoutOptions'),
+                      icon: Icon(Icons.more_vert_rounded,
+                          size: 20, color: th.secondaryText),
+                      onPressed: () {
+                        HapticFeedback.selectionClick();
+                        widget.onMenuTap();
+                      },
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -1135,21 +1236,41 @@ class _WorkoutCardState extends State<_WorkoutCard> {
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: th.alternate)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _tr(lang, 'viewSummary'),
-                  style: _hs(context, 14, FontWeight.w600, accent),
-                ),
-                Icon(
-                    rtl
-                        ? Icons.chevron_left_rounded
-                        : Icons.chevron_right_rounded,
-                    size: 20,
-                    color: accent),
-              ],
-            ),
+            child: selectable
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        selected
+                            ? _tr(lang, 'selected')
+                            : _tr(lang, 'tapToSelect'),
+                        style: _hs(context, 14, FontWeight.w600,
+                            selected ? accent : th.secondaryText),
+                      ),
+                      Icon(
+                        selected
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        size: 22,
+                        color: selected ? accent : th.secondaryText,
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _tr(lang, 'viewSummary'),
+                        style: _hs(context, 14, FontWeight.w600, accent),
+                      ),
+                      Icon(
+                          rtl
+                              ? Icons.chevron_left_rounded
+                              : Icons.chevron_right_rounded,
+                          size: 20,
+                          color: accent),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -1169,6 +1290,77 @@ class _WorkoutCardState extends State<_WorkoutCard> {
         duration: const Duration(milliseconds: 110),
         curve: Curves.easeOut,
         child: card,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compare CTA (compare mode only)
+// ---------------------------------------------------------------------------
+
+class _CompareButton extends StatefulWidget {
+  const _CompareButton({
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  State<_CompareButton> createState() => _CompareButtonState();
+}
+
+class _CompareButtonState extends State<_CompareButton> {
+  bool _down = false;
+  void _set(bool v) {
+    if (_down != v && mounted) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final th = FlutterFlowTheme.of(context);
+    return IgnorePointer(
+      ignoring: !widget.enabled,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => _set(true),
+        onTapCancel: () => _set(false),
+        onTapUp: (_) {
+          _set(false);
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _down ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 110),
+          child: AnimatedOpacity(
+            opacity: widget.enabled ? (_down ? 0.85 : 1.0) : 0.45,
+            duration: const Duration(milliseconds: 160),
+            child: Container(
+              height: 54,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: th.primary,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F101828),
+                    blurRadius: 18,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Text(
+                widget.label,
+                style: _hs(context, 17, FontWeight.w700, Colors.white),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1682,5 +1874,3 @@ class _MuscleSheetState extends State<_MuscleSheet> {
     );
   }
 }
-// Set your widget name, define your parameter, and then add the
-// boilerplate code using the `</>` button on the right!

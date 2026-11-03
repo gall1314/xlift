@@ -1,5 +1,4 @@
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/flutter_flow/instant_timer.dart';
 import '/index.dart';
 import 'compare_select_widget.dart' show CompareSelectWidget;
@@ -19,13 +18,6 @@ class CompareSelectModel extends FlutterFlowModel<CompareSelectWidget> {
   ///  State fields for stateful widgets in this page.
 
   InstantTimer? instantTimer;
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode;
-  TextEditingController? textController;
-  String? Function(BuildContext, String?)? textControllerValidator;
-  // State field(s) for DropDown widget.
-  String? dropDownValue;
-  FormFieldController<String>? dropDownValueController;
 
   @override
   void initState(BuildContext context) {}
@@ -33,7 +25,5 @@ class CompareSelectModel extends FlutterFlowModel<CompareSelectWidget> {
   @override
   void dispose() {
     instantTimer?.cancel();
-    textFieldFocusNode?.dispose();
-    textController?.dispose();
   }
 }

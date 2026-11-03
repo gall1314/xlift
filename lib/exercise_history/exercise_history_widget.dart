@@ -1387,7 +1387,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                               .transparent,
                                                           onTap: () async {
                                                             context.pushNamed(
-                                                              WorkoutAfterviewWidget
+                                                              WorkoutSummaryViewWidget
                                                                   .routeName,
                                                               queryParameters: {
                                                                 'workoutLogId':
