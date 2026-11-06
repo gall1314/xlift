@@ -473,10 +473,11 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                                                   .ExerciseAssetImage(
                                                                 width: 60.0,
                                                                 height: 60.0,
-                                                                exerciseName: functions
-                                                                    .exerciseImageName(
+                                                                exerciseName: functions.exerciseImageName(
+                                                                    functions.localizedName(
                                                                         listViewGetworkoutExerciseRow
-                                                                            .exerciseName),
+                                                                            .exerciseName,
+                                                                        'en')),
                                                                 borderRadius:
                                                                     8.0,
                                                               ),
@@ -491,8 +492,11 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                                                         .start,
                                                                 children: [
                                                                   Text(
-                                                                    listViewGetworkoutExerciseRow
-                                                                        .exerciseName,
+                                                                    functions.localizedName(
+                                                                        listViewGetworkoutExerciseRow
+                                                                            .exerciseName,
+                                                                        FFLocalizations.of(context)
+                                                                            .languageCode),
                                                                     style: FlutterFlowTheme.of(
                                                                             context)
                                                                         .bodyLarge
@@ -514,8 +518,11 @@ class _TemplateWorkoutWidgetState extends State<TemplateWorkoutWidget> {
                                                                         ),
                                                                   ),
                                                                   Text(
-                                                                    listViewGetworkoutExerciseRow
-                                                                        .mainMuscleGroups,
+                                                                    functions.localizedName(
+                                                                        listViewGetworkoutExerciseRow
+                                                                            .mainMuscleGroups,
+                                                                        FFLocalizations.of(context)
+                                                                            .languageCode),
                                                                     style: FlutterFlowTheme.of(
                                                                             context)
                                                                         .bodySmall

@@ -20,27 +20,26 @@ import '/flutter_flow/internationalization.dart' show FFLocalizations;
 /// Exercise "Finish" / "Reopen" button for the live workout page.
 ///
 /// Replaces the old exercise check that also marked every pre-filled set as
-/// done. This button NEVER touches a set's isDone. It only decides whether
-/// the exercise is complete:
+/// done. This button NEVER touches loggedSets. It only decides whether the
+/// exercise is complete:
 ///
-/// * Not complete, every set done        -> comעpletes immediately. * Not
+/// * Not complete, every set done        -> completes immediately. * Not
 /// complete, some sets still open  -> bottom sheet listing saved vs. skipped
-/// sets; "Finish" marks the exercise complete and flags the open sets with
-/// isSkipped=true in loggedSets (isDone stays false, so they are not saved).
-/// "Keep going" does nothing. * Complete                            -> shows
-/// "Reopen"; tapping clears isComplete and the isSkipped flags.
+/// sets; "Finish" marks the exercise complete (open sets keep isDone=false,
+/// so they are simply not saved). "Keep going" does nothing. * Complete ->
+/// shows "Reopen"; tapping clears isComplete.
 ///
 /// Data (all JSON lists, same shape as the App State lists): * exerciseSets -
-/// the workout template; this exercise's entry gives the set list (setNumber,
-/// weighted, timerMode, targetReps). * loggedSets         - flat {exerciseId,
-/// setNumber, isDone, reps, weight, weighted, durationMs}. *
-/// completedExercises - [{exerciseId, isComplete}].
+/// the workout template; thiכs exercise's entry gives the set list
+/// (setNumber, weighted, timerMode, targetReps). Read-only. * loggedSets -
+/// flat {exerciseId, setNumber, isDone, reps, weight, weighted, durationMs}.
+/// Read-only. * completedExercises - [{exerciseId, isComplete}].
 ///
-/// onApply(loggedSets, completedExercises) returns the updated lists; the
-/// page writes them back to App State (two Update App State actions). The
-/// widget does not write App State itself.
+/// onApply(completedExercises) returns the FULL completedExercises list with
+/// only this exercise's entry updated (or added). The page writes it back
+/// with one Update App State. The widget does not write App State itself.
 ///
-/// Localization: reads the app language from FFLocalizations; RTL for he.
+/// Localization: reads the app languaגge from FFLocalizations; RTL for he.
 class ExerciseFinishButton extends StatefulWidget {
   const ExerciseFinishButton({
     super.key,
@@ -61,10 +60,7 @@ class ExerciseFinishButton extends StatefulWidget {
   final List<dynamic> exerciseSets;
   final List<dynamic> loggedSets;
   final List<dynamic> completedExercises;
-  final Future Function(
-    List<dynamic> loggedSets,
-    List<dynamic> completedExercises,
-  )? onApply;
+  final Future Function(List<dynamic> completedExercises)? onApply;
 
   @override
   State<ExerciseFinishButton> createState() => _ExerciseFinishButtonState();
@@ -302,41 +298,7 @@ class _ExerciseFinishButtonState extends State<ExerciseFinishButton> {
     return '$r × ${_fmtW(weight)} kg';
   }
 
-  // ---------- mutations (pure, return new lists) ----------
-  List<dynamic> _withSkipped(bool skipped) {
-    final out = widget.loggedSets
-        .map((e) => e is Map ? Map<String, dynamic>.from(e) : e)
-        .toList();
-    for (final tpl in _templateSets) {
-      final sn = _int(tpl['setNumber']);
-      if (sn == null) continue;
-      final idx = out.indexWhere((e) =>
-          e is Map &&
-          _int(e['exerciseId']) == widget.exerciseId &&
-          _int(e['setNumber']) == sn);
-      if (idx >= 0) {
-        final m = out[idx] as Map<String, dynamic>;
-        if (_bool(m['isDone'])) {
-          m.remove('isSkipped');
-        } else {
-          m['isSkipped'] = skipped;
-        }
-      } else if (skipped) {
-        out.add(<String, dynamic>{
-          'exerciseId': widget.exerciseId,
-          'setNumber': sn,
-          'isDone': false,
-          'isSkipped': true,
-          'weighted': _bool(tpl['weighted']),
-          'reps': null,
-          'weight': null,
-          'durationMs': 0,
-        });
-      }
-    }
-    return out;
-  }
-
+  // ---------- mutation (pure: copy, touch only this exercise) ----------
   List<dynamic> _withComplete(bool complete) {
     final out = widget.completedExercises
         .map((e) => e is Map ? Map<String, dynamic>.from(e) : e)
@@ -356,7 +318,7 @@ class _ExerciseFinishButtonState extends State<ExerciseFinishButton> {
 
   Future<void> _apply({required bool complete}) async {
     HapticFeedback.mediumImpact();
-    await widget.onApply?.call(_withSkipped(complete), _withComplete(complete));
+    await widget.onApply?.call(_withComplete(complete));
   }
 
   // ---------- tap ----------
@@ -660,6 +622,5 @@ class _SheetButton extends StatelessWidget {
     );
   }
 }
-
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

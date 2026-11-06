@@ -1,5 +1,8 @@
+import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
+import '/components/analyze2_app_widget.dart';
 import '/components/exercise_options_bottom_shit_widget.dart';
+import '/components/rest_bottom_shit_widget.dart';
 import '/components/set_row2_widget.dart';
 import '/components/set_row_warm_up_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
@@ -368,14 +371,12 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     loggedSets: FFAppState().loggedSets,
                                     completedExercises:
                                         FFAppState().completedExercises,
-                                    onApply:
-                                        (loggedSets, completedExercises) async {
-                                      FFAppState().loggedSets = _model.mark2!
-                                          .toList()
-                                          .cast<dynamic>();
+                                    onApply: (completedExercises) async {
                                       FFAppState().completedExercises =
-                                          loggedSets.toList().cast<dynamic>();
-                                      _model.updatePage(() {});
+                                          completedExercises
+                                              .toList()
+                                              .cast<dynamic>();
+                                      FFAppState().update(() {});
                                       HapticFeedback.mediumImpact();
                                     },
                                   ),
@@ -849,6 +850,128 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                 },
                               ),
                             ),
+                          Builder(
+                            builder: (context) => Container(
+                              width: MediaQuery.sizeOf(context).width * 1.0,
+                              height: functions.setTableHeight(
+                                  FFAppState().exercisesets.toList(),
+                                  FFAppState().dropSets.toList(),
+                                  FFAppState().loggedSets.toList(),
+                                  widget.exerciseId!,
+                                  false),
+                              child: custom_widgets.SetTable(
+                                width: MediaQuery.sizeOf(context).width * 1.0,
+                                height: functions.setTableHeight(
+                                    FFAppState().exercisesets.toList(),
+                                    FFAppState().dropSets.toList(),
+                                    FFAppState().loggedSets.toList(),
+                                    widget.exerciseId!,
+                                    false),
+                                exerciseId: widget.exerciseId!,
+                                userId: currentUserUid,
+                                isKg: FFAppState().isKg,
+                                isPremium: FFAppState().isPremium,
+                                analysisCount: FFAppState().analysisCount,
+                                aiEnabled: containerExercise2RowList
+                                            .firstOrNull?.aiFormAnalysis ==
+                                        1
+                                    ? true
+                                    : false,
+                                isTimed: containerExercise2RowList
+                                            .firstOrNull?.isTimeBased ==
+                                        1
+                                    ? true
+                                    : false,
+                                isBodyweight: containerExercise2RowList
+                                            .firstOrNull
+                                            ?.isBodyweightDominant ==
+                                        1
+                                    ? true
+                                    : false,
+                                allowsBodyweight: containerExercise2RowList
+                                            .firstOrNull?.allowsBodyweight ==
+                                        1
+                                    ? true
+                                    : false,
+                                showHeaders: false,
+                                exerciseSets: FFAppState().exercisesets,
+                                loggedSets: FFAppState().loggedSets,
+                                dropSets: FFAppState().dropSets,
+                                analysisState:
+                                    FFAppState().workoutAnalysisState,
+                                restTimers: FFAppState().restTimers,
+                                exerciseName: widget.exerciseName,
+                                showCameraGuidance: false,
+                                onLoggedSetsChanged: (loggedSets) async {
+                                  FFAppState().loggedSets =
+                                      loggedSets.toList().cast<dynamic>();
+                                  safeSetState(() {});
+                                },
+                                onExerciseSetsChanged: (exerciseSets) async {
+                                  FFAppState().exercisesets =
+                                      exerciseSets.toList().cast<dynamic>();
+                                  safeSetState(() {});
+                                },
+                                onDropSetsChanged: (dropSets) async {
+                                  FFAppState().dropSets =
+                                      dropSets.toList().cast<dynamic>();
+                                  safeSetState(() {});
+                                },
+                                onAnalysisStateChanged: (analysisState) async {
+                                  FFAppState().workoutAnalysisState =
+                                      analysisState.toList().cast<dynamic>();
+                                  safeSetState(() {});
+                                },
+                                onResultTap: (setNumber, video) async {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (dialogContext) {
+                                      return Dialog(
+                                        elevation: 0,
+                                        insetPadding: EdgeInsets.zero,
+                                        backgroundColor: Colors.transparent,
+                                        alignment:
+                                            AlignmentDirectional(0.0, 0.0)
+                                                .resolve(
+                                                    Directionality.of(context)),
+                                        child: Analyze2AppWidget(
+                                          exercise: widget.exerciseName!,
+                                          exerciseId: widget.exerciseId!,
+                                          setNumber: setNumber,
+                                          videoReady: (url) async {},
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                                onLockTap: () async {
+                                  context.pushNamed(
+                                      PremiumPaywallPageWidget.routeName);
+                                },
+                                onStartRest:
+                                    (exerciseId, setNumber, restMs) async {
+                                  await showModalBottomSheet(
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.transparent,
+                                    enableDrag: false,
+                                    context: context,
+                                    builder: (context) {
+                                      return Padding(
+                                        padding:
+                                            MediaQuery.viewInsetsOf(context),
+                                        child: RestBottomShitWidget(
+                                          exerciseId: widget.exerciseId!,
+                                          exerciseName: widget.exerciseName!,
+                                          setNumber: setNumber,
+                                        ),
+                                      );
+                                    },
+                                  ).then((value) => safeSetState(() {}));
+                                },
+                                onDontShowAgain: () async {},
+                              ),
+                            ),
+                          ),
                           Builder(
                             builder: (context) {
                               final setList = functions

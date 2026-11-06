@@ -62,3 +62,4 @@ export 'library_view.dart' show LibraryView;
 export 'language_row.dart' show LanguageRow;
 export 'exercise_picker_view.dart' show ExercisePickerView;
 export 'exercise_finish_button.dart' show ExerciseFinishButton;
+export 'set_table.dart' show SetTable;

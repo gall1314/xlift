@@ -7661,3 +7661,62 @@ String localizeStatText(
 
   return s;
 }
+
+double setTableHeight(
+  List<dynamic> exerciseSets,
+  List<dynamic>? dropSets,
+  List<dynamic>? loggedSets,
+  int exerciseId,
+  bool showHeaders,
+) {
+  {
+    int asInt(dynamic v) => v == null
+        ? 0
+        : (v is int
+            ? v
+            : (v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0));
+    bool truthy(dynamic v) =>
+        v == true || v == 1 || v?.toString() == 'true' || v?.toString() == '1';
+
+    List sets = const [];
+    for (final e in exerciseSets ?? const []) {
+      if (e is Map &&
+          asInt(e['exerciseId']) == exerciseId &&
+          e['sets'] is List) {
+        sets = e['sets'];
+        break;
+      }
+    }
+    if (sets.isEmpty) return 0.0;
+
+    // set block = row 56 + bar 28, gap 8 between blocks
+    double h = sets.length * 84.0 + (sets.length - 1) * 8.0;
+    if (showHeaders == true) h += 20.0;
+
+    for (final s in sets) {
+      if (s is! Map) continue;
+      final n = asInt(s['setNumber']);
+      int drops = 0;
+      for (final d in dropSets ?? const []) {
+        if (d is Map &&
+            asInt(d['exerciseId']) == exerciseId &&
+            asInt(d['parentSetNumber']) == n) drops++;
+      }
+      if (drops == 0) continue;
+      bool done = false;
+      for (final l in loggedSets ?? const []) {
+        if (l is Map &&
+            asInt(l['exerciseId']) == exerciseId &&
+            asInt(l['setNumber']) == n &&
+            !truthy(l['isDropSet']) &&
+            truthy(l['isDone'])) {
+          done = true;
+          break;
+        }
+      }
+      // drop row 48; "Add drop" line 36 (hidden when the set is done)
+      h += drops * 48.0 + (done ? 0.0 : 36.0);
+    }
+    return h;
+  }
+}
