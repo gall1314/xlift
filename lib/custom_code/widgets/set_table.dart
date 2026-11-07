@@ -712,12 +712,16 @@ class _SetTableState extends State<SetTable> {
   Timer? _toastTimer;
 
   static const double _colNum = 48;
-  static const double _colVal = 64;
-  static const double _colAct = 44;
   static const double _gap = 6;
-  static const double _colTime = _colVal * 2 + _gap;
-  static const double _rowH = 56;
+  static const double _rowH = 54;
   static const double _barH = 28;
+  static const double _unmarkH = 32;
+
+  // AI exercises keep a 44px action column; the others spread reps / weight.
+  double get _colVal => widget.aiEnabled ? 64 : 80;
+  double get _colAct => widget.aiEnabled ? 44 : 0;
+  double get _colTime => _colVal * 2 + _gap;
+  double get _tail => widget.aiEnabled ? 0 : 18;
 
   // ---------- template ----------
 
@@ -1811,8 +1815,11 @@ class _SetTableState extends State<SetTable> {
                       '${_tr(lang, 'hWeight')} (${_tr(lang, widget.isKg ? 'kg' : 'lbs').toLowerCase()})',
                       muted)),
             ],
-            const SizedBox(width: _gap),
-            const SizedBox(width: _colAct),
+            if (widget.aiEnabled) ...[
+              const SizedBox(width: _gap),
+              SizedBox(width: _colAct),
+            ] else
+              SizedBox(width: _tail),
           ],
         ),
       ));
@@ -1822,27 +1829,31 @@ class _SetTableState extends State<SetTable> {
       final bool done = _isDone(t.setNumber);
       final bool skipped = !done && _isSkipped(t.setNumber);
       final Color bg = done ? doneBg : (t.setNumber % 2 == 0 ? zebraA : zebraB);
+      final Widget block = Container(
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            widget.isTimed
+                ? _timedRow(t, done, lang, dark, text, muted, accent)
+                : _repsRow(t, done, lang, dark, text, muted, accent),
+            if (!widget.isTimed)
+              ..._dropRows(
+                  t, done, lang, dark, text, muted, accent, cellBg, onDone),
+            if (!done) _completeBar(t, lang, doneBg, onDone),
+          ],
+        ),
+      );
       rows.add(Opacity(
         opacity: skipped ? 0.45 : 1.0,
-        child: Container(
-          decoration:
-              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              widget.isTimed
-                  ? _timedRow(t, done, lang, dark, text, muted, accent)
-                  : _repsRow(t, done, lang, dark, text, muted, accent),
-              if (!widget.isTimed)
-                ..._dropRows(
-                    t, done, lang, dark, text, muted, accent, cellBg, onDone),
-              done
-                  ? _unmarkBar(t, cellBg, muted)
-                  : _completeBar(t, lang, doneBg, onDone),
-            ],
-          ),
-        ),
+        child: done
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [block, _unmarkStrip(t, muted)],
+              )
+            : block,
       ));
     }
 
@@ -1927,9 +1938,13 @@ class _SetTableState extends State<SetTable> {
                           weight: v, clearWeight: v == null)),
                     ),
             ),
-            const SizedBox(width: _gap),
-            SizedBox(
-                width: _colAct, child: _analysisCell(t, lang, accent, dark)),
+            if (widget.aiEnabled) ...[
+              const SizedBox(width: _gap),
+              SizedBox(
+                  width: _colAct,
+                  child: _analysisCell(t, done, lang, accent, dark)),
+            ] else
+              SizedBox(width: _tail),
           ],
         ),
       ),
@@ -1947,8 +1962,8 @@ class _SetTableState extends State<SetTable> {
           child: Center(
             child: Text('${t.setNumber}',
                 style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                     color: dark
                         ? const Color(0xFF5EEAD4)
                         : const Color(0xFF0F766E))),
@@ -1972,7 +1987,7 @@ class _SetTableState extends State<SetTable> {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 15, color: muted, fontWeight: FontWeight.w500),
+      style: TextStyle(fontSize: 17, color: muted, fontWeight: FontWeight.w400),
     );
     if (done || label == '-' || label.isEmpty) return Center(child: txt);
     return _Pressable(
@@ -2023,9 +2038,13 @@ class _SetTableState extends State<SetTable> {
                       onManualChanged: (ms) => _commitDuration(t, ms),
                     ),
             ),
-            const SizedBox(width: _gap),
-            SizedBox(
-                width: _colAct, child: _analysisCell(t, lang, accent, dark)),
+            if (widget.aiEnabled) ...[
+              const SizedBox(width: _gap),
+              SizedBox(
+                  width: _colAct,
+                  child: _analysisCell(t, done, lang, accent, dark)),
+            ] else
+              SizedBox(width: _tail),
           ],
         ),
       ),
@@ -2136,7 +2155,7 @@ class _SetTableState extends State<SetTable> {
               ),
               const SizedBox(width: _gap),
               SizedBox(
-                width: _colAct,
+                width: widget.aiEnabled ? _colAct : 44 + _tail - _gap,
                 child: done
                     ? const SizedBox.shrink()
                     : Center(
@@ -2217,21 +2236,28 @@ class _SetTableState extends State<SetTable> {
     );
   }
 
-  Widget _unmarkBar(_TplSet t, Color bg, Color fg) {
-    return _Pressable(
-      onTap: () => _unmark(t),
-      child: Container(
-        height: _barH,
-        color: bg,
-        alignment: Alignment.center,
-        child: Icon(Icons.remove_done_rounded, size: 18, color: fg),
+  /// Under a completed set: just the small "unmark" icon on the card
+  /// background, like the original.
+  Widget _unmarkStrip(_TplSet t, Color fg) {
+    return SizedBox(
+      height: _unmarkH,
+      child: Center(
+        child: _Pressable(
+          onTap: () => _unmark(t),
+          child: SizedBox(
+            width: 56,
+            height: _unmarkH,
+            child: Icon(Icons.remove_done_rounded, size: 20, color: fg),
+          ),
+        ),
       ),
     );
   }
 
   // ---------- analysis cell ----------
 
-  Widget _analysisCell(_TplSet t, String lang, Color accent, bool dark) {
+  Widget _analysisCell(
+      _TplSet t, bool done, String lang, Color accent, bool dark) {
     if (!widget.aiEnabled) return const SizedBox.shrink();
     final a = _analysisFor(t.setNumber);
     final bool processing = _truthy(a?['isProcessing']);
@@ -2266,6 +2292,9 @@ class _SetTableState extends State<SetTable> {
               size: 20, color: Color(0xFFD97706)),
         ),
       );
+    } else if (done) {
+      // Completed without an analysis: nothing to show.
+      child = const SizedBox.shrink();
     } else if (_lockFor(t.setNumber)) {
       child = _Pressable(
         onTap: () => widget.onLockTap?.call(),
@@ -2341,11 +2370,11 @@ class _SetPill extends StatelessWidget {
     return _Pressable(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 32,
+        width: 42,
+        height: 30,
         decoration: BoxDecoration(
           color: fillColor,
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor, width: 1),
         ),
         child: Row(
@@ -2355,12 +2384,12 @@ class _SetPill extends StatelessWidget {
             Text(label,
                 textDirection: ui.TextDirection.ltr,
                 style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                     color: textColor)),
-            const SizedBox(width: 1),
-            const Icon(Icons.expand_more_rounded,
-                size: 14, color: Color(0xFF9CA3AF)),
+            const SizedBox(width: 2),
+            const Icon(Icons.keyboard_arrow_down_rounded,
+                size: 13, color: Color(0xFF9CA3AF)),
           ],
         ),
       ),
@@ -2381,23 +2410,16 @@ class _CameraButton extends StatelessWidget {
       child: SizedBox(
         width: 40,
         height: 40,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: const Icon(Icons.videocam_rounded,
-                  size: 19, color: Colors.white),
+        child: Center(
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
             ),
-            const Positioned(
-              right: 0,
-              top: 0,
-              child:
-                  Icon(Icons.auto_awesome, size: 12, color: Color(0xFFFBBF24)),
-            ),
-          ],
+            child: Icon(Icons.video_call_outlined, size: 24, color: color),
+          ),
         ),
       ),
     );
@@ -2478,9 +2500,7 @@ class _ScoreRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final double frac =
         (score > 10 ? score / 100 : score / 10).clamp(0.0, 1.0).toDouble();
-    final Color c = frac >= 0.8
-        ? const Color(0xFF14B8A6)
-        : (frac >= 0.6 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444));
+    const Color c = Color(0xFF14B8A6);
     final String label = score == score.roundToDouble()
         ? score.toInt().toString()
         : score.toStringAsFixed(1);
@@ -2491,18 +2511,24 @@ class _ScoreRing extends StatelessWidget {
         height: 40,
         child: Stack(
           alignment: Alignment.center,
+          clipBehavior: Clip.none,
           children: [
             CustomPaint(
               size: const Size(38, 38),
               painter: _ArcPainter(
-                  color: c, track: trackColor, fraction: frac, stroke: 3.5),
+                  color: c, track: trackColor, fraction: frac, stroke: 3),
             ),
             Text(label,
                 textDirection: ui.TextDirection.ltr,
                 style: TextStyle(
-                    fontSize: label.length > 2 ? 11 : 13,
-                    fontWeight: FontWeight.w800,
+                    fontSize: label.length > 2 ? 12 : 15,
+                    fontWeight: FontWeight.w700,
                     color: textColor)),
+            const Positioned(
+              right: -3,
+              top: -3,
+              child: Icon(Icons.auto_awesome, size: 13, color: c),
+            ),
           ],
         ),
       ),
@@ -2982,8 +3008,8 @@ class _RepsCellState extends State<_RepsCell>
                     textDirection: ui.TextDirection.ltr,
                     maxLines: 1,
                     style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                         height: 1.0,
                         color: color)),
               if (editing)
@@ -3289,8 +3315,8 @@ class _WeightCellState extends State<_WeightCell>
                     textDirection: ui.TextDirection.ltr,
                     maxLines: 1,
                     style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                         height: 1.0,
                         color: color)),
               if (editing)
