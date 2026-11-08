@@ -109,6 +109,9 @@ class _CompareSelectWidgetState extends State<CompareSelectWidget> {
                 }.withoutNulls,
               );
             },
+            onClose: () async {
+              context.safePop();
+            },
           ),
         ),
       ),

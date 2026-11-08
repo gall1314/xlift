@@ -13,12 +13,8 @@ export '/workout_comparison/workout_comparison_widget.dart'
 export '/v2_pages/workout_log_edit_v2/workout_log_edit_v2_widget.dart'
     show WorkoutLogEditV2Widget;
 export '/compare_select/compare_select_widget.dart' show CompareSelectWidget;
-export '/add_exercises_v3/add_exercises_v3_widget.dart'
-    show AddExercisesV3Widget;
 export '/create_user_exercise/create_user_exercise_widget.dart'
     show CreateUserExerciseWidget;
-export '/add_exercises_mid_seission/add_exercises_mid_seission_widget.dart'
-    show AddExercisesMidSeissionWidget;
 export '/help_us/help_us_widget.dart' show HelpUsWidget;
 export '/report_bug/report_bug_widget.dart' show ReportBugWidget;
 export '/feedback/feedback_widget.dart' show FeedbackWidget;

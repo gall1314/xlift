@@ -177,25 +177,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           ),
         ),
         FFRoute(
-          name: AddExercisesV3Widget.routeName,
-          path: AddExercisesV3Widget.routePath,
-          builder: (context, params) => AddExercisesV3Widget(
-            alreadySelceted: params.getParam<dynamic>(
-              'alreadySelceted',
-              ParamType.JSON,
-              isList: true,
-            ),
-            workoutName: params.getParam(
-              'workoutName',
-              ParamType.String,
-            ),
-            addUserEx: params.getParam(
-              'addUserEx',
-              ParamType.bool,
-            ),
-          ),
-        ),
-        FFRoute(
           name: CreateUserExerciseWidget.routeName,
           path: CreateUserExerciseWidget.routePath,
           builder: (context, params) => CreateUserExerciseWidget(
@@ -207,30 +188,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
             workoutName: params.getParam(
               'workoutName',
               ParamType.String,
-            ),
-          ),
-        ),
-        FFRoute(
-          name: AddExercisesMidSeissionWidget.routeName,
-          path: AddExercisesMidSeissionWidget.routePath,
-          builder: (context, params) => AddExercisesMidSeissionWidget(
-            alreadySelceted: params.getParam<dynamic>(
-              'alreadySelceted',
-              ParamType.JSON,
-              isList: true,
-            ),
-            workoutId: params.getParam(
-              'workoutId',
-              ParamType.String,
-            ),
-            addUserEx: params.getParam(
-              'addUserEx',
-              ParamType.bool,
-            ),
-            userExlist: params.getParam<dynamic>(
-              'userExlist',
-              ParamType.JSON,
-              isList: true,
             ),
           ),
         ),

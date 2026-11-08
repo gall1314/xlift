@@ -750,7 +750,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                         );
                       },
                       text: FFLocalizations.of(context).getText(
-                        'ap6suf99' /* Add Exercise */,
+                        'ap6suf99' /* Add Exercises */,
                       ),
                       icon: Icon(
                         Icons.add,

@@ -507,11 +507,12 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                                 .end,
                                                         children: [
                                                           Text(
-                                                            FFLocalizations.of(
-                                                                    context)
-                                                                .getText(
-                                                              'imljim8g' /* $3.99 */,
-                                                            ),
+                                                            revenue_cat
+                                                                .offerings!
+                                                                .current!
+                                                                .monthly!
+                                                                .storeProduct
+                                                                .priceString,
                                                             style: FlutterFlowTheme
                                                                     .of(context)
                                                                 .titleSmall
@@ -761,11 +762,12 @@ class _ManageSubscriptionWidgetState extends State<ManageSubscriptionWidget> {
                                                                 .end,
                                                         children: [
                                                           Text(
-                                                            FFLocalizations.of(
-                                                                    context)
-                                                                .getText(
-                                                              '7xeqqe63' /* $5.99 */,
-                                                            ),
+                                                            revenue_cat
+                                                                .offerings!
+                                                                .current!
+                                                                .annual!
+                                                                .storeProduct
+                                                                .priceString,
                                                             style: FlutterFlowTheme
                                                                     .of(context)
                                                                 .titleSmall

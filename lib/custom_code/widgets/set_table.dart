@@ -708,6 +708,7 @@ class _Prev {
 class _SetTableState extends State<SetTable> {
   final Map<int, _Prev> _prev = {};
   final Set<int> _prevLoading = {};
+  final Set<int> _unmarkOpen = {}; // done sets whose unmark strip is showing
   OverlayEntry? _toast;
   Timer? _toastTimer;
 
@@ -747,7 +748,8 @@ class _SetTableState extends State<SetTable> {
   }
 
   String get _nameEn {
-    final raw = widget.exerciseName ?? '';
+    final raw0 = widget.exerciseName ?? '';
+    final raw = raw0.trim().toLowerCase() == 'null' ? '' : raw0;
     try {
       final s = localizedName(raw, 'en');
       return s.isEmpty ? raw : s;
@@ -1549,10 +1551,10 @@ class _SetTableState extends State<SetTable> {
   double? _scoreOf(Map? a) {
     final an = a?['analysis'];
     if (an is! Map) return null;
-    return _asDoubleN(an['score'] ??
+    return _asDoubleN(an['technique_score'] ??
+        an['score'] ??
         an['form_score'] ??
-        an['overall_score'] ??
-        an['overallScore']);
+        an['overall_score']);
   }
 
   bool _lockFor(int setNumber) {
@@ -1630,19 +1632,23 @@ class _SetTableState extends State<SetTable> {
       );
     }
 
-    await showModalBottomSheet<void>(
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color cardBg = dark ? const Color(0xFF1E2731) : Colors.white;
+    final Color textColor = dark ? Colors.white : const Color(0xFF1A202C);
+    await showDialog<void>(
       context: context,
       useRootNavigator: true,
-      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.45),
       builder: (ctx) => Directionality(
         textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-        child: SafeArea(
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
           child: Container(
-            margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E2731),
-              borderRadius: BorderRadius.circular(18),
+              color: cardBg,
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1662,9 +1668,9 @@ class _SetTableState extends State<SetTable> {
                 ),
                 Text(msg,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 14, height: 1.4)),
-                const SizedBox(height: 16),
+                    style:
+                        TextStyle(color: textColor, fontSize: 15, height: 1.4)),
+                const SizedBox(height: 18),
                 Row(
                   children: [
                     btn(_tr(lang, 'retry'), theme.primary, Colors.white,
@@ -1677,8 +1683,8 @@ class _SetTableState extends State<SetTable> {
                       }
                     }),
                     const SizedBox(width: 10),
-                    btn(_tr(lang, 'retake'), Colors.white.withOpacity(0.10),
-                        Colors.white, FontWeight.w600, () async {
+                    btn(_tr(lang, 'retake'), textColor.withOpacity(0.08),
+                        textColor, FontWeight.w600, () async {
                       Navigator.of(ctx).pop();
                       await _openCamera(setNumber);
                     }),
@@ -1698,57 +1704,41 @@ class _SetTableState extends State<SetTable> {
     _hideToast();
     final overlay = Overlay.of(context, rootOverlay: true);
     final bool rtl = _kRtl.contains(lang);
-    final Color accent = FlutterFlowTheme.of(context).primary;
-    final double top = MediaQuery.of(context).padding.top + 60;
     _toast = OverlayEntry(
-      builder: (_) => Positioned(
-        left: 16,
-        right: 16,
-        top: top,
-        child: Material(
-          color: Colors.transparent,
-          child: Directionality(
-            textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2731),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6)),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(text,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35)),
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: _hideToast,
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          color: accent,
-                          borderRadius: BorderRadius.circular(10)),
-                      child: Text(_tr(lang, 'close'),
+      builder: (_) => Positioned.fill(
+        child: IgnorePointer(
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Directionality(
+                textDirection:
+                    rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E2731),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6)),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(text,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
-                              fontWeight: FontWeight.w700)),
-                    ),
+                              fontWeight: FontWeight.w600,
+                              height: 1.35)),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -1756,7 +1746,7 @@ class _SetTableState extends State<SetTable> {
       ),
     );
     overlay.insert(_toast!);
-    _toastTimer = Timer(const Duration(seconds: 4), _hideToast);
+    _toastTimer = Timer(const Duration(milliseconds: 1400), _hideToast);
   }
 
   void _hideToast() {
@@ -1829,32 +1819,44 @@ class _SetTableState extends State<SetTable> {
       final bool done = _isDone(t.setNumber);
       final bool skipped = !done && _isSkipped(t.setNumber);
       final Color bg = done ? doneBg : (t.setNumber % 2 == 0 ? zebraA : zebraB);
+      final bool unmarkOpen = done && _unmarkOpen.contains(t.setNumber);
+      final Widget rowPart = widget.isTimed
+          ? _timedRow(t, done, lang, dark, text, muted, accent)
+          : _repsRow(t, done, lang, dark, text, muted, accent);
       final Widget block = Container(
-        decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: done ? cellBg : bg,
+          borderRadius: BorderRadius.circular(12),
+          border: done
+              ? Border.all(
+                  color:
+                      dark ? const Color(0xFF2A3644) : const Color(0xFFE3E7EB))
+              : null,
+        ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            widget.isTimed
-                ? _timedRow(t, done, lang, dark, text, muted, accent)
-                : _repsRow(t, done, lang, dark, text, muted, accent),
+            // A done row is tinted on its own; tapping it reveals the unmark strip.
+            done
+                ? GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => setState(() {
+                      if (!_unmarkOpen.remove(t.setNumber))
+                        _unmarkOpen.add(t.setNumber);
+                    }),
+                    child: Container(color: bg, child: rowPart),
+                  )
+                : rowPart,
             if (!widget.isTimed)
               ..._dropRows(
                   t, done, lang, dark, text, muted, accent, cellBg, onDone),
             if (!done) _completeBar(t, lang, doneBg, onDone),
+            if (unmarkOpen) _unmarkStrip(t, muted),
           ],
         ),
       );
-      rows.add(Opacity(
-        opacity: skipped ? 0.45 : 1.0,
-        child: done
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [block, _unmarkStrip(t, muted)],
-              )
-            : block,
-      ));
+      rows.add(Opacity(opacity: skipped ? 0.45 : 1.0, child: block));
     }
 
     return Directionality(
@@ -1962,7 +1964,7 @@ class _SetTableState extends State<SetTable> {
           child: Center(
             child: Text('${t.setNumber}',
                 style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: dark
                         ? const Color(0xFF5EEAD4)
@@ -1987,7 +1989,7 @@ class _SetTableState extends State<SetTable> {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 17, color: muted, fontWeight: FontWeight.w400),
+      style: TextStyle(fontSize: 16, color: muted, fontWeight: FontWeight.w400),
     );
     if (done || label == '-' || label.isEmpty) return Center(child: txt);
     return _Pressable(
@@ -2236,20 +2238,17 @@ class _SetTableState extends State<SetTable> {
     );
   }
 
-  /// Under a completed set: just the small "unmark" icon on the card
-  /// background, like the original.
+  /// Shown under a completed row after tapping it: the "unmark" icon.
   Widget _unmarkStrip(_TplSet t, Color fg) {
-    return SizedBox(
-      height: _unmarkH,
-      child: Center(
-        child: _Pressable(
-          onTap: () => _unmark(t),
-          child: SizedBox(
-            width: 56,
-            height: _unmarkH,
-            child: Icon(Icons.remove_done_rounded, size: 20, color: fg),
-          ),
-        ),
+    return _Pressable(
+      onTap: () {
+        _unmarkOpen.remove(t.setNumber);
+        _unmark(t);
+      },
+      child: SizedBox(
+        height: _unmarkH,
+        child:
+            Center(child: Icon(Icons.remove_done_rounded, size: 20, color: fg)),
       ),
     );
   }
@@ -2268,9 +2267,9 @@ class _SetTableState extends State<SetTable> {
     Widget child;
     if (processing) {
       child = _Sparkle(color: accent);
-    } else if (analysisDone && score != null) {
+    } else if (analysisDone) {
       child = _ScoreRing(
-        score: score,
+        score: score ?? -1,
         textColor: dark ? Colors.white : const Color(0xFF1A202C),
         trackColor:
             dark ? Colors.white.withOpacity(0.12) : const Color(0xFFE5E7EB),
@@ -2310,7 +2309,7 @@ class _SetTableState extends State<SetTable> {
       );
     } else {
       child =
-          _CameraButton(color: accent, onTap: () => _openCamera(t.setNumber));
+          AiFormButton(size: 40, onTap: () async => _openCamera(t.setNumber));
     }
     return Center(child: child);
   }
@@ -2384,7 +2383,7 @@ class _SetPill extends StatelessWidget {
             Text(label,
                 textDirection: ui.TextDirection.ltr,
                 style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: textColor)),
             const SizedBox(width: 2),
@@ -2501,9 +2500,12 @@ class _ScoreRing extends StatelessWidget {
     final double frac =
         (score > 10 ? score / 100 : score / 10).clamp(0.0, 1.0).toDouble();
     const Color c = Color(0xFF14B8A6);
-    final String label = score == score.roundToDouble()
-        ? score.toInt().toString()
-        : score.toStringAsFixed(1);
+    final bool noScore = score < 0;
+    final String label = noScore
+        ? ''
+        : (score == score.roundToDouble()
+            ? score.toInt().toString()
+            : score.toStringAsFixed(1));
     return _Pressable(
       onTap: onTap,
       child: SizedBox(
@@ -2516,14 +2518,19 @@ class _ScoreRing extends StatelessWidget {
             CustomPaint(
               size: const Size(38, 38),
               painter: _ArcPainter(
-                  color: c, track: trackColor, fraction: frac, stroke: 3),
+                  color: c,
+                  track: trackColor,
+                  fraction: noScore ? 1 : frac,
+                  stroke: 3),
             ),
-            Text(label,
-                textDirection: ui.TextDirection.ltr,
-                style: TextStyle(
-                    fontSize: label.length > 2 ? 12 : 15,
-                    fontWeight: FontWeight.w700,
-                    color: textColor)),
+            if (noScore) const Icon(Icons.check_rounded, size: 18, color: c),
+            if (!noScore)
+              Text(label,
+                  textDirection: ui.TextDirection.ltr,
+                  style: TextStyle(
+                      fontSize: label.length > 2 ? 12 : 15,
+                      fontWeight: FontWeight.w700,
+                      color: textColor)),
             const Positioned(
               right: -3,
               top: -3,
@@ -3008,7 +3015,7 @@ class _RepsCellState extends State<_RepsCell>
                     textDirection: ui.TextDirection.ltr,
                     maxLines: 1,
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
                         height: 1.0,
                         color: color)),
@@ -3315,7 +3322,7 @@ class _WeightCellState extends State<_WeightCell>
                     textDirection: ui.TextDirection.ltr,
                     maxLines: 1,
                     style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
                         height: 1.0,
                         color: color)),
@@ -3670,8 +3677,12 @@ class _TimeCellState extends State<_TimeCell>
                 onTap: manual
                     ? _openSheet
                     : () {
+                        final bool wasRunning = j.running;
                         _toggleJob(j, widget.loggedMs);
                         setState(() {});
+                        // Play opens the sheet (mode switch, reset, pause);
+                        // tapping outsfide closes it and the timer keeps running.
+                        if (!wasRunning && !editing) _openSheet();
                       },
                 child: Container(
                   width: 28,

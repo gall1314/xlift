@@ -12,12 +12,10 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
-// Set your widget name, define your parameter, and then add the
-// boilerplate code using the `</>` butimport 'dart:ui' as ui;
+import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl show DateFormat;
-import 'dart:ui' as ui;
 
 /// Full History page body: search field, period + muscle filter pills (both
 /// bottom sheets built in), workout cards and empty states.
@@ -40,12 +38,14 @@ import 'dart:ui' as ui;
 /// [onMenuTap](workoutLogId) from the card's options button. The list reloads
 /// when either action finishes.
 ///
-/// Compare mode ([compareMode] = true): same look and filters, but a card tap
-/// selects it (single selection, highlighted), the options button is hidden,
-/// and a "Compare" CTA floats at the bottom. It is enabled once a workout is
-/// selected and fires [onCompare](workoutLogId). [onWorkoutTap] / [onMenuTap]
-/// are not called in this mode. Pass the already-chosen workout as
-/// [excludeWorkoutLogId] so it is left out of the list.
+/// Compare mode ([compareMode] = true): a header with a back button (fires
+/// [onClose]) and a title is drawn under the status bar, then the same search
+/// / filters / cards. A card tap selects it (single selection, highlighted),
+/// the options button is hidden, and a "Compare" CTA floats at the bottom; it
+/// is enabled once a workout is selected and fires [onCompare](workoutLogId).
+/// [onWorkoutTap] / [onMenuTap] are not called in this mode. Pass the
+/// already-chosen workout as [excludeWorkoutLogId] so it is left out of the
+/// list.
 ///
 /// Optional: change [reloadToken] (any different int) to force a reload.
 /// Pull-to-refresh also reloads.
@@ -62,6 +62,7 @@ class HistoryView extends StatefulWidget {
     this.onLockedTap,
     this.compareMode,
     this.onCompare,
+    this.onClose,
     this.excludeWorkoutLogId,
   });
 
@@ -75,6 +76,9 @@ class HistoryView extends StatefulWidget {
   final Future Function()? onLockedTap;
   final bool? compareMode;
   final Future Function(String workoutLogId)? onCompare;
+
+  /// Compare mode only: the header's back button.
+  final Future Function()? onClose;
 
   /// A workout_log_id to hide from the list (the one already picked for a
   /// comparison). Empty / null = hide nothing.
@@ -366,6 +370,20 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "השווה",
     "de": "Vergleichen",
     "fr": "Comparer",
+  },
+  "compareTitle": {
+    "en": "Choose a workout to compare",
+    "es": "Elige un entrenamiento",
+    "he": "בחר אימון להשוואה",
+    "de": "Workout zum Vergleich wählen",
+    "fr": "Choisir un entraînement",
+  },
+  "back": {
+    "en": "Back",
+    "es": "Atrás",
+    "he": "חזרה",
+    "de": "Zurück",
+    "fr": "Retour",
   },
 };
 
@@ -724,6 +742,12 @@ class _HistoryViewState extends State<HistoryView> {
     await widget.onCompare?.call(id);
   }
 
+  Future<void> _tapClose() async {
+    FocusScope.of(context).unfocus();
+    HapticFeedback.selectionClick();
+    await widget.onClose?.call();
+  }
+
   // ---------- build ----------
   @override
   Widget build(BuildContext context) {
@@ -814,8 +838,9 @@ class _HistoryViewState extends State<HistoryView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_compare) _compareHeader(context, lang, rtl),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                padding: EdgeInsets.fromLTRB(16, _compare ? 8 : 16, 16, 0),
                 child: _searchField(context),
               ),
               Padding(
@@ -849,6 +874,54 @@ class _HistoryViewState extends State<HistoryView> {
               Expanded(child: body),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Compare mode only: status-bar inset + back button + centered title.
+  Widget _compareHeader(BuildContext ctx, String lang, bool rtl) {
+    final th = FlutterFlowTheme.of(ctx);
+    final bool dark = _isDark(ctx);
+    final double top = MediaQuery.of(ctx).padding.top;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(12, top + 6, 12, 0),
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _tapClose,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: th.secondaryBackground,
+                  shape: BoxShape.circle,
+                  border: dark ? Border.all(color: th.alternate) : null,
+                ),
+                child: Icon(
+                  rtl
+                      ? Icons.arrow_forward_ios_rounded
+                      : Icons.arrow_back_ios_new_rounded,
+                  size: 18,
+                  color: th.primaryText,
+                  semanticLabel: _tr(lang, 'back'),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                _tr(lang, 'compareTitle'),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _hs(ctx, 17, FontWeight.w600, th.primaryText),
+              ),
+            ),
+            const SizedBox(width: 44),
+          ],
         ),
       ),
     );

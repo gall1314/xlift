@@ -146,28 +146,11 @@ class _CreateUserExerciseMidSessionWidgetState
                     );
 
                     context.pushNamed(
-                      AddExercisesMidSeissionWidget.routeName,
+                      AddExercisesV3CopyWidget.routeName,
                       queryParameters: {
-                        'alreadySelceted': serializeParam(
-                          widget.alreadySelected,
-                          ParamType.JSON,
-                          isList: true,
-                        ),
-                        'workoutId': serializeParam(
-                          '',
-                          ParamType.String,
-                        ),
                         'addUserEx': serializeParam(
                           true,
                           ParamType.bool,
-                        ),
-                        'userExlist': serializeParam(
-                          functions.addExerciseToSelected(
-                              widget.alreadySelected?.toList(),
-                              _model.id!,
-                              _model.textController.text),
-                          ParamType.JSON,
-                          isList: true,
                         ),
                       }.withoutNulls,
                     );

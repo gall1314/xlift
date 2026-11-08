@@ -121,7 +121,7 @@ class _HelpUsWidgetState extends State<HelpUsWidget> {
                     children: [
                       Text(
                         FFLocalizations.of(context).getText(
-                          '8uu69emz' /* Help us improve Xlift */,
+                          '8uu69emz' /* Help us improve the app */,
                         ),
                         style: FlutterFlowTheme.of(context).bodyLarge.override(
                               font: GoogleFonts.inter(

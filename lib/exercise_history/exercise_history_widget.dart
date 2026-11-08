@@ -445,13 +445,13 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                             if (!_model
                                                                 .stepByStep)
                                                               Text(
-                                                                valueOrDefault<
-                                                                    String>(
-                                                                  exerciseHistoryExercise2RowList
-                                                                      .firstOrNull
-                                                                      ?.longDescription,
-                                                                  '-',
-                                                                ),
+                                                                functions.localizedName(
+                                                                    exerciseHistoryExercise2RowList
+                                                                        .firstOrNull
+                                                                        ?.longDescription,
+                                                                    FFLocalizations.of(
+                                                                            context)
+                                                                        .languageCode),
                                                                 style: FlutterFlowTheme.of(
                                                                         context)
                                                                     .bodyMedium
@@ -574,10 +574,12 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                                                   children: [
                                                                                     Text(
-                                                                                      getJsonField(
-                                                                                        stepItem,
-                                                                                        r'''$["text"]''',
-                                                                                      ).toString(),
+                                                                                      functions.localizedName(
+                                                                                          getJsonField(
+                                                                                            stepItem,
+                                                                                            r'''$["text"]''',
+                                                                                          ).toString(),
+                                                                                          FFLocalizations.of(context).languageCode),
                                                                                       style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                             font: GoogleFonts.inter(
                                                                                               fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -856,7 +858,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                         child: custom_widgets.ExerciseAssetImage(
                                                                                           width: 40.0,
                                                                                           height: 40.0,
-                                                                                          exerciseName: functions.exerciseImageName(listViewGetExerciseMuscleListRow.muscleName),
+                                                                                          exerciseName: functions.exerciseImageName(functions.localizedName(listViewGetExerciseMuscleListRow.muscleName, FFLocalizations.of(context).languageCode)),
                                                                                           borderRadius: 30.0,
                                                                                         ),
                                                                                       ),
@@ -868,7 +870,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                         Padding(
                                                                                           padding: EdgeInsetsDirectional.fromSTEB(8.0, 0.0, 0.0, 0.0),
                                                                                           child: Text(
-                                                                                            listViewGetExerciseMuscleListRow.muscleName,
+                                                                                            functions.localizedName(listViewGetExerciseMuscleListRow.muscleName, FFLocalizations.of(context).languageCode),
                                                                                             style: FlutterFlowTheme.of(context).titleSmall.override(
                                                                                                   font: GoogleFonts.interTight(
                                                                                                     fontWeight: FontWeight.w500,
@@ -1017,7 +1019,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                                 child: custom_widgets.ExerciseAssetImage(
                                                                                                   width: 26.0,
                                                                                                   height: 26.0,
-                                                                                                  exerciseName: functions.exerciseImageName(secondaryItem.muscleName),
+                                                                                                  exerciseName: functions.exerciseImageName(functions.localizedName(secondaryItem.muscleName, FFLocalizations.of(context).languageCode)),
                                                                                                   borderRadius: 30.0,
                                                                                                 ),
                                                                                               ),
@@ -1028,10 +1030,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                                   Padding(
                                                                                                     padding: EdgeInsetsDirectional.fromSTEB(8.0, 0.0, 0.0, 0.0),
                                                                                                     child: Text(
-                                                                                                      valueOrDefault<String>(
-                                                                                                        secondaryItem.muscleName,
-                                                                                                        'Muscle',
-                                                                                                      ),
+                                                                                                      functions.localizedName(secondaryItem.muscleName, FFLocalizations.of(context).languageCode),
                                                                                                       style: FlutterFlowTheme.of(context).bodySmall.override(
                                                                                                             font: GoogleFonts.inter(
                                                                                                               fontWeight: FontWeight.w500,
@@ -1175,7 +1174,9 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                     Expanded(
                                                                       child:
                                                                           Text(
-                                                                        formTipItem,
+                                                                        functions.localizedName(
+                                                                            formTipItem,
+                                                                            FFLocalizations.of(context).languageCode),
                                                                         style: FlutterFlowTheme.of(context)
                                                                             .bodyMedium
                                                                             .override(

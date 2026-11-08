@@ -453,6 +453,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                       PremiumPaywallPageWidget.routeName);
                                 },
                                 onCompare: (workoutLogId) async {},
+                                onClose: () async {},
                               ),
                             ),
                           ),

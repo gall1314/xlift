@@ -1,6 +1,5 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
-import '/components/workout_list_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -410,10 +409,6 @@ class _SelectWorkoutsWidgetState extends State<SelectWorkoutsWidget> {
                                     }
                                     final listViewGetdirtyworkoutsRowList =
                                         snapshot.data!;
-                                    if (listViewGetdirtyworkoutsRowList
-                                        .isEmpty) {
-                                      return WorkoutListPlaceHolderWidget();
-                                    }
 
                                     return ListView.builder(
                                       padding: EdgeInsets.zero,

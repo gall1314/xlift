@@ -436,7 +436,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                               );
                             },
                             text: FFLocalizations.of(context).getText(
-                              'toj7tcqv' /* Add Exercise */,
+                              'toj7tcqv' /* Add Exercises */,
                             ),
                             icon: Icon(
                               Icons.add,

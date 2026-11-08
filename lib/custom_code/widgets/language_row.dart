@@ -110,9 +110,11 @@ String _tr(String lang, String key) {
 ///
 /// No outer padding — drop it in the same Container as the other preference
 /// rows. Tap opens a bottom sheet with "Device language" (only when the
-/// phone's language is one we ship) followed by every enabled language. Each
-/// pick fires its own callback (do a Set App Language there). Reads the
-/// current language itself.
+/// phone's language is one we ship) followed by every enabled language.
+///
+/// A pick switches the app language itself AND stores it (so it survives a
+/// restart), then fires the matching callback for anything extra you want to
+/// do (saving to the profile, say). The callbacks may stay empty.
 class LanguageRow extends StatefulWidget {
   const LanguageRow({
     super.key,
@@ -138,7 +140,15 @@ class LanguageRow extends StatefulWidget {
 }
 
 class _LanguageRowState extends State<LanguageRow> {
-  Future<void> _fire(String code) async {
+  Future<void> _apply(String code) async {
+    // 1. switch + persist (FF's own mechanism, same as "Set App Language")
+    try {
+      setAppLanguage(context, code);
+    } catch (_) {}
+    try {
+      await FFLocalizations.storeLocale(code);
+    } catch (_) {}
+    // 2. anything extra wired in FF
     switch (code) {
       case 'en':
         await widget.onEnglish?.call();
@@ -168,7 +178,7 @@ class _LanguageRowState extends State<LanguageRow> {
       builder: (_) => _LanguageSheet(
         onPick: (code) async {
           Navigator.of(context).pop();
-          await _fire(code);
+          await _apply(code);
         },
       ),
     );
@@ -219,8 +229,9 @@ class _LanguageRowState extends State<LanguageRow> {
                 ),
               ),
               const SizedBox(width: 8),
+              // Same chevron as the other FF rows, in every language.
               Icon(
-                rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                Icons.chevron_right_rounded,
                 size: 22,
                 color: theme.primaryText,
               ),
