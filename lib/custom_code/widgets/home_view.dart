@@ -1445,7 +1445,7 @@ class _HomeViewState extends State<HomeView> {
         shape: BoxShape.circle,
         color: today ? _card : Colors.transparent,
         border: Border.all(
-          color: today ? _ink : _line,
+          color: today ? _accent : _line,
           width: today ? 2 : 1.5,
         ),
       ),
@@ -1455,7 +1455,10 @@ class _HomeViewState extends State<HomeView> {
   Widget _stat(String value, String label) => Expanded(
         child: Column(
           children: [
-            Text(value, style: _display(24), textAlign: TextAlign.center),
+            // A zero reads as "not yet", not as a headline number.
+            Text(value,
+                style: _display(24, color: value == '0' ? _inkMuted : _ink),
+                textAlign: TextAlign.center),
             const SizedBox(height: 3),
             Text(label,
                 style: _body(11, color: _inkMuted),
@@ -1641,12 +1644,12 @@ class _HomeViewState extends State<HomeView> {
               height: 36,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
+                color: _accentTint,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: _line, width: 1.5),
               ),
               alignment: Alignment.center,
               child: Text(_t('start'),
-                  style: _body(13, color: _ink, w: FontWeight.w600)),
+                  style: _body(13, color: _accentDeep, w: FontWeight.w600)),
             ),
           ),
         ],
@@ -1659,15 +1662,16 @@ class _HomeViewState extends State<HomeView> {
         child: Container(
           height: 50,
           decoration: BoxDecoration(
+            color: _accentTint,
             borderRadius: BorderRadius.circular(_kRadiusInner),
-            border: Border.all(color: _inkFaint, width: 1.5),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add_rounded, size: 20, color: _ink),
+              Icon(Icons.add_rounded, size: 20, color: _accentDeep),
               const SizedBox(width: 8),
-              Text(_t('createWorkout'), style: _body(14, w: FontWeight.w600)),
+              Text(_t('createWorkout'),
+                  style: _body(14, color: _accentDeep, w: FontWeight.w600)),
             ],
           ),
         ),

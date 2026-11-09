@@ -636,6 +636,7 @@ class SetTable extends StatefulWidget {
     this.onLockTap,
     this.onStartRest,
     this.onDontShowAgain,
+    this.onHeightChanged,
   });
 
   final double? width;
@@ -679,6 +680,11 @@ class SetTable extends StatefulWidget {
   final Future Function(int exerciseId, int setNumber, int restMs)? onStartRest;
   final Future Function()? onDontShowAgain;
 
+  /// Fired whenever the table's own height changes (sets, drops, done state,
+  /// the unmark strip). Store it in a component state and bind the widget's
+  /// height to it.
+  final Future Function(double height)? onHeightChanged;
+
   @override
   State<SetTable> createState() => _SetTableState();
 }
@@ -709,6 +715,7 @@ class _SetTableState extends State<SetTable> {
   final Map<int, _Prev> _prev = {};
   final Set<int> _prevLoading = {};
   final Set<int> _unmarkOpen = {}; // done sets whose unmark strip is showing
+  double _lastHeight = -1;
   OverlayEntry? _toast;
   Timer? _toastTimer;
 
@@ -1883,6 +1890,8 @@ class _SetTableState extends State<SetTable> {
       rows.add(Opacity(opacity: skipped ? 0.45 : 1.0, child: block));
     }
 
+    _reportHeight(tpl);
+
     return Directionality(
       textDirection: ui.TextDirection.ltr,
       child: SizedBox(
@@ -1899,6 +1908,36 @@ class _SetTableState extends State<SetTable> {
         ),
       ),
     );
+  }
+
+  /// The height this build will take, from the same rules the layout uses.
+  double _tableHeight(List<_TplSet> tpl) {
+    if (tpl.isEmpty) return 0;
+    double h = widget.showHeaders ? 20 : 0;
+    h += (tpl.length - 1) * 8.0;
+    for (final t in tpl) {
+      final bool done = _isDone(t.setNumber);
+      final int drops = widget.isTimed ? 0 : _plannedDrops(t.setNumber).length;
+      h += _rowH + drops * 48.0;
+      if (done) {
+        h += 2; // border
+        if (_unmarkOpen.contains(t.setNumber)) h += _unmarkH;
+      } else {
+        h += _barH;
+        if (drops > 0) h += 36; // "Add drop" line
+      }
+    }
+    return h;
+  }
+
+  void _reportHeight(List<_TplSet> tpl) {
+    if (widget.onHeightChanged == null) return;
+    final double h = _tableHeight(tpl);
+    if ((h - _lastHeight).abs() < 0.5) return;
+    _lastHeight = h;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onHeightChanged?.call(h);
+    });
   }
 
   Widget _hdr(String s, Color c) => Text(s,

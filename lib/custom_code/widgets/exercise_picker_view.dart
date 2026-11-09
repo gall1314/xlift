@@ -48,9 +48,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// initializeWorkoutExerciseSetsFromSelection. onOpenDetails      -
 /// (exerciseId) stats button on a catalog exercise onOpenCustomDetails-
 /// (exerciseId) stats button on one of the user's own exercises, wherever it
-/// appears (Recent / Custom) onCreate           - the "Creכate" button
-/// (custom exercise flow) onBack             - the back arrow (null =
-/// Navigator.pop)
+/// appears (Recent / Custom) onCreate           - the "Create" button (custom
+/// exercise flow) onBack             - the back arrow (null = Navigator.pop)
 class ExercisePickerView extends StatefulWidget {
   const ExercisePickerView({
     super.key,
@@ -1888,7 +1887,11 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
             children: [
               for (int i = 0; i < items.length; i++) ...[
                 _row(items[i]),
-                if (i < items.length - 1)
+                // A selected row is tinted, so its edge is already visible:
+                // skip the divider next to one or it reads as a broken line.
+                if (i < items.length - 1 &&
+                    !_isSelected(items[i].id) &&
+                    !_isSelected(items[i + 1].id))
                   Padding(
                     padding: const EdgeInsetsDirectional.only(
                         start: _kDividerIndent),
@@ -2126,7 +2129,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     );
   }
 
-  // ------------------------------ primitives --------------------------------
+  // ------------------------------ primעיitives --------------------------------
 
   Widget _grabber() => Container(
         width: 36,

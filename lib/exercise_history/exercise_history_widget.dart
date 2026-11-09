@@ -486,9 +486,12 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                 builder:
                                                                     (context) {
                                                                   final step = functions
-                                                                      .parseSteps(exerciseHistoryExercise2RowList
-                                                                          .firstOrNull!
-                                                                          .stepByStep!)
+                                                                      .parseSteps(
+                                                                          exerciseHistoryExercise2RowList
+                                                                              .firstOrNull!
+                                                                              .stepByStep!,
+                                                                          FFLocalizations.of(context)
+                                                                              .languageCode)
                                                                       .toList();
 
                                                                   return ListView
@@ -574,12 +577,10 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                   crossAxisAlignment: CrossAxisAlignment.start,
                                                                                   children: [
                                                                                     Text(
-                                                                                      functions.localizedName(
-                                                                                          getJsonField(
-                                                                                            stepItem,
-                                                                                            r'''$["text"]''',
-                                                                                          ).toString(),
-                                                                                          FFLocalizations.of(context).languageCode),
+                                                                                      getJsonField(
+                                                                                        stepItem,
+                                                                                        r'''$["text"]''',
+                                                                                      ).toString(),
                                                                                       style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                             font: GoogleFonts.inter(
                                                                                               fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -1133,7 +1134,10 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                 .parseFormTips(
                                                                     exerciseHistoryExercise2RowList
                                                                         .firstOrNull!
-                                                                        .formTips!)
+                                                                        .formTips!,
+                                                                    FFLocalizations.of(
+                                                                            context)
+                                                                        .languageCode)
                                                                 .toList();
 
                                                             return ListView
@@ -1174,9 +1178,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                     Expanded(
                                                                       child:
                                                                           Text(
-                                                                        functions.localizedName(
-                                                                            formTipItem,
-                                                                            FFLocalizations.of(context).languageCode),
+                                                                        formTipItem,
                                                                         style: FlutterFlowTheme.of(context)
                                                                             .bodyMedium
                                                                             .override(

@@ -955,6 +955,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                   ).then((value) => safeSetState(() {}));
                                 },
                                 onDontShowAgain: () async {},
+                                onHeightChanged: (height) async {},
                               ),
                             ),
                           ),

@@ -1610,15 +1610,16 @@ bool showWarmupCheckForSet(
   }
 }
 
-List<dynamic> parseSteps(String stepByStepText) {
+List<dynamic> parseSteps(
+  String stepByStepText,
+  String? languageCode,
+) {
   {
     if (stepByStepText.trim().isEmpty) return const [];
 
-    try {
-      final parsed = json.decode(stepByStepText);
-
-      if (parsed is List) {
-        return parsed.map((e) {
+    List<dynamic> normalize(dynamic v) {
+      if (v is List) {
+        return v.map((e) {
           if (e is Map) {
             return {
               'step': e['step'] ?? 0,
@@ -1630,52 +1631,82 @@ List<dynamic> parseSteps(String stepByStepText) {
             return {'step': 1, 'text': e.toString()};
           }
         }).toList();
-      } else if (parsed is Map) {
+      } else if (v is Map) {
         return [
           {
-            'step': parsed['step'] ?? 0,
-            'text': parsed['text']?.toString() ?? '',
+            'step': v['step'] ?? 0,
+            'text': v['text']?.toString() ?? '',
           }
         ];
-      } else if (parsed is String) {
+      } else if (v is String) {
         return [
-          {'step': 1, 'text': parsed}
+          {'step': 1, 'text': v}
         ];
       }
+      return const [];
+    }
+
+    try {
+      final parsed = json.decode(stepByStepText);
+
+      // New shape: {"en":[...], "he":[...], ...} → pick the language.
+      if (parsed is Map &&
+          (parsed.containsKey('en') || parsed.containsKey('he'))) {
+        final String lang = (languageCode ?? 'en').trim().toLowerCase();
+        final dynamic chosen = parsed[lang] ??
+            parsed['en'] ??
+            (parsed.values.isNotEmpty ? parsed.values.first : null);
+        return normalize(chosen);
+      }
+
+      // Old shape: a plain list / single step.
+      return normalize(parsed);
     } catch (_) {
-      // אם לא JSON תקין – מחזיר פריט אחד מהטקסט הגולמי
+      // Not JSON – one step with the raw text.
       return [
         {'step': 1, 'text': stepByStepText}
       ];
     }
-
-    return const [];
   }
 }
 
-List<String> parseFormTips(String formTipsText) {
+List<String> parseFormTips(
+  String formTipsText,
+  String? languageCode,
+) {
   {
     if (formTipsText.trim().isEmpty) return const [];
 
-    try {
-      final parsed = json.decode(formTipsText);
-
-      if (parsed is List) {
-        return parsed.map((e) {
+    List<String> normalize(dynamic v) {
+      if (v is List) {
+        return v.map((e) {
           if (e is String) return e;
           if (e is Map && e.containsKey('tip')) return e['tip'].toString();
           if (e is Map && e.containsKey('text')) return e['text'].toString();
           return e.toString();
         }).toList();
       }
+      if (v is String) return [v];
+      return [];
+    }
 
-      if (parsed is String) {
-        return [parsed];
+    try {
+      final parsed = json.decode(formTipsText);
+
+      // New shape: {"en":[...], "he":[...], ...} → pick the language.
+      if (parsed is Map &&
+          (parsed.containsKey('en') || parsed.containsKey('he'))) {
+        final String lang = (languageCode ?? 'en').trim().toLowerCase();
+        final dynamic chosen = parsed[lang] ??
+            parsed['en'] ??
+            (parsed.values.isNotEmpty ? parsed.values.first : null);
+        return normalize(chosen);
       }
 
-      return [];
+      // Old shape: a plain list.
+      return normalize(parsed);
     } catch (_) {
-      // אם לא JSON – נחזיר אותו כטיפ יחיד
+      // Not JSON – one tip with the raw text.
       return [formTipsText];
     }
   }
