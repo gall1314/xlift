@@ -803,6 +803,13 @@ class _SetTableState extends State<SetTable> {
     return out;
   }
 
+  /// The set may carry a weight: weighted template, or a bodyweight exercise
+  /// that allows added weight (shown as "+" until one is entered).
+  bool _canWeight(_TplSet t) =>
+      t.weighted || widget.isBodyweight || widget.allowsBodyweight;
+  bool _plusMode(_TplSet t) =>
+      !t.weighted && (widget.isBodyweight || widget.allowsBodyweight);
+
   bool _isDone(int setNumber) => _truthy(_base(setNumber)?['isDone']);
   bool _isSkipped(int setNumber) => _truthy(_base(setNumber)?['isSkipped']);
   int _loggedMs(int setNumber) => _asInt(_base(setNumber)?['durationMs']);
@@ -893,7 +900,7 @@ class _SetTableState extends State<SetTable> {
       'isDone': isDone ?? _truthy(old['isDone']),
       'weighted': t.weighted,
       'reps': clearReps ? null : (reps ?? old['reps']),
-      'weight': !t.weighted
+      'weight': !_canWeight(t)
           ? null
           : (clearWeight ? null : (weight ?? _asDoubleN(old['weight']))),
       'durationMs': durationMs ?? _asInt(old['durationMs']),
@@ -1031,11 +1038,6 @@ class _SetTableState extends State<SetTable> {
     var s = p.text;
     if (lang == 'en') return s;
     s = s.replaceAll(RegExp(r'\breps\b'), _tr(lang, 'prevReps'));
-    if (lang == 'he') {
-      s = s
-          .replaceAll(RegExp(r'\bkg\b'), 'ק״ג')
-          .replaceAll(RegExp(r'\blbs?\b'), 'ליב׳');
-    }
     return s;
   }
 
@@ -1149,7 +1151,7 @@ class _SetTableState extends State<SetTable> {
       final logged = _loggedDrop(t.setNumber, order);
       final int r = _asIntN(logged?['reps']) ?? _asIntN(d['reps']) ?? 0;
       if (r <= 0) return _tr(lang, 'errDropReps', p: {'n': '$order'});
-      if (t.weighted) {
+      if (t.weighted && !widget.allowsBodyweight && !widget.isBodyweight) {
         final double w =
             _asDoubleN(logged?['weight']) ?? _asDoubleN(d['weight']) ?? 0;
         if (w <= 0) return _tr(lang, 'errDropWeight', p: {'n': '$order'});
@@ -1402,7 +1404,7 @@ class _SetTableState extends State<SetTable> {
         'parentSetNumber': t.setNumber,
         'dropOrder': order,
         'reps': (reps ?? 0) > 0 ? reps : null,
-        'weight': t.weighted ? _dropWeightFrom(from) : null,
+        'weight': _canWeight(t) ? _dropWeightFrom(from) : null,
       });
     await widget.onDropSetsChanged?.call(List<dynamic>.from(drops));
   }
@@ -1451,7 +1453,11 @@ class _SetTableState extends State<SetTable> {
     _VideoStore.remove(k);
     final logged = _copyLogged()
       ..removeWhere((l) => _isMine(l) && _asInt(l['setNumber']) == t.setNumber);
+    final drops = _copyList(widget.dropSets)
+      ..removeWhere(
+          (d) => _isMine(d) && _asInt(d['parentSetNumber']) == t.setNumber);
     await _emit(logged);
+    await widget.onDropSetsChanged?.call(List<dynamic>.from(drops));
     await widget.onAnalysisStateChanged
         ?.call(_analysisWithout(t.setNumber, shift: false));
   }
@@ -1706,7 +1712,8 @@ class _SetTableState extends State<SetTable> {
     final bool rtl = _kRtl.contains(lang);
     _toast = OverlayEntry(
       builder: (_) => Positioned.fill(
-        child: IgnorePointer(
+        child: Align(
+          alignment: Alignment.center,
           child: Center(
             child: Material(
               color: Colors.transparent,
@@ -1733,9 +1740,26 @@ class _SetTableState extends State<SetTable> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: FontWeight.w600,
                               height: 1.35)),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: _hideToast,
+                        child: Container(
+                          height: 40,
+                          padding: const EdgeInsets.symmetric(horizontal: 28),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                              color: FlutterFlowTheme.of(context).primary,
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Text(_tr(lang, 'close'),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1746,7 +1770,7 @@ class _SetTableState extends State<SetTable> {
       ),
     );
     overlay.insert(_toast!);
-    _toastTimer = Timer(const Duration(milliseconds: 1400), _hideToast);
+    _toastTimer = Timer(const Duration(milliseconds: 2200), _hideToast);
   }
 
   void _hideToast() {
@@ -1825,7 +1849,7 @@ class _SetTableState extends State<SetTable> {
           : _repsRow(t, done, lang, dark, text, muted, accent);
       final Widget block = Container(
         decoration: BoxDecoration(
-          color: done ? cellBg : bg,
+          color: bg,
           borderRadius: BorderRadius.circular(12),
           border: done
               ? Border.all(
@@ -1845,14 +1869,14 @@ class _SetTableState extends State<SetTable> {
                       if (!_unmarkOpen.remove(t.setNumber))
                         _unmarkOpen.add(t.setNumber);
                     }),
-                    child: Container(color: bg, child: rowPart),
+                    child: rowPart,
                   )
                 : rowPart,
             if (!widget.isTimed)
               ..._dropRows(
                   t, done, lang, dark, text, muted, accent, cellBg, onDone),
             if (!done) _completeBar(t, lang, doneBg, onDone),
-            if (unmarkOpen) _unmarkStrip(t, muted),
+            if (unmarkOpen) _unmarkStrip(t, muted, cellBg),
           ],
         ),
       );
@@ -1921,24 +1945,25 @@ class _SetTableState extends State<SetTable> {
             const SizedBox(width: _gap),
             SizedBox(
               width: _colVal,
-              child: !t.weighted
-                  ? Center(
-                      child: Text('—',
-                          style: TextStyle(fontSize: 16, color: muted)))
-                  : _WeightCell(
-                      value: weight,
-                      hint: _weightHint(t),
-                      isDone: done,
-                      isKg: widget.isKg,
-                      plusMode: widget.isBodyweight,
-                      lang: lang,
-                      dark: dark,
-                      textColor: text,
-                      hintColor: muted,
-                      focusColor: accent,
-                      onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
-                          weight: v, clearWeight: v == null)),
-                    ),
+              child:
+                  !_canWeight(t) || (done && _plusMode(t) && (weight ?? 0) <= 0)
+                      ? Center(
+                          child: Text('-',
+                              style: TextStyle(fontSize: 17, color: muted)))
+                      : _WeightCell(
+                          value: weight,
+                          hint: _plusMode(t) ? 0 : _weightHint(t),
+                          isDone: done,
+                          isKg: widget.isKg,
+                          plusMode: _plusMode(t),
+                          lang: lang,
+                          dark: dark,
+                          textColor: text,
+                          hintColor: muted,
+                          focusColor: accent,
+                          onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
+                              weight: v, clearWeight: v == null)),
+                        ),
             ),
             if (widget.aiEnabled) ...[
               const SizedBox(width: _gap),
@@ -1955,23 +1980,12 @@ class _SetTableState extends State<SetTable> {
 
   Widget _numberPill(_TplSet t, bool done, bool dark, Color text, String lang) {
     if (done) {
-      // Still opens the menu (unmark / reset / delete).
-      return _Pressable(
-        onTap: () => _openSetMenu(t, lang),
-        child: SizedBox(
-          width: 44,
-          height: 32,
-          child: Center(
-            child: Text('${t.setNumber}',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: dark
-                        ? const Color(0xFF5EEAD4)
-                        : const Color(0xFF0F766E))),
-          ),
-        ),
-      );
+      // Not tappable on a completed set (like the original).
+      return Text('${t.setNumber}',
+          style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: dark ? const Color(0xFF5EEAD4) : const Color(0xFF0F766E)));
     }
     return _SetPill(
       label: '${t.setNumber}',
@@ -1984,12 +1998,18 @@ class _SetTableState extends State<SetTable> {
 
   Widget _previousCell(_TplSet t, bool done, String lang, Color muted) {
     final String label = _prevLabel(lang, t.setNumber);
-    final Widget txt = Text(
-      _ltr(label),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      textAlign: TextAlign.center,
-      style: TextStyle(fontSize: 16, color: muted, fontWeight: FontWeight.w400),
+    final Widget txt = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          _ltr(label),
+          maxLines: 1,
+          textDirection: ui.TextDirection.ltr,
+          style: TextStyle(
+              fontSize: 16, color: muted, fontWeight: FontWeight.w400),
+        ),
+      ),
     );
     if (done || label == '-' || label.isEmpty) return Center(child: txt);
     return _Pressable(
@@ -2060,11 +2080,7 @@ class _SetTableState extends State<SetTable> {
     final planned = _plannedDrops(t.setNumber);
     if (planned.isEmpty) return const [];
     final double? baseW = _asDoubleN(_base(t.setNumber)?['weight']);
-    final Color rowBg = done
-        ? (dark
-            ? Colors.white.withOpacity(0.10)
-            : Colors.white.withOpacity(0.55))
-        : cellBg;
+    final Color rowBg = done ? Colors.transparent : cellBg;
 
     final List<Widget> out = [];
     for (final d in planned) {
@@ -2135,16 +2151,16 @@ class _SetTableState extends State<SetTable> {
               const SizedBox(width: _gap),
               SizedBox(
                 width: _colVal,
-                child: !t.weighted
+                child: !_canWeight(t) || (done && _plusMode(t) && (w ?? 0) <= 0)
                     ? Center(
-                        child: Text('—',
-                            style: TextStyle(fontSize: 15, color: muted)))
+                        child: Text('-',
+                            style: TextStyle(fontSize: 16, color: muted)))
                     : _WeightCell(
                         value: w,
                         hint: wHint,
                         isDone: done,
                         isKg: widget.isKg,
-                        plusMode: false,
+                        plusMode: _plusMode(t),
                         lang: lang,
                         dark: dark,
                         textColor: text,
@@ -2239,14 +2255,15 @@ class _SetTableState extends State<SetTable> {
   }
 
   /// Shown under a completed row after tapping it: the "unmark" icon.
-  Widget _unmarkStrip(_TplSet t, Color fg) {
+  Widget _unmarkStrip(_TplSet t, Color fg, Color bg) {
     return _Pressable(
       onTap: () {
         _unmarkOpen.remove(t.setNumber);
         _unmark(t);
       },
-      child: SizedBox(
+      child: Container(
         height: _unmarkH,
+        color: bg,
         child:
             Center(child: Icon(Icons.remove_done_rounded, size: 20, color: fg)),
       ),
@@ -2268,12 +2285,12 @@ class _SetTableState extends State<SetTable> {
     if (processing) {
       child = _Sparkle(color: accent);
     } else if (analysisDone) {
-      child = _ScoreRing(
-        score: score ?? -1,
-        textColor: dark ? Colors.white : const Color(0xFF1A202C),
-        trackColor:
-            dark ? Colors.white.withOpacity(0.12) : const Color(0xFFE5E7EB),
-        onTap: () => widget.onResultTap?.call(t.setNumber,
+      double s10 = score ?? 0;
+      if (s10 > 10) s10 = s10 / 10; // 0-100 → 0-10
+      child = AiScoreRing(
+        score: s10,
+        size: 40,
+        onTap: () async => widget.onResultTap?.call(t.setNumber,
             _VideoStore.get(_jobKey(widget.exerciseId, t.setNumber))),
       );
     } else if (hasError) {
@@ -3681,7 +3698,7 @@ class _TimeCellState extends State<_TimeCell>
                         _toggleJob(j, widget.loggedMs);
                         setState(() {});
                         // Play opens the sheet (mode switch, reset, pause);
-                        // tapping outsfide closes it and the timer keeps running.
+                        // tapping outside closes it and the timer keeps running.
                         if (!wasRunning && !editing) _openSheet();
                       },
                 child: Container(

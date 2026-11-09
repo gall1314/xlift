@@ -716,6 +716,112 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                     ),
                                   ),
                                 ),
+                                Builder(
+                                  builder: (context) {
+                                    final feedback = getJsonField(
+                                      widget.analysis,
+                                      r'''$["feedback"]''',
+                                    ).toList();
+
+                                    return ListView.builder(
+                                      padding: EdgeInsets.zero,
+                                      shrinkWrap: true,
+                                      scrollDirection: Axis.vertical,
+                                      itemCount: feedback.length,
+                                      itemBuilder: (context, feedbackIndex) {
+                                        final feedbackItem =
+                                            feedback[feedbackIndex];
+                                        return Padding(
+                                          padding:
+                                              EdgeInsetsDirectional.fromSTEB(
+                                                  12.0, 12.0, 12.0, 12.0),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.max,
+                                            children: [
+                                              Stack(
+                                                children: [
+                                                  if (!functions
+                                                      .showPerfectScoreIcon(
+                                                          getJsonField(
+                                                    widget.analysis,
+                                                    r'''$["technique_score"]''',
+                                                  ))!)
+                                                    Icon(
+                                                      Icons.warning,
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .warning,
+                                                      size: 20.0,
+                                                    ),
+                                                  if (functions
+                                                          .showPerfectScoreIcon(
+                                                              getJsonField(
+                                                        widget.analysis,
+                                                        r'''$["technique_score"]''',
+                                                      )) ??
+                                                      true)
+                                                    Icon(
+                                                      Icons.check_circle_sharp,
+                                                      color:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .primary,
+                                                      size: 20.0,
+                                                    ),
+                                                ],
+                                              ),
+                                              Expanded(
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      feedbackItem.toString(),
+                                                      style:
+                                                          FlutterFlowTheme.of(
+                                                                  context)
+                                                              .labelMedium
+                                                              .override(
+                                                                font:
+                                                                    GoogleFonts
+                                                                        .inter(
+                                                                  fontWeight: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontWeight,
+                                                                  fontStyle: FlutterFlowTheme.of(
+                                                                          context)
+                                                                      .labelMedium
+                                                                      .fontStyle,
+                                                                ),
+                                                                color: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .secondaryText,
+                                                                letterSpacing:
+                                                                    0.0,
+                                                                fontWeight: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .fontWeight,
+                                                                fontStyle: FlutterFlowTheme.of(
+                                                                        context)
+                                                                    .labelMedium
+                                                                    .fontStyle,
+                                                              ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ].divide(SizedBox(width: 12.0)),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
                                 ListView(
                                   padding: EdgeInsets.zero,
                                   primary: false,
@@ -727,93 +833,6 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                       decoration: BoxDecoration(
                                         borderRadius:
                                             BorderRadius.circular(8.0),
-                                      ),
-                                      child: Padding(
-                                        padding: EdgeInsetsDirectional.fromSTEB(
-                                            12.0, 12.0, 12.0, 12.0),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.max,
-                                          children: [
-                                            Stack(
-                                              children: [
-                                                if (!functions
-                                                    .showPerfectScoreIcon(
-                                                        getJsonField(
-                                                  widget.analysis,
-                                                  r'''$["technique_score"]''',
-                                                ))!)
-                                                  Icon(
-                                                    Icons.warning,
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .warning,
-                                                    size: 20.0,
-                                                  ),
-                                                if (functions
-                                                        .showPerfectScoreIcon(
-                                                            getJsonField(
-                                                      widget.analysis,
-                                                      r'''$["technique_score"]''',
-                                                    )) ??
-                                                    true)
-                                                  Icon(
-                                                    Icons.check_circle_sharp,
-                                                    color: FlutterFlowTheme.of(
-                                                            context)
-                                                        .primary,
-                                                    size: 20.0,
-                                                  ),
-                                              ],
-                                            ),
-                                            Expanded(
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    FFLocalizations.of(context)
-                                                        .getText(
-                                                      'lhx7ymxp' /* Try going deeper on your squat... */,
-                                                    ),
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .labelMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .labelMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryText,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .labelMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ].divide(SizedBox(width: 12.0)),
-                                        ),
                                       ),
                                     ),
                                   ].divide(SizedBox(height: 8.0)),

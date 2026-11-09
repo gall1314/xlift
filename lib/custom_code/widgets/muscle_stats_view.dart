@@ -35,12 +35,13 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 /// UI strings come from _kStrings, muscle / exercise names from
 /// localizedName, dates from intl; Hebrew renders RTL.
 ///
-/// [timeRange]: 'Last 7 days' | 'Last 30 days' | 'Last 90 days'; anything
-/// else ('All', 'All time', empty) means no limit. These are internal keys,
-/// not shown to the user. [isDark]: the app's dark-mode flag.
+/// [timeRange]: any string containing the day count (e.g. 'Last 7 days',
+/// 'Last 30 days', '30 הימים האחרונים'); a string with no number ('All', 'All
+/// time', empty) means no limit. [isDark]: the app's dark-mode flag.
 /// [onExerciseTap](exerciseId, isPublic): a "Top exercises" row was tapped.
 /// [onRangeChange](range): the button in the "nothing in this time range"
-/// state, with the shortest range that contains the muscle's last workout.
+/// state, with the shortest range that contains the muscle's last workout
+/// ('Last 30 days' | 'Last 90 days' | 'All time').
 ///
 /// Recovery thresholds (minutes since last trained): < 1440 recovering, <
 /// 2880 almost ready, < 10080 ready, otherwise not trained lately.
@@ -319,14 +320,26 @@ String _tr(String lang, String key, {int? n, String? m, String? r, String? a}) {
   return s;
 }
 
-/// Human label for an internal range key.
+/// Day count of a range string, or null for "all time". Accepts the internal
+/// keys ('Last 7 days') and any string that contains the number (e.g. a
+/// localized dropdown label), so the filter works whatever the page passes.
+int? _daysOf(String? range) {
+  final String raw = (range ?? '').trim();
+  if (raw.isEmpty) return null;
+  final RegExpMatch? m = RegExp(r'\d+').firstMatch(raw);
+  if (m == null) return null;
+  final int n = int.tryParse(m.group(0)!) ?? 0;
+  return n > 0 ? n : null;
+}
+
+/// Human label for a range string.
 String _rangeLabel(String lang, String range) {
-  switch (range.trim()) {
-    case 'Last 7 days':
+  switch (_daysOf(range)) {
+    case 7:
       return _tr(lang, 'range7');
-    case 'Last 30 days':
+    case 30:
       return _tr(lang, 'range30');
-    case 'Last 90 days':
+    case 90:
       return _tr(lang, 'range90');
     default:
       return _tr(lang, 'rangeAll');
@@ -715,18 +728,8 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   }
 
   // ---------- data ----------
-  String? _cutoffModifier() {
-    switch ((widget.timeRange ?? '').trim()) {
-      case 'Last 7 days':
-        return '-7 days';
-      case 'Last 30 days':
-        return '-30 days';
-      case 'Last 90 days':
-        return '-90 days';
-      default:
-        return null; // All / All time
-    }
-  }
+  /// Days in the selected range, null = All time.
+  int? _rangeDays() => _daysOf(widget.timeRange);
 
   /// All primary muscle groups with minutes since last trained (full
   /// history, not limited by the time range).
@@ -780,7 +783,9 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
     _loadDetail();
   }
 
-  /// Sets of the selected muscle inside the time range.
+  /// Sets of the selected muscle inside the time range. The range filter
+  /// runs in Dart on parsed dates: SQLite's datetime() silently fails on
+  /// some stored formats (e.g. a "+00" offset), Dart's parser does not.
   Future<void> _loadDetail() async {
     final int? muscleId = _selectedId;
     final int token = ++_detailToken;
@@ -796,12 +801,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
     }
     if (mounted) setState(() => _loadingDetail = true);
 
-    final String? modifier = _cutoffModifier();
-    final String cutoffClause = modifier == null
-        ? ''
-        : "AND datetime(replace(wl.created_at,' ','T')) >= "
-            "datetime('now','localtime', ?) ";
-    final String sql = 'SELECT '
+    const String sql = 'SELECT '
         'sl.id AS set_id, '
         'sl.exercise_id AS exercise_id, '
         'e.name AS exercise_name, '
@@ -824,18 +824,21 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         'WHERE wl.user_id = ? '
         'AND mg.primary_muscle_group_id = ? '
         'AND COALESCE(sl.is_dropset, 0) = 0 '
-        '$cutoffClause'
         "ORDER BY datetime(replace(wl.created_at,' ','T')) ASC, "
         'sl.created_at ASC';
 
     _Detail detail = _buildDetail(lang, muscleId, const []);
     try {
-      final rows = await SQLiteManager.instance.database.rawQuery(
-        sql,
-        modifier == null
-            ? [widget.userId, muscleId]
-            : [widget.userId, muscleId, modifier],
-      );
+      List<Map<String, Object?>> rows = await SQLiteManager.instance.database
+          .rawQuery(sql, [widget.userId, muscleId]);
+      final int? days = _rangeDays();
+      if (days != null) {
+        final DateTime cutoff = DateTime.now().subtract(Duration(days: days));
+        rows = rows.where((r) {
+          final DateTime? dt = _mDt(r['created_at']);
+          return dt != null && !dt.isBefore(cutoff);
+        }).toList();
+      }
       detail = _buildDetail(lang, muscleId, rows);
     } catch (_) {}
     if (!mounted || token != _detailToken) return;
@@ -860,20 +863,26 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   }
 
   /// Shortest range that contains the muscle's last workout, or null when
-  /// the current range already is that range / there is nothing to suggest.
+  /// the current range already has no limit / there is nothing to suggest.
   String? _suggestedRange(_Muscle m) {
-    if (m.minutes == null || _cutoffModifier() == null) return null;
+    final int? current = _rangeDays();
+    if (m.minutes == null || current == null) return null;
     final double days = (m.minutes! < 0 ? 0 : m.minutes!) / 1440.0;
-    String s;
+    int? suggested;
     if (days <= 29.5) {
-      s = 'Last 30 days';
+      suggested = 30;
     } else if (days <= 89.5) {
-      s = 'Last 90 days';
-    } else {
-      s = 'All time';
+      suggested = 90;
     }
-    if (s == (widget.timeRange ?? '').trim()) s = 'All time';
-    return s;
+    if (suggested == current) suggested = null;
+    switch (suggested) {
+      case 30:
+        return 'Last 30 days';
+      case 90:
+        return 'Last 90 days';
+      default:
+        return 'All time';
+    }
   }
 
   // ---------- build ----------

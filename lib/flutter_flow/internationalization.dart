@@ -3211,13 +3211,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'fr': 'Commentaires',
       'he': 'משוב',
     },
-    'lhx7ymxp': {
-      'en': 'Try going deeper on your squats',
-      'de': 'Versuche, bei den Kniebeugen tiefer zu gehen.',
-      'es': 'Intenta bajar más en tus sentadillas.',
-      'fr': 'Essayez de descendre plus bas lors de vos squats.',
-      'he': 'נסו לעשות סקוואטים עמוק יותר',
-    },
     '96wal5wp': {
       'en': 'Continue as Workout',
       'de': 'Als Workout fortfahren',

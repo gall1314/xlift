@@ -1163,10 +1163,12 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                                     ),
                                                                               ),
                                                                               Text(
-                                                                                valueOrDefault<String>(
-                                                                                  containerTopMuscleRowList.firstOrNull?.muscleGroupName,
-                                                                                  '-',
-                                                                                ),
+                                                                                functions.localizedName(
+                                                                                    valueOrDefault<String>(
+                                                                                      containerTopMuscleRowList.firstOrNull?.muscleGroupName,
+                                                                                      '-',
+                                                                                    ),
+                                                                                    FFLocalizations.of(context).languageCode),
                                                                                 style: FlutterFlowTheme.of(context).titleSmall.override(
                                                                                       font: GoogleFonts.interTight(
                                                                                         fontWeight: FontWeight.bold,
@@ -1424,7 +1426,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                                             ),
                                                                                           ),
                                                                                           Text(
-                                                                                            listViewPieGraphRow.label,
+                                                                                            functions.localizedName(listViewPieGraphRow.label, FFLocalizations.of(context).languageCode),
                                                                                             style: FlutterFlowTheme.of(context).bodyMedium.override(
                                                                                                   font: GoogleFonts.inter(
                                                                                                     fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
@@ -1567,8 +1569,8 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                             .height *
                                                         1.0,
                                                     userId: currentUserUid,
-                                                    timeRange: _model
-                                                        .historyRangeSelect,
+                                                    timeRange:
+                                                        _model.rangeSelectStats,
                                                     isDark: Theme.of(context)
                                                             .brightness ==
                                                         Brightness.dark,
@@ -1644,7 +1646,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                   1.0,
                                               userId: currentUserUid,
                                               timeRange:
-                                                  _model.historyRangeSelect,
+                                                  _model.rangeSelectStats,
                                               isDark: Theme.of(context)
                                                       .brightness ==
                                                   Brightness.dark,
