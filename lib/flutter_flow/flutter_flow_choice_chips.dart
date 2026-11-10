@@ -71,10 +71,21 @@ class FlutterFlowChoiceChips extends StatefulWidget {
 class _FlutterFlowChoiceChipsState extends State<FlutterFlowChoiceChips> {
   late List<String> choiceChipValues;
   List<String> get selectedValues => widget.controller.value ?? [];
+  // A chip caps its label at the width the label measured, and Flutter keeps
+  // that measurement from before a font loads (flutter/flutter#195134). In an
+  // unwrapped row, a label drawn in a wider late font (a Google Font arriving
+  // after the first frame) then ellipsizes, or shows nothing in a short chip.
+  // Keying each label by this count gives it a fresh measurement.
+  int _fontLoads = 0;
+
+  void _onSystemFontsChanged() {
+    if (mounted) setState(() => _fontLoads++);
+  }
 
   @override
   void initState() {
     super.initState();
+    PaintingBinding.instance.systemFonts.addListener(_onSystemFontsChanged);
     choiceChipValues = List.from(selectedValues);
     if (!widget.initialized && choiceChipValues.isNotEmpty) {
       SchedulerBinding.instance.addPostFrameCallback(
@@ -89,6 +100,7 @@ class _FlutterFlowChoiceChipsState extends State<FlutterFlowChoiceChips> {
 
   @override
   void dispose() {
+    PaintingBinding.instance.systemFonts.removeListener(_onSystemFontsChanged);
     super.dispose();
   }
 
@@ -124,6 +136,7 @@ class _FlutterFlowChoiceChipsState extends State<FlutterFlowChoiceChips> {
                 : null,
             label: Text(
               option.label,
+              key: ValueKey(_fontLoads),
               style: style.textStyle,
               overflow: TextOverflow.ellipsis,
             ),

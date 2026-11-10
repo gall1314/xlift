@@ -141,7 +141,9 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                               height: MediaQuery.sizeOf(context).height * 1.0,
                               userId: currentUserUid,
                               initialTab: widget.initialTab,
-                              canGenerate: false,
+                              canGenerate: functions.canGenerateWorkout(
+                                  FFAppState().isPremium,
+                                  FFAppState().generationDates.toList()),
                               languageCode:
                                   FFLocalizations.of(context).languageCode,
                               onStartWorkout: (workoutId) async {

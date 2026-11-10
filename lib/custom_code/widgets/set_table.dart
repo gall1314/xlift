@@ -57,6 +57,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Drop hinzufügen",
     "fr": "Ajouter un drop"
   },
+  "finishWarmup": {
+    "en": "Finish Warmup",
+    "es": "Terminar calentamiento",
+    "he": "סיים חימום",
+    "de": "Aufwärmen beenden",
+    "fr": "Terminer l’échauffement"
+  },
   "markCompleted": {
     "en": "Mark as Completed",
     "es": "Marcar como completada",
@@ -628,6 +635,7 @@ class SetTable extends StatefulWidget {
     this.dropSets,
     this.analysisState,
     this.restTimers,
+    this.warmupSets,
     this.onLoggedSetsChanged,
     this.onExerciseSetsChanged,
     this.onDropSetsChanged,
@@ -637,6 +645,7 @@ class SetTable extends StatefulWidget {
     this.onStartRest,
     this.onDontShowAgain,
     this.onHeightChanged,
+    this.onWarmupSetsChanged,
   });
 
   final double? width;
@@ -671,6 +680,11 @@ class SetTable extends StatefulWidget {
   final List<dynamic>? analysisState;
   final dynamic restTimers;
 
+  /// Warm-up sets (separate App State): [{exerciseId, sets:[{setNumber, reps,
+  /// weight (String), isDone}], hidden, completed}]. Drawn above the working
+  /// sets with a flame; never counted, never saved.
+  final List<dynamic>? warmupSets;
+
   final Future Function(List<dynamic> loggedSets)? onLoggedSetsChanged;
   final Future Function(List<dynamic> exerciseSets)? onExerciseSetsChanged;
   final Future Function(List<dynamic> dropSets)? onDropSetsChanged;
@@ -684,6 +698,7 @@ class SetTable extends StatefulWidget {
   /// the unmark strip). Store it in a component state and bind the widget's
   /// height to it.
   final Future Function(double height)? onHeightChanged;
+  final Future Function(List<dynamic> warmupSets)? onWarmupSetsChanged;
 
   @override
   State<SetTable> createState() => _SetTableState();
@@ -1226,6 +1241,236 @@ class _SetTableState extends State<SetTable> {
     if (rt is! Map) return 0;
     final v = rt['${widget.exerciseId}'] ?? rt[widget.exerciseId];
     return _asInt(v);
+  }
+
+  // ---------- warm-up ----------
+
+  Map? _warmEntry() {
+    for (final e in widget.warmupSets ?? const []) {
+      if (e is Map && _asInt(e['exerciseId']) == widget.exerciseId) return e;
+    }
+    return null;
+  }
+
+  /// Visible warm-up sets (none when hidden / completed).
+  List<Map> _warmSets() {
+    final e = _warmEntry();
+    if (e == null || _truthy(e['hidden']) || _truthy(e['completed']))
+      return const [];
+    final sets = e['sets'];
+    if (sets is! List) return const [];
+    final out = sets.whereType<Map>().toList()
+      ..sort(
+          (a, b) => _asInt(a['setNumber']).compareTo(_asInt(b['setNumber'])));
+    return out;
+  }
+
+  Future<void> _emitWarm(
+      void Function(Map<String, dynamic> entry, List<Map<String, dynamic>> sets)
+          edit) async {
+    final list = _copyList(widget.warmupSets);
+    final idx = list.indexWhere((e) => _isMine(e));
+    if (idx < 0) return;
+    final entry = list[idx];
+    final sets = (entry['sets'] is List)
+        ? (entry['sets'] as List)
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList()
+        : <Map<String, dynamic>>[];
+    edit(entry, sets);
+    entry['sets'] = sets;
+    list[idx] = entry;
+    await widget.onWarmupSetsChanged?.call(List<dynamic>.from(list));
+  }
+
+  Future<void> _warmSetValue(int setNumber,
+      {int? reps, double? weight, bool clearWeight = false}) {
+    return _emitWarm((entry, sets) {
+      for (final w in sets) {
+        if (_asInt(w['setNumber']) != setNumber) continue;
+        if (reps != null) {
+          w['reps'] = reps;
+          w['repsText'] = '$reps';
+        }
+        if (clearWeight) w['weight'] = '0';
+        if (weight != null) w['weight'] = _fmtW(weight);
+      }
+    });
+  }
+
+  /// ✓ on a warm-up set; the last one also hides the whole warm-up.
+  Future<void> _warmComplete(int setNumber) async {
+    HapticFeedback.mediumImpact();
+    await _emitWarm((entry, sets) {
+      bool allDone = true;
+      for (final w in sets) {
+        if (_asInt(w['setNumber']) == setNumber) w['isDone'] = true;
+        if (!_truthy(w['isDone'])) allDone = false;
+      }
+      if (allDone) {
+        entry['hidden'] = true;
+        entry['completed'] = true;
+      }
+    });
+  }
+
+  Future<void> _warmUnmark(int setNumber) async {
+    HapticFeedback.selectionClick();
+    await _emitWarm((entry, sets) {
+      for (final w in sets) {
+        if (_asInt(w['setNumber']) == setNumber) w['isDone'] = false;
+      }
+    });
+  }
+
+  /// One warm-up block: flame · "-" · reps · weight · (empty) + ✓ bar.
+  Widget _warmBlock(
+      Map w,
+      bool isLast,
+      String lang,
+      bool dark,
+      Color text,
+      Color muted,
+      Color accent,
+      Color doneBg,
+      Color onDone,
+      Color zebra,
+      Color cellBg) {
+    final int n = _asInt(w['setNumber']);
+    final bool done = _truthy(w['isDone']);
+    final int? reps = _asIntN(w['reps']);
+    final double? weight = _asDoubleN(w['weight']);
+    final bool canWeight = !widget.isTimed &&
+        (widget.isBodyweight ||
+            widget.allowsBodyweight ||
+            !_template.any((t) => !t.weighted));
+    final Color flame = const Color(0xFF38BDF8);
+
+    final Widget row = SizedBox(
+      height: _rowH,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Row(
+          children: [
+            SizedBox(
+              width: _colNum,
+              child: Center(
+                  child: Icon(Icons.local_fire_department_rounded,
+                      size: 22, color: flame)),
+            ),
+            const SizedBox(width: _gap),
+            Expanded(
+                child: Center(
+                    child: Text('-',
+                        style: TextStyle(fontSize: 16, color: muted)))),
+            const SizedBox(width: _gap),
+            SizedBox(
+              width: widget.isTimed ? _colTime : _colVal,
+              child: widget.isTimed
+                  ? Center(
+                      child: Text(
+                          _mmss((_asInt(w['durationSec']) > 0
+                                  ? _asInt(w['durationSec'])
+                                  : 30) *
+                              1000),
+                          textDirection: ui.TextDirection.ltr,
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: text)))
+                  : _RepsCell(
+                      value: reps,
+                      hint: 0,
+                      isDone: done,
+                      lang: lang,
+                      dark: dark,
+                      textColor: text,
+                      hintColor: muted.withOpacity(0.5),
+                      focusColor: accent,
+                      onCommit: (v) => _warmSetValue(n, reps: v ?? 0),
+                    ),
+            ),
+            if (!widget.isTimed) ...[
+              const SizedBox(width: _gap),
+              SizedBox(
+                width: _colVal,
+                child: !canWeight || (done && (weight ?? 0) <= 0)
+                    ? Center(
+                        child: Text('-',
+                            style: TextStyle(fontSize: 17, color: muted)))
+                    : _WeightCell(
+                        value: (weight ?? 0) > 0 ? weight : null,
+                        hint: 0,
+                        isDone: done,
+                        isKg: widget.isKg,
+                        plusMode:
+                            widget.isBodyweight || widget.allowsBodyweight,
+                        lang: lang,
+                        dark: dark,
+                        textColor: text,
+                        hintColor: muted.withOpacity(0.5),
+                        focusColor: accent,
+                        onCommit: (v) =>
+                            _warmSetValue(n, weight: v, clearWeight: v == null),
+                      ),
+              ),
+            ],
+            if (widget.aiEnabled) ...[
+              const SizedBox(width: _gap),
+              SizedBox(width: _colAct),
+            ] else
+              SizedBox(width: _tail),
+          ],
+        ),
+      ),
+    );
+
+    final Widget bar = done
+        ? _Pressable(
+            onTap: () => _warmUnmark(n),
+            child: Container(
+              height: _barH,
+              color: cellBg,
+              alignment: Alignment.center,
+              child: Icon(Icons.remove_done_rounded, size: 18, color: muted),
+            ),
+          )
+        : _Pressable(
+            onTap: () => _warmComplete(n),
+            child: Container(
+              height: _barH,
+              color: doneBg,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_rounded, size: 18, color: onDone),
+                  if (isLast) ...[
+                    const SizedBox(width: 8),
+                    Text(_tr(lang, 'finishWarmup'),
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: onDone)),
+                  ],
+                ],
+              ),
+            ),
+          );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: done ? doneBg : zebra,
+        borderRadius: BorderRadius.circular(12),
+        border: done
+            ? Border.all(
+                color: dark ? const Color(0xFF2A3644) : const Color(0xFFE3E7EB))
+            : null,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, children: [row, bar]),
+    );
   }
 
   // ---------- set menu: dropset / reset / delete ----------
@@ -1846,6 +2091,12 @@ class _SetTableState extends State<SetTable> {
       ));
     }
 
+    final warm = _warmSets();
+    for (int i = 0; i < warm.length; i++) {
+      rows.add(_warmBlock(warm[i], i == warm.length - 1, lang, dark, text,
+          muted, accent, doneBg, onDone, i.isEven ? zebraB : zebraA, cellBg));
+    }
+
     for (final t in tpl) {
       final bool done = _isDone(t.setNumber);
       final bool skipped = !done && _isSkipped(t.setNumber);
@@ -1912,9 +2163,13 @@ class _SetTableState extends State<SetTable> {
 
   /// The height this build will take, from the same rules the layout uses.
   double _tableHeight(List<_TplSet> tpl) {
-    if (tpl.isEmpty) return 0;
+    final int warm = _warmSets().length;
+    if (tpl.isEmpty && warm == 0) return 0;
     double h = widget.showHeaders ? 20 : 0;
-    h += (tpl.length - 1) * 8.0;
+    h += (tpl.length + warm - 1) * 8.0;
+    for (final w in _warmSets()) {
+      h += _rowH + _barH + (_truthy(w['isDone']) ? 2 : 0);
+    }
     for (final t in tpl) {
       final bool done = _isDone(t.setNumber);
       final int drops = widget.isTimed ? 0 : _plannedDrops(t.setNumber).length;
@@ -1975,7 +2230,7 @@ class _SetTableState extends State<SetTable> {
                 lang: lang,
                 dark: dark,
                 textColor: text,
-                hintColor: muted,
+                hintColor: muted.withOpacity(0.5),
                 focusColor: accent,
                 onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
                     reps: v, clearReps: v == null)),
@@ -1998,7 +2253,7 @@ class _SetTableState extends State<SetTable> {
                           lang: lang,
                           dark: dark,
                           textColor: text,
-                          hintColor: muted,
+                          hintColor: muted.withOpacity(0.5),
                           focusColor: accent,
                           onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
                               weight: v, clearWeight: v == null)),
@@ -2093,7 +2348,7 @@ class _SetTableState extends State<SetTable> {
                       lang: lang,
                       dark: dark,
                       textColor: text,
-                      hintColor: muted,
+                      hintColor: muted.withOpacity(0.5),
                       accent: accent,
                       onModeChanged: (m) => _setMode(t, m),
                       onManualChanged: (ms) => _commitDuration(t, ms),
@@ -2180,7 +2435,7 @@ class _SetTableState extends State<SetTable> {
                   lang: lang,
                   dark: dark,
                   textColor: text,
-                  hintColor: muted,
+                  hintColor: muted.withOpacity(0.5),
                   focusColor: accent,
                   onCommit: (v) => _emit(_upsertDrop(
                       _copyLogged(), t.setNumber, order,
@@ -2203,7 +2458,7 @@ class _SetTableState extends State<SetTable> {
                         lang: lang,
                         dark: dark,
                         textColor: text,
-                        hintColor: muted,
+                        hintColor: muted.withOpacity(0.5),
                         focusColor: accent,
                         onCommit: (v) => _emit(_upsertDrop(
                             _copyLogged(), t.setNumber, order,
@@ -3808,16 +4063,15 @@ class _TimeSheetState extends State<_TimeSheet> {
     _measureAfterFrame(_rootKey, widget.onMeasured);
   }
 
+  /// Digits are typed left → right: first key is the tens of minutes.
   static String _digitsFromMs(int ms) {
     if (ms <= 0) return '';
     final s = (ms / 1000).round();
-    final str =
-        '${(s ~/ 60).toString().padLeft(2, '0')}${(s % 60).toString().padLeft(2, '0')}';
-    return str.replaceFirst(RegExp(r'^0+'), '');
+    return '${(s ~/ 60).clamp(0, 99).toString().padLeft(2, '0')}${(s % 60).toString().padLeft(2, '0')}';
   }
 
   int get _msFromDigits {
-    final p = _digits.padLeft(4, '0');
+    final p = _digits.padRight(4, '0');
     final m = int.parse(p.substring(0, 2));
     final s = int.parse(p.substring(2, 4));
     return (m * 60 + s) * 1000;
@@ -3852,7 +4106,9 @@ class _TimeSheetState extends State<_TimeSheet> {
       widget.onManualChanged(_logged);
       return;
     }
-    if (_digits.length >= 4 || (_digits.isEmpty && keyId == '0')) return;
+    if (_digits.length >= 4) return;
+    // seconds' tens digit can't be 6-9
+    if (_digits.length == 2 && int.parse(keyId) > 5) return;
     HapticFeedback.selectionClick();
     setState(() {
       _pressedKey = keyId;
@@ -3866,13 +4122,14 @@ class _TimeSheetState extends State<_TimeSheet> {
 
   Widget _k(String d) => _numKey(widget.colors,
       shown: d,
-      enabled:
-          d.isNotEmpty && _digits.length < 4 && !(_digits.isEmpty && d == '0'),
+      enabled: d.isNotEmpty &&
+          _digits.length < 4 &&
+          !(_digits.length == 2 && int.parse(d) > 5),
       pressed: _pressedKey == d,
       onDown: () => _down(d),
       onUp: _up);
 
-  Widget _digitBox(String d, bool active) {
+  Widget _digitBox(String d, bool active, {bool typed = true}) {
     final c = widget.colors;
     return Container(
       width: 40,
@@ -3887,7 +4144,7 @@ class _TimeSheetState extends State<_TimeSheet> {
               style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  color: _digits.isEmpty ? c.text.withOpacity(0.35) : c.text)),
+                  color: typed ? c.text : c.text.withOpacity(0.3))),
           if (active)
             Positioned(
               left: 8,
@@ -4137,8 +4394,8 @@ class _TimeSheetState extends State<_TimeSheet> {
 
   Widget _manualBody() {
     final c = widget.colors;
-    final p = _digits.padLeft(4, '0');
-    final int cursor = 4 - _digits.length; // next box to fill, from the right
+    final p = _digits.padRight(4, '0');
+    final int cursor = _digits.length + 1; // next box to fill, from the left
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -4147,9 +4404,9 @@ class _TimeSheetState extends State<_TimeSheet> {
           textDirection: ui.TextDirection.ltr,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _digitBox(p[0], cursor == 1),
+            _digitBox(p[0], cursor == 1, typed: _digits.length > 0),
             const SizedBox(width: 6),
-            _digitBox(p[1], cursor == 2),
+            _digitBox(p[1], cursor == 2, typed: _digits.length > 1),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(':',
@@ -4158,9 +4415,9 @@ class _TimeSheetState extends State<_TimeSheet> {
                       fontWeight: FontWeight.w800,
                       color: c.text.withOpacity(0.4))),
             ),
-            _digitBox(p[2], cursor == 3),
+            _digitBox(p[2], cursor == 3, typed: _digits.length > 2),
             const SizedBox(width: 6),
-            _digitBox(p[3], cursor == 4),
+            _digitBox(p[3], cursor == 4, typed: _digits.length > 3),
           ],
         ),
         const SizedBox(height: 10),

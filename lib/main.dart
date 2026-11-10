@@ -14,6 +14,10 @@ import 'flutter_flow/flutter_flow_util.dart';
 import 'flutter_flow/internationalization.dart';
 import 'flutter_flow/revenue_cat_util.dart' as revenue_cat;
 
+
+
+
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoRouter.optionURLReflectsImperativeAPIs = true;
@@ -23,6 +27,7 @@ void main() async {
 
   await SQLiteManager.initialize();
   await FlutterFlowTheme.initialize();
+  await FFLocalizations.initialize();
 
   final appState = FFAppState(); // Initialize FFAppState
   await appState.initializePersistedState();

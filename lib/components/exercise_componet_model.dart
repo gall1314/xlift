@@ -14,12 +14,6 @@ class ExerciseComponetModel extends FlutterFlowModel<ExerciseComponetWidget> {
 
   ///  State fields for stateful widgets in this component.
 
-  // Stores action output result for [Custom Action - markExerciseCompletedV2] action in IconButton widget.
-  List<dynamic>? mark2;
-  // Stores action output result for [Custom Action - setExerciseComplete] action in IconButton widget.
-  List<dynamic>? comp;
-  // Stores action output result for [Custom Action - setExerciseComplete] action in IconButton widget.
-  List<dynamic>? compno;
   // Models for setRow2 dynamic component.
   late FlutterFlowDynamicModels<SetRow2Model> setRow2Models;
   // Stores action output result for [Custom Action - addSetToExercise] action in Button widget.

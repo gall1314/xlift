@@ -63,3 +63,5 @@ export 'language_row.dart' show LanguageRow;
 export 'exercise_picker_view.dart' show ExercisePickerView;
 export 'exercise_finish_button.dart' show ExerciseFinishButton;
 export 'set_table.dart' show SetTable;
+export 'exercise_card.dart' show ExerciseCard;
+export 'workout_page.dart' show WorkoutPage;

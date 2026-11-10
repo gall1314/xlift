@@ -182,6 +182,25 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                   },
                                 ),
                               ),
+                              if (!functions.isExerciseComplete(
+                                  FFAppState().completedExercises.toList(),
+                                  widget.exerciseId!))
+                                Container(
+                                  width: 150.0,
+                                  height: 40.0,
+                                  child: custom_widgets.RestTimeButton(
+                                    width: 150.0,
+                                    height: 40.0,
+                                    exerciseId: widget.exerciseId!,
+                                    textColor:
+                                        FlutterFlowTheme.of(context).primary,
+                                    fontSize: 14.0,
+                                    exerciseRestTimes: FFAppState().restTimers,
+                                    onTap: () async {
+                                      await widget.selectRest?.call();
+                                    },
+                                  ),
+                                ),
                               if (functions.isExerciseSuperset(
                                   FFAppState().exercisesets.toList(),
                                   widget.exerciseId!))
@@ -229,25 +248,6 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     ),
                                   ),
                                 ),
-                              if (!functions.isExerciseComplete(
-                                  FFAppState().completedExercises.toList(),
-                                  widget.exerciseId!))
-                                Container(
-                                  width: 150.0,
-                                  height: 40.0,
-                                  child: custom_widgets.RestTimeButton(
-                                    width: 150.0,
-                                    height: 40.0,
-                                    exerciseId: widget.exerciseId!,
-                                    textColor:
-                                        FlutterFlowTheme.of(context).primary,
-                                    fontSize: 14.0,
-                                    exerciseRestTimes: FFAppState().restTimers,
-                                    onTap: () async {
-                                      await widget.selectRest?.call();
-                                    },
-                                  ),
-                                ),
                             ].divide(SizedBox(height: 6.0)),
                           ),
                         ],
@@ -259,90 +259,6 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                         Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
-                            FlutterFlowIconButton(
-                              borderColor: Colors.transparent,
-                              borderRadius: 18.0,
-                              borderWidth: 1.0,
-                              buttonSize: 36.0,
-                              fillColor: FlutterFlowTheme.of(context).success,
-                              disabledColor: FlutterFlowTheme.of(context)
-                                  .primaryBackground,
-                              disabledIconColor:
-                                  FlutterFlowTheme.of(context).secondaryText,
-                              icon: Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 18.0,
-                              ),
-                              onPressed: !functions.canMarkExerciseAsDone(
-                                      FFAppState().exercisesets.toList(),
-                                      FFAppState().loggedSets.toList(),
-                                      widget.exerciseId!,
-                                      containerExercise2RowList.firstOrNull
-                                                  ?.allowsBodyweight ==
-                                              1
-                                          ? true
-                                          : false,
-                                      containerExercise2RowList
-                                                  .firstOrNull?.isTimeBased ==
-                                              1
-                                          ? true
-                                          : false)
-                                  ? null
-                                  : () async {
-                                      if (functions.canMarkExerciseAsDone(
-                                          FFAppState().exercisesets.toList(),
-                                          FFAppState().loggedSets.toList(),
-                                          widget.exerciseId!,
-                                          containerExercise2RowList.firstOrNull
-                                                      ?.allowsBodyweight ==
-                                                  1
-                                              ? true
-                                              : false,
-                                          containerExercise2RowList.firstOrNull
-                                                      ?.isTimeBased ==
-                                                  1
-                                              ? true
-                                              : false)) {
-                                        _model.mark2 = await actions
-                                            .markExerciseCompletedV2(
-                                          FFAppState().exercisesets.toList(),
-                                          FFAppState().loggedSets.toList(),
-                                          widget.exerciseId!,
-                                          containerExercise2RowList.firstOrNull
-                                                      ?.allowsBodyweight ==
-                                                  1
-                                              ? true
-                                              : false,
-                                          containerExercise2RowList.firstOrNull
-                                                      ?.isTimeBased ==
-                                                  1
-                                              ? true
-                                              : false,
-                                        );
-                                        await actions.cancelRestNotification();
-                                        _model.comp =
-                                            await actions.setExerciseComplete(
-                                          FFAppState()
-                                              .completedExercises
-                                              .toList(),
-                                          widget.exerciseId!,
-                                          true,
-                                        );
-                                        FFAppState().loggedSets = _model.mark2!
-                                            .toList()
-                                            .cast<dynamic>();
-                                        FFAppState().completedExercises = _model
-                                            .comp!
-                                            .toList()
-                                            .cast<dynamic>();
-                                        _model.updatePage(() {});
-                                        HapticFeedback.mediumImpact();
-                                      }
-
-                                      safeSetState(() {});
-                                    },
-                            ),
                             Container(
                               width: 88.0,
                               height: 34.0,
@@ -427,47 +343,6 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                         ),
                       ].divide(SizedBox(width: 8.0)),
                     ),
-                    if (functions.isExerciseComplete(
-                        FFAppState().completedExercises.toList(),
-                        widget.exerciseId!))
-                      InkWell(
-                        splashColor: Colors.transparent,
-                        focusColor: Colors.transparent,
-                        hoverColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-                        onLongPress: () async {
-                          _model.compno = await actions.setExerciseComplete(
-                            FFAppState().completedExercises.toList(),
-                            widget.exerciseId!,
-                            false,
-                          );
-                          FFAppState().loggedSets =
-                              _model.mark2!.toList().cast<dynamic>();
-                          FFAppState().completedExercises =
-                              _model.compno!.toList().cast<dynamic>();
-                          _model.updatePage(() {});
-                          HapticFeedback.mediumImpact();
-
-                          safeSetState(() {});
-                        },
-                        child: FlutterFlowIconButton(
-                          borderColor:
-                              FlutterFlowTheme.of(context).secondaryText,
-                          borderRadius: 18.0,
-                          borderWidth: 1.0,
-                          buttonSize: 36.0,
-                          fillColor:
-                              FlutterFlowTheme.of(context).secondaryBackground,
-                          icon: Icon(
-                            Icons.remove_done_sharp,
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            size: 18.0,
-                          ),
-                          onPressed: () {
-                            print('IconButton pressed ...');
-                          },
-                        ),
-                      ),
                   ],
                 ),
                 if (!functions.isExerciseComplete(
@@ -891,22 +766,22 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                 onLoggedSetsChanged: (loggedSets) async {
                                   FFAppState().loggedSets =
                                       loggedSets.toList().cast<dynamic>();
-                                  safeSetState(() {});
+                                  FFAppState().update(() {});
                                 },
                                 onExerciseSetsChanged: (exerciseSets) async {
                                   FFAppState().exercisesets =
                                       exerciseSets.toList().cast<dynamic>();
-                                  safeSetState(() {});
+                                  FFAppState().update(() {});
                                 },
                                 onDropSetsChanged: (dropSets) async {
                                   FFAppState().dropSets =
                                       dropSets.toList().cast<dynamic>();
-                                  safeSetState(() {});
+                                  FFAppState().update(() {});
                                 },
                                 onAnalysisStateChanged: (analysisState) async {
                                   FFAppState().workoutAnalysisState =
                                       analysisState.toList().cast<dynamic>();
-                                  safeSetState(() {});
+                                  FFAppState().update(() {});
                                 },
                                 onResultTap: (setNumber, video) async {
                                   await showDialog(
@@ -956,6 +831,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                 },
                                 onDontShowAgain: () async {},
                                 onHeightChanged: (height) async {},
+                                onWarmupSetsChanged: (warmupSets) async {},
                               ),
                             ),
                           ),
@@ -1050,7 +926,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                           ),
                           Padding(
                             padding: EdgeInsetsDirectional.fromSTEB(
-                                0.0, 20.0, 0.0, 10.0),
+                                0.0, 10.0, 0.0, 10.0),
                             child: FFButtonWidget(
                               onPressed: () async {
                                 HapticFeedback.selectionClick();
@@ -1077,13 +953,13 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                 size: 15.0,
                               ),
                               options: FFButtonOptions(
-                                width: MediaQuery.sizeOf(context).width * 0.329,
-                                height: 35.8,
+                                width: MediaQuery.sizeOf(context).width * 1.0,
+                                height: 44.0,
                                 padding: EdgeInsets.all(10.0),
                                 iconAlignment: IconAlignment.start,
                                 iconPadding: EdgeInsets.all(0.0),
                                 color: FlutterFlowTheme.of(context)
-                                    .secondaryBackground,
+                                    .primaryBackground,
                                 textStyle: FlutterFlowTheme.of(context)
                                     .titleSmall
                                     .override(
@@ -1108,10 +984,9 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                                     ),
                                 elevation: 0.0,
                                 borderSide: BorderSide(
-                                  color: FlutterFlowTheme.of(context).primary,
-                                  width: 1.5,
+                                  width: 0.0,
                                 ),
-                                borderRadius: BorderRadius.circular(30.0),
+                                borderRadius: BorderRadius.circular(12.0),
                               ),
                             ),
                           ),
@@ -1123,7 +998,7 @@ class _ExerciseComponetWidgetState extends State<ExerciseComponetWidget> {
                             width: MediaQuery.sizeOf(context).width * 1.0,
                             decoration: BoxDecoration(),
                           ),
-                        ].divide(SizedBox(height: 5.0)),
+                        ].divide(SizedBox(height: 3.0)),
                       ),
                     ),
                   ),
