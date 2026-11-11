@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 /// Weekly training plan: the user says how many workouts a week, which
 /// workouts (in rotation order), how much rest between them, which days are
@@ -30,20 +31,24 @@ import 'package:google_fonts/google_fonts.dart';
 /// treated as one slot and alternate (Push A, then Push B next time). The
 /// user can split them back into separate workouts.
 ///
-/// Injuries: body areas put on hold skip every workout where at least half of
-/// the exercises target that area.
+/// Injuries: body areas put on hold skip every workout where at least half
+/// of the exercises target that area.
 ///
 /// Fully self-managed. Creates its own local table on first use
 /// (training_plan, one row per user) and reads workout, workout_exercise,
-/// workout_log and the muscle tables itself. Reloads when [userId] or
+/// workout_log and the muscle tables itself. Every save (and delete) also
+/// queues the row in the Hive box pendingTrainingPlans, which
+/// syncAllPending sends to the Supabase table training_plan. Reloads when [userId] or
 /// [refreshKey] changes and when a page opened on top of it is closed.
 ///
-/// Two looks in one widget: - [compact] = true: a Home card (width infinity,
-/// height 96) with today's workout and a Start button, or the next workout on
-/// a rest day, or an invitation to build a plan. The card fires [onOpen];
-/// Start fires [onStart] with the workout id. - [compact] = false / unset:
-/// the full page (width and height infinity): this week, the rotation, and
-/// the plan builder with a live preview. [onClose] adds a back button.
+/// Two looks in one widget:
+///  - [compact] = true: a Home card (width infinity, height 96) with today's
+///    workout and a Start button, or the next workout on a rest day, or an
+///    invitation to build a plan. The card fires [onOpen]; Start fires
+///    [onStart] with the workout id.
+///  - [compact] = false / unset: the full page (width and height infinity):
+///    this week, the rotation, and the plan builder with a live preview.
+///    [onClose] adds a back button.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 class WeekPlanner extends StatefulWidget {
@@ -1222,6 +1227,16 @@ class _WeekPlannerState extends State<WeekPlanner> {
     });
   }
 
+  /// Puts the plan row in the offline queue (one entry per user: a newer
+  /// save replaces an unsent older one). Never throws.
+  Future<void> _queue(Map<String, dynamic> row) async {
+    try {
+      await Hive.initFlutter();
+      final Box box = await Hive.openBox('pendingTrainingPlans');
+      await box.put(widget.userId, row);
+    } catch (_) {}
+  }
+
   Future<void> _save(int first) async {
     final List<List<String>> slots =
         _buildSlots(_cfg.order, _exMap(), _cfg.split);
@@ -1254,6 +1269,12 @@ class _WeekPlannerState extends State<WeekPlanner> {
           now,
         ],
       );
+      // Queue exactly what was stored (created_at of the first save kept).
+      final stored =
+          await db.rawQuery('SELECT * FROM training_plan WHERE id = ?', [uid]);
+      if (stored.isNotEmpty) {
+        await _queue(Map<String, dynamic>.from(stored.first));
+      }
     } catch (_) {}
     _editing = false;
     await _load();
@@ -1265,6 +1286,16 @@ class _WeekPlannerState extends State<WeekPlanner> {
       await SQLiteManager.instance.database
           .rawDelete('DELETE FROM training_plan WHERE id = ?', [widget.userId]);
     } catch (_) {}
+    // The cloud queue only upserts, so a deleted plan goes up as an empty
+    // one (no workouts); restoreAllFromCloud skips empty plans.
+    await _queue(<String, dynamic>{
+      'id': widget.userId,
+      'user_id': widget.userId,
+      'slots': '[]',
+      'split_ids': '[]',
+      'train_days': '',
+      'updated_at': DateTime.now().toIso8601String(),
+    });
     _editing = false;
     await _load();
   }

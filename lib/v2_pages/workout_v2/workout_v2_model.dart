@@ -1,8 +1,6 @@
 import '/backend/sqlite/sqlite_manager.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
-import 'package:tutorial_coach_mark/tutorial_coach_mark.dart'
-    show TutorialCoachMark;
 import 'workout_v2_widget.dart' show WorkoutV2Widget;
 import 'package:flutter/material.dart';
 
@@ -13,7 +11,6 @@ class WorkoutV2Model extends FlutterFlowModel<WorkoutV2Widget> {
 
   ///  State fields for stateful widgets in this page.
 
-  TutorialCoachMark? workoutFirstController;
   // Stores action output result for [Backend Call - SQLite (getExercisesSimp)] action in workoutV2 widget.
   List<GetExercisesSimpRow>? simp;
   // Stores action output result for [Backend Call - SQLite (getExerciseSetsForWorkout)] action in workoutV2 widget.
@@ -33,7 +30,5 @@ class WorkoutV2Model extends FlutterFlowModel<WorkoutV2Widget> {
   void initState(BuildContext context) {}
 
   @override
-  void dispose() {
-    workoutFirstController?.finish();
-  }
+  void dispose() {}
 }

@@ -20,7 +20,7 @@ import 'xlift_log_add.dart';
 /// Order (FK-safe): users -> workout -> workout_exercise -> exercise_sets ->
 /// exercise (user's custom only) -> exercise_muscle_group (of those) ->
 /// workout_log -> set_log -> set_analysis (best-effort, skipped silently if
-/// the mirror differs)
+/// the mirror differs) -> training_plan (weekly plan, best-effort)
 ///
 /// Rules - Every Supabase call has a 20s timeout. Never hangs, never throws.
 /// - Paged (no 1000-row cap, no IN-list URL limits except set_analysis /
@@ -577,6 +577,53 @@ Future<dynamic> restoreAllFromCloud(String? userId) async {
     // Mirror may not exist / differ - not fatal.
     dbg.add('set_analysis skipped');
     xliftLogAdd('[restore] set_analysis skipped: $e');
+  }
+
+  // ================= 9. training_plan (weekly plan, best-effort) ==========
+  // One row per user (id = user id). An empty plan (no workouts) is how a
+  // deleted plan looks in the cloud - skipped. Columns match SQLite 1:1.
+  try {
+    final rows = await timed('training_plan',
+        SupaFlow.client.from('training_plan').select().eq('id', uId).limit(1));
+    int ins = 0;
+    if (rows.isNotEmpty && rows.first is Map) {
+      final p = Map<String, dynamic>.from(rows.first as Map);
+      final String slots = (toStr(p['slots']) ?? '[]').trim();
+      if (slots.isNotEmpty && slots != '[]') {
+        await db.execute('CREATE TABLE IF NOT EXISTS training_plan ('
+            'id TEXT PRIMARY KEY, user_id TEXT, per_week INTEGER, '
+            'rest_days INTEGER, blocked_days TEXT, train_days TEXT, '
+            'slots TEXT, split_ids TEXT, hold_groups TEXT, '
+            'layout_index INTEGER, created_at TEXT, updated_at TEXT)');
+        ins = await batchInsert(
+            'training_plan',
+            [
+              [
+                uId,
+                uId,
+                toInt(p['per_week']) ?? 3,
+                toInt(p['rest_days']) ?? 1,
+                toStr(p['blocked_days']) ?? '',
+                toStr(p['train_days']) ?? '',
+                slots,
+                toStr(p['split_ids']) ?? '[]',
+                toStr(p['hold_groups']) ?? '',
+                toInt(p['layout_index']) ?? 0,
+                toStr(p['created_at']),
+                toStr(p['updated_at']),
+              ]
+            ],
+            'INSERT OR IGNORE INTO training_plan '
+                '(id, user_id, per_week, rest_days, blocked_days, train_days, '
+                ' slots, split_ids, hold_groups, layout_index, created_at, '
+                ' updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+      }
+    }
+    record('training_plan', rows.length, ins);
+  } catch (e) {
+    // Table may not exist in the cloud yet - not fatal.
+    dbg.add('training_plan skipped');
+    xliftLogAdd('[restore] training_plan skipped: $e');
   }
 
   return finish(errors.isEmpty);

@@ -21,7 +21,8 @@ bool _syncAllRunning = false;
 /// Syncs ALL pending offline queues to Supabase in FK-safe order: custom
 /// exercises: exercise -> exercise_muscle_group templates:        workout ->
 /// workout_exercise -> exercise_sets history:          workout_log -> set_log
-/// -> set_analysis quota:            analysis_usage (independent)
+/// -> set_analysis quota:            analysis_usage (independent) weekly
+/// plan:      training_plan (independent, one row per user)
 ///
 /// OFFLINE-SAFE: a 3s DNS probe runs first.
 ///
@@ -66,6 +67,7 @@ Future<dynamic> syncAllPending() async {
     ['pendingSetLogs', 'set_log'],
     ['pendingSetAnalyses', 'set_analysis'],
     ['pendingAnalysisUsage', 'analysis_usage'],
+    ['pendingTrainingPlans', 'training_plan'],
   ];
 
   Map<String, dynamic> skippedResult(String msg, Map<String, int> pending) => {
