@@ -42,9 +42,11 @@ import '/flutter_flow/internationalization.dart' show FFLocalizations;
 /// sheet onOpenPlan         - open the weekly plan page (WeekPlanner)
 /// onOpenScore        - open the training score page (TrainingScore)
 ///
-/// Embeds two other custom widgets as small cards under the hero: WeekPlanner
-/// (compact) and TrainingScore (compact). Both must exist in the project.
-/// Their Start button reuses onStartWorkout.
+/// Uses two other custom widgets, which must exist in the project:
+/// TrainingScore (as a half-width tile next to the form-check tile) and
+/// WeekPlanner (only its saved plan: when there is one, it decides the "Up
+/// next" workout and marks the planned days in "This week"; the Plan button
+/// there opens the planner page).
 class HomeView extends StatefulWidget {
   const HomeView({
     super.key,
@@ -280,6 +282,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "השבוע",
     "de": "Diese Woche",
     "fr": "Cette semaine",
+  },
+  "plan": {
+    "en": "Plan",
+    "es": "Plan",
+    "he": "תוכנית",
+    "de": "Plan",
+    "fr": "Plan",
   },
   "fullStats": {
     "en": "Full stats",
@@ -563,6 +572,8 @@ class _HomeData {
 class _HomeViewState extends State<HomeView> {
   // Bumped on pull-to-refresh so the embedded cards reload too.
   int _embedTick = 0;
+  // The saved weekly plan as WeekPlanner sees it (null = not loaded yet).
+  Map<String, dynamic>? _plan;
   _HomeData? _data;
   String? _error;
   int _heroOffset = 0;
@@ -657,7 +668,14 @@ class _HomeViewState extends State<HomeView> {
   Future<void> _load() async {
     try {
       final d = await _fetch();
-      if (mounted) setState(() => _data = d);
+      // Sunday-first, like the week row of this screen.
+      final plan = await WeekPlanner.snapshot(widget.userId, 7);
+      if (mounted) {
+        setState(() {
+          _data = d;
+          _plan = plan;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
@@ -1115,40 +1133,30 @@ class _HomeViewState extends State<HomeView> {
                     const SizedBox(height: 20),
                     _gutter(_hero(d)),
                     const SizedBox(height: 12),
-                    // Weekly plan: today's workout / next up / build a plan.
-                    _gutter(WeekPlanner(
-                      width: double.infinity,
-                      height: 96,
-                      userId: widget.userId,
-                      compact: true,
-                      refreshKey: _embedTick.toString(),
-                      onStart: widget.onStartWorkout == null
-                          ? null
-                          : (String workoutId) async {
-                              await widget.onStartWorkout?.call(workoutId);
-                            },
-                      onOpen: widget.onOpenPlan == null
-                          ? null
-                          : () async {
-                              await widget.onOpenPlan?.call();
-                            },
+                    // Training score + form check, side by side.
+                    _gutter(Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TrainingScore(
+                            width: double.infinity,
+                            height: 132,
+                            userId: widget.userId,
+                            tile: true,
+                            refreshKey: _embedTick.toString(),
+                            onTap: widget.onOpenScore == null
+                                ? null
+                                : () async {
+                                    await widget.onOpenScore?.call();
+                                  },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(height: 132, child: _formTile(d)),
+                        ),
+                      ],
                     )),
-                    const SizedBox(height: 12),
-                    // Training score: the number, its tier and the trend.
-                    _gutter(TrainingScore(
-                      width: double.infinity,
-                      height: 100,
-                      userId: widget.userId,
-                      compact: true,
-                      refreshKey: _embedTick.toString(),
-                      onTap: widget.onOpenScore == null
-                          ? null
-                          : () async {
-                              await widget.onOpenScore?.call();
-                            },
-                    )),
-                    const SizedBox(height: 12),
-                    _gutter(_formCheckCard(d)),
                     const SizedBox(height: 12),
                     _gutter(_weekCard(d)),
                     if (d.lastWorkout != null) ...[
@@ -1220,7 +1228,18 @@ class _HomeViewState extends State<HomeView> {
       );
     }
 
-    final w = d.workouts[_heroOffset % d.workouts.length];
+    // A saved weekly plan decides what is up next; without one (or after
+    // the swap button) the existing order is used.
+    var w = d.workouts[_heroOffset % d.workouts.length];
+    final String planId = (_plan?['workoutId'] ?? '').toString();
+    if (_heroOffset == 0 && planId.isNotEmpty) {
+      for (final x in d.workouts) {
+        if (x.id == planId) {
+          w = x;
+          break;
+        }
+      }
+    }
     final hasMuscles = w.muscles.isNotEmpty;
     final rested = hasMuscles && w.isRested;
     return _darkCard(
@@ -1420,11 +1439,95 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // --- form check as a half-width tile (pairs with the score tile) ---
+  Widget _formTile(_HomeData d) {
+    final left = _kFreeMonthlyLimit - _usedThisMonth;
+    final ls = d.lastScore;
+    final String quota = _premium
+        ? (ls == null ? _t('unlimitedFilm') : _t('unlimitedReview'))
+        : (ls == null
+            ? _t('leftFilm', n: left, m: _kFreeMonthlyLimit)
+            : _t('leftChecks', n: left, m: _kFreeMonthlyLimit));
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: ls == null ? null : () => _openLastAnalysis(ls.setLogId),
+      child: _lightCard(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_t('formCheck'),
+                style: _body(12, color: _inkMuted, w: FontWeight.w500),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (ls != null)
+                  _ScoreRing(
+                    score: ls.score,
+                    label: _score(ls.score),
+                    color: _accent,
+                    track: _line,
+                    labelStyle: _display(17, w: FontWeight.w800),
+                  )
+                else
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: _cardSub,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: _FormCheckIcon(size: 24, color: _ink),
+                  ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ls == null
+                      ? const SizedBox.shrink()
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(ls.exerciseName,
+                                style:
+                                    _body(14, color: _ink, w: FontWeight.w700),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                            Text(_dayShort(ls.at),
+                                style: _body(11, color: _inkMuted),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(quota,
+                style: _body(11, color: _inkMuted),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
+    );
+  }
+
   // --- this week: circles, centered stats ---
   Widget _weekCard(_HomeData d) {
     final letters = _weekLetters();
     final today = DateTime.now().weekday % 7;
     final wk = d.week;
+    // Days the weekly plan still has a workout on (index: Sun = 0).
+    final List<int> planned = [];
+    final dynamic rawPlanned = _plan?['plannedWeekdays'];
+    if (rawPlanned is List) {
+      for (final dynamic x in rawPlanned) {
+        if (x is int) planned.add(x % 7);
+      }
+    }
     return _lightCard(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
       child: Column(
@@ -1433,6 +1536,32 @@ class _HomeViewState extends State<HomeView> {
           Row(
             children: [
               Text(_t('thisWeek'), style: _cardTitle()),
+              if (widget.onOpenPlan != null) ...[
+                const SizedBox(width: 10),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => widget.onOpenPlan?.call(),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _accentTint,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event_repeat_rounded,
+                            size: 14, color: _accentDeep),
+                        const SizedBox(width: 4),
+                        Text(_t('plan'),
+                            style: _body(12,
+                                color: _accentDeep, w: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const Spacer(),
               _linkButton(_t('fullStats'),
                   onTap: () => widget.onOpenStats?.call()),
@@ -1445,7 +1574,11 @@ class _HomeViewState extends State<HomeView> {
                 Expanded(
                   child: Column(
                     children: [
-                      _dayDot(done: wk.perDay[i] > 0, today: i == today),
+                      _dayDot(
+                        done: wk.perDay[i] > 0,
+                        today: i == today,
+                        planned: planned.contains(i),
+                      ),
                       const SizedBox(height: 7),
                       Text(
                         letters[i],
@@ -1476,7 +1609,11 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _dayDot({required bool done, required bool today}) {
+  Widget _dayDot({
+    required bool done,
+    required bool today,
+    bool planned = false,
+  }) {
     if (done) {
       return Container(
         width: 36,
@@ -1490,9 +1627,9 @@ class _HomeViewState extends State<HomeView> {
       height: 36,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: today ? _card : Colors.transparent,
+        color: today ? _card : (planned ? _accentTint : Colors.transparent),
         border: Border.all(
-          color: today ? _accent : _line,
+          color: today || planned ? _accent : _line,
           width: today ? 2 : 1.5,
         ),
       ),

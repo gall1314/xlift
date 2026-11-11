@@ -30,22 +30,20 @@ import 'package:google_fonts/google_fonts.dart';
 /// treated as one slot and alternate (Push A, then Push B next time). The
 /// user can split them back into separate workouts.
 ///
-/// Injuries: body areas put on hold skip every workout where at least half
-/// of the exercises target that area.
+/// Injuries: body areas put on hold skip every workout where at least half of
+/// the exercises target that area.
 ///
 /// Fully self-managed. Creates its own local table on first use
 /// (training_plan, one row per user) and reads workout, workout_exercise,
 /// workout_log and the muscle tables itself. Reloads when [userId] or
 /// [refreshKey] changes and when a page opened on top of it is closed.
 ///
-/// Two looks in one widget:
-///  - [compact] = true: a Home card (width infinity, height 96) with today's
-///    workout and a Start button, or the next workout on a rest day, or an
-///    invitation to build a plan. The card fires [onOpen]; Start fires
-///    [onStart] with the workout id.
-///  - [compact] = false / unset: the full page (width and height infinity):
-///    this week, the rotation, and the plan builder with a live preview.
-///    [onClose] adds a back button.
+/// Two looks in one widget: - [compact] = true: a Home card (width infinity,
+/// height 96) with today's workout and a Start button, or the next workout on
+/// a rest day, or an invitation to build a plan. The card fires [onOpen];
+/// Start fires [onStart] with the workout id. - [compact] = false / unset:
+/// the full page (width and height infinity): this week, the rotation, and
+/// the plan builder with a live preview. [onClose] adds a back button.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 class WeekPlanner extends StatefulWidget {
@@ -69,6 +67,15 @@ class WeekPlanner extends StatefulWidget {
   final Future Function(String workoutId)? onStart;
   final Future Function()? onOpen;
   final Future Function()? onClose;
+
+  /// For other widgets (the Home screen): what the saved plan says right
+  /// now. Keys: hasPlan (bool), workoutId (String, the workout that is up
+  /// next in the rotation, '' = none), isToday (bool, a workout is planned
+  /// for today), plannedWeekdays (List<int>, 1 = Monday .. 7 = Sunday, the
+  /// days still planned this week). [firstDay] = first day of the week
+  /// (1 = Monday, 7 = Sunday). Never throws.
+  static Future<Map<String, dynamic>> snapshot(String userId, int firstDay) =>
+      _snapshot(userId, firstDay);
 
   @override
   State<WeekPlanner> createState() => _WeekPlannerState();
@@ -926,6 +933,63 @@ Future<_Data> _loadData(String userId) async {
   return _Data(workouts, exGroups, logs, pRows.isEmpty ? null : pRows.first);
 }
 
+Future<Map<String, dynamic>> _snapshot(String userId, int first) async {
+  final Map<String, dynamic> none = {
+    'hasPlan': false,
+    'workoutId': '',
+    'isToday': false,
+    'plannedWeekdays': <int>[],
+  };
+  try {
+    final _Data d = await _loadData(userId);
+    final Map<String, Object?>? row = d.row;
+    if (row == null) return none;
+    final List<String> known = [for (final _Wk w in d.workouts) w.id];
+    final List<List<String>> slots = [];
+    for (final List<String> slot in _jsonSlots(row['slots'])) {
+      final List<String> v = [
+        for (final String w in slot)
+          if (known.contains(w)) w
+      ];
+      if (v.isNotEmpty) slots.add(v);
+    }
+    if (slots.isEmpty) return none;
+    final List<int> hold = _csvInts(row['hold_groups']);
+    final List<String> held = [];
+    if (hold.isNotEmpty) {
+      for (final _Wk w in d.workouts) {
+        if (w.ex.isEmpty) continue;
+        int hit = 0;
+        for (final int e in w.ex) {
+          final List<int> g = d.exGroups[e] ?? const <int>[];
+          if (g.any((x) => hold.contains(x))) hit++;
+        }
+        if (hit * 2 >= w.ex.length) held.add(w.id);
+      }
+    }
+    final _Plan plan = _Plan(
+      _toI(row['per_week'], 3).clamp(1, 7).toInt(),
+      _toI(row['rest_days'], 1).clamp(0, 2).toInt(),
+      _csvInts(row['blocked_days']),
+      _csvInts(row['train_days']),
+      slots,
+      held,
+    );
+    final _Week w = _planWeek(plan, d.logs, _dayNo(DateTime.now()), first);
+    return {
+      'hasPlan': true,
+      'workoutId': w.upNext?.wid ?? '',
+      'isToday': w.rec?.isToday ?? false,
+      'plannedWeekdays': <int>[
+        for (final _Cell c in w.cells)
+          if (c.kind == 'plan') _wdOf(c.day)
+      ],
+    };
+  } catch (_) {
+    return none;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // View helpers
 // ---------------------------------------------------------------------------
@@ -1509,10 +1573,11 @@ class _WeekPlannerState extends State<WeekPlanner> {
           ),
         ),
     ];
-    if (now) {
+    final bool canStart = widget.onStart != null;
+    if (now && canStart) {
       hero.add(const SizedBox(height: 14));
       hero.add(_pill(context, p, _tr(lang, 'start'), () => _start(recWid)));
-    } else if (up != null && !w.trainedToday) {
+    } else if (!now && canStart && up != null && !w.trainedToday) {
       hero.add(const SizedBox(height: 14));
       hero.add(_pill(context, p, _tr(lang, 'anyway'), () => _start(up.wid),
           filled: false, onDark: true));
@@ -2033,7 +2098,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
             ],
           ),
         ),
-        if (now) ...[
+        if (now && widget.onStart != null) ...[
           const SizedBox(width: 10),
           _pill(context, p, _tr(lang, 'start'), () => _start(recWid),
               small: true),

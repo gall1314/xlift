@@ -1,5 +1,4 @@
 import '/backend/sqlite/sqlite_manager.dart';
-import '/components/exercise_componet_widget.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/index.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart'
@@ -25,24 +24,16 @@ class WorkoutV2Model extends FlutterFlowModel<WorkoutV2Widget> {
   List<dynamic>? drops;
   // Stores action output result for [Custom Action - initializeExerciseRestTimes] action in workoutV2 widget.
   dynamic rest1;
-  // Stores action output result for [Custom Action - saveWorkoutComplete] action in Button widget.
-  dynamic save;
   // Stores action output result for [Custom Action - saveWorkoutComplete] action in WorkoutPage widget.
   dynamic saveCopy;
   // Stores action output result for [Custom Action - removeExerciseFromExerciseSets] action in WorkoutPage widget.
   List<dynamic>? remove;
-  // Models for exerciseComponet dynamic component.
-  late FlutterFlowDynamicModels<ExerciseComponetModel> exerciseComponetModels;
 
   @override
-  void initState(BuildContext context) {
-    exerciseComponetModels =
-        FlutterFlowDynamicModels(() => ExerciseComponetModel());
-  }
+  void initState(BuildContext context) {}
 
   @override
   void dispose() {
     workoutFirstController?.finish();
-    exerciseComponetModels.dispose();
   }
 }

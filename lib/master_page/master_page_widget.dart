@@ -2024,9 +2024,17 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                       () {}));
                                                             },
                                                             onOpenPlan:
-                                                                () async {},
+                                                                () async {
+                                                              context.pushNamed(
+                                                                  WeeklyplanWidget
+                                                                      .routeName);
+                                                            },
                                                             onOpenScore:
-                                                                () async {},
+                                                                () async {
+                                                              context.pushNamed(
+                                                                  TrainingScoreWidget
+                                                                      .routeName);
+                                                            },
                                                           ),
                                                         ),
                                                       ),

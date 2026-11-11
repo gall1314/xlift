@@ -25,17 +25,17 @@ import 'package:share_plus/share_plus.dart';
 
 /// Training Score: one number (0-100) for how well the user trains, with a
 /// tier name, the change since last week, an 8-week trend, a "next step" tip
-/// and the four pillars behind the number. Everything looks at the last
-/// 4 weeks (rolling, ending today):
+/// and the four pillars behind the number.
 ///
-///   Consistency 35% - workouts done vs. the weekly goal, each week capped
-///                     at the goal; weeks before the first workout don't count.
-///   Progress    25% - per exercise: the latest session vs. the best of the
-///                     two sessions before it (est. 1RM, or reps / time when
-///                     there is no weight). Holding = 70, +3% or more = 100.
-///   Form        20% - average AI form-check score x 10 (set_analysis).
-///   Balance     20% - share of sets per muscle group (chest, back,
-///                     shoulders, legs, arms, core) vs. a minimum share.
+/// Everything looks at the last 4 weeks (rolling, ending today):
+///
+/// Consistency 35% - workouts done vs. the weekly goal, each week capped at
+/// the goal; weeks before the first workout don't count. Progress    25% -
+/// per exercise: the latest session vs. the best of the two sessions before
+/// it (est. 1RM, or reps / time when there is no weight). Holding = 70, +3%
+/// or more = 100. Form        20% - average AI form-check score x 10
+/// (set_analysis). Balance     20% - share of sets per muscle group (chest,
+/// back, shoulders, legs, arms, core) vs. a minimum share.
 ///
 /// A pillar that cannot be measured yet counts as 50. No workout in the last
 /// 4 weeks = the score is paused (no number); no workout at all = no score.
@@ -46,18 +46,21 @@ import 'package:share_plus/share_plus.dart';
 /// [weeklyGoal], [demoMode] or [refreshKey] changes, on pull-to-refresh, and
 /// when a page that was opened on top of it is closed again.
 ///
-/// Two looks in one widget:
-///  - [compact] = true: a small card for Home / Stats (width infinity,
-///    height 100). Tapping it fires [onTap] - navigate to the score page.
-///  - [compact] = false / unset: the full page (width and height infinity)
-///    with a dark hero, the tip card and the four pillars. [onClose] adds a
-///    back button; the share button sends the hero as a PNG (3x).
+/// Two looks in one widget: - [compact] = true: a small card for Home / Stats
+/// (width infinity, height 100). Tapping it fires [onTap] - navigate to the
+/// score page. - [compact] = false / unset: the full page (width and height
+/// infinity) with a dark hero, the tip card and the four pillars. [onClose]
+/// adds a back button; the share button sends the hero as a PNG (3x).
+///
+/// [tile] = true: the same card squeezed into a half-width tile (title,
+/// gauge, tier, change since last week) for a two-column row; give it a
+/// height of about 132. Tapping fires [onTap], like the compact card.
 ///
 /// [weeklyGoal]: workouts a week the user aims for (1-7, default 3).
 /// [onFormCheck]: optional. When the tip is about form, the tip card becomes
-/// tappable and fires it (open the camera / a workout).
-/// [demoMode]: true shows built-in sample data (previews, screenshots).
-/// [refreshKey]: optional, any text. Change it to force a reload.
+/// tappable and fires it (open the camera / a workout). [demoMode]: true
+/// shows built-in sample data (previews, screenshots). [refreshKey]:
+/// optional, any text. Change it to force a reload.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 /// Exercise and muscle names come from the DB through localizedName; Hebrew
@@ -69,6 +72,7 @@ class TrainingScore extends StatefulWidget {
     this.height,
     required this.userId,
     this.compact,
+    this.tile,
     this.weeklyGoal,
     this.demoMode,
     this.refreshKey,
@@ -81,6 +85,7 @@ class TrainingScore extends StatefulWidget {
   final double? height;
   final String userId;
   final bool? compact;
+  final bool? tile;
   final int? weeklyGoal;
   final bool? demoMode;
   final String? refreshKey;
@@ -1641,6 +1646,108 @@ class _TrainingScoreState extends State<TrainingScore>
     );
   }
 
+  // ---------- half-width tile ----------
+  Widget _tile(BuildContext context, String lang, double t) {
+    final _Pal p = _Pal(FlutterFlowTheme.of(context));
+    final _ScoreData? d = _data;
+    final int? total = d?.now.total;
+    final double shown = total == null ? 0.0 : total * _eo3(_c01(t / 0.95));
+    final _Delta? delta = d == null ? null : _deltaOf(d);
+    String big = '';
+    Widget last = const SizedBox(height: 14);
+    if (d != null) {
+      if (total != null) {
+        big = _tr(lang, 't' + _tierOf(total).toString());
+        if (delta != null) {
+          last = _deltaView(context, lang, delta,
+              delta.kind == 2 ? p.mintSoft : p.soft, 11.5);
+        }
+      } else {
+        big = _tr(lang, d.now.state == 1 ? 'pausedS' : 'noScore');
+        last = Text(
+          _tr(lang, 'startShort'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _ts(context, 11.5, FontWeight.w500, p.soft, height: 1.2),
+        );
+      }
+    }
+    return Material(
+      color: p.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: widget.onTap == null ? null : _open,
+        splashColor: p.primary.withAlpha(0x22),
+        highlightColor: p.primary.withAlpha(0x14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _tr(lang, 'title'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _ts(context, 12, FontWeight.w500, p.soft, height: 1.2),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: _GaugePainter(
+                              value: shown,
+                              color: p.primary,
+                              track: p.line,
+                              notch: p.card,
+                              radius: 24,
+                              stroke: 6.5,
+                              cy: 30,
+                              notchWidth: 2,
+                            ),
+                          ),
+                        ),
+                        if (d != null)
+                          Text(
+                            total == null ? '–' : shown.round().toString(),
+                            style: _ts(context, 21, FontWeight.w800,
+                                total == null ? p.mute : p.ink,
+                                height: 1.0, ls: -0.6),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        big,
+                        maxLines: 1,
+                        style: _ts(context, 18, FontWeight.w700, p.ink,
+                            height: 1.15, ls: -0.3),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              last,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ---------- full page ----------
   Widget _roundBtn(_Pal p, IconData icon, double size, VoidCallback onTap) {
     return Material(
@@ -2067,17 +2174,21 @@ class _TrainingScoreState extends State<TrainingScore>
   Widget build(BuildContext context) {
     final String lang = _langOf(context);
     final bool rtl = _kRtl.contains(lang);
-    final bool compact = _isCompact;
+    final bool tile = widget.tile ?? false;
+    final bool compact = _isCompact || tile;
     return MediaQuery.withNoTextScaling(
       child: Directionality(
         textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
         child: SizedBox(
           width: compact ? (widget.width ?? double.infinity) : widget.width,
-          height: compact ? (widget.height ?? 100.0) : widget.height,
+          height: compact
+              ? (widget.height ?? (tile ? 132.0 : 100.0))
+              : widget.height,
           child: AnimatedBuilder(
             animation: _ac,
             builder: (BuildContext ctx, Widget? _) {
               final double t = _ac.value * 1.8;
+              if (tile) return _tile(ctx, lang, t);
               return compact ? _card(ctx, lang, t) : _page(ctx, lang, rtl, t);
             },
           ),

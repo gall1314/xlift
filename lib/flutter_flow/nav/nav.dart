@@ -653,6 +653,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ParamType.String,
             ),
           ),
+        ),
+        FFRoute(
+          name: WeeklyplanWidget.routeName,
+          path: WeeklyplanWidget.routePath,
+          builder: (context, params) => WeeklyplanWidget(),
+        ),
+        FFRoute(
+          name: TrainingScoreWidget.routeName,
+          path: TrainingScoreWidget.routePath,
+          builder: (context, params) => TrainingScoreWidget(),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

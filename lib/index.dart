@@ -77,3 +77,5 @@ export '/add_exercises_v3_copy/add_exercises_v3_copy_widget.dart'
 export '/add_exercises_mid_seission_copy/add_exercises_mid_seission_copy_widget.dart'
     show AddExercisesMidSeissionCopyWidget;
 export '/recap/recap_widget.dart' show RecapWidget;
+export '/weeklyplan/weeklyplan_widget.dart' show WeeklyplanWidget;
+export '/training_score/training_score_widget.dart' show TrainingScoreWidget;

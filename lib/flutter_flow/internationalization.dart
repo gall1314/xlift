@@ -927,27 +927,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // workoutV2
   {
-    'wuwiu344': {
-      'en': '',
-      'de': '',
-      'es': '',
-      'fr': '',
-      'he': '',
-    },
-    'u58x2bqu': {
-      'en': 'Finish',
-      'de': 'Beenden',
-      'es': 'Finalizar',
-      'fr': 'Terminer',
-      'he': 'סיום',
-    },
-    'toj7tcqv': {
-      'en': 'Add Exercises',
-      'de': 'Übungen hinzufügen',
-      'es': 'Agregar ejercicios',
-      'fr': 'Ajouter des exercices',
-      'he': 'הוספת תרגילים',
-    },
     'svlo992g': {
       'en': 'Home',
       'de': 'Heim',
@@ -3510,6 +3489,26 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   // recap
   {
     'vaffxbdo': {
+      'en': 'Home',
+      'de': '',
+      'es': '',
+      'fr': '',
+      'he': '',
+    },
+  },
+  // weeklyplan
+  {
+    'qhd471w7': {
+      'en': 'Home',
+      'de': '',
+      'es': '',
+      'fr': '',
+      'he': '',
+    },
+  },
+  // trainingScore
+  {
+    'hl9ylree': {
       'en': 'Home',
       'de': '',
       'es': '',
