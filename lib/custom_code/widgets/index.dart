@@ -67,3 +67,5 @@ export 'exercise_card.dart' show ExerciseCard;
 export 'workout_page.dart' show WorkoutPage;
 export 'recap_banner.dart' show RecapBanner;
 export 'recap_view.dart' show RecapView;
+export 'training_score.dart' show TrainingScore;
+export 'week_planner.dart' show WeekPlanner;

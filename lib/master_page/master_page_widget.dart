@@ -57,6 +57,9 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
 
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
+      await actions.restoreAppLanguage(
+        context,
+      );
       await actions.initHive();
       _model.pageIndex = widget.initialTab;
       safeSetState(() {});
@@ -2020,6 +2023,10 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                   safeSetState(
                                                                       () {}));
                                                             },
+                                                            onOpenPlan:
+                                                                () async {},
+                                                            onOpenScore:
+                                                                () async {},
                                                           ),
                                                         ),
                                                       ),

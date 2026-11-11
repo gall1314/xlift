@@ -39,7 +39,12 @@ import '/flutter_flow/internationalization.dart' show FFLocalizations;
 /// analysis; the camera itself is the page's FAB onOpenStats, onOpenLibrary,
 /// onOpenSettings onOpenTemplates    - Library on the Templates tab
 /// (initialTab = 1) onCreateWorkout    - open the existing create bottom
-/// sheet
+/// sheet onOpenPlan         - open the weekly plan page (WeekPlanner)
+/// onOpenScore        - open the training score page (TrainingScore)
+///
+/// Embeds two other custom widgets as small cards under the hero: WeekPlanner
+/// (compact) and TrainingScore (compact). Both must exist in the project.
+/// Their Start button reuses onStartWorkout.
 class HomeView extends StatefulWidget {
   const HomeView({
     super.key,
@@ -57,6 +62,8 @@ class HomeView extends StatefulWidget {
     this.onOpenSettings,
     this.onOpenTemplates,
     this.onCreateWorkout,
+    this.onOpenPlan,
+    this.onOpenScore,
   });
 
   final double? width;
@@ -73,6 +80,8 @@ class HomeView extends StatefulWidget {
   final Future Function()? onOpenSettings;
   final Future Function()? onOpenTemplates;
   final Future Function()? onCreateWorkout;
+  final Future Function()? onOpenPlan;
+  final Future Function()? onOpenScore;
 
   @override
   State<HomeView> createState() => _HomeViewState();
@@ -552,6 +561,8 @@ class _HomeData {
 // State
 // ---------------------------------------------------------------------------
 class _HomeViewState extends State<HomeView> {
+  // Bumped on pull-to-refresh so the embedded cards reload too.
+  int _embedTick = 0;
   _HomeData? _data;
   String? _error;
   int _heroOffset = 0;
@@ -1092,7 +1103,10 @@ class _HomeViewState extends State<HomeView> {
               )
             : RefreshIndicator(
                 color: _accent,
-                onRefresh: _load,
+                onRefresh: () {
+                  _embedTick++;
+                  return _load();
+                },
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(0, 8, 0, _kBottomInset),
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -1100,6 +1114,39 @@ class _HomeViewState extends State<HomeView> {
                     _gutter(_header()),
                     const SizedBox(height: 20),
                     _gutter(_hero(d)),
+                    const SizedBox(height: 12),
+                    // Weekly plan: today's workout / next up / build a plan.
+                    _gutter(WeekPlanner(
+                      width: double.infinity,
+                      height: 96,
+                      userId: widget.userId,
+                      compact: true,
+                      refreshKey: _embedTick.toString(),
+                      onStart: widget.onStartWorkout == null
+                          ? null
+                          : (String workoutId) async {
+                              await widget.onStartWorkout?.call(workoutId);
+                            },
+                      onOpen: widget.onOpenPlan == null
+                          ? null
+                          : () async {
+                              await widget.onOpenPlan?.call();
+                            },
+                    )),
+                    const SizedBox(height: 12),
+                    // Training score: the number, its tier and the trend.
+                    _gutter(TrainingScore(
+                      width: double.infinity,
+                      height: 100,
+                      userId: widget.userId,
+                      compact: true,
+                      refreshKey: _embedTick.toString(),
+                      onTap: widget.onOpenScore == null
+                          ? null
+                          : () async {
+                              await widget.onOpenScore?.call();
+                            },
+                    )),
                     const SizedBox(height: 12),
                     _gutter(_formCheckCard(d)),
                     const SizedBox(height: 12),
