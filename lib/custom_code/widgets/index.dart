@@ -65,3 +65,5 @@ export 'exercise_finish_button.dart' show ExerciseFinishButton;
 export 'set_table.dart' show SetTable;
 export 'exercise_card.dart' show ExerciseCard;
 export 'workout_page.dart' show WorkoutPage;
+export 'recap_banner.dart' show RecapBanner;
+export 'recap_view.dart' show RecapView;

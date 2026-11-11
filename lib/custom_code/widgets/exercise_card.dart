@@ -182,6 +182,76 @@ const Map<String, Map<String, String>> _kStrings = {
   },
   "kg": {"en": "kg", "es": "kg", "he": "ק״ג", "de": "kg", "fr": "kg"},
   "lbs": {"en": "lbs", "es": "lb", "he": "ליב׳", "de": "lbs", "fr": "lb"},
+  "cancelSuperset": {
+    "en": "Cancel Superset",
+    "es": "Cancelar superserie",
+    "he": "בטל סופרסט",
+    "de": "Supersatz aufheben",
+    "fr": "Annuler le superset"
+  },
+  "addedWeight": {
+    "en": "Added weight",
+    "es": "Peso añadido",
+    "he": "משקל נוסף",
+    "de": "Zusatzgewicht",
+    "fr": "Poids ajouté"
+  },
+  "addedWeightSub": {
+    "en": "Belt or vest on your working sets",
+    "es": "Cinturón o chaleco en las series de trabajo",
+    "he": "חגורה או וסט בסטי העבודה",
+    "de": "Gürtel oder Weste in den Arbeitssätzen",
+    "fr": "Ceinture ou gilet sur les séries de travail"
+  },
+  "targetAdded": {
+    "en": "Target added weight",
+    "es": "Peso añadido objetivo",
+    "he": "משקל נוסף ליעד",
+    "de": "Ziel-Zusatzgewicht",
+    "fr": "Poids ajouté cible"
+  },
+  "warmupSets": {
+    "en": "Warm-up sets",
+    "es": "Series de calentamiento",
+    "he": "סטי חימום",
+    "de": "Aufwärmsätze",
+    "fr": "Séries d’échauffement"
+  },
+  "bodyweight": {
+    "en": "Bodyweight",
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps"
+  },
+  "sets": {
+    "en": "sets",
+    "es": "series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "séries"
+  },
+  "setOne": {
+    "en": "set",
+    "es": "serie",
+    "he": "סט",
+    "de": "Satz",
+    "fr": "série"
+  },
+  "best": {
+    "en": "best",
+    "es": "mejor",
+    "he": "הטוב ביותר",
+    "de": "beste",
+    "fr": "meilleur"
+  },
+  "repsShort": {
+    "en": "reps",
+    "es": "reps",
+    "he": "חזרות",
+    "de": "Wdh.",
+    "fr": "reps"
+  },
 };
 
 String _tr(String lang, String key) {
@@ -509,32 +579,42 @@ class _ExerciseCardState extends State<ExerciseCard> {
     final bool rtl = _kRtl.contains(lang);
     final bool hasWarmup = _warmupSets
         .any((e) => e is Map && _asInt(e['exerciseId']) == widget.exerciseId);
+    final bool superset = _isSuperset;
+    final String name = localizedName(_nameRaw, lang);
+    final int nSets = (_myTemplate()?['sets'] is List)
+        ? (_myTemplate()!['sets'] as List).length
+        : 0;
+    final String sub = [
+      if (_equipment.trim().isNotEmpty) _equipment.trim(),
+      if (nSets > 0) '$nSets ${_tr(lang, nSets == 1 ? 'setOne' : 'sets')}',
+    ].join(' · ');
 
     Widget item(
         IconData icon, Color color, String label, Future<void> Function() onTap,
         {Color? labelColor, bool chevron = true}) {
-      return InkWell(
+      return _MenuRow(
+        pressedColor: theme.primaryText.withOpacity(0.06),
         onTap: () async {
           Navigator.of(context, rootNavigator: true).pop();
           await onTap();
         },
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Row(
-            children: [
-              Icon(icon, size: 24, color: color),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Text(label,
-                    style: _ts(theme, 17, FontWeight.w400,
-                        labelColor ?? theme.primaryText)),
-              ),
-              if (chevron)
-                Icon(Icons.chevron_right_rounded,
-                    size: 22, color: theme.secondaryText),
-            ],
-          ),
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: color),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Text(label,
+                  style: _ts(theme, 17, FontWeight.w400,
+                      labelColor ?? theme.primaryText)),
+            ),
+            if (chevron)
+              Icon(
+                  rtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 22,
+                  color: theme.secondaryText),
+          ],
         ),
       );
     }
@@ -558,18 +638,61 @@ class _ExerciseCardState extends State<ExerciseCard> {
               Container(
                 width: 40,
                 height: 5,
-                margin: const EdgeInsets.only(bottom: 10),
+                margin: const EdgeInsets.only(bottom: 14),
                 decoration: BoxDecoration(
                     color: theme.alternate,
                     borderRadius: BorderRadius.circular(3)),
               ),
+              // header: which exercise this menu is about
+              Padding(
+                padding: const EdgeInsets.fromLTRB(28, 0, 28, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: theme.primaryBackground,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Icon(Icons.fitness_center_rounded,
+                          size: 22, color: theme.primaryText),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _ts(theme, 16, FontWeight.w700,
+                                  theme.primaryText)),
+                          if (sub.isNotEmpty)
+                            Text(sub,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _ts(theme, 13, FontWeight.w400,
+                                    theme.secondaryText)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                  height: 1, indent: 24, endIndent: 24, color: theme.alternate),
+              const SizedBox(height: 4),
               item(Icons.refresh_rounded, theme.primary, _tr(lang, 'replace'),
                   () async => widget.onReplaceExercise?.call()),
-              item(
-                  Icons.link_rounded,
-                  const Color(0xFF7C3AED),
-                  _tr(lang, 'superset'),
-                  () async => widget.onSupersetTap?.call()),
+              superset
+                  ? item(Icons.link_off_rounded, const Color(0xFF7C3AED),
+                      _tr(lang, 'cancelSuperset'), _cancelSuperset)
+                  : item(
+                      Icons.link_rounded,
+                      const Color(0xFF7C3AED),
+                      _tr(lang, 'superset'),
+                      () async => widget.onSupersetTap?.call()),
               item(
                   Icons.bar_chart_rounded,
                   const Color(0xFF64748B),
@@ -597,6 +720,36 @@ class _ExerciseCardState extends State<ExerciseCard> {
         ),
       ),
     );
+  }
+
+  // ---------- superset ----------
+
+  /// Same job as unpairSupersetByExercise, inlined (FF can't resolve the
+  /// action from inside a widget): clears isSuperset / supersetSeq /
+  /// supersetId on this exercise and on every partner sharing its supersetId.
+  Future<void> _cancelSuperset() async {
+    HapticFeedback.mediumImpact();
+    final list = _exerciseSets
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final idx =
+        list.indexWhere((e) => _asInt(e['exerciseId']) == widget.exerciseId);
+    if (idx < 0) return;
+    final dynamic groupId = list[idx]['supersetId'];
+    final bool hasGroup =
+        groupId != null && '$groupId'.isNotEmpty && '$groupId' != '0';
+    for (final e in list) {
+      final bool mine = _asInt(e['exerciseId']) == widget.exerciseId;
+      final bool partner = hasGroup &&
+          e['supersetId'] != null &&
+          '${e['supersetId']}' == '$groupId';
+      if (!mine && !partner) continue;
+      e['isSuperset'] = false;
+      e['supersetSeq'] = null;
+      e['supersetId'] = null;
+    }
+    await _setExerciseSets(List<dynamic>.from(list));
   }
 
   // ---------- warm-up generator ----------
@@ -627,7 +780,9 @@ class _ExerciseCardState extends State<ExerciseCard> {
   }
 
   Future<void> _openWarmupGenerator(String lang) async {
-    final bool withWeight = !_isTimed && !_isBodyweight;
+    // loaded exercise → target weight; bodyweight → optional added weight.
+    final bool bodyweight = _isBodyweight;
+    final bool withWeight = !_isTimed;
     final double? suggested = withWeight ? await _suggestTarget() : null;
     if (!mounted) return;
     final res = await showModalBottomSheet<_WarmupChoice>(
@@ -638,8 +793,11 @@ class _ExerciseCardState extends State<ExerciseCard> {
       builder: (ctx) => _WarmupSheet(
         lang: lang,
         withWeight: withWeight,
+        isBodyweight: bodyweight,
         isKg: FFAppState().isKg,
         equipKey: _equipKey(_equipment),
+        title: localizedName(_nameRaw, lang),
+        subtitle: bodyweight ? _tr(lang, 'bodyweight') : _equipment.trim(),
         initialWeight: suggested,
         hasExisting: _warmupSets.any(
             (e) => e is Map && _asInt(e['exerciseId']) == widget.exerciseId),
@@ -653,12 +811,17 @@ class _ExerciseCardState extends State<ExerciseCard> {
       await _setWarmupSets(list);
       return;
     }
+    // One generator for everything; the mode travels in the equipment key:
+    // 'timed' / 'bodyweight' / 'barbell' | 'smith' | 'machine' | 'dumbbell'.
+    final String mode = _isTimed
+        ? 'timed'
+        : (bodyweight ? 'bodyweight' : _equipKey(_equipment));
     List<dynamic> out;
     try {
       out = applyWarmupSimpleUnits(
         _warmupSets,
         widget.exerciseId,
-        _equipKey(_equipment),
+        mode,
         FFAppState().isKg,
         withWeight ? res.targetWeight : null,
         res.numSets,
@@ -666,20 +829,46 @@ class _ExerciseCardState extends State<ExerciseCard> {
     } catch (_) {
       return;
     }
-    // timed exercise: give each warm-up set a short duration (hint only)
-    if (_isTimed) {
-      for (final e in out) {
-        if (e is Map &&
-            _asInt(e['exerciseId']) == widget.exerciseId &&
-            e['sets'] is List) {
-          final sets = e['sets'] as List;
-          for (int i = 0; i < sets.length; i++) {
-            if (sets[i] is Map) (sets[i] as Map)['durationSec'] = 15 + 5 * i;
-          }
-        }
-      }
-    }
     await _setWarmupSets(out);
+  }
+
+  // ---------- completed summary ----------
+
+  /// "4 sets · 100 kg × 8" / "4 sets · 12 reps" / "3 sets · 2:00".
+  String _summary(String lang) {
+    int n = 0;
+    double bestW = 0;
+    int bestWReps = 0;
+    int bestReps = 0;
+    int totalMs = 0;
+    for (final l in _loggedSets) {
+      if (l is! Map || _asInt(l['exerciseId']) != widget.exerciseId) continue;
+      if (_truthy(l['isDropSet']) || !_truthy(l['isDone'])) continue;
+      n++;
+      final int reps = _asInt(l['reps']);
+      final double w = _asDoubleN(l['weight']) ?? 0;
+      totalMs += _asInt(l['durationMs']);
+      if (w > bestW || (w == bestW && reps > bestWReps)) {
+        bestW = w;
+        bestWReps = reps;
+      }
+      if (reps > bestReps) bestReps = reps;
+    }
+    if (n == 0) return '';
+    final String sets = '$n ${_tr(lang, n == 1 ? 'setOne' : 'sets')}';
+    final String unit = _tr(lang, FFAppState().isKg ? 'kg' : 'lbs');
+    String tail;
+    if (_isTimed) {
+      final s = totalMs ~/ 1000;
+      tail = '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+    } else if (bestW > 0) {
+      tail = '⁦${_fmtW(bestW)} $unit × $bestWReps⁩';
+    } else if (bestReps > 0) {
+      tail = '$bestReps ${_tr(lang, 'repsShort')}';
+    } else {
+      return sets;
+    }
+    return '$sets · $tail';
   }
 
   // ---------- text style ----------
@@ -723,6 +912,20 @@ class _ExerciseCardState extends State<ExerciseCard> {
                     ? widget.onCustomHeaderTap?.call()
                     : widget.onHeaderTap?.call(),
               ),
+              if (complete && _summary(lang).isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(_summary(lang),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _ts(
+                          theme,
+                          13,
+                          FontWeight.w500,
+                          dark
+                              ? const Color(0xFF5EEAD4)
+                              : const Color(0xFF0F766E))),
+                ),
               if (!complete) ...[
                 if (_isSuperset) ...[
                   const SizedBox(height: 10),
@@ -822,24 +1025,41 @@ class _ExerciseCardState extends State<ExerciseCard> {
                 ?.call(exerciseId, _nameRaw, setNumber, restMs),
             onDontShowAgain: widget.onDontShowAgain,
           ),
-          const SizedBox(height: 18),
-          Center(
-            child: _Pressable(
-              onTap: _addSet,
+          const SizedBox(height: 12),
+          _Pressable(
+            onTap: _addSet,
+            child: CustomPaint(
+              painter: _DashedBorderPainter(
+                color: theme.primary.withOpacity(dark ? 0.55 : 0.45),
+                radius: 12,
+                strokeWidth: 1.5,
+              ),
               child: Container(
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 22),
+                height: 48,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: theme.primary, width: 1.5),
+                  color: theme.primary.withOpacity(0.04),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_rounded, size: 20, color: theme.primary),
-                    const SizedBox(width: 6),
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                          color: theme.primary, shape: BoxShape.circle),
+                      child: const Icon(Icons.add_rounded,
+                          size: 16, color: Colors.white),
+                    ),
+                    const SizedBox(width: 8),
                     Text(_tr(lang, 'addSet'),
-                        style: _ts(theme, 15, FontWeight.w600, theme.primary)),
+                        style: _ts(
+                            theme,
+                            15,
+                            FontWeight.w600,
+                            dark
+                                ? const Color(0xFF5EEAD4)
+                                : const Color(0xFF0F766E))),
                   ],
                 ),
               ),
@@ -904,6 +1124,86 @@ class _PressableState extends State<_Pressable> {
       ),
     );
   }
+}
+
+/// Bottom-sheet menu row: highlighted + slightly shrunk while the finger is down.
+class _MenuRow extends StatefulWidget {
+  const _MenuRow(
+      {required this.child, required this.onTap, required this.pressedColor});
+  final Widget child;
+  final VoidCallback onTap;
+  final Color pressedColor;
+  @override
+  State<_MenuRow> createState() => _MenuRowState();
+}
+
+class _MenuRowState extends State<_MenuRow> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _down ? 0.985 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          height: 64,
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: _down ? widget.pressedColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Dashed rounded border (Flutter has none built in).
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter(
+      {required this.color, required this.radius, required this.strokeWidth});
+  final Color color;
+  final double radius, strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+    final rrect =
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius))
+            .deflate(strokeWidth / 2);
+    final path = Path()..addRRect(rrect);
+    const double dash = 6, gap = 4;
+    for (final metric in path.computeMetrics()) {
+      double d = 0;
+      while (d < metric.length) {
+        canvas.drawPath(
+            metric.extractPath(
+                d, (d + dash).clamp(0, metric.length).toDouble()),
+            paint);
+        d += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) =>
+      old.color != color ||
+      old.radius != radius ||
+      old.strokeWidth != strokeWidth;
 }
 
 class _RoundIconButton extends StatelessWidget {
@@ -1074,12 +1374,16 @@ class _RestSheetState extends State<_RestSheet> {
 }
 
 // =============================================================================
-// Warm-up generator sheet
+// Warm-up generator sheet (lean): header · [Added weight switch] · target
+// weight −/+ · sets 1·2·3·4 · Generate · [Remove warm-up]
 // =============================================================================
 
 class _WarmupChoice {
   const _WarmupChoice(
       {required this.targetWeight, required this.numSets, this.remove = false});
+
+  /// Loaded exercise: the working weight. Bodyweight: the added weight, or
+  /// null when the switch is off.
   final double? targetWeight;
   final int numSets;
   final bool remove;
@@ -1089,15 +1393,21 @@ class _WarmupSheet extends StatefulWidget {
   const _WarmupSheet({
     required this.lang,
     required this.withWeight,
+    required this.isBodyweight,
     required this.isKg,
     required this.equipKey,
+    required this.title,
+    required this.subtitle,
     required this.initialWeight,
     required this.hasExisting,
   });
   final String lang;
   final bool withWeight;
+  final bool isBodyweight;
   final bool isKg;
   final String equipKey;
+  final String title;
+  final String subtitle;
   final double? initialWeight;
   final bool hasExisting;
   @override
@@ -1106,9 +1416,13 @@ class _WarmupSheet extends StatefulWidget {
 
 class _WarmupSheetState extends State<_WarmupSheet> {
   late double _weight = widget.initialWeight ?? 0;
+  // bodyweight: the switch starts on only when a weight was already logged
+  late bool _added = widget.isBodyweight && (widget.initialWeight ?? 0) > 0;
   int _sets = 3;
   late final TextEditingController _ctrl =
       TextEditingController(text: _weight > 0 ? _fmtW(_weight) : '');
+
+  bool get _showWeight => widget.withWeight && (!widget.isBodyweight || _added);
 
   @override
   void dispose() {
@@ -1134,6 +1448,7 @@ class _WarmupSheetState extends State<_WarmupSheet> {
       _weight = widget.initialWeight ?? 0;
       _ctrl.text = _weight > 0 ? _fmtW(_weight) : '';
       _sets = 3;
+      _added = widget.isBodyweight && (widget.initialWeight ?? 0) > 0;
     });
   }
 
@@ -1162,6 +1477,8 @@ class _WarmupSheetState extends State<_WarmupSheet> {
     final Color border = theme.alternate;
     final Color field = theme.primaryBackground;
     final String unit = _tr(widget.lang, widget.isKg ? 'kg' : 'lbs');
+    final TextStyle label =
+        _ExerciseCardState._ts(theme, 15, FontWeight.w600, theme.primaryText);
 
     return Directionality(
       textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
@@ -1172,11 +1489,22 @@ class _WarmupSheetState extends State<_WarmupSheet> {
             color: theme.secondaryBackground,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
           ),
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 16 + bottom),
+          padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                      color: theme.alternate,
+                      borderRadius: BorderRadius.circular(3)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // header: X · title + "exercise · equipment" · reset
               Row(
                 children: [
                   _Pressable(
@@ -1188,10 +1516,25 @@ class _WarmupSheetState extends State<_WarmupSheet> {
                             size: 26, color: theme.primaryText)),
                   ),
                   Expanded(
-                    child: Text(_tr(widget.lang, 'warmupTitle'),
-                        textAlign: TextAlign.center,
-                        style: _ExerciseCardState._ts(
-                            theme, 20, FontWeight.w700, theme.primaryText)),
+                    child: Column(
+                      children: [
+                        Text(_tr(widget.lang, 'warmupTitle'),
+                            textAlign: TextAlign.center,
+                            style: _ExerciseCardState._ts(
+                                theme, 20, FontWeight.w700, theme.primaryText)),
+                        Text(
+                          [
+                            widget.title,
+                            if (widget.subtitle.isNotEmpty) widget.subtitle
+                          ].join(' · '),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _ExerciseCardState._ts(
+                              theme, 13, FontWeight.w400, theme.secondaryText),
+                        ),
+                      ],
+                    ),
                   ),
                   _Pressable(
                     onTap: _reset,
@@ -1203,18 +1546,64 @@ class _WarmupSheetState extends State<_WarmupSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Text(_tr(widget.lang, 'warmupSub'),
-                  style: _ExerciseCardState._ts(
-                      theme, 15, FontWeight.w400, theme.secondaryText)),
-              const SizedBox(height: 14),
-              Divider(height: 1, color: border),
-              if (widget.withWeight) ...[
+              const SizedBox(height: 18),
+
+              // bodyweight only: Added weight switch
+              if (widget.withWeight && widget.isBodyweight) ...[
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                  decoration: BoxDecoration(
+                    color: field,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_tr(widget.lang, 'addedWeight'),
+                                style: _ExerciseCardState._ts(theme, 16,
+                                    FontWeight.w600, theme.primaryText)),
+                            const SizedBox(height: 2),
+                            Text(_tr(widget.lang, 'addedWeightSub'),
+                                style: _ExerciseCardState._ts(theme, 13,
+                                    FontWeight.w400, theme.secondaryText)),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: _added,
+                        activeColor: theme.primary,
+                        onChanged: (v) {
+                          HapticFeedback.selectionClick();
+                          setState(() => _added = v);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 18),
-                Text('${_tr(widget.lang, 'targetWeight')} ($unit)',
-                    style: _ExerciseCardState._ts(
-                        theme, 17, FontWeight.w600, theme.primaryText)),
-                const SizedBox(height: 14),
+              ],
+
+              // target weight
+              if (_showWeight) ...[
+                Text.rich(
+                    TextSpan(children: [
+                      TextSpan(
+                          text: _tr(
+                              widget.lang,
+                              widget.isBodyweight
+                                  ? 'targetAdded'
+                                  : 'targetWeight')),
+                      TextSpan(
+                          text: ' ($unit)',
+                          style: _ExerciseCardState._ts(
+                              theme, 15, FontWeight.w500, theme.secondaryText)),
+                    ]),
+                    style: label),
+                const SizedBox(height: 12),
                 Row(
                   textDirection: ui.TextDirection.ltr,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1253,45 +1642,70 @@ class _WarmupSheetState extends State<_WarmupSheet> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                Divider(height: 1, color: border),
               ],
-              const SizedBox(height: 18),
-              Text(_tr(widget.lang, 'numSets'),
-                  style: _ExerciseCardState._ts(
-                      theme, 17, FontWeight.w600, theme.primaryText)),
-              const SizedBox(height: 14),
-              Row(
-                textDirection: ui.TextDirection.ltr,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _round(Icons.remove_rounded, () {
-                    if (_sets <= 1) return;
-                    HapticFeedback.selectionClick();
-                    setState(() => _sets--);
-                  }, border, theme.primaryText, field),
-                  SizedBox(
-                    width: 60,
-                    child: Text('$_sets',
-                        textAlign: TextAlign.center,
-                        style: _ExerciseCardState._ts(
-                            theme, 26, FontWeight.w700, theme.primaryText)),
-                  ),
-                  _round(Icons.add_rounded, () {
-                    if (_sets >= 4) return;
-                    HapticFeedback.selectionClick();
-                    setState(() => _sets++);
-                  }, border, theme.primaryText, field),
-                ],
+
+              // number of sets: segmented 1 · 2 · 3 · 4
+              Text(_tr(widget.lang, 'warmupSets'), style: label),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                    color: field, borderRadius: BorderRadius.circular(14)),
+                child: Row(
+                  textDirection: ui.TextDirection.ltr,
+                  children: [
+                    for (int n = 1; n <= 4; n++) ...[
+                      if (n > 1) const SizedBox(width: 6),
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            if (_sets == n) return;
+                            HapticFeedback.selectionClick();
+                            setState(() => _sets = n);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 140),
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: _sets == n
+                                  ? theme.secondaryBackground
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: _sets == n
+                                  ? [
+                                      BoxShadow(
+                                          color: Colors.black.withOpacity(0.10),
+                                          blurRadius: 3,
+                                          offset: const Offset(0, 1))
+                                    ]
+                                  : null,
+                            ),
+                            child: Text('$n',
+                                style: _ExerciseCardState._ts(
+                                    theme,
+                                    16,
+                                    _sets == n
+                                        ? FontWeight.w700
+                                        : FontWeight.w600,
+                                    _sets == n
+                                        ? theme.primaryText
+                                        : theme.secondaryText)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
-              Divider(height: 1, color: border),
-              const SizedBox(height: 16),
+              const SizedBox(height: 22),
+
               _Pressable(
                 onTap: () {
                   FocusScope.of(context).unfocus();
                   Navigator.of(context).pop(_WarmupChoice(
-                    targetWeight:
-                        widget.withWeight && _weight > 0 ? _weight : null,
+                    targetWeight: _showWeight && _weight > 0 ? _weight : null,
                     numSets: _sets,
                   ));
                 },

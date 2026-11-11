@@ -678,6 +678,42 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                     mainAxisSize:
                                                         MainAxisSize.max,
                                                     children: [
+                                                      Container(
+                                                        width:
+                                                            MediaQuery.sizeOf(
+                                                                        context)
+                                                                    .width *
+                                                                1.0,
+                                                        height: 140.0,
+                                                        child: custom_widgets
+                                                            .RecapBanner(
+                                                          width:
+                                                              MediaQuery.sizeOf(
+                                                                          context)
+                                                                      .width *
+                                                                  1.0,
+                                                          height: 140.0,
+                                                          userId:
+                                                              currentUserUid,
+                                                          timeRange: _model
+                                                              .rangeSelectStats,
+                                                          onTap: () async {
+                                                            context.pushNamed(
+                                                              RecapWidget
+                                                                  .routeName,
+                                                              queryParameters: {
+                                                                'timeRange':
+                                                                    serializeParam(
+                                                                  _model
+                                                                      .rangeSelectStats,
+                                                                  ParamType
+                                                                      .String,
+                                                                ),
+                                                              }.withoutNulls,
+                                                            );
+                                                          },
+                                                        ),
+                                                      ),
                                                       FutureBuilder<
                                                           List<
                                                               VolumeOverviewWithRangeRow>>(

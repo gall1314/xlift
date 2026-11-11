@@ -3507,6 +3507,16 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'he': 'בַּיִת',
     },
   },
+  // recap
+  {
+    'vaffxbdo': {
+      'en': 'Home',
+      'de': '',
+      'es': '',
+      'fr': '',
+      'he': '',
+    },
+  },
   // exerciseStatsPlaceHolder
   {
     'zekrnvm0': {

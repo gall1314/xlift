@@ -64,6 +64,27 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Aufwärmen beenden",
     "fr": "Terminer l’échauffement"
   },
+  "workingSets": {
+    "en": "WORKING SETS",
+    "es": "SERIES DE TRABAJO",
+    "he": "סטי עבודה",
+    "de": "ARBEITSSÄTZE",
+    "fr": "SÉRIES DE TRAVAIL"
+  },
+  "rest": {
+    "en": "Rest",
+    "es": "Descanso",
+    "he": "מנוחה",
+    "de": "Pause",
+    "fr": "Repos"
+  },
+  "skip": {
+    "en": "Skip",
+    "es": "Saltar",
+    "he": "דלג",
+    "de": "Überspringen",
+    "fr": "Passer"
+  },
   "markCompleted": {
     "en": "Mark as Completed",
     "es": "Marcar como completada",
@@ -730,15 +751,24 @@ class _SetTableState extends State<SetTable> {
   final Map<int, _Prev> _prev = {};
   final Set<int> _prevLoading = {};
   final Set<int> _unmarkOpen = {}; // done sets whose unmark strip is showing
+  final Set<int> _warmUnmarkOpen = {}; // same, for warm-up sets
+  final Map<int, GlobalKey> _rowKeys = {}; // working-set rows, for auto-scroll
   double _lastHeight = -1;
   OverlayEntry? _toast;
   Timer? _toastTimer;
+
+  // Rest between warm-up sets: setNumber → when its rest ends. Ticks once a
+  // second while any is running; the chip disappears at 0 or on Skip.
+  final Map<int, DateTime> _warmRestEnd = {};
+  Timer? _warmRestTicker;
 
   static const double _colNum = 48;
   static const double _gap = 6;
   static const double _rowH = 54;
   static const double _barH = 28;
   static const double _unmarkH = 32;
+  static const double _dividerH = 18;
+  static const double _restChipH = 36;
 
   // AI exercises keep a 44px action column; the others spread reps / weight.
   double get _colVal => widget.aiEnabled ? 64 : 80;
@@ -1003,6 +1033,7 @@ class _SetTableState extends State<SetTable> {
   @override
   void dispose() {
     _hideToast();
+    _warmRestTicker?.cancel();
     super.dispose();
   }
 
@@ -1225,10 +1256,35 @@ class _SetTableState extends State<SetTable> {
       }
     }
     await _emit(list);
+    _scrollToNext(t.setNumber);
 
     final rest = _restMs();
     if (rest > 0)
       await widget.onStartRest?.call(widget.exerciseId, t.setNumber, rest);
+  }
+
+  /// After ✓: bring the next undone working set into view (the row key is
+  /// attached in build; works through whatever Scrollable is above us).
+  void _scrollToNext(int justDone) {
+    _TplSet? next;
+    for (final t in _template) {
+      if (t.setNumber > justDone && !_isDone(t.setNumber)) {
+        next = t;
+        break;
+      }
+    }
+    if (next == null) return;
+    final int n = next.setNumber;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _rowKeys[n]?.currentContext;
+      if (ctx == null || !mounted) return;
+      try {
+        Scrollable.ensureVisible(ctx,
+            alignment: 0.35,
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic);
+      } catch (_) {}
+    });
   }
 
   Future<void> _unmark(_TplSet t) async {
@@ -1300,12 +1356,20 @@ class _SetTableState extends State<SetTable> {
   }
 
   /// ✓ on a warm-up set; the last one also hides the whole warm-up.
+  /// Starts the smart rest (set's `restSec`) toward the next warm-up set.
   Future<void> _warmComplete(int setNumber) async {
     HapticFeedback.mediumImpact();
+    int restSec = 0;
+    bool isLast = true;
     await _emitWarm((entry, sets) {
       bool allDone = true;
       for (final w in sets) {
-        if (_asInt(w['setNumber']) == setNumber) w['isDone'] = true;
+        if (_asInt(w['setNumber']) == setNumber) {
+          w['isDone'] = true;
+          restSec = _asInt(w['restSec']);
+        } else if (_asInt(w['setNumber']) > setNumber) {
+          isLast = false;
+        }
         if (!_truthy(w['isDone'])) allDone = false;
       }
       if (allDone) {
@@ -1313,15 +1377,123 @@ class _SetTableState extends State<SetTable> {
         entry['completed'] = true;
       }
     });
+    _warmUnmarkOpen.remove(setNumber);
+    if (isLast) {
+      _warmRestEnd.clear();
+      _warmRestTicker?.cancel();
+      _warmRestTicker = null;
+    } else if (restSec > 0) {
+      _startWarmRest(setNumber, restSec);
+    }
   }
 
   Future<void> _warmUnmark(int setNumber) async {
     HapticFeedback.selectionClick();
+    _warmUnmarkOpen.remove(setNumber);
+    _stopWarmRest(setNumber);
     await _emitWarm((entry, sets) {
       for (final w in sets) {
         if (_asInt(w['setNumber']) == setNumber) w['isDone'] = false;
       }
     });
+  }
+
+  // ---------- rest between warm-up sets ----------
+
+  void _startWarmRest(int setNumber, int sec) {
+    _warmRestEnd[setNumber] = DateTime.now().add(Duration(seconds: sec));
+    _warmRestTicker ??=
+        Timer.periodic(const Duration(seconds: 1), (_) => _tickWarmRest());
+    if (mounted) setState(() {});
+  }
+
+  void _stopWarmRest(int setNumber) {
+    if (_warmRestEnd.remove(setNumber) == null) return;
+    if (_warmRestEnd.isEmpty) {
+      _warmRestTicker?.cancel();
+      _warmRestTicker = null;
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _tickWarmRest() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    final finished =
+        _warmRestEnd.keys.where((k) => !_warmRestEnd[k]!.isAfter(now)).toList();
+    if (finished.isNotEmpty) HapticFeedback.mediumImpact();
+    for (final k in finished) _warmRestEnd.remove(k);
+    if (_warmRestEnd.isEmpty) {
+      _warmRestTicker?.cancel();
+      _warmRestTicker = null;
+    }
+    setState(() {});
+  }
+
+  int _warmRestLeft(int setNumber) {
+    final end = _warmRestEnd[setNumber];
+    if (end == null) return 0;
+    final left = end.difference(DateTime.now()).inSeconds;
+    return left < 0 ? 0 : left;
+  }
+
+  /// "Rest 0:32 ━━━━━━░░ Skip" under a done warm-up set while its rest runs.
+  Widget _warmRestChip(int setNumber, int totalSec, String lang, Color accent,
+      Color onDone, Color muted, Color bg) {
+    final int left = _warmRestLeft(setNumber);
+    final double frac =
+        totalSec <= 0 ? 0 : (1 - left / totalSec).clamp(0.0, 1.0).toDouble();
+    return Container(
+      height: _restChipH,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+      child: Row(
+        children: [
+          Icon(Icons.timer_outlined, size: 16, color: onDone),
+          const SizedBox(width: 6),
+          Text('${_tr(lang, 'rest')} ',
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: onDone)),
+          Text(_mmss(left * 1000),
+              textDirection: ui.TextDirection.ltr,
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: onDone)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: SizedBox(
+                height: 4,
+                child: Stack(
+                  children: [
+                    Container(color: onDone.withOpacity(0.18)),
+                    FractionallySizedBox(
+                      widthFactor: frac,
+                      alignment: Alignment.centerLeft,
+                      child: Container(color: accent),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _Pressable(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              _stopWarmRest(setNumber);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+              child: Text(_tr(lang, 'skip'),
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: muted)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// One warm-up block: flame · "-" · reps · weight · (empty) + ✓ bar.
@@ -1426,16 +1598,32 @@ class _SetTableState extends State<SetTable> {
       ),
     );
 
-    final Widget bar = done
-        ? _Pressable(
-            onTap: () => _warmUnmark(n),
-            child: Container(
-              height: _barH,
-              color: cellBg,
-              alignment: Alignment.center,
-              child: Icon(Icons.remove_done_rounded, size: 18, color: muted),
-            ),
+    // Same behaviour as a working set: a done row is tinted; tapping it shows
+    // the unmark strip; the ✓ bar only exists while the set is open.
+    final bool unmarkOpen = done && _warmUnmarkOpen.contains(n);
+    final Widget rowPart = done
+        ? GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => setState(() {
+              if (!_warmUnmarkOpen.remove(n)) _warmUnmarkOpen.add(n);
+            }),
+            child: row,
           )
+        : row;
+
+    final Widget? bar = done
+        ? (unmarkOpen
+            ? _Pressable(
+                onTap: () => _warmUnmark(n),
+                child: Container(
+                  height: _unmarkH,
+                  color: cellBg,
+                  alignment: Alignment.center,
+                  child:
+                      Icon(Icons.remove_done_rounded, size: 20, color: muted),
+                ),
+              )
+            : null)
         : _Pressable(
             onTap: () => _warmComplete(n),
             child: Container(
@@ -1450,6 +1638,14 @@ class _SetTableState extends State<SetTable> {
                     Text(_tr(lang, 'finishWarmup'),
                         style: TextStyle(
                             fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: onDone)),
+                  ] else if (_asInt(w['restSec']) > 0) ...[
+                    const SizedBox(width: 8),
+                    Text('+ ${_mmss(_asInt(w['restSec']) * 1000)}',
+                        textDirection: ui.TextDirection.ltr,
+                        style: TextStyle(
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: onDone)),
                   ],
@@ -1469,7 +1665,9 @@ class _SetTableState extends State<SetTable> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch, children: [row, bar]),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [rowPart, if (bar != null) bar],
+      ),
     );
   }
 
@@ -2093,8 +2291,45 @@ class _SetTableState extends State<SetTable> {
 
     final warm = _warmSets();
     for (int i = 0; i < warm.length; i++) {
+      final int n = _asInt(warm[i]['setNumber']);
       rows.add(_warmBlock(warm[i], i == warm.length - 1, lang, dark, text,
           muted, accent, doneBg, onDone, i.isEven ? zebraB : zebraA, cellBg));
+      // smart rest toward the next warm-up set
+      if (_warmRestEnd.containsKey(n) && i < warm.length - 1) {
+        rows.add(_warmRestChip(n, _asInt(warm[i]['restSec']), lang, accent,
+            onDone, muted, doneBg.withOpacity(0.55)));
+      }
+    }
+
+    if (warm.isNotEmpty && tpl.isNotEmpty) {
+      rows.add(SizedBox(
+        height: _dividerH,
+        child: Row(
+          children: [
+            Expanded(
+                child: Container(
+                    height: 1,
+                    color: dark
+                        ? const Color(0xFF2A3644)
+                        : const Color(0xFFE3E7EB))),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(_tr(lang, 'workingSets'),
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.6,
+                      color: muted)),
+            ),
+            Expanded(
+                child: Container(
+                    height: 1,
+                    color: dark
+                        ? const Color(0xFF2A3644)
+                        : const Color(0xFFE3E7EB))),
+          ],
+        ),
+      ));
     }
 
     for (final t in tpl) {
@@ -2106,6 +2341,7 @@ class _SetTableState extends State<SetTable> {
           ? _timedRow(t, done, lang, dark, text, muted, accent)
           : _repsRow(t, done, lang, dark, text, muted, accent);
       final Widget block = Container(
+        key: _rowKeys.putIfAbsent(t.setNumber, () => GlobalKey()),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(12),
@@ -2163,13 +2399,32 @@ class _SetTableState extends State<SetTable> {
 
   /// The height this build will take, from the same rules the layout uses.
   double _tableHeight(List<_TplSet> tpl) {
-    final int warm = _warmSets().length;
+    final warmSets = _warmSets();
+    final int warm = warmSets.length;
     if (tpl.isEmpty && warm == 0) return 0;
     double h = widget.showHeaders ? 20 : 0;
-    h += (tpl.length + warm - 1) * 8.0;
-    for (final w in _warmSets()) {
-      h += _rowH + _barH + (_truthy(w['isDone']) ? 2 : 0);
+    int items = tpl.length + warm;
+    for (int i = 0; i < warm; i++) {
+      final w = warmSets[i];
+      final int n = _asInt(w['setNumber']);
+      final bool done = _truthy(w['isDone']);
+      h += _rowH;
+      if (done) {
+        h += 2;
+        if (_warmUnmarkOpen.contains(n)) h += _unmarkH;
+      } else {
+        h += _barH;
+      }
+      if (_warmRestEnd.containsKey(n) && i < warm - 1) {
+        h += _restChipH;
+        items++;
+      }
     }
+    if (warm > 0 && tpl.isNotEmpty) {
+      h += _dividerH;
+      items++;
+    }
+    h += (items - 1) * 8.0;
     for (final t in tpl) {
       final bool done = _isDone(t.setNumber);
       final int drops = widget.isTimed ? 0 : _plannedDrops(t.setNumber).length;

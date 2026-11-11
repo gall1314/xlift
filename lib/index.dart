@@ -76,3 +76,4 @@ export '/add_exercises_v3_copy/add_exercises_v3_copy_widget.dart'
     show AddExercisesV3CopyWidget;
 export '/add_exercises_mid_seission_copy/add_exercises_mid_seission_copy_widget.dart'
     show AddExercisesMidSeissionCopyWidget;
+export '/recap/recap_widget.dart' show RecapWidget;

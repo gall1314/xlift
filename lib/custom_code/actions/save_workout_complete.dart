@@ -19,10 +19,17 @@ import 'xlift_log_add.dart';
 /// Saves the ENTIRE workout in one atomic pass, bypassing FlutterFlow's
 /// Backend Call layer: workout_log -> regular sets -> drop sets ->
 /// volume -> analyses. Every row is written BOTH to SQLite AND queued
-/// in Hive. Total volume (reps x weight, skipping assisted exercises
+/// in Hive. Total volume (reps x waeight, skipping assisted exercises
 /// via exerciseSets[].isAssisted) is computed IN-MEMORY during the set
 /// loops and written straight to workout_log.volume - no read query,
 /// no separate update step.
+///
+/// CLOUD ROW OF workout_log: the queued Hive row carries created_at (UTC
+/// ISO, the moment of the workout - not the moment of the sync) and, once
+/// the set loops are done, volume. The row is queued BEFORE the sets (so
+/// the set_log queue never waits on a missing parent) and then updated in
+/// place by its Hive key; if a sync already shipped it, it is queued again
+/// and the cloud upsert fills the volume in.
 ///
 /// SET NUMBERING / ORDER: loggedSets arrives in ENTRY order (not display
 /// order), so regular sets are first sorted by (position of the exercise
@@ -293,7 +300,11 @@ Future<dynamic> saveWorkoutComplete(
     try {
       stage = 'db-handle';
       final db = SQLiteManager.instance.database;
-      final String nowIso = DateTime.now().toIso8601String();
+      final DateTime nowDt = DateTime.now();
+      // Local SQLite keeps local time (what the stats queries compare to).
+      final String nowIso = nowDt.toIso8601String();
+      // The cloud row gets the same instant as an explicit UTC timestamp.
+      final String nowUtcIso = nowDt.toUtc().toIso8601String();
       mark('db-handle');
 
       // Hive must be initialized before opening boxes (idempotent).
@@ -318,14 +329,17 @@ Future<dynamic> saveWorkoutComplete(
                 'VALUES (?, ?, ?, ?, ?)',
                 [workoutLogId, wId, uId, nowIso, durMs],
               ));
-      await guarded(
-          'hive-add-workout_log',
-          () => logBox.add({
-                'id': workoutLogId,
-                'workout_id': wId,
-                'user_id': uId,
-                'duration': durMs,
-              }));
+      // Queued now (parent before sets); volume is added to this same row
+      // in step 4, once it is known.
+      final Map<String, dynamic> logRow = {
+        'id': workoutLogId,
+        'workout_id': wId,
+        'user_id': uId,
+        'duration': durMs,
+        'created_at': nowUtcIso,
+      };
+      final dynamic logKey = await guarded('hive-add-workout_log',
+          () => logBox.add(Map<String, dynamic>.from(logRow)));
       mark('workout_log');
 
       // ---- 2. regular sets (volume accumulated in-memory) ----
@@ -500,6 +514,16 @@ Future<dynamic> saveWorkoutComplete(
                 'UPDATE workout_log SET volume = ? WHERE id = ?',
                 [totalVolume, workoutLogId],
               ));
+      // Same value into the queued cloud row. If a sync already shipped
+      // (and removed) the row, queue it again - the upsert updates it.
+      logRow['volume'] = totalVolume;
+      await guarded('hive-volume-workout_log', () async {
+        if (logKey != null && logBox.containsKey(logKey)) {
+          await logBox.put(logKey, Map<String, dynamic>.from(logRow));
+        } else {
+          await logBox.add(Map<String, dynamic>.from(logRow));
+        }
+      });
       mark('volume($totalVolume)');
 
       // ---- 5. analyses ----

@@ -643,6 +643,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               isList: true,
             ),
           ),
+        ),
+        FFRoute(
+          name: RecapWidget.routeName,
+          path: RecapWidget.routePath,
+          builder: (context, params) => RecapWidget(
+            timeRange: params.getParam(
+              'timeRange',
+              ParamType.String,
+            ),
+          ),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

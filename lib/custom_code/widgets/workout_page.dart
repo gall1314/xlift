@@ -21,9 +21,11 @@ import 'package:google_fonts/google_fonts.dart';
 // WorkoutPage — the whole live-workout screen.
 //
 // Top bar (back · WorkoutClock · Finish) with the progress line under it, a
-// scrolling list of ExerciseCard (one per exercise, in exercisesets order) and
-// "Add Exercises" at the bottom. Reads App State directly and rebuilds on
-// every change. Give it width ∞ and height ∞ in FF; nothing else to set.
+// live-stats strip hanging off the bar (collapsed to a chevron handle; tap →
+// Sets · Volume · Exercises), a scrolling list of ExerciseCard (one per
+// exercise, in exercisesets order) and "Add Exercises" at the bottom. Reads
+// App State directly and rebuilds on every change. Give it width ∞ and
+// height ∞ in FF; nothing else to set.
 //
 // Callbacks (navigation only):
 //   onBack(), onFinish(), onAddExercises()
@@ -67,6 +69,29 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Noch keine Übungen",
     "fr": "Pas encore d’exercices"
   },
+  "sets": {
+    "en": "Sets",
+    "es": "Series",
+    "he": "סטים",
+    "de": "Sätze",
+    "fr": "Séries"
+  },
+  "volume": {
+    "en": "Volume",
+    "es": "Volumen",
+    "he": "נפח",
+    "de": "Volumen",
+    "fr": "Volume"
+  },
+  "exercises": {
+    "en": "Exercises",
+    "es": "Ejercicios",
+    "he": "תרגילים",
+    "de": "Übungen",
+    "fr": "Exercices"
+  },
+  "kg": {"en": "kg", "es": "kg", "he": "ק״ג", "de": "kg", "fr": "kg"},
+  "lbs": {"en": "lbs", "es": "lb", "he": "ליב׳", "de": "lbs", "fr": "lb"},
 };
 
 String _tr(String lang, String key) {
@@ -79,6 +104,39 @@ int _asInt(dynamic v, [int d = 0]) {
   if (v is int) return v;
   if (v is num) return v.toInt();
   return int.tryParse(v.toString().trim()) ?? d;
+}
+
+double _asDouble(dynamic v) {
+  if (v == null) return 0;
+  if (v is num) return v.toDouble();
+  return double.tryParse(v.toString().trim()) ?? 0;
+}
+
+bool _truthy(dynamic v) {
+  if (v == null) return false;
+  if (v is bool) return v;
+  if (v is num) return v != 0;
+  final s = v.toString().trim().toLowerCase();
+  return s == 'true' || s == '1';
+}
+
+/// 4320.5 → "4,320"; 12 → "12".
+String _fmtVolume(double v) {
+  final s = v.round().toString();
+  final b = StringBuffer();
+  for (int i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+    b.write(s[i]);
+  }
+  return b.toString();
+}
+
+/// Live numbers for the stats strip.
+class _Stats {
+  const _Stats(this.doneSets, this.totalSets, this.volume, this.doneExercises,
+      this.totalExercises);
+  final int doneSets, totalSets, doneExercises, totalExercises;
+  final double volume;
 }
 
 class WorkoutPage extends StatefulWidget {
@@ -173,6 +231,47 @@ class _WorkoutPageState extends State<WorkoutPage> {
     }
   }
 
+  /// Open/closed state of the stats strip; static so it survives rebuilds
+  /// and re-entering the page during one app run.
+  static bool _statsOpen = false;
+
+  _Stats _stats(List<int> ids) {
+    final ex = _exerciseSets;
+    final logged = _loggedSets;
+    int total = 0;
+    for (final e in ex) {
+      if (e is Map && e['sets'] is List) total += (e['sets'] as List).length;
+    }
+    // done base sets, keyed "exerciseId:setNumber"
+    final Set<String> doneKeys = {};
+    int done = 0;
+    double volume = 0;
+    for (final l in logged) {
+      if (l is! Map || _truthy(l['isDropSet'])) continue;
+      if (!_truthy(l['isDone'])) continue;
+      final id = _asInt(l['exerciseId'], -1);
+      if (!ids.contains(id)) continue;
+      done++;
+      doneKeys.add('$id:${_asInt(l['setNumber'])}');
+      volume += _asInt(l['reps']) * _asDouble(l['weight']);
+    }
+    for (final l in logged) {
+      if (l is! Map || !_truthy(l['isDropSet'])) continue;
+      final id = _asInt(l['exerciseId'], -1);
+      if (!doneKeys.contains('$id:${_asInt(l['setNumber'])}')) continue;
+      volume += _asInt(l['reps']) * _asDouble(l['weight']);
+    }
+    int doneEx = 0;
+    if (_live) {
+      for (final c in FFAppState().completedExercises) {
+        if (c is Map &&
+            _truthy(c['isComplete']) &&
+            ids.contains(_asInt(c['exerciseId'], -1))) doneEx++;
+      }
+    }
+    return _Stats(done, total, volume, doneEx, ids.length);
+  }
+
   static TextStyle _ts(
           FlutterFlowTheme th, double size, FontWeight w, Color c) =>
       th.bodyMedium.override(
@@ -261,6 +360,88 @@ class _WorkoutPageState extends State<WorkoutPage> {
       ),
     );
 
+    // Live stats strip, hanging off the app bar. Collapsed: only a chevron
+    // handle. Expanded: Sets · Volume · Exercises, chevron flips.
+    final _Stats st = _stats(ids);
+    final String unit = _tr(lang, FFAppState().isKg ? 'kg' : 'lbs');
+    final bool open = _statsOpen;
+
+    Widget stat(String value, String label, {Color? valueColor}) => Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(value,
+                  textDirection: ui.TextDirection.ltr,
+                  maxLines: 1,
+                  style: _ts(theme, 18, FontWeight.w800,
+                      valueColor ?? theme.primaryText)),
+              const SizedBox(height: 2),
+              Text(label,
+                  maxLines: 1,
+                  style: _ts(theme, 11, FontWeight.w500, theme.secondaryText)),
+            ],
+          ),
+        );
+    Widget vline() => Container(width: 1, height: 28, color: border);
+
+    final Widget statsStrip = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _statsOpen = !_statsOpen);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.secondaryBackground,
+          borderRadius:
+              const BorderRadius.vertical(bottom: Radius.circular(16)),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(dark ? 0.25 : 0.06),
+                blurRadius: 6,
+                offset: const Offset(0, 2)),
+          ],
+        ),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (open)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Row(
+                    children: [
+                      stat('${st.doneSets}/${st.totalSets}', _tr(lang, 'sets'),
+                          valueColor: theme.primary),
+                      vline(),
+                      stat('${_fmtVolume(st.volume)} $unit',
+                          _tr(lang, 'volume')),
+                      vline(),
+                      stat('${st.doneExercises}/${st.totalExercises}',
+                          _tr(lang, 'exercises')),
+                    ],
+                  ),
+                ),
+              SizedBox(
+                height: 22,
+                child: Center(
+                  child: Icon(
+                      open
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 22,
+                      color: theme.secondaryText),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     final Widget addButton = _Tap(
       onTap: () => widget.onAddExercises?.call(),
       child: Container(
@@ -290,10 +471,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
           children: [
             topBar,
             progressLine,
+            if (ids.isNotEmpty) statsStrip,
             Expanded(
               child: ListView.builder(
                 controller: _scroll,
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomInset),
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + bottomInset),
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 itemCount: ids.length + 1,

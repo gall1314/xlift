@@ -277,301 +277,253 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               Stack(
                 alignment: AlignmentDirectional(0.0, 0.0),
                 children: [
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 16.0, 0.0),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Builder(
-                            builder: (context) => Container(
+                  SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Builder(
+                          builder: (context) => Container(
+                            width: MediaQuery.sizeOf(context).width * 1.0,
+                            height: MediaQuery.sizeOf(context).height * 1.0,
+                            child: custom_widgets.WorkoutPage(
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               height: MediaQuery.sizeOf(context).height * 1.0,
-                              child: custom_widgets.WorkoutPage(
-                                width: MediaQuery.sizeOf(context).width * 1.0,
-                                height: MediaQuery.sizeOf(context).height * 1.0,
-                                isLiveWorkout: true,
-                                showCameraGuidance: true,
-                                onBack: () async {
-                                  context.pop();
-                                },
-                                onFinish: () async {
-                                  _model.saveCopy =
-                                      await actions.saveWorkoutComplete(
-                                    widget.workoutId,
-                                    currentUserUid,
-                                    functions.workoutDurationMs(
-                                        FFAppState().activeWorkoutStartTime!),
-                                    FFAppState().loggedSets.toList(),
-                                    FFAppState().workoutAnalysisState.toList(),
-                                    FFAppState().exercisesets.toList(),
-                                  );
-                                  if (getJsonField(
-                                    _model.saveCopy,
-                                    r'''$["success"]''',
-                                  )) {
-                                    FFAppState()
-                                        .deleteExercisesets(resetState: true);
-                                    FFAppState()
-                                        .deleteLoggedSets(resetState: true);
-                                    FFAppState().dropSets = [];
-                                    FFAppState()
-                                        .deleteRestTimers(resetState: true);
-                                    FFAppState()
-                                        .deleteWarmupSets(resetState: true);
-                                    FFAppState().workout = false;
-                                    FFAppState().deleteCompletedExercises(
-                                        resetState: true);
-                                    FFAppState().deleteWorkoutAnalysisState(
-                                        resetState: true);
-                                    FFAppState().deleteActiveWorkoutStartTime(
-                                        resetState: true);
-                                    safeSetState(() {});
-
-                                    context.goNamed(
-                                      WorkoutCompleteWidget.routeName,
-                                      queryParameters: {
-                                        'workoutLogId': serializeParam(
-                                          getJsonField(
-                                            _model.saveCopy,
-                                            r'''$["workoutLogId"]''',
-                                          ).toString(),
-                                          ParamType.String,
-                                        ),
-                                      }.withoutNulls,
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          getJsonField(
-                                            _model.saveCopy,
-                                            r'''$["message"]''',
-                                          ).toString(),
-                                          style: TextStyle(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryText,
-                                          ),
-                                        ),
-                                        duration: Duration(milliseconds: 4000),
-                                        backgroundColor:
-                                            FlutterFlowTheme.of(context)
-                                                .secondary,
-                                      ),
-                                    );
-                                  }
-
+                              isLiveWorkout: true,
+                              showCameraGuidance: true,
+                              onBack: () async {
+                                context.pop();
+                              },
+                              onFinish: () async {
+                                _model.saveCopy =
+                                    await actions.saveWorkoutComplete(
+                                  widget.workoutId,
+                                  currentUserUid,
+                                  functions.workoutDurationMs(
+                                      FFAppState().activeWorkoutStartTime!),
+                                  FFAppState().loggedSets.toList(),
+                                  FFAppState().workoutAnalysisState.toList(),
+                                  FFAppState().exercisesets.toList(),
+                                );
+                                if (getJsonField(
+                                  _model.saveCopy,
+                                  r'''$["success"]''',
+                                )) {
+                                  FFAppState()
+                                      .deleteExercisesets(resetState: true);
+                                  FFAppState()
+                                      .deleteLoggedSets(resetState: true);
+                                  FFAppState().dropSets = [];
+                                  FFAppState()
+                                      .deleteRestTimers(resetState: true);
+                                  FFAppState()
+                                      .deleteWarmupSets(resetState: true);
+                                  FFAppState().workout = false;
+                                  FFAppState().deleteCompletedExercises(
+                                      resetState: true);
+                                  FFAppState().deleteWorkoutAnalysisState(
+                                      resetState: true);
+                                  FFAppState().deleteActiveWorkoutStartTime(
+                                      resetState: true);
                                   safeSetState(() {});
-                                },
-                                onAddExercises: () async {
-                                  context.pushNamed(
-                                    AddExercisesV3CopyWidget.routeName,
+
+                                  context.goNamed(
+                                    WorkoutCompleteWidget.routeName,
                                     queryParameters: {
-                                      'addUserEx': serializeParam(
-                                        false,
-                                        ParamType.bool,
+                                      'workoutLogId': serializeParam(
+                                        getJsonField(
+                                          _model.saveCopy,
+                                          r'''$["workoutLogId"]''',
+                                        ).toString(),
+                                        ParamType.String,
                                       ),
                                     }.withoutNulls,
                                   );
-                                },
-                                onHeaderTap: (exerciseId) async {
-                                  context.pushNamed(
-                                    ExerciseHistoryWidget.routeName,
-                                    queryParameters: {
-                                      'exerciseId': serializeParam(
-                                        exerciseId,
-                                        ParamType.int,
-                                      ),
-                                      'overview': serializeParam(
-                                        true,
-                                        ParamType.bool,
-                                      ),
-                                      'analytics': serializeParam(
-                                        false,
-                                        ParamType.bool,
-                                      ),
-                                    }.withoutNulls,
-                                  );
-                                },
-                                onCustomHeaderTap: (exerciseId) async {
-                                  context.pushNamed(
-                                    ExerciseHistoryCustomWidget.routeName,
-                                    queryParameters: {
-                                      'exerciseId': serializeParam(
-                                        exerciseId,
-                                        ParamType.int,
-                                      ),
-                                      'overview': serializeParam(
-                                        true,
-                                        ParamType.bool,
-                                      ),
-                                      'analytics': serializeParam(
-                                        false,
-                                        ParamType.bool,
-                                      ),
-                                    }.withoutNulls,
-                                  );
-                                },
-                                onReplaceExercise: (exerciseId) async {
-                                  await showModalBottomSheet(
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    enableDrag: false,
-                                    context: context,
-                                    builder: (context) {
-                                      return GestureDetector(
-                                        onTap: () {
-                                          FocusScope.of(context).unfocus();
-                                          FocusManager.instance.primaryFocus
-                                              ?.unfocus();
-                                        },
-                                        child: Padding(
-                                          padding:
-                                              MediaQuery.viewInsetsOf(context),
-                                          child: ReplaceNewWidget(
-                                            exerciseId: exerciseId,
-                                            workoutId: widget.workoutId!,
-                                          ),
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        getJsonField(
+                                          _model.saveCopy,
+                                          r'''$["message"]''',
+                                        ).toString(),
+                                        style: TextStyle(
+                                          color: FlutterFlowTheme.of(context)
+                                              .primaryText,
                                         ),
-                                      );
-                                    },
-                                  ).then((value) => safeSetState(() {}));
-                                },
-                                onSupersetTap: (exerciseId) async {
-                                  await showModalBottomSheet(
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    enableDrag: false,
-                                    context: context,
-                                    builder: (context) {
-                                      return GestureDetector(
-                                        onTap: () {
-                                          FocusScope.of(context).unfocus();
-                                          FocusManager.instance.primaryFocus
-                                              ?.unfocus();
-                                        },
-                                        child: Padding(
-                                          padding:
-                                              MediaQuery.viewInsetsOf(context),
-                                          child: SupersetWidget(
-                                            currentExerciseId: exerciseId,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ).then((value) => safeSetState(() {}));
-                                },
-                                onViewHistory: (exerciseId) async {
-                                  context.pushNamed(
-                                    ExerciseHistoryWidget.routeName,
-                                    queryParameters: {
-                                      'exerciseId': serializeParam(
-                                        exerciseId,
-                                        ParamType.int,
                                       ),
-                                      'overview': serializeParam(
-                                        false,
-                                        ParamType.bool,
-                                      ),
-                                      'analytics': serializeParam(
-                                        false,
-                                        ParamType.bool,
-                                      ),
-                                    }.withoutNulls,
+                                      duration: Duration(milliseconds: 4000),
+                                      backgroundColor:
+                                          FlutterFlowTheme.of(context)
+                                              .secondary,
+                                    ),
                                   );
-                                },
-                                onCustomViewHistory: (exerciseId) async {
-                                  context.pushNamed(
-                                    ExerciseHistoryCustomWidget.routeName,
-                                    queryParameters: {
-                                      'exerciseId': serializeParam(
-                                        exerciseId,
-                                        ParamType.int,
-                                      ),
-                                      'overview': serializeParam(
-                                        false,
-                                        ParamType.bool,
-                                      ),
-                                      'analytics': serializeParam(
-                                        false,
-                                        ParamType.bool,
-                                      ),
-                                    }.withoutNulls,
-                                  );
-                                },
-                                onReorder: () async {
-                                  await showModalBottomSheet(
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    enableDrag: false,
-                                    context: context,
-                                    builder: (context) {
-                                      return GestureDetector(
-                                        onTap: () {
-                                          FocusScope.of(context).unfocus();
-                                          FocusManager.instance.primaryFocus
-                                              ?.unfocus();
-                                        },
-                                        child: Padding(
-                                          padding:
-                                              MediaQuery.viewInsetsOf(context),
-                                          child: ReorderWidget(),
-                                        ),
-                                      );
-                                    },
-                                  ).then((value) => safeSetState(() {}));
-                                },
-                                onRemoveExercise: (exerciseId) async {
-                                  if (functions.exerciseHasLoggedValuesFlat(
-                                      FFAppState().loggedSets.toList(),
-                                      exerciseId)) {
-                                    await showDialog(
-                                      context: context,
-                                      builder: (dialogContext) {
-                                        return Dialog(
-                                          elevation: 0,
-                                          insetPadding: EdgeInsets.zero,
-                                          backgroundColor: Colors.transparent,
-                                          alignment: AlignmentDirectional(
-                                                  0.0, 0.0)
-                                              .resolve(
-                                                  Directionality.of(context)),
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              FocusScope.of(dialogContext)
-                                                  .unfocus();
-                                              FocusManager.instance.primaryFocus
-                                                  ?.unfocus();
-                                            },
-                                            child:
-                                                RemoveExerciseFromWorkoutAlertWidget(
-                                              exerciseId: exerciseId,
-                                              closeBottom: () async {
-                                                Navigator.pop(context);
-                                              },
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    );
-                                  } else {
-                                    _model.remove = await actions
-                                        .removeExerciseFromExerciseSets(
-                                      FFAppState().exercisesets.toList(),
+                                }
+
+                                safeSetState(() {});
+                              },
+                              onAddExercises: () async {
+                                context.pushNamed(
+                                  AddExercisesV3CopyWidget.routeName,
+                                  queryParameters: {
+                                    'addUserEx': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onHeaderTap: (exerciseId) async {
+                                context.pushNamed(
+                                  ExerciseHistoryWidget.routeName,
+                                  queryParameters: {
+                                    'exerciseId': serializeParam(
                                       exerciseId,
+                                      ParamType.int,
+                                    ),
+                                    'overview': serializeParam(
+                                      true,
+                                      ParamType.bool,
+                                    ),
+                                    'analytics': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onCustomHeaderTap: (exerciseId) async {
+                                context.pushNamed(
+                                  ExerciseHistoryCustomWidget.routeName,
+                                  queryParameters: {
+                                    'exerciseId': serializeParam(
+                                      exerciseId,
+                                      ParamType.int,
+                                    ),
+                                    'overview': serializeParam(
+                                      true,
+                                      ParamType.bool,
+                                    ),
+                                    'analytics': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onReplaceExercise: (exerciseId) async {
+                                await showModalBottomSheet(
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  enableDrag: false,
+                                  context: context,
+                                  builder: (context) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        FocusScope.of(context).unfocus();
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                      },
+                                      child: Padding(
+                                        padding:
+                                            MediaQuery.viewInsetsOf(context),
+                                        child: ReplaceNewWidget(
+                                          exerciseId: exerciseId,
+                                          workoutId: widget.workoutId!,
+                                        ),
+                                      ),
                                     );
-                                    FFAppState().exercisesets =
-                                        _model.remove!.toList().cast<dynamic>();
-                                    safeSetState(() {});
-                                    Navigator.pop(context);
-                                  }
-
-                                  safeSetState(() {});
-                                },
-                                onResultTap: (exerciseId, exerciseName,
-                                    setNumber, video) async {
+                                  },
+                                ).then((value) => safeSetState(() {}));
+                              },
+                              onSupersetTap: (exerciseId) async {
+                                await showModalBottomSheet(
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  enableDrag: false,
+                                  context: context,
+                                  builder: (context) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        FocusScope.of(context).unfocus();
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                      },
+                                      child: Padding(
+                                        padding:
+                                            MediaQuery.viewInsetsOf(context),
+                                        child: SupersetWidget(
+                                          currentExerciseId: exerciseId,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ).then((value) => safeSetState(() {}));
+                              },
+                              onViewHistory: (exerciseId) async {
+                                context.pushNamed(
+                                  ExerciseHistoryWidget.routeName,
+                                  queryParameters: {
+                                    'exerciseId': serializeParam(
+                                      exerciseId,
+                                      ParamType.int,
+                                    ),
+                                    'overview': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                    'analytics': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onCustomViewHistory: (exerciseId) async {
+                                context.pushNamed(
+                                  ExerciseHistoryCustomWidget.routeName,
+                                  queryParameters: {
+                                    'exerciseId': serializeParam(
+                                      exerciseId,
+                                      ParamType.int,
+                                    ),
+                                    'overview': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                    'analytics': serializeParam(
+                                      false,
+                                      ParamType.bool,
+                                    ),
+                                  }.withoutNulls,
+                                );
+                              },
+                              onReorder: () async {
+                                await showModalBottomSheet(
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  enableDrag: false,
+                                  context: context,
+                                  builder: (context) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        FocusScope.of(context).unfocus();
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                      },
+                                      child: Padding(
+                                        padding:
+                                            MediaQuery.viewInsetsOf(context),
+                                        child: ReorderWidget(),
+                                      ),
+                                    );
+                                  },
+                                ).then((value) => safeSetState(() {}));
+                              },
+                              onRemoveExercise: (exerciseId) async {
+                                if (functions.exerciseHasLoggedValuesFlat(
+                                    FFAppState().loggedSets.toList(),
+                                    exerciseId)) {
                                   await showDialog(
                                     context: context,
                                     builder: (dialogContext) {
@@ -590,149 +542,153 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                                             FocusManager.instance.primaryFocus
                                                 ?.unfocus();
                                           },
-                                          child: Analyze2AppWidget(
-                                            exercise: exerciseName,
+                                          child:
+                                              RemoveExerciseFromWorkoutAlertWidget(
                                             exerciseId: exerciseId,
-                                            setNumber: setNumber,
-                                            videoReady: (url) async {},
+                                            closeBottom: () async {
+                                              Navigator.pop(context);
+                                            },
                                           ),
                                         ),
                                       );
                                     },
                                   );
-                                },
-                                onLockTap: () async {
-                                  context.pushNamed(
-                                      PremiumPaywallPageWidget.routeName);
-                                },
-                                onStartRest: (exerciseId, exerciseName,
-                                    setNumber, restMs) async {
-                                  await showModalBottomSheet(
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    enableDrag: false,
-                                    context: context,
-                                    builder: (context) {
-                                      return GestureDetector(
+                                } else {
+                                  _model.remove = await actions
+                                      .removeExerciseFromExerciseSets(
+                                    FFAppState().exercisesets.toList(),
+                                    exerciseId,
+                                  );
+                                  FFAppState().exercisesets =
+                                      _model.remove!.toList().cast<dynamic>();
+                                  safeSetState(() {});
+                                  Navigator.pop(context);
+                                }
+
+                                safeSetState(() {});
+                              },
+                              onResultTap: (exerciseId, exerciseName, setNumber,
+                                  video) async {
+                                await showDialog(
+                                  context: context,
+                                  builder: (dialogContext) {
+                                    return Dialog(
+                                      elevation: 0,
+                                      insetPadding: EdgeInsets.zero,
+                                      backgroundColor: Colors.transparent,
+                                      alignment: AlignmentDirectional(0.0, 0.0)
+                                          .resolve(Directionality.of(context)),
+                                      child: GestureDetector(
                                         onTap: () {
-                                          FocusScope.of(context).unfocus();
+                                          FocusScope.of(dialogContext)
+                                              .unfocus();
                                           FocusManager.instance.primaryFocus
                                               ?.unfocus();
                                         },
-                                        child: Padding(
-                                          padding:
-                                              MediaQuery.viewInsetsOf(context),
-                                          child: RestBottomShitWidget(
-                                            exerciseId: exerciseId,
-                                            exerciseName: exerciseName,
-                                            setNumber: setNumber,
-                                          ),
+                                        child: Analyze2AppWidget(
+                                          exercise: exerciseName,
+                                          exerciseId: exerciseId,
+                                          setNumber: setNumber,
+                                          videoReady: (url) async {},
                                         ),
-                                      );
-                                    },
-                                  ).then((value) => safeSetState(() {}));
-                                },
-                                onDontShowAgain: () async {},
-                              ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                              onLockTap: () async {
+                                context.pushNamed(
+                                    PremiumPaywallPageWidget.routeName);
+                              },
+                              onStartRest: (exerciseId, exerciseName, setNumber,
+                                  restMs) async {
+                                await showModalBottomSheet(
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  enableDrag: false,
+                                  context: context,
+                                  builder: (context) {
+                                    return GestureDetector(
+                                      onTap: () {
+                                        FocusScope.of(context).unfocus();
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus();
+                                      },
+                                      child: Padding(
+                                        padding:
+                                            MediaQuery.viewInsetsOf(context),
+                                        child: RestBottomShitWidget(
+                                          exerciseId: exerciseId,
+                                          exerciseName: exerciseName,
+                                          setNumber: setNumber,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ).then((value) => safeSetState(() {}));
+                              },
+                              onDontShowAgain: () async {},
                             ),
                           ),
-                          Container(
-                            decoration: BoxDecoration(),
-                            child: Builder(
-                              builder: (context) {
-                                final exercise = functions
-                                    .buildExerciseTableFromSets(
-                                        FFAppState().exercisesets.toList())
-                                    .toList();
+                        ),
+                        Container(
+                          decoration: BoxDecoration(),
+                          child: Builder(
+                            builder: (context) {
+                              final exercise = functions
+                                  .buildExerciseTableFromSets(
+                                      FFAppState().exercisesets.toList())
+                                  .toList();
 
-                                return ListView.separated(
-                                  padding: EdgeInsets.zero,
-                                  primary: false,
-                                  shrinkWrap: true,
-                                  scrollDirection: Axis.vertical,
-                                  itemCount: exercise.length,
-                                  separatorBuilder: (_, __) =>
-                                      SizedBox(height: 20.0),
-                                  itemBuilder: (context, exerciseIndex) {
-                                    final exerciseItem =
-                                        exercise[exerciseIndex];
-                                    return wrapWithModel(
-                                      model: _model.exerciseComponetModels
-                                          .getModel(
-                                        '${getJsonField(
+                              return ListView.separated(
+                                padding: EdgeInsets.zero,
+                                primary: false,
+                                shrinkWrap: true,
+                                scrollDirection: Axis.vertical,
+                                itemCount: exercise.length,
+                                separatorBuilder: (_, __) =>
+                                    SizedBox(height: 20.0),
+                                itemBuilder: (context, exerciseIndex) {
+                                  final exerciseItem = exercise[exerciseIndex];
+                                  return wrapWithModel(
+                                    model:
+                                        _model.exerciseComponetModels.getModel(
+                                      '${getJsonField(
+                                        exerciseItem,
+                                        r'''$["exerciseId"]''',
+                                      ).toString()}${exerciseIndex.toString()}',
+                                      exerciseIndex,
+                                    ),
+                                    updateCallback: () => safeSetState(() {}),
+                                    child: ExerciseComponetWidget(
+                                      key: Key(
+                                        'Key1u3_${'${getJsonField(
                                           exerciseItem,
                                           r'''$["exerciseId"]''',
-                                        ).toString()}${exerciseIndex.toString()}',
-                                        exerciseIndex,
+                                        ).toString()}${exerciseIndex.toString()}'}',
                                       ),
-                                      updateCallback: () => safeSetState(() {}),
-                                      child: ExerciseComponetWidget(
-                                        key: Key(
-                                          'Key1u3_${'${getJsonField(
-                                            exerciseItem,
-                                            r'''$["exerciseId"]''',
-                                          ).toString()}${exerciseIndex.toString()}'}',
-                                        ),
-                                        exerciseId: getJsonField(
-                                          exerciseItem,
-                                          r'''$["exerciseId"]''',
-                                        ),
-                                        exerciseName: getJsonField(
-                                          exerciseItem,
-                                          r'''$["exerciseName"]''',
-                                        ).toString(),
-                                        workoutId: widget.workoutId!,
-                                        startTimer:
-                                            (setNumber, exerciseId) async {
-                                          if (functions.shouldStartRestTimer2(
-                                              FFAppState().restTimers,
-                                              getJsonField(
-                                                exerciseItem,
-                                                r'''$["exerciseId"]''',
-                                              ),
-                                              _model.restEnabled)) {
-                                            await showModalBottomSheet(
-                                              isScrollControlled: true,
-                                              backgroundColor:
-                                                  Colors.transparent,
-                                              isDismissible: false,
-                                              enableDrag: false,
-                                              context: context,
-                                              builder: (context) {
-                                                return GestureDetector(
-                                                  onTap: () {
-                                                    FocusScope.of(context)
-                                                        .unfocus();
-                                                    FocusManager
-                                                        .instance.primaryFocus
-                                                        ?.unfocus();
-                                                  },
-                                                  child: Padding(
-                                                    padding:
-                                                        MediaQuery.viewInsetsOf(
-                                                            context),
-                                                    child: RestBottomShitWidget(
-                                                      exerciseId: exerciseId,
-                                                      exerciseName:
-                                                          getJsonField(
-                                                        exerciseItem,
-                                                        r'''$["exerciseName"]''',
-                                                      ).toString(),
-                                                      setNumber: setNumber,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ).then(
-                                                (value) => safeSetState(() {}));
-                                          } else {
-                                            return;
-                                          }
-                                        },
-                                        selectRest: () async {
+                                      exerciseId: getJsonField(
+                                        exerciseItem,
+                                        r'''$["exerciseId"]''',
+                                      ),
+                                      exerciseName: getJsonField(
+                                        exerciseItem,
+                                        r'''$["exerciseName"]''',
+                                      ).toString(),
+                                      workoutId: widget.workoutId!,
+                                      startTimer:
+                                          (setNumber, exerciseId) async {
+                                        if (functions.shouldStartRestTimer2(
+                                            FFAppState().restTimers,
+                                            getJsonField(
+                                              exerciseItem,
+                                              r'''$["exerciseId"]''',
+                                            ),
+                                            _model.restEnabled)) {
                                           await showModalBottomSheet(
                                             isScrollControlled: true,
                                             backgroundColor: Colors.transparent,
+                                            isDismissible: false,
                                             enableDrag: false,
                                             context: context,
                                             builder: (context) {
@@ -748,77 +704,103 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                                                   padding:
                                                       MediaQuery.viewInsetsOf(
                                                           context),
-                                                  child: RestShitWidget(
-                                                    exerciseId: getJsonField(
+                                                  child: RestBottomShitWidget(
+                                                    exerciseId: exerciseId,
+                                                    exerciseName: getJsonField(
                                                       exerciseItem,
-                                                      r'''$["exerciseId"]''',
-                                                    ),
+                                                      r'''$["exerciseName"]''',
+                                                    ).toString(),
+                                                    setNumber: setNumber,
                                                   ),
                                                 ),
                                               );
                                             },
                                           ).then(
                                               (value) => safeSetState(() {}));
-                                        },
-                                        closeIt: () async {
-                                          Navigator.pop(context);
-                                        },
-                                        showError: () async {},
-                                      ),
-                                    ).addWalkthrough(
-                                      container1u3esfep,
-                                      _model.workoutFirstController,
-                                      listIndex: exerciseIndex,
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                          FFButtonWidget(
-                            onPressed: () async {
-                              context.pushNamed(
-                                AddExercisesMidSeissionCopyWidget.routeName,
-                                queryParameters: {
-                                  'workoutId': serializeParam(
-                                    widget.workoutId,
-                                    ParamType.String,
-                                  ),
-                                  'addUserEx': serializeParam(
-                                    false,
-                                    ParamType.bool,
-                                  ),
-                                }.withoutNulls,
+                                        } else {
+                                          return;
+                                        }
+                                      },
+                                      selectRest: () async {
+                                        await showModalBottomSheet(
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          enableDrag: false,
+                                          context: context,
+                                          builder: (context) {
+                                            return GestureDetector(
+                                              onTap: () {
+                                                FocusScope.of(context)
+                                                    .unfocus();
+                                                FocusManager
+                                                    .instance.primaryFocus
+                                                    ?.unfocus();
+                                              },
+                                              child: Padding(
+                                                padding:
+                                                    MediaQuery.viewInsetsOf(
+                                                        context),
+                                                child: RestShitWidget(
+                                                  exerciseId: getJsonField(
+                                                    exerciseItem,
+                                                    r'''$["exerciseId"]''',
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ).then((value) => safeSetState(() {}));
+                                      },
+                                      closeIt: () async {
+                                        Navigator.pop(context);
+                                      },
+                                      showError: () async {},
+                                    ),
+                                  ).addWalkthrough(
+                                    container1u3esfep,
+                                    _model.workoutFirstController,
+                                    listIndex: exerciseIndex,
+                                  );
+                                },
                               );
                             },
-                            text: FFLocalizations.of(context).getText(
-                              'toj7tcqv' /* Add Exercises */,
-                            ),
-                            icon: Icon(
-                              Icons.add,
-                              size: 15.0,
-                            ),
-                            options: FFButtonOptions(
-                              width: double.infinity,
-                              height: 50.0,
-                              padding: EdgeInsets.all(8.0),
-                              iconPadding: EdgeInsetsDirectional.fromSTEB(
-                                  0.0, 0.0, 0.0, 0.0),
-                              iconColor: FlutterFlowTheme.of(context).info,
-                              color: FlutterFlowTheme.of(context).primary,
-                              textStyle: FlutterFlowTheme.of(context)
-                                  .titleSmall
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .titleSmall
-                                          .fontStyle,
-                                    ),
-                                    color: FlutterFlowTheme.of(context).info,
-                                    letterSpacing: 0.0,
+                          ),
+                        ),
+                        FFButtonWidget(
+                          onPressed: () async {
+                            context.pushNamed(
+                              AddExercisesMidSeissionCopyWidget.routeName,
+                              queryParameters: {
+                                'workoutId': serializeParam(
+                                  widget.workoutId,
+                                  ParamType.String,
+                                ),
+                                'addUserEx': serializeParam(
+                                  false,
+                                  ParamType.bool,
+                                ),
+                              }.withoutNulls,
+                            );
+                          },
+                          text: FFLocalizations.of(context).getText(
+                            'toj7tcqv' /* Add Exercises */,
+                          ),
+                          icon: Icon(
+                            Icons.add,
+                            size: 15.0,
+                          ),
+                          options: FFButtonOptions(
+                            width: double.infinity,
+                            height: 50.0,
+                            padding: EdgeInsets.all(8.0),
+                            iconPadding: EdgeInsetsDirectional.fromSTEB(
+                                0.0, 0.0, 0.0, 0.0),
+                            iconColor: FlutterFlowTheme.of(context).info,
+                            color: FlutterFlowTheme.of(context).primary,
+                            textStyle: FlutterFlowTheme.of(context)
+                                .titleSmall
+                                .override(
+                                  font: GoogleFonts.interTight(
                                     fontWeight: FlutterFlowTheme.of(context)
                                         .titleSmall
                                         .fontWeight,
@@ -826,19 +808,27 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                                         .titleSmall
                                         .fontStyle,
                                   ),
-                              elevation: 0.0,
-                              borderSide: BorderSide(
-                                color: Colors.transparent,
-                                width: 1.0,
-                              ),
-                              borderRadius: BorderRadius.circular(16.0),
+                                  color: FlutterFlowTheme.of(context).info,
+                                  letterSpacing: 0.0,
+                                  fontWeight: FlutterFlowTheme.of(context)
+                                      .titleSmall
+                                      .fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(context)
+                                      .titleSmall
+                                      .fontStyle,
+                                ),
+                            elevation: 0.0,
+                            borderSide: BorderSide(
+                              color: Colors.transparent,
+                              width: 1.0,
                             ),
+                            borderRadius: BorderRadius.circular(16.0),
                           ),
-                        ]
-                            .divide(SizedBox(height: 16.0))
-                            .addToStart(SizedBox(height: 20.0))
-                            .addToEnd(SizedBox(height: 20.0)),
-                      ),
+                        ),
+                      ]
+                          .divide(SizedBox(height: 16.0))
+                          .addToStart(SizedBox(height: 20.0))
+                          .addToEnd(SizedBox(height: 20.0)),
                     ),
                   ),
                 ],
