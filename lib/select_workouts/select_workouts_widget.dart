@@ -97,7 +97,7 @@ class _SelectWorkoutsWidgetState extends State<SelectWorkoutsWidget> {
             onPressed: () async {
               FFAppState().dropSetsCreation = [];
               FFAppState().restTimerCreation = null;
-              FFAppState().exerciseSetsCretion = [];
+              FFAppState().exerciseSetsCreation = [];
               FFAppState().loggedSetsCreation = [];
               safeSetState(() {});
 

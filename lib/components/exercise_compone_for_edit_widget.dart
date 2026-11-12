@@ -245,7 +245,7 @@ class _ExerciseComponeForEditWidgetState
                                 onPressed: () async {
                                   _model.completExercise =
                                       await actions.markExerciseCompleted(
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                     FFAppState().loggedSetsCreation.toList(),
                                     widget.exerciseId!,
                                   );
@@ -701,7 +701,7 @@ class _ExerciseComponeForEditWidgetState
                                     .getSetsForEditWorkout(
                                         widget.exerciseId!,
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList())
                                     .toList();
 
@@ -776,7 +776,7 @@ class _ExerciseComponeForEditWidgetState
                                   HapticFeedback.selectionClick();
                                   _model.addSet =
                                       await actions.addSetToExercise(
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                     widget.exerciseId!,
                                     containerExercise2RowList
                                                 .firstOrNull?.isBodyweight ==
@@ -784,7 +784,7 @@ class _ExerciseComponeForEditWidgetState
                                         ? true
                                         : false,
                                   );
-                                  FFAppState().exerciseSetsCretion =
+                                  FFAppState().exerciseSetsCreation =
                                       _model.addSet!.toList().cast<dynamic>();
                                   safeSetState(() {});
 

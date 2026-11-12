@@ -107,7 +107,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
             onPressed: () async {
               FFAppState().loggedSetsCreation = [];
               FFAppState().dropSetsCreation = [];
-              FFAppState().exerciseSetsCretion = [];
+              FFAppState().exerciseSetsCreation = [];
               FFAppState().restTimerCreation = null;
               safeSetState(() {});
 
@@ -137,14 +137,14 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
             Padding(
               padding: EdgeInsetsDirectional.fromSTEB(10.0, 10.0, 10.0, 10.0),
               child: FFButtonWidget(
-                onPressed: (FFAppState().exerciseSetsCretion.length == 0)
+                onPressed: (FFAppState().exerciseSetsCreation.length == 0)
                     ? null
                     : () async {
                         _model.save = await actions.saveWorkoutTemplate(
                           _model.workoutName,
                           currentUserUid,
                           _model.selected.toList(),
-                          FFAppState().exerciseSetsCretion.toList(),
+                          FFAppState().exerciseSetsCreation.toList(),
                           FFAppState().loggedSetsCreation.toList(),
                           FFAppState().dropSetsCreation.toList(),
                           FFAppState().warmUpCreation.toList(),
@@ -154,7 +154,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                         FFAppState().restTimerCreation = null;
                         FFAppState().dropSetsCreation = [];
                         FFAppState().loggedSetsCreation = [];
-                        FFAppState().exerciseSetsCretion = [];
+                        FFAppState().exerciseSetsCreation = [];
                         safeSetState(() {});
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -349,7 +349,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                   child: Builder(
                     builder: (context) {
                       final exercise =
-                          FFAppState().exerciseSetsCretion.toList();
+                          FFAppState().exerciseSetsCreation.toList();
                       if (exercise.isEmpty) {
                         return PlaceHolderWidget();
                       }

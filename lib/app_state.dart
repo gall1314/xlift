@@ -530,33 +530,33 @@ class FFAppState extends ChangeNotifier {
     _PowerSyncUrl = value;
   }
 
-  List<dynamic> _exerciseSetsCretion = [];
-  List<dynamic> get exerciseSetsCretion => _exerciseSetsCretion;
-  set exerciseSetsCretion(List<dynamic> value) {
-    _exerciseSetsCretion = value;
+  List<dynamic> _exerciseSetsCreation = [];
+  List<dynamic> get exerciseSetsCreation => _exerciseSetsCreation;
+  set exerciseSetsCreation(List<dynamic> value) {
+    _exerciseSetsCreation = value;
   }
 
-  void addToExerciseSetsCretion(dynamic value) {
-    exerciseSetsCretion.add(value);
+  void addToExerciseSetsCreation(dynamic value) {
+    exerciseSetsCreation.add(value);
   }
 
-  void removeFromExerciseSetsCretion(dynamic value) {
-    exerciseSetsCretion.remove(value);
+  void removeFromExerciseSetsCreation(dynamic value) {
+    exerciseSetsCreation.remove(value);
   }
 
-  void removeAtIndexFromExerciseSetsCretion(int index) {
-    exerciseSetsCretion.removeAt(index);
+  void removeAtIndexFromExerciseSetsCreation(int index) {
+    exerciseSetsCreation.removeAt(index);
   }
 
-  void updateExerciseSetsCretionAtIndex(
+  void updateExerciseSetsCreationAtIndex(
     int index,
     dynamic Function(dynamic) updateFn,
   ) {
-    exerciseSetsCretion[index] = updateFn(_exerciseSetsCretion[index]);
+    exerciseSetsCreation[index] = updateFn(_exerciseSetsCreation[index]);
   }
 
-  void insertAtIndexInExerciseSetsCretion(int index, dynamic value) {
-    exerciseSetsCretion.insert(index, value);
+  void insertAtIndexInExerciseSetsCreation(int index, dynamic value) {
+    exerciseSetsCreation.insert(index, value);
   }
 
   List<dynamic> _loggedSetsCreation = [];
@@ -964,6 +964,36 @@ class FFAppState extends ChangeNotifier {
   void insertAtIndexInGenerationDates(int index, String value) {
     generationDates.insert(index, value);
     secureStorage.setStringList('ff_generationDates', _generationDates);
+  }
+
+  List<dynamic> _completedExercisesCreation = [];
+  List<dynamic> get completedExercisesCreation => _completedExercisesCreation;
+  set completedExercisesCreation(List<dynamic> value) {
+    _completedExercisesCreation = value;
+  }
+
+  void addToCompletedExercisesCreation(dynamic value) {
+    completedExercisesCreation.add(value);
+  }
+
+  void removeFromCompletedExercisesCreation(dynamic value) {
+    completedExercisesCreation.remove(value);
+  }
+
+  void removeAtIndexFromCompletedExercisesCreation(int index) {
+    completedExercisesCreation.removeAt(index);
+  }
+
+  void updateCompletedExercisesCreationAtIndex(
+    int index,
+    dynamic Function(dynamic) updateFn,
+  ) {
+    completedExercisesCreation[index] =
+        updateFn(_completedExercisesCreation[index]);
+  }
+
+  void insertAtIndexInCompletedExercisesCreation(int index, dynamic value) {
+    completedExercisesCreation.insert(index, value);
   }
 }
 

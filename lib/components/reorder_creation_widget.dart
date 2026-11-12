@@ -45,10 +45,10 @@ class _ReorderCreationWidgetState extends State<ReorderCreationWidget> {
       child: custom_widgets.ReorderExercisesSheet(
         width: MediaQuery.sizeOf(context).width * 1.0,
         height: MediaQuery.sizeOf(context).height * 1.0,
-        items: FFAppState().exerciseSetsCretion,
+        items: FFAppState().exerciseSetsCreation,
         accentColor: FlutterFlowTheme.of(context).secondary,
         onSave: (reorderedItems) async {
-          FFAppState().exerciseSetsCretion =
+          FFAppState().exerciseSetsCreation =
               reorderedItems.toList().cast<dynamic>();
           FFAppState().update(() {});
         },

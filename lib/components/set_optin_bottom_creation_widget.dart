@@ -290,7 +290,7 @@ class _SetOptinBottomCreationWidgetState
                         ),
                       ),
                       if (functions.shouldShowDeleteSetButton(
-                          FFAppState().exerciseSetsCretion.toList(),
+                          FFAppState().exerciseSetsCreation.toList(),
                           widget.exerciseId!))
                         Container(
                           width: double.infinity,
@@ -300,7 +300,7 @@ class _SetOptinBottomCreationWidgetState
                           ),
                         ),
                       if (functions.shouldShowDeleteSetButton(
-                          FFAppState().exerciseSetsCretion.toList(),
+                          FFAppState().exerciseSetsCreation.toList(),
                           widget.exerciseId!))
                         InkWell(
                           splashColor: Colors.transparent,
@@ -310,7 +310,7 @@ class _SetOptinBottomCreationWidgetState
                           onTap: () async {
                             _model.removing =
                                 await actions.removeSetFromExercise(
-                              FFAppState().exerciseSetsCretion.toList(),
+                              FFAppState().exerciseSetsCreation.toList(),
                               widget.exerciseId!,
                               widget.setNumber!,
                             );
@@ -322,7 +322,7 @@ class _SetOptinBottomCreationWidgetState
                             );
                             FFAppState().loggedSetsCreation =
                                 _model.removeLogged1!.toList().cast<dynamic>();
-                            FFAppState().exerciseSetsCretion =
+                            FFAppState().exerciseSetsCreation =
                                 _model.removing!.toList().cast<dynamic>();
                             safeSetState(() {});
                             Navigator.pop(context);

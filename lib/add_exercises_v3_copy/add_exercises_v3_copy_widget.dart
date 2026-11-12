@@ -125,13 +125,13 @@ class _AddExercisesV3CopyWidgetState extends State<AddExercisesV3CopyWidget> {
               _model.add =
                   await actions.initializeWorkoutExerciseSetsFromSelection(
                 selected.toList(),
-                FFAppState().exerciseSetsCretion.toList(),
+                FFAppState().exerciseSetsCreation.toList(),
               );
-              FFAppState().exerciseSetsCretion =
+              FFAppState().exerciseSetsCreation =
                   _model.add!.toList().cast<dynamic>();
               safeSetState(() {});
               _model.rest1 = await actions.initializeExerciseRestTimes(
-                FFAppState().exerciseSetsCretion.toList(),
+                FFAppState().exerciseSetsCreation.toList(),
               );
               FFAppState().restTimerCreation = _model.rest1!;
               safeSetState(() {});
@@ -201,6 +201,7 @@ class _AddExercisesV3CopyWidgetState extends State<AddExercisesV3CopyWidget> {
             onBack: () async {
               context.safePop();
             },
+            onLockedTap: () async {},
           ),
         ),
       ),

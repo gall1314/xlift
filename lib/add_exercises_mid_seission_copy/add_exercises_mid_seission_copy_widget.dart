@@ -173,6 +173,7 @@ class _AddExercisesMidSeissionCopyWidgetState
             onBack: () async {
               context.safePop();
             },
+            onLockedTap: () async {},
           ),
         ),
       ),

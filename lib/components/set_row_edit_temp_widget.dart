@@ -57,7 +57,7 @@ class _SetRowEditTempWidgetState extends State<SetRowEditTempWidget> {
         text: functions
             .getInitialValueForSetField(
                 FFAppState().loggedSetsCreation.toList(),
-                FFAppState().exerciseSetsCretion.toList(),
+                FFAppState().exerciseSetsCreation.toList(),
                 widget.exerciseId!,
                 widget.setNumber!,
                 'reps')
@@ -154,13 +154,13 @@ class _SetRowEditTempWidgetState extends State<SetRowEditTempWidget> {
                                         _model.remove =
                                             await actions.removeSetFromExercise(
                                           FFAppState()
-                                              .exerciseSetsCretion
+                                              .exerciseSetsCreation
                                               .toList(),
                                           widget.exerciseId!,
                                           widget.setNumber!,
                                         );
                                         _shouldSetState = true;
-                                        FFAppState().exerciseSetsCretion =
+                                        FFAppState().exerciseSetsCreation =
                                             _model.remove!
                                                 .toList()
                                                 .cast<dynamic>();

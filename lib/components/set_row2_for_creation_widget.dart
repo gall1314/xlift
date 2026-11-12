@@ -125,13 +125,13 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                                       _model.removeCopy =
                                           await actions.removeSetFromExercise(
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList(),
                                         widget.exerciseId!,
                                         widget.setNumber!,
                                       );
                                       _shouldSetState = true;
-                                      FFAppState().exerciseSetsCretion = _model
+                                      FFAppState().exerciseSetsCreation = _model
                                           .removeCopy!
                                           .toList()
                                           .cast<dynamic>();
@@ -399,7 +399,7 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                                   ),
                                 if (functions.showPlusWeightButton(
                                     widget.bodyweight! ? 1 : 0,
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                     widget.exerciseId!,
                                     widget.setNumber!))
                                   FlutterFlowIconButton(
@@ -416,12 +416,12 @@ class _SetRow2ForCreationWidgetState extends State<SetRow2ForCreationWidget> {
                                       _model.weighted3 =
                                           await actions.markSetWeightedInt(
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList(),
                                         widget.exerciseId!,
                                         widget.setNumber!,
                                       );
-                                      FFAppState().exerciseSetsCretion = _model
+                                      FFAppState().exerciseSetsCreation = _model
                                           .weighted3!
                                           .toList()
                                           .cast<dynamic>();

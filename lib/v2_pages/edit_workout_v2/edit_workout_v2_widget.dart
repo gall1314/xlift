@@ -82,12 +82,12 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
           _model.sets?.toList(),
           _model.simp?.toList(),
         );
-        FFAppState().exerciseSetsCretion =
+        FFAppState().exerciseSetsCreation =
             _model.set1!.toList().cast<dynamic>();
         FFAppState().dropSetsCreation = _model.drop1!.toList().cast<dynamic>();
         safeSetState(() {});
         _model.rest1 = await actions.initializeExerciseRestTimes(
-          FFAppState().exerciseSetsCretion.toList(),
+          FFAppState().exerciseSetsCreation.toList(),
         );
         FFAppState().restTimerCreation = _model.rest1!;
         safeSetState(() {});
@@ -133,7 +133,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
             onPressed: () async {
               FFAppState().dropSetsCreation = [];
               FFAppState().restTimerCreation = null;
-              FFAppState().exerciseSetsCretion = [];
+              FFAppState().exerciseSetsCreation = [];
               FFAppState().loggedSetsCreation = [];
               safeSetState(() {});
 
@@ -164,7 +164,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
               padding: EdgeInsetsDirectional.fromSTEB(10.0, 10.0, 10.0, 10.0),
               child: FFButtonWidget(
                 onPressed: functions.isExerciseSetsEmpty(
-                        FFAppState().exerciseSetsCretion.toList())
+                        FFAppState().exerciseSetsCreation.toList())
                     ? null
                     : () async {
                         if (_model.textController.text == '') {
@@ -181,13 +181,13 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                           for (int loop1Index = 0;
                               loop1Index <
                                   FFAppState()
-                                      .exerciseSetsCretion
+                                      .exerciseSetsCreation
                                       .map((e) => e)
                                       .toList()
                                       .length;
                               loop1Index++) {
                             final currentLoop1Item = FFAppState()
-                                .exerciseSetsCretion
+                                .exerciseSetsCreation
                                 .map((e) => e)
                                 .toList()[loop1Index];
                             _model.uuid = await actions.generateUuidV4();
@@ -210,7 +210,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                             );
                             _model.exsetsAttac = await actions
                                 .attachWorkoutExerciseIdToExerciseSets(
-                              FFAppState().exerciseSetsCretion.toList(),
+                              FFAppState().exerciseSetsCreation.toList(),
                               getJsonField(
                                 currentLoop1Item,
                                 r'''$["exerciseId"]''',
@@ -226,7 +226,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                               ),
                               _model.uuid!,
                             );
-                            FFAppState().exerciseSetsCretion =
+                            FFAppState().exerciseSetsCreation =
                                 _model.exsetsAttac!.toList().cast<dynamic>();
                             FFAppState().dropSetsCreation =
                                 _model.dropattach!.toList().cast<dynamic>();
@@ -234,7 +234,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                           }
                           _model.full = await actions
                               .mergeLoggedExerciseAndDropSetsForEdit(
-                            FFAppState().exerciseSetsCretion.toList(),
+                            FFAppState().exerciseSetsCreation.toList(),
                             FFAppState().loggedSetsCreation.toList(),
                             FFAppState().dropSetsCreation.toList(),
                           );
@@ -291,7 +291,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                             }.withoutNulls,
                           );
 
-                          FFAppState().exerciseSetsCretion = [];
+                          FFAppState().exerciseSetsCreation = [];
                           FFAppState().loggedSetsCreation = [];
                           safeSetState(() {});
                         }
@@ -471,7 +471,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                     builder: (context) {
                       final exercise = functions
                           .buildExerciseTableFromSets(
-                              FFAppState().exerciseSetsCretion.toList())
+                              FFAppState().exerciseSetsCreation.toList())
                           .toList();
                       if (exercise.isEmpty) {
                         return PlaceHolderWidget();

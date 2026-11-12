@@ -30,10 +30,13 @@ import 'package:share_plus/share_plus.dart';
 /// Everything looks at the last 4 weeks (rolling, ending today):
 ///
 /// Consistency 35% - workouts done vs. the weekly goal, each week capped at
-/// the goal; weeks before the first workout don't count. Progress    25% -
-/// per exercise: the latest session vs. the best of the two sessions before
-/// it (est. 1RM, or reps / time when there is no weight). Holding = 70, +3%
-/// or more = 100. Form        20% - average AI form-check score x 10
+/// the goal; weeks before the first workout don't count. The goal is
+/// [weeklyGoal] if given, else the saved weekly plan (WeekPlanner), else the
+/// user's own pace (typical workouts a week over 8 weeks, at least 2), else
+/// 3. Progress    25% - progressive overload. Per exercise: the latest
+/// session vs. the one before it, on the top set (est. 1RM, or reps / time
+/// without weight) and on total volume. Same = 70, +3% or more = 100; more
+/// volume counts at half. Form        20% - average AI form-check score x 10
 /// (set_analysis). Balance     20% - share of sets per muscle group (chest,
 /// back, shoulders, legs, arms, core) vs. a minimum share.
 ///
@@ -56,11 +59,15 @@ import 'package:share_plus/share_plus.dart';
 /// gauge, tier, change since last week) for a two-column row; give it a
 /// height of about 132. Tapping fires [onTap], like the compact card.
 ///
-/// [weeklyGoal]: workouts a week the user aims for (1-7, default 3).
-/// [onFormCheck]: optional. When the tip is about form, the tip card becomes
-/// tappable and fires it (open the camera / a workout). [demoMode]: true
-/// shows built-in sample data (previews, screenshots). [refreshKey]:
-/// optional, any text. Change it to force a reload.
+/// Tapping a pillar on the full page opens what is behind it: the weeks, the
+/// exercises with their numbers, the form averages, the muscle shares.
+///
+/// [weeklyGoal]: optional (1-7). Leave it empty to let the widget work the
+/// goal out (weekly plan, then the user's own pace). [onFormCheck]: optional.
+/// When the tip is about form, the tip card becomes tappable and fires it
+/// (open the camera / a workout). [demoMode]: true shows built-in sample data
+/// (previews, screenshots). [refreshKey]: optional, any text. Change it to
+/// force a reload.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 /// Exercise and muscle names come from the DB through localizedName; Hebrew
@@ -151,11 +158,69 @@ const Map<String, List<String>> _kS = {
     '{p}% du score'
   ],
   'consD': [
-    '{a} of {b} planned workouts',
-    '{a} de {b} entrenos previstos',
-    '{a} מתוך {b} אימונים מתוכננים',
-    '{a} von {b} geplanten Workouts',
-    '{a} séances sur {b} prévues',
+    '{a} of {b} workouts',
+    '{a} de {b} entrenos',
+    '{a} מתוך {b} אימונים',
+    '{a} von {b} Workouts',
+    '{a} séances sur {b}',
+  ],
+  'srcPlan': [
+    'your plan: {g} a week',
+    'tu plan: {g} por semana',
+    'לפי התוכנית: {g} בשבוע',
+    'dein Plan: {g} pro Woche',
+    'ton plan : {g} par semaine'
+  ],
+  'srcHabit': [
+    'your pace: {g} a week',
+    'tu ritmo: {g} por semana',
+    'הקצב שלך: {g} בשבוע',
+    'dein Rhythmus: {g} pro Woche',
+    'ton rythme : {g} par semaine'
+  ],
+  'srcGoal': [
+    'goal: {g} a week',
+    'meta: {g} por semana',
+    'יעד: {g} בשבוע',
+    'Ziel: {g} pro Woche',
+    'objectif : {g} par semaine'
+  ],
+  'planHint': [
+    'Want a different goal? Build a weekly plan.',
+    '¿Quieres otra meta? Crea un plan semanal.',
+    'רוצים יעד אחר? בונים תוכנית שבועית.',
+    'Anderes Ziel? Erstell einen Wochenplan.',
+    'Un autre objectif ? Crée un plan hebdo.'
+  ],
+  'wkNow': [
+    'Last 7 days',
+    'Últimos 7 días',
+    '7 הימים האחרונים',
+    'Letzte 7 Tage',
+    '7 derniers jours'
+  ],
+  'wkAgo': [
+    '{a}–{b} days ago',
+    'Hace {a}–{b} días',
+    'לפני {a}–{b} ימים',
+    'Vor {a}–{b} Tagen',
+    'Il y a {a}–{b} jours'
+  ],
+  'repsN': ['{n} reps', '{n} reps', '{n} חזרות', '{n} Wdh.', '{n} rép.'],
+  'moreVol': [
+    'more volume',
+    'más volumen',
+    'יותר נפח',
+    'mehr Volumen',
+    'plus de volume'
+  ],
+  'low': ['low', 'bajo', 'נמוך', 'niedrig', 'faible'],
+  'noDetail': [
+    'Not enough data yet',
+    'Aún no hay datos suficientes',
+    'עדיין אין מספיק נתונים',
+    'Noch nicht genug Daten',
+    'Pas encore assez de données'
   ],
   'progD': [
     '{u} up · {h} steady · {d} down',
@@ -270,11 +335,11 @@ const Map<String, List<String>> _kS = {
     '8 dernières semaines'
   ],
   'foot': [
-    'Based on your last 4 weeks · goal: {g} workouts a week',
-    'Basado en tus últimas 4 semanas · meta: {g} entrenos por semana',
-    'מבוסס על 4 השבועות האחרונים · יעד: {g} אימונים בשבוע',
-    'Basiert auf deinen letzten 4 Wochen · Ziel: {g} Workouts pro Woche',
-    'Basé sur tes 4 dernières semaines · objectif : {g} séances par semaine',
+    'Based on your last 4 weeks. Tap a row to see what is behind it.',
+    'Basado en tus últimas 4 semanas. Toca una fila para ver el detalle.',
+    'מבוסס על 4 השבועות האחרונים. לחיצה על שורה מציגה את הפירוט.',
+    'Basiert auf deinen letzten 4 Wochen. Tippe auf eine Zeile für Details.',
+    'Basé sur tes 4 dernières semaines. Touche une ligne pour le détail.',
   ],
   'noScore': [
     'No score yet',
@@ -440,6 +505,16 @@ String _fmt1(String lang, double v) {
   }
 }
 
+/// Up to one decimal: 140, 102.5.
+String _fmtNum(String lang, double v) {
+  final double r = (v * 10).round() / 10;
+  try {
+    return intl.NumberFormat('#,##0.#', lang).format(r);
+  } catch (_) {
+    return r == r.roundToDouble() ? r.toInt().toString() : r.toStringAsFixed(1);
+  }
+}
+
 int _tierOf(int total) {
   if (total >= 90) return 4;
   if (total >= 75) return 3;
@@ -517,13 +592,54 @@ class _An {
   final double score; // 0..10
 }
 
-/// One exercise in one workout: the best it reached there.
+/// One exercise in one workout: its top set and its total volume there.
 class _Sess {
-  const _Sess(this.day, this.ts, this.kind, this.m);
+  const _Sess(
+      this.day, this.ts, this.kind, this.m, this.w, this.reps, this.vol);
   final int day;
   final int ts;
-  final int kind; // 1 weighted (est. 1RM), 2 reps only, 3 time
-  final double m;
+  final int kind; // 1 weighted, 2 reps only, 3 time
+  final double m; // top set: est. 1RM (kg), reps, or seconds
+  final double w; // weight of the top set (kind 1)
+  final int reps; // reps of the top set (kind 1 and 2)
+  final double
+      vol; // everything done on the exercise: kg x reps, reps, or seconds
+}
+
+/// Running totals of one exercise in one workout.
+class _Acc {
+  double m1 = 0.0;
+  double w1 = 0.0;
+  int r1 = 0;
+  double v1 = 0.0;
+  double m2 = 0.0;
+  double v2 = 0.0;
+  double m3 = 0.0;
+  double v3 = 0.0;
+}
+
+/// One exercise in the Progress breakdown: the latest session against the
+/// one before it. cls: 1 up, 0 steady, -1 down.
+class _ProgItem {
+  const _ProgItem(this.name, this.kind, this.cls, this.byVolume, this.pw,
+      this.pr, this.pm, this.lw, this.lr, this.lm);
+  final String name; // raw exercise name
+  final int kind;
+  final int cls;
+  final bool byVolume; // up thanks to more volume, top set about the same
+  final double pw;
+  final int pr;
+  final double pm;
+  final double lw;
+  final int lr;
+  final double lm;
+}
+
+class _FormItem {
+  const _FormItem(this.name, this.avg, this.n);
+  final String name; // raw exercise name
+  final double avg;
+  final int n;
 }
 
 /// The score at one point in time. state: 0 no workouts, 1 paused, 2 ok.
@@ -535,19 +651,24 @@ class _Score {
     this.done = 0,
     this.planned = 0,
     this.need = 0,
+    this.weeks = 0,
+    this.weekCounts = const <int>[],
     this.progV,
     this.up = 0,
     this.held = 0,
     this.down = 0,
     this.worstEx = '',
+    this.prog = const <_ProgItem>[],
     this.formV,
     this.formAvg = 0,
     this.formN = 0,
     this.lowEx = '',
     this.lowAvg = 0,
+    this.forms = const <_FormItem>[],
     this.balV,
     this.weak = -1,
     this.weakPct = 0,
+    this.shares = const <double>[],
   });
 
   final int state;
@@ -556,39 +677,49 @@ class _Score {
   final int done;
   final int planned;
   final int need; // workouts still missing in the last 7 days
+  final int weeks; // weeks that count (fewer for a new user)
+  final List<int> weekCounts; // workouts per week, latest first
   final double? progV;
   final int up;
   final int held;
   final int down;
   final String worstEx; // raw exercise name, '' = none
+  final List<_ProgItem> prog;
   final double? formV;
   final double formAvg;
   final int formN;
   final String lowEx; // raw exercise name, '' = none
   final double lowAvg;
+  final List<_FormItem> forms;
   final double? balV;
   final int weak; // group index, -1 = none
   final double weakPct;
+  final List<double> shares; // share of sets per group, empty = not measured
 }
 
+/// goalSrc: 0 default, 1 the weeklyGoal parameter, 2 the weekly plan,
+/// 3 the user's own pace.
 class _ScoreData {
-  const _ScoreData(this.now, this.trend, this.goal, this.groupRaw);
+  const _ScoreData(
+      this.now, this.trend, this.goal, this.goalSrc, this.groupRaw);
   final _Score now;
   final List<int?> trend; // 8 weekly totals, oldest first; last = now
   final int goal;
+  final int goalSrc;
   final List<String> groupRaw; // DB names of the six groups ('' = unknown)
 
   static _ScoreData empty(int goal) => _ScoreData(
         const _Score(state: 0),
         List<int?>.filled(8, null),
         goal,
+        0,
         List<String>.filled(6, ''),
       );
 }
 
 class _Engine {
-  _Engine(this.goal);
-  final int goal;
+  _Engine();
+  int goal = 3;
   final Map<String, int> logDay = {};
   final Map<String, int> logTs = {};
   int? first;
@@ -600,46 +731,69 @@ class _Engine {
 
   /// Collapses the sets into one entry per exercise per workout.
   void prepare() {
-    final Map<int, Map<String, List<double>>> acc = {};
+    final Map<int, Map<String, _Acc>> acc = {};
     for (final s in sets) {
       if (s.assisted || s.drop) continue;
       if (!logDay.containsKey(s.wid)) continue;
-      final Map<String, List<double>> byLog =
-          acc.putIfAbsent(s.ex, () => <String, List<double>>{});
-      final List<double> a =
-          byLog.putIfAbsent(s.wid, () => <double>[0.0, 0.0, 0.0]);
+      final Map<String, _Acc> byLog =
+          acc.putIfAbsent(s.ex, () => <String, _Acc>{});
+      final _Acc a = byLog.putIfAbsent(s.wid, () => _Acc());
       if (s.w > 0 && s.reps > 0) {
         // Epley, same as the Stats tab.
         final double orm = s.reps == 1 ? s.w : s.w * (1 + s.reps / 30.0);
-        if (orm > a[0]) a[0] = orm;
+        if (orm > a.m1) {
+          a.m1 = orm;
+          a.w1 = s.w;
+          a.r1 = s.reps;
+        }
+        a.v1 += s.w * s.reps;
       } else if (s.reps > 0) {
-        if (s.reps > a[1]) a[1] = s.reps.toDouble();
+        if (s.reps > a.m2) a.m2 = s.reps.toDouble();
+        a.v2 += s.reps;
       } else if (s.dur > 0) {
-        if (s.dur > a[2]) a[2] = s.dur;
+        if (s.dur > a.m3) a.m3 = s.dur;
+        a.v3 += s.dur;
       }
     }
     acc.forEach((ex, byLog) {
       final List<_Sess> list = [];
       byLog.forEach((wid, a) {
-        int kind = 0;
-        double m = 0.0;
-        if (a[0] > 0) {
-          kind = 1;
-          m = a[0];
-        } else if (a[1] > 0) {
-          kind = 2;
-          m = a[1];
-        } else if (a[2] > 0) {
-          kind = 3;
-          m = a[2];
-        }
-        if (kind != 0) {
-          list.add(_Sess(logDay[wid] ?? 0, logTs[wid] ?? 0, kind, m));
+        final int day = logDay[wid] ?? 0;
+        final int ts = logTs[wid] ?? 0;
+        if (a.m1 > 0) {
+          list.add(_Sess(day, ts, 1, a.m1, a.w1, a.r1, a.v1));
+        } else if (a.m2 > 0) {
+          list.add(_Sess(day, ts, 2, a.m2, 0.0, a.m2.round(), a.v2));
+        } else if (a.m3 > 0) {
+          list.add(_Sess(day, ts, 3, a.m3, 0.0, 0, a.v3));
         }
       });
       list.sort((x, y) => x.ts.compareTo(y.ts));
       sessions[ex] = list;
     });
+  }
+
+  /// The user's own pace: the typical number of workouts a week over the
+  /// last 8 weeks (weeks without a workout don't count, so one break does
+  /// not lower it). At least 2. Returns 0 with less than two weeks of
+  /// history - too early to call it a habit.
+  int habitGoal(int today) {
+    final int? f = first;
+    if (f == null || today - f < 13) return 0;
+    final List<int> counts = [];
+    for (int k = 0; k < 8; k++) {
+      final int hi = today - 7 * k;
+      if (hi < f) break;
+      int c = 0;
+      for (final int day in logDay.values) {
+        if (day <= hi && day > hi - 7) c++;
+      }
+      if (c > 0) counts.add(c);
+    }
+    if (counts.isEmpty) return 0;
+    counts.sort((x, y) => x.compareTo(y));
+    final int med = counts[(counts.length - 1) ~/ 2];
+    return med < 2 ? 2 : (med > 7 ? 7 : med);
   }
 
   /// The score as it stood on day [a].
@@ -667,11 +821,17 @@ class _Engine {
     final double consV = 100.0 * done / planned;
     final int need = n[0] >= goal ? 0 : goal - n[0];
 
-    // ---- progress ----
+    // ---- progress (progressive overload) ----
+    // Per exercise: the latest session against the one before it. Two
+    // signs count: the top set (est. 1RM / reps / time) and the total
+    // volume of the exercise. More volume with the top set about the same
+    // is progress too (at half strength); a better top set on much less
+    // volume is not.
     double cSum = 0.0;
     int cN = 0, up = 0, held = 0, down = 0;
     int worst = -1;
-    double worstR = 9.0;
+    double worstE = 9.0;
+    final List<_ProgItem> items = [];
     sessions.forEach((ex, list) {
       int li = -1;
       for (int i = list.length - 1; i >= 0; i--) {
@@ -683,36 +843,65 @@ class _Engine {
       if (li < 0) return;
       final _Sess last = list[li];
       if (a - last.day > 27) return;
-      double base = 0.0;
-      int cnt = 0;
-      for (int i = li - 1; i >= 0 && cnt < 2; i--) {
-        final _Sess p = list[i];
-        if (last.day - p.day > 60) break;
-        if (p.kind != last.kind) continue;
-        if (p.m > base) base = p.m;
-        cnt++;
+      int pi = -1;
+      for (int i = li - 1; i >= 0; i--) {
+        if (last.day - list[i].day > 60) break;
+        if (list[i].kind == last.kind) {
+          pi = i;
+          break;
+        }
       }
-      if (cnt == 0 || base <= 0) return;
-      final double r = last.m / base;
-      final double credit = r >= 1
-          ? math.min(1.0, 0.7 + (r - 1) * 10)
-          : math.max(0.2, 0.7 + (r - 1) * 6);
+      if (pi < 0) return;
+      final _Sess prev = list[pi];
+      if (prev.m <= 0) return;
+      final double r = last.m / prev.m;
+      final double v = prev.vol > 0 ? last.vol / prev.vol : 1.0;
+      double e = r;
+      bool byVolume = false;
+      if (r >= 0.98 && v > 1) {
+        final double x = 1 + (v - 1) * 0.5;
+        if (x > e) {
+          e = x;
+          byVolume = r < 1.02;
+        }
+      } else if (r > 1 && v < 0.85) {
+        e = 1.0;
+      }
+      final double credit = e >= 1
+          ? math.min(1.0, 0.7 + (e - 1) * 10)
+          : math.max(0.2, 0.7 + (e - 1) * 6);
       cSum += credit;
       cN++;
-      if (r >= 1.02) {
+      int cls = 0;
+      if (e >= 1.02) {
         up++;
-      } else if (r <= 0.98) {
+        cls = 1;
+      } else if (e <= 0.98) {
         down++;
+        cls = -1;
       } else {
         held++;
       }
-      if (r < worstR) {
-        worstR = r;
+      if (e < worstE) {
+        worstE = e;
         worst = ex;
       }
+      items.add(_ProgItem(
+          exName[ex] ?? '',
+          last.kind,
+          cls,
+          byVolume && cls == 1,
+          prev.w,
+          prev.reps,
+          prev.m,
+          last.w,
+          last.reps,
+          last.m));
     });
+    items.sort(
+        (x, y) => y.cls != x.cls ? y.cls - x.cls : x.name.compareTo(y.name));
     final double? progV = cN >= 2 ? 100.0 * cSum / cN : null;
-    final String worstEx = (progV != null && worst >= 0 && worstR < 1.02)
+    final String worstEx = (progV != null && worst >= 0 && worstE < 1.02)
         ? (exName[worst] ?? '')
         : '';
 
@@ -735,6 +924,7 @@ class _Engine {
     double? formV;
     double formAvg = 0.0, lowAvg = 0.0;
     String lowEx = '';
+    final List<_FormItem> forms = [];
     if (fN > 0) {
       formAvg = fSum / fN;
       formV = 10.0 * formAvg;
@@ -742,11 +932,14 @@ class _Engine {
       int loEx = -1;
       fx.forEach((ex, o) {
         final double av = o[0] / o[1];
+        forms.add(_FormItem(exName[ex] ?? '', av, o[1].round()));
         if (av < lo) {
           lo = av;
           loEx = ex;
         }
       });
+      forms.sort((x, y) =>
+          x.avg != y.avg ? x.avg.compareTo(y.avg) : x.name.compareTo(y.name));
       lowAvg = lo;
       lowEx = exName[loEx] ?? '';
     }
@@ -771,10 +964,12 @@ class _Engine {
     double? balV;
     int weak = -1;
     double weakPct = 0.0;
+    final List<double> shares = [];
     if (inWindow >= 4 && total >= 30) {
       double sum = 0.0, weakD = 0.0;
       for (int i = 0; i < 6; i++) {
         final double share = gs[i] / total;
+        shares.add(share);
         sum += math.min(1.0, share / _kMinShare[i]);
         final double deficit = _kMinShare[i] - share;
         if (deficit > weakD + 1e-9) {
@@ -797,24 +992,29 @@ class _Engine {
       done: done,
       planned: planned,
       need: need,
+      weeks: weeks,
+      weekCounts: n,
       progV: progV,
       up: up,
       held: held,
       down: down,
       worstEx: worstEx,
+      prog: items,
       formV: formV,
       formAvg: formAvg,
       formN: fN,
       lowEx: lowEx,
       lowAvg: lowAvg,
+      forms: forms,
       balV: balV,
       weak: weak,
       weakPct: weakPct,
+      shares: shares,
     );
   }
 }
 
-Future<_ScoreData> _loadScore(String userId, int goal) async {
+Future<_ScoreData> _loadScore(String userId, int? goalParam) async {
   final db = SQLiteManager.instance.database;
   final DateTime now = DateTime.now();
   final int today = _dayNo(now);
@@ -872,7 +1072,7 @@ Future<_ScoreData> _loadScore(String userId, int goal) async {
     );
   } catch (_) {}
 
-  final _Engine en = _Engine(goal);
+  final _Engine en = _Engine();
 
   for (final r in wRows) {
     final String id = (r['id'] ?? '').toString();
@@ -922,6 +1122,41 @@ Future<_ScoreData> _loadScore(String userId, int goal) async {
   }
 
   en.prepare();
+
+  // The weekly goal: the parameter if given, else the saved weekly plan
+  // (WeekPlanner), else the user's own pace, else 3.
+  int goal = 3;
+  int goalSrc = 0;
+  if (goalParam != null) {
+    goal = goalParam;
+    goalSrc = 1;
+  } else {
+    int planGoal = 0;
+    try {
+      final pRows = await db.rawQuery(
+          'SELECT per_week, slots FROM training_plan WHERE id = ?', [userId]);
+      if (pRows.isNotEmpty) {
+        final String slots = (pRows.first['slots'] ?? '').toString().trim();
+        if (slots.isNotEmpty && slots != '[]') {
+          planGoal = _toI(pRows.first['per_week']);
+        }
+      }
+    } catch (_) {
+      // No plan table yet - fine.
+    }
+    if (planGoal >= 1) {
+      goal = planGoal > 7 ? 7 : planGoal;
+      goalSrc = 2;
+    } else {
+      final int habit = en.habitGoal(today);
+      if (habit > 0) {
+        goal = habit;
+        goalSrc = 3;
+      }
+    }
+  }
+  en.goal = goal;
+
   final List<int?> trend = [];
   _Score nowScore = const _Score(state: 0);
   for (int k = 7; k >= 0; k--) {
@@ -929,7 +1164,7 @@ Future<_ScoreData> _loadScore(String userId, int goal) async {
     trend.add(s.total);
     if (k == 0) nowScore = s;
   }
-  return _ScoreData(nowScore, trend, goal, groupRaw);
+  return _ScoreData(nowScore, trend, goal, goalSrc, groupRaw);
 }
 
 /// Sample data for [TrainingScore.demoMode].
@@ -954,11 +1189,26 @@ _ScoreData _demoScore(int goal) {
     balV: 92,
     weak: 5,
     weakPct: 2,
+    weeks: 4,
+    weekCounts: <int>[3, 3, 2, 3],
+    prog: <_ProgItem>[
+      _ProgItem('Squat', 1, 1, false, 100, 5, 116.7, 102.5, 5, 119.6),
+      _ProgItem('Barbell Row', 1, 1, true, 70, 8, 88.7, 70, 8, 88.7),
+      _ProgItem('Pull-up', 2, 1, false, 0, 10, 10, 0, 11, 11),
+      _ProgItem('Overhead Press', 1, 0, false, 50, 6, 60, 50, 6, 60),
+      _ProgItem('Bench Press', 1, -1, false, 82.5, 5, 96.3, 80, 5, 93.3),
+    ],
+    forms: <_FormItem>[
+      _FormItem('Romanian Deadlift', 7.6, 2),
+      _FormItem('Squat', 8.8, 4),
+    ],
+    shares: <double>[0.22, 0.24, 0.12, 0.28, 0.12, 0.02],
   );
   return _ScoreData(
     s,
     const <int?>[71, 74, 73, 78, 80, 79, 83, 86],
     goal,
+    0,
     List<String>.filled(6, ''),
   );
 }
@@ -1150,7 +1400,14 @@ List<_Row> _rowsOf(String lang, _ScoreData? d) {
         s.consV,
         false,
         _tr(lang, 'consD',
-            {'a': s.done.toString(), 'b': s.planned.toString()})),
+                {'a': s.done.toString(), 'b': s.planned.toString()}) +
+            ' · ' +
+            _tr(
+                lang,
+                d.goalSrc == 2
+                    ? 'srcPlan'
+                    : (d.goalSrc == 3 ? 'srcHabit' : 'srcGoal'),
+                {'g': d.goal.toString()})),
     _Row(iProg, 'prog', 25, pv ?? _kNeutral, pv == null, progD),
     _Row(iForm, 'form', 20, fv ?? _kNeutral, fv == null, formD),
     _Row(iBal, 'bal', 20, bv ?? _kNeutral, bv == null, balD),
@@ -1342,12 +1599,15 @@ class _TrainingScoreState extends State<TrainingScore>
   _ScoreData? _data;
   int _token = 0;
   bool _sharing = false;
+  int _openRow = -1; // the pillar whose breakdown is open, -1 = none
   ModalRoute<dynamic>? _route;
 
   bool get _isCompact => widget.compact ?? false;
 
-  int get _goal {
-    final int g = widget.weeklyGoal ?? 3;
+  /// The weeklyGoal parameter, or null = work it out (plan, then pace).
+  int? get _goalParam {
+    final int? g = widget.weeklyGoal;
+    if (g == null) return null;
     return g < 1 ? 1 : (g > 7 ? 7 : g);
   }
 
@@ -1399,17 +1659,17 @@ class _TrainingScoreState extends State<TrainingScore>
   // ---------- data ----------
   Future<void> _load({bool quiet = false}) async {
     final int token = ++_token;
-    final int goal = _goal;
+    final int? goal = _goalParam;
     _ScoreData d;
     try {
       if (widget.demoMode ?? false) {
         await Future<void>.value(); // keeps setState out of the build phase
-        d = _demoScore(goal);
+        d = _demoScore(goal ?? 3);
       } else {
         d = await _loadScore(widget.userId, goal);
       }
     } catch (_) {
-      d = _ScoreData.empty(goal);
+      d = _ScoreData.empty(goal ?? 3);
     }
     if (!mounted || token != _token) return;
     final _ScoreData? old = _data;
@@ -2014,93 +2274,255 @@ class _TrainingScoreState extends State<TrainingScore>
     );
   }
 
+  // ---------- pillar breakdowns ----------
+  String _topLabel(String lang, int kind, double w, int reps, double m) {
+    if (kind == 1) return _fmtNum(lang, w) + ' kg × ' + reps.toString();
+    if (kind == 2) return _tr(lang, 'repsN', {'n': reps.toString()});
+    final int s = m.round();
+    return (s ~/ 60).toString() + ':' + (s % 60).toString().padLeft(2, '0');
+  }
+
+  Widget _line(BuildContext context, _Pal p, String label, String value,
+      {IconData? icon, Color? iconColor, bool strong = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: iconColor ?? p.soft),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _ts(context, 12.5, FontWeight.w500, p.ink, height: 1.3),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            textDirection: ui.TextDirection.ltr,
+            style: _ts(
+                context,
+                12.5,
+                strong ? FontWeight.w700 : FontWeight.w500,
+                strong ? p.ink : p.soft,
+                height: 1.3),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// What is behind one pillar: the weeks, the exercises, the muscle shares.
+  List<Widget> _details(
+      BuildContext context, String lang, _Pal p, int index, _ScoreData d) {
+    final _Score s = d.now;
+    final List<Widget> out = [];
+    if (index == 0) {
+      for (int k = 0; k < s.weeks && k < s.weekCounts.length; k++) {
+        out.add(_line(
+          context,
+          p,
+          k == 0
+              ? _tr(lang, 'wkNow')
+              : _tr(lang, 'wkAgo',
+                  {'a': (7 * k + 1).toString(), 'b': (7 * k + 7).toString()}),
+          s.weekCounts[k].toString() + ' / ' + d.goal.toString(),
+          strong: s.weekCounts[k] >= d.goal,
+        ));
+      }
+      if (d.goalSrc == 0 || d.goalSrc == 3) {
+        out.add(Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(_tr(lang, 'planHint'),
+              style: _ts(context, 12, FontWeight.w400, p.soft, height: 1.35)),
+        ));
+      }
+    } else if (index == 1) {
+      for (int i = 0; i < s.prog.length && i < 16; i++) {
+        final _ProgItem it = s.prog[i];
+        final String last = _topLabel(lang, it.kind, it.lw, it.lr, it.lm);
+        final String value = it.byVolume
+            ? last + ' · ' + _tr(lang, 'moreVol')
+            : _topLabel(lang, it.kind, it.pw, it.pr, it.pm) + ' → ' + last;
+        out.add(_line(
+          context,
+          p,
+          localizedName(it.name, lang),
+          value,
+          icon: it.cls > 0
+              ? Icons.arrow_upward_rounded
+              : (it.cls < 0
+                  ? Icons.arrow_downward_rounded
+                  : Icons.remove_rounded),
+          iconColor: it.cls > 0 ? p.primary : p.soft,
+          strong: it.cls > 0,
+        ));
+      }
+    } else if (index == 2) {
+      for (final _FormItem it in s.forms) {
+        out.add(_line(context, p, localizedName(it.name, lang),
+            _fmt1(lang, it.avg) + '  ·  ' + it.n.toString()));
+      }
+    } else if (s.shares.length == 6) {
+      for (int g = 0; g < 6; g++) {
+        final bool low = s.shares[g] < _kMinShare[g];
+        out.add(_line(
+          context,
+          p,
+          _groupName(lang, d, g),
+          (s.shares[g] * 100).round().toString() +
+              '%' +
+              (low ? '  ·  ' + _tr(lang, 'low') : ''),
+          strong: !low,
+        ));
+      }
+    }
+    if (out.isEmpty) {
+      out.add(Padding(
+        padding: const EdgeInsets.only(top: 7),
+        child: Text(_tr(lang, 'noDetail'),
+            style: _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.3)),
+      ));
+    }
+    return out;
+  }
+
   Widget _pillarRow(
-      BuildContext context, String lang, _Pal p, _Row r, double e) {
+      BuildContext context, String lang, _Pal p, _Row r, double e, int index) {
     final double? v = r.value;
     final String shown = v == null ? '–' : (v * e).round().toString();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: p.mint, shape: BoxShape.circle),
-            child: Icon(r.icon,
-                color: p.primary,
-                size: 20,
-                textDirection: ui.TextDirection.ltr),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      _tr(lang, r.nameKey),
-                      style:
-                          _ts(context, 15, FontWeight.w600, p.ink, height: 1.2),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _tr(lang, 'ofScore', {'p': r.weight.toString()}),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _ts(context, 11.5, FontWeight.w400, p.soft,
+    final _ScoreData? d = _data;
+    final bool can = d != null && d.now.state == 2;
+    final bool open = can && _openRow == index;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: can
+          ? () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _openRow = open ? -1 : index;
+              });
+            }
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: p.mint, shape: BoxShape.circle),
+              child: Icon(r.icon,
+                  color: p.primary,
+                  size: 20,
+                  textDirection: ui.TextDirection.ltr),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        _tr(lang, r.nameKey),
+                        style: _ts(context, 15, FontWeight.w600, p.ink,
                             height: 1.2),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      shown,
-                      style: _ts(
-                          context,
-                          22,
-                          r.muted ? FontWeight.w600 : FontWeight.w700,
-                          r.muted ? p.soft : p.ink,
-                          height: 1.0,
-                          ls: -0.5),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  r.detail,
-                  style:
-                      _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.35),
-                ),
-                const SizedBox(height: 9),
-                SizedBox(
-                  width: double.infinity,
-                  height: 6,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: p.line,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: AlignmentDirectional.centerStart,
-                      widthFactor: v == null ? 0.0 : _c01(v * e / 100),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: r.muted ? p.mute : p.primary,
-                          borderRadius: BorderRadius.circular(3),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _tr(lang, 'ofScore', {'p': r.weight.toString()}),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _ts(context, 11.5, FontWeight.w400, p.soft,
+                              height: 1.2),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        shown,
+                        style: _ts(
+                            context,
+                            22,
+                            r.muted ? FontWeight.w600 : FontWeight.w700,
+                            r.muted ? p.soft : p.ink,
+                            height: 1.0,
+                            ls: -0.5),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          r.detail,
+                          style: _ts(context, 12.5, FontWeight.w400, p.soft,
+                              height: 1.35),
+                        ),
+                      ),
+                      if (can)
+                        Icon(
+                          open
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          size: 18,
+                          color: p.soft,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 9),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 6,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: p.line,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: AlignmentDirectional.centerStart,
+                        widthFactor: v == null ? 0.0 : _c01(v * e / 100),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: r.muted ? p.mute : p.primary,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: open
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: d == null
+                                  ? const <Widget>[]
+                                  : _details(context, lang, p, index, d),
+                            ),
+                          )
+                        : const SizedBox(width: double.infinity),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2110,8 +2532,8 @@ class _TrainingScoreState extends State<TrainingScore>
     final List<Widget> kids = [];
     for (int i = 0; i < rows.length; i++) {
       if (i > 0) kids.add(Container(height: 1, color: p.line));
-      kids.add(_pillarRow(
-          context, lang, p, rows[i], _eo3(_c01((t - 0.25 - i * 0.12) / 0.75))));
+      kids.add(_pillarRow(context, lang, p, rows[i],
+          _eo3(_c01((t - 0.25 - i * 0.12) / 0.75)), i));
     }
     return Container(
       decoration: BoxDecoration(
@@ -2142,7 +2564,7 @@ class _TrainingScoreState extends State<TrainingScore>
     kids.add(Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Text(
-        _tr(lang, 'foot', {'g': (d?.goal ?? _goal).toString()}),
+        _tr(lang, 'foot'),
         textAlign: TextAlign.center,
         style: _ts(context, 12, FontWeight.w400, p.soft, height: 1.4),
       ),
@@ -2197,5 +2619,4 @@ class _TrainingScoreState extends State<TrainingScore>
     );
   }
 }
-// Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

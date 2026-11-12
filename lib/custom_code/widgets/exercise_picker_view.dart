@@ -50,6 +50,11 @@ import 'package:google_fonts/google_fonts.dart';
 /// (exerciseId) stats button on one of the user's own exercises, wherever it
 /// appears (Recent / Custom) onCreate           - the "Create" button (custom
 /// exercise flow) onBack             - the back arrow (null = Navigator.pop)
+/// isPremium          - false: custom exercises are capped at
+/// _kFreeCustomLimit (non-deleted). The Custom section shows "n/3"; once the
+/// cap is reached the Create button shows a lock and opens an "out of free
+/// exercises" sheet instead of the form. onLockedTap        - the sheet's
+/// "Go Pro" button (open the upgrade screen); "Maybe later" just closes it.
 class ExercisePickerView extends StatefulWidget {
   const ExercisePickerView({
     super.key,
@@ -66,6 +71,8 @@ class ExercisePickerView extends StatefulWidget {
     this.onOpenCustomDetails,
     this.onCreate,
     this.onBack,
+    this.isPremium,
+    this.onLockedTap,
   });
 
   final double? width;
@@ -87,6 +94,8 @@ class ExercisePickerView extends StatefulWidget {
   final Future Function(int exerciseId)? onOpenCustomDetails;
   final Future Function()? onCreate;
   final Future Function()? onBack;
+  final bool? isPremium;
+  final Future Function()? onLockedTap;
 
   @override
   State<ExercisePickerView> createState() => _ExercisePickerViewState();
@@ -102,6 +111,8 @@ const double _kRowImage = 72;
 const double _kImageRadius = 14;
 const int _kRecentDays = 30;
 const int _kRecentMax = 8;
+// Free tier: max non-deleted custom exercises per user.
+const int _kFreeCustomLimit = 3;
 // Divider starts where the text starts: row padding + image + gap.
 const double _kDividerIndent = 12 + _kRowImage + 14;
 
@@ -343,6 +354,39 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "{n} im Workout",
     "fr": "{n} au total",
   },
+  "lockTitle": {
+    "en": "You're out of free custom exercises",
+    "es": "Agotaste tus ejercicios personalizados gratis",
+    "he": "נגמרו התרגילים המותאמים בחינם",
+    "de": "Keine kostenlosen eigenen Übungen mehr",
+    "fr": "Plus d'exercices personnalisés gratuits",
+  },
+  "lockBody": {
+    "en":
+        "Free includes {n} custom exercises. Pro includes unlimited custom exercises, unlimited AI form analysis and progress tracking.",
+    "es":
+        "El plan gratis incluye {n} ejercicios personalizados. Pro incluye ejercicios ilimitados, análisis de técnica con IA ilimitado y seguimiento del progreso.",
+    "he":
+        "בחינם יש {n} תרגילים מותאמים אישית. Pro כולל תרגילים ללא הגבלה, ניתוח טכניקה AI ללא הגבלה ומעקב התקדמות.",
+    "de":
+        "Kostenlos sind {n} eigene Übungen enthalten. Pro bietet unbegrenzt eigene Übungen, unbegrenzte KI-Technikanalyse und Fortschrittsverfolgung.",
+    "fr":
+        "L'offre gratuite inclut {n} exercices personnalisés. Pro inclut des exercices illimités, une analyse de technique IA illimitée et le suivi des progrès.",
+  },
+  "lockCta": {
+    "en": "Go Pro - unlimited exercises",
+    "es": "Pasar a Pro - ejercicios ilimitados",
+    "he": "שדרוג ל-Pro - תרגילים ללא הגבלה",
+    "de": "Pro holen - unbegrenzte Übungen",
+    "fr": "Passer à Pro - exercices illimités",
+  },
+  "lockLater": {
+    "en": "Maybe later",
+    "es": "Quizá más tarde",
+    "he": "אולי אחר כך",
+    "de": "Vielleicht später",
+    "fr": "Plus tard",
+  },
 };
 
 // Equipment labels. The table stores English; this is display only.
@@ -556,9 +600,19 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
   final Set<int> _hiddenIds = {};
   List<int> _seedIds = const [];
   bool _busy = false;
+  bool _sheetOpen = false;
 
   _Data? _data;
   String? _error;
+
+  bool get _premium => widget.isPremium ?? false;
+
+  /// The user's non-deleted custom exercises (the query already filters
+  /// is_deleted), regardless of the current search / filters.
+  int get _customCount =>
+      (_data?.exercises ?? const <_Ex>[]).where((e) => e.isCustom).length;
+
+  bool get _customCapped => !_premium && _customCount >= _kFreeCustomLimit;
 
   // Palette from FlutterFlowTheme (resolved in didChangeDependencies).
   Color _bg = const Color(0xFFF2F4F3);
@@ -1366,6 +1420,99 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     );
   }
 
+  // ------------------------- free-tier lock sheet ---------------------------
+
+  /// Create while capped: explain the limit, offer Pro. Same look as the
+  /// app's "out of free checks" sheet. "Go Pro" fires onLockedTap (the page
+  /// navigates to the paywall); "Maybe later" just closes.
+  Future<void> _showLockedSheet() async {
+    if (_sheetOpen) return;
+    _sheetOpen = true;
+    FocusScope.of(context).unfocus();
+    final bool? goPro = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: _card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final bottom = MediaQuery.of(ctx).padding.bottom;
+        return Directionality(
+          textDirection: _dir,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(24, 10, 24, 16 + bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _grabber(),
+                const SizedBox(height: 28),
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: _accent,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: const Icon(Icons.lock_rounded,
+                      size: 44, color: Colors.white),
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  _t('lockTitle'),
+                  textAlign: TextAlign.center,
+                  style: _display(24, w: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _t('lockBody', n: _kFreeCustomLimit),
+                  textAlign: TextAlign.center,
+                  style: _ts(15, color: _inkMuted, height: 1.4),
+                ),
+                const SizedBox(height: 32),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.of(ctx).pop(true);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    height: 56,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _accent,
+                      borderRadius: BorderRadius.circular(_kRadius),
+                    ),
+                    child: Text(
+                      _t('lockCta'),
+                      style: _body(17, w: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(ctx).pop(false),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 14),
+                    child: Text(
+                      _t('lockLater'),
+                      style: _body(16, color: _inkMuted),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    _sheetOpen = false;
+    if (goPro == true && mounted) await widget.onLockedTap?.call();
+  }
+
   // ------------------------------ typography --------------------------------
 
   TextStyle _ts(
@@ -1506,8 +1653,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
               alignment: AlignmentDirectional.centerEnd,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap:
-                    widget.onCreate == null ? null : () => widget.onCreate!(),
+                onTap: _tapCreate,
                 child: Container(
                   height: 40,
                   padding: const EdgeInsetsDirectional.only(start: 10, end: 14),
@@ -1518,11 +1664,17 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_rounded, size: 18, color: _accentDeep),
+                      Icon(
+                          _customCapped
+                              ? Icons.lock_outline_rounded
+                              : Icons.add_rounded,
+                          size: 18,
+                          color: _customCapped ? _inkMuted : _accentDeep),
                       const SizedBox(width: 4),
                       Text(_t('create'),
                           style: _body(14,
-                              w: FontWeight.w700, color: _accentDeep)),
+                              w: FontWeight.w700,
+                              color: _customCapped ? _inkMuted : _accentDeep)),
                     ],
                   ),
                 ),
@@ -1532,6 +1684,15 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
         ],
       ),
     );
+  }
+
+  /// Create: free users at the cap get the lock sheet instead of the form.
+  Future<void> _tapCreate() async {
+    if (_customCapped) {
+      await _showLockedSheet();
+      return;
+    }
+    await widget.onCreate?.call();
   }
 
   Widget _roundIcon(IconData icon,
@@ -1821,7 +1982,13 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
       }
       final custom = visible.where((e) => e.isCustom).toList();
       if (custom.isNotEmpty) {
-        children.addAll(_section(_t('custom'), custom));
+        children.addAll(_section(
+          _t('custom'),
+          custom,
+          // Free tier: show usage against the cap (all custom, not just
+          // the ones passing the current filters).
+          countLabel: _premium ? null : '$_customCount/$_kFreeCustomLimit',
+        ));
       }
       // All: grouped by the first primary muscle's category, in
       // primary_muscle_group order; no muscles → Other.
@@ -1863,7 +2030,8 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     );
   }
 
-  List<Widget> _section(String title, List<_Ex> items, {bool count = true}) {
+  List<Widget> _section(String title, List<_Ex> items,
+      {bool count = true, String? countLabel}) {
     return [
       Padding(
         padding: const EdgeInsets.fromLTRB(_kGutter + 4, 18, _kGutter + 4, 8),
@@ -1871,7 +2039,8 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
           children: [
             Expanded(child: Text(title.toUpperCase(), style: _eyebrow())),
             if (count)
-              Text('${items.length}', style: _body(11, color: _inkFaint)),
+              Text(countLabel ?? '${items.length}',
+                  style: _body(11, color: _inkFaint)),
           ],
         ),
       ),
@@ -2129,7 +2298,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     );
   }
 
-  // ------------------------------ primעיitives --------------------------------
+  // ------------------------------ primitives --------------------------------
 
   Widget _grabber() => Container(
         width: 36,

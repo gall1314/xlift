@@ -53,17 +53,17 @@ class _SupersetCreationWidgetState extends State<SupersetCreationWidget> {
         height: MediaQuery.sizeOf(context).height * 1.0,
         currentExerciseId: widget.currentExerciseId!,
         accentColor: FlutterFlowTheme.of(context).primary,
-        items: FFAppState().exerciseSetsCretion,
+        items: FFAppState().exerciseSetsCreation,
         onSelect: (selectedItem) async {
           _model.superset = await actions.pairSupersetSimple(
-            FFAppState().exerciseSetsCretion.toList(),
+            FFAppState().exerciseSetsCreation.toList(),
             widget.currentExerciseId!,
             getJsonField(
               selectedItem,
               r'''$["exerciseId"]''',
             ),
           );
-          FFAppState().exerciseSetsCretion =
+          FFAppState().exerciseSetsCreation =
               _model.superset!.toList().cast<dynamic>();
           _model.updatePage(() {});
 

@@ -309,7 +309,7 @@ class _ExerciseOptionsBottomWorklogEditWidgetState
                           ),
                         ),
                       ),
-                      if (FFAppState().exerciseSetsCretion.length > 1)
+                      if (FFAppState().exerciseSetsCreation.length > 1)
                         InkWell(
                           splashColor: Colors.transparent,
                           focusColor: Colors.transparent,
@@ -427,10 +427,10 @@ class _ExerciseOptionsBottomWorklogEditWidgetState
                             } else {
                               _model.remove =
                                   await actions.removeExerciseFromExerciseSets(
-                                FFAppState().exerciseSetsCretion.toList(),
+                                FFAppState().exerciseSetsCreation.toList(),
                                 widget.exerciseId!,
                               );
-                              FFAppState().exerciseSetsCretion =
+                              FFAppState().exerciseSetsCreation =
                                   _model.remove!.toList().cast<dynamic>();
                               safeSetState(() {});
                               Navigator.pop(context);

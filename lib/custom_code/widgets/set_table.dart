@@ -213,6 +213,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Wdh.",
     "fr": "reps"
   },
+  "hTargetReps": {
+    "en": "Target reps",
+    "es": "Reps objetivo",
+    "he": "חזרות יעד",
+    "de": "Ziel-Wdh.",
+    "fr": "Reps cibles"
+  },
   "hPrev": {
     "en": "Previous",
     "es": "Anterior",
@@ -650,6 +657,8 @@ class SetTable extends StatefulWidget {
     this.isBodyweight = false,
     this.allowsBodyweight = false,
     this.showHeaders = false,
+    this.isLogEdit = false,
+    this.isTemplate = false,
     this.showCameraGuidance,
     this.exerciseSets,
     this.loggedSets,
@@ -693,6 +702,18 @@ class SetTable extends StatefulWidget {
 
   /// Draw the column header row inside the widget (aligned in RTL too).
   final bool showHeaders;
+
+  /// Editing a logged workout: no warm-ups, no rest timer, no running
+  /// timer on timed sets (typed entry only) and no analysis column.
+  final bool isLogEdit;
+
+  /// Building a workout template (create / edit template): the rows hold
+  /// target reps (or a target duration), there is nothing to complete, no
+  /// weight, no analysis and no running timer. Values are written to the
+  /// creation list in the shape updateLoggedSetForCreationV4 uses:
+  /// {exerciseId, setNumber, isDropSet: 0|1, dropNumber, targetReps,
+  ///  durationSeconds}.
+  final bool isTemplate;
   final bool? showCameraGuidance;
 
   final List<dynamic>? exerciseSets;
@@ -771,10 +792,14 @@ class _SetTableState extends State<SetTable> {
   static const double _restChipH = 36;
 
   // AI exercises keep a 44px action column; the others spread reps / weight.
-  double get _colVal => widget.aiEnabled ? 64 : 80;
-  double get _colAct => widget.aiEnabled ? 44 : 0;
+  /// Log-edit mode has no camera / analysis column at all.
+  bool get _tpl => widget.isTemplate;
+  bool get _ai => widget.aiEnabled && !widget.isLogEdit && !_tpl;
+
+  double get _colVal => _ai ? 64 : 80;
+  double get _colAct => _ai ? 44 : 0;
   double get _colTime => _colVal * 2 + _gap;
-  double get _tail => widget.aiEnabled ? 0 : 18;
+  double get _tail => _ai ? 0 : 18;
 
   // ---------- template ----------
 
@@ -833,12 +858,13 @@ class _SetTableState extends State<SetTable> {
   }
 
   Map? _loggedDrop(int setNumber, int order) {
+    final String orderKey = _tpl ? 'dropNumber' : 'dropOrder';
     for (final l in widget.loggedSets ?? const []) {
       if (l is Map &&
           _asInt(l['exerciseId']) == widget.exerciseId &&
           _asInt(l['setNumber']) == setNumber &&
           _truthy(l['isDropSet']) &&
-          _asInt(l['dropOrder']) == order) return l;
+          _asInt(l[orderKey]) == order) return l;
     }
     return null;
   }
@@ -858,13 +884,15 @@ class _SetTableState extends State<SetTable> {
   /// The set may carry a weight: weighted template, or a bodyweight exercise
   /// that allows added weight (shown as "+" until one is entered).
   bool _canWeight(_TplSet t) =>
-      t.weighted || widget.isBodyweight || widget.allowsBodyweight;
+      !_tpl && (t.weighted || widget.isBodyweight || widget.allowsBodyweight);
   bool _plusMode(_TplSet t) =>
       !t.weighted && (widget.isBodyweight || widget.allowsBodyweight);
 
-  bool _isDone(int setNumber) => _truthy(_base(setNumber)?['isDone']);
+  bool _isDone(int setNumber) => !_tpl && _truthy(_base(setNumber)?['isDone']);
   bool _isSkipped(int setNumber) => _truthy(_base(setNumber)?['isSkipped']);
-  int _loggedMs(int setNumber) => _asInt(_base(setNumber)?['durationMs']);
+  int _loggedMs(int setNumber) => _tpl
+      ? _asInt(_base(setNumber)?['durationSeconds']) * 1000
+      : _asInt(_base(setNumber)?['durationMs']);
 
   /// Latest earlier (non-drop) set of this exercise with a value — the hint.
   int? _prevSetReps(int setNumber) {
@@ -945,6 +973,30 @@ class _SetTableState extends State<SetTable> {
         _asInt(s['setNumber']) == t.setNumber &&
         !_truthy(s['isDropSet']));
     final old = idx >= 0 ? list[idx] : <String, dynamic>{};
+
+    if (_tpl) {
+      // Template row — same shape as updateLoggedSetForCreationV4.
+      final Map<String, dynamic> row = {
+        ...old,
+        'exerciseId': widget.exerciseId,
+        'setNumber': t.setNumber,
+        'isDropSet': 0,
+      };
+      if (clearReps) {
+        row['targetReps'] = null;
+      } else if (reps != null) {
+        row['targetReps'] = reps;
+      }
+      if (durationMs != null)
+        row['durationSeconds'] = (durationMs / 1000).round();
+      if (idx >= 0) {
+        list[idx] = row;
+      } else {
+        list.add(row);
+      }
+      return list;
+    }
+
     final Map<String, dynamic> next = {
       ...old,
       'exerciseId': widget.exerciseId,
@@ -976,11 +1028,31 @@ class _SetTableState extends State<SetTable> {
     double? weight,
     bool keepWeight = false,
   }) {
+    final String orderKey = _tpl ? 'dropNumber' : 'dropOrder';
     final idx = list.indexWhere((s) =>
         _asInt(s['exerciseId']) == widget.exerciseId &&
         _asInt(s['setNumber']) == setNumber &&
         _truthy(s['isDropSet']) &&
-        _asInt(s['dropOrder']) == order);
+        _asInt(s[orderKey]) == order);
+
+    if (_tpl) {
+      final old = idx >= 0 ? list[idx] : <String, dynamic>{};
+      final Map<String, dynamic> row = {
+        ...old,
+        'exerciseId': widget.exerciseId,
+        'setNumber': setNumber,
+        'isDropSet': 1,
+        'dropNumber': order,
+      };
+      if (!keepReps) row['targetReps'] = reps;
+      if (idx >= 0) {
+        list[idx] = row;
+      } else {
+        list.add(row);
+      }
+      return list;
+    }
+
     if (idx >= 0) {
       final old = list[idx];
       list[idx] = {
@@ -1258,6 +1330,7 @@ class _SetTableState extends State<SetTable> {
     await _emit(list);
     _scrollToNext(t.setNumber);
 
+    if (widget.isLogEdit) return; // editing a past workout: no rest timer
     final rest = _restMs();
     if (rest > 0)
       await widget.onStartRest?.call(widget.exerciseId, t.setNumber, rest);
@@ -1308,8 +1381,10 @@ class _SetTableState extends State<SetTable> {
     return null;
   }
 
-  /// Visible warm-up sets (none when hidden / completed).
+  /// Visible warm-up sets (none when hidden / completed, none while editing
+  /// a logged workout).
   List<Map> _warmSets() {
+    if (widget.isLogEdit) return const [];
     final e = _warmEntry();
     if (e == null || _truthy(e['hidden']) || _truthy(e['completed']))
       return const [];
@@ -1588,7 +1663,7 @@ class _SetTableState extends State<SetTable> {
                       ),
               ),
             ],
-            if (widget.aiEnabled) ...[
+            if (_ai) ...[
               const SizedBox(width: _gap),
               SizedBox(width: _colAct),
             ] else
@@ -1749,20 +1824,22 @@ class _SetTableState extends State<SetTable> {
                     color: text.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(2)),
               ),
-              item(
-                done ? Icons.remove_done_rounded : Icons.check_circle_rounded,
-                theme.primary,
-                _tr(lang, done ? 'unmark' : 'markCompleted'),
-                text,
-                () {
-                  Navigator.of(ctx).pop();
-                  if (done) {
-                    _unmark(t);
-                  } else {
-                    _complete(t, lang);
-                  }
-                },
-              ),
+              // nothing to complete while building a template
+              if (!_tpl)
+                item(
+                  done ? Icons.remove_done_rounded : Icons.check_circle_rounded,
+                  theme.primary,
+                  _tr(lang, done ? 'unmark' : 'markCompleted'),
+                  text,
+                  () {
+                    Navigator.of(ctx).pop();
+                    if (done) {
+                      _unmark(t);
+                    } else {
+                      _complete(t, lang);
+                    }
+                  },
+                ),
               if (!widget.isTimed)
                 item(
                   Icons.trending_down_rounded,
@@ -2271,15 +2348,20 @@ class _SetTableState extends State<SetTable> {
             if (widget.isTimed)
               SizedBox(width: _colTime, child: _hdr(_tr(lang, 'hTime'), muted))
             else ...[
-              SizedBox(width: _colVal, child: _hdr(_tr(lang, 'hReps'), muted)),
-              const SizedBox(width: _gap),
               SizedBox(
                   width: _colVal,
-                  child: _hdr(
-                      '${_tr(lang, 'hWeight')} (${_tr(lang, widget.isKg ? 'kg' : 'lbs').toLowerCase()})',
-                      muted)),
+                  child:
+                      _hdr(_tr(lang, _tpl ? 'hTargetReps' : 'hReps'), muted)),
+              if (!_tpl) ...[
+                const SizedBox(width: _gap),
+                SizedBox(
+                    width: _colVal,
+                    child: _hdr(
+                        '${_tr(lang, 'hWeight')} (${_tr(lang, widget.isKg ? 'kg' : 'lbs').toLowerCase()})',
+                        muted)),
+              ],
             ],
-            if (widget.aiEnabled) ...[
+            if (_ai) ...[
               const SizedBox(width: _gap),
               SizedBox(width: _colAct),
             ] else
@@ -2461,7 +2543,7 @@ class _SetTableState extends State<SetTable> {
   Widget _repsRow(_TplSet t, bool done, String lang, bool dark, Color text,
       Color muted, Color accent) {
     final base = _base(t.setNumber);
-    final int? reps = _asIntN(base?['reps']);
+    final int? reps = _asIntN(base?[_tpl ? 'targetReps' : 'reps']);
     final double? weight = _asDoubleN(base?['weight']);
 
     return SizedBox(
@@ -2491,30 +2573,32 @@ class _SetTableState extends State<SetTable> {
                     reps: v, clearReps: v == null)),
               ),
             ),
-            const SizedBox(width: _gap),
-            SizedBox(
-              width: _colVal,
-              child:
-                  !_canWeight(t) || (done && _plusMode(t) && (weight ?? 0) <= 0)
-                      ? Center(
-                          child: Text('-',
-                              style: TextStyle(fontSize: 17, color: muted)))
-                      : _WeightCell(
-                          value: weight,
-                          hint: _plusMode(t) ? 0 : _weightHint(t),
-                          isDone: done,
-                          isKg: widget.isKg,
-                          plusMode: _plusMode(t),
-                          lang: lang,
-                          dark: dark,
-                          textColor: text,
-                          hintColor: muted.withOpacity(0.5),
-                          focusColor: accent,
-                          onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
-                              weight: v, clearWeight: v == null)),
-                        ),
-            ),
-            if (widget.aiEnabled) ...[
+            if (!_tpl) ...[
+              const SizedBox(width: _gap),
+              SizedBox(
+                width: _colVal,
+                child: !_canWeight(t) ||
+                        (done && _plusMode(t) && (weight ?? 0) <= 0)
+                    ? Center(
+                        child: Text('-',
+                            style: TextStyle(fontSize: 17, color: muted)))
+                    : _WeightCell(
+                        value: weight,
+                        hint: _plusMode(t) ? 0 : _weightHint(t),
+                        isDone: done,
+                        isKg: widget.isKg,
+                        plusMode: _plusMode(t),
+                        lang: lang,
+                        dark: dark,
+                        textColor: text,
+                        hintColor: muted.withOpacity(0.5),
+                        focusColor: accent,
+                        onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
+                            weight: v, clearWeight: v == null)),
+                      ),
+              ),
+            ],
+            if (_ai) ...[
               const SizedBox(width: _gap),
               SizedBox(
                   width: _colAct,
@@ -2598,6 +2682,7 @@ class _SetTableState extends State<SetTable> {
                     )
                   : _TimeCell(
                       job: job,
+                      manualOnly: widget.isLogEdit || _tpl,
                       loggedMs: loggedMs,
                       targetMs: t.durationSec * 1000,
                       lang: lang,
@@ -2609,7 +2694,7 @@ class _SetTableState extends State<SetTable> {
                       onManualChanged: (ms) => _commitDuration(t, ms),
                     ),
             ),
-            if (widget.aiEnabled) ...[
+            if (_ai) ...[
               const SizedBox(width: _gap),
               SizedBox(
                   width: _colAct,
@@ -2722,7 +2807,7 @@ class _SetTableState extends State<SetTable> {
               ),
               const SizedBox(width: _gap),
               SizedBox(
-                width: widget.aiEnabled ? _colAct : 44 + _tail - _gap,
+                width: _ai ? _colAct : 44 + _tail - _gap,
                 child: done
                     ? const SizedBox.shrink()
                     : Center(
@@ -2823,7 +2908,7 @@ class _SetTableState extends State<SetTable> {
 
   Widget _analysisCell(
       _TplSet t, bool done, String lang, Color accent, bool dark) {
-    if (!widget.aiEnabled) return const SizedBox.shrink();
+    if (!_ai) return const SizedBox.shrink();
     final a = _analysisFor(t.setNumber);
     final bool processing = _truthy(a?['isProcessing']);
     final bool hasError = _truthy(a?['hasError']);
@@ -4118,6 +4203,7 @@ class _WeightPadSheetState extends State<_WeightPadSheet> {
 class _TimeCell extends StatefulWidget {
   const _TimeCell({
     required this.job,
+    required this.manualOnly,
     required this.loggedMs,
     required this.targetMs,
     required this.lang,
@@ -4129,6 +4215,7 @@ class _TimeCell extends StatefulWidget {
     required this.onManualChanged,
   });
   final _TimerJob job;
+  final bool manualOnly;
   final int loggedMs;
   final int targetMs;
   final String lang;
@@ -4143,6 +4230,17 @@ class _TimeCell extends StatefulWidget {
 class _TimeCellState extends State<_TimeCell>
     with SingleTickerProviderStateMixin, _PadHost<_TimeCell> {
   @override
+  void initState() {
+    super.initState();
+    // No running timer while editing a logged workout — typed entry only.
+    if (widget.manualOnly && widget.job.mode != _TimeMode.manual) {
+      if (widget.job.running) widget.job.pause();
+      widget.job.clear();
+      widget.job.mode = _TimeMode.manual;
+    }
+  }
+
+  @override
   void dispose() {
     disposePad();
     super.dispose();
@@ -4155,6 +4253,7 @@ class _TimeCellState extends State<_TimeCell>
     }
     openPad(() => _TimeSheet(
           job: widget.job,
+          manualOnly: widget.manualOnly,
           colors: _PadColors(widget.dark),
           lang: widget.lang,
           loggedMs: widget.loggedMs,
@@ -4175,8 +4274,8 @@ class _TimeCellState extends State<_TimeCell>
     return ValueListenableBuilder<int>(
       valueListenable: j.tick,
       builder: (_, __, ___) {
-        final bool manual = j.mode == _TimeMode.manual;
-        final bool running = j.running;
+        final bool manual = widget.manualOnly || j.mode == _TimeMode.manual;
+        final bool running = !widget.manualOnly && j.running;
         int shown;
         bool isHint = false;
         if (manual) {
@@ -4283,6 +4382,7 @@ class _TimeCellState extends State<_TimeCell>
 class _TimeSheet extends StatefulWidget {
   const _TimeSheet({
     required this.job,
+    required this.manualOnly,
     required this.colors,
     required this.lang,
     required this.loggedMs,
@@ -4293,6 +4393,7 @@ class _TimeSheet extends StatefulWidget {
     required this.onClose,
   });
   final _TimerJob job;
+  final bool manualOnly;
   final _PadColors colors;
   final String lang;
   final int loggedMs;
@@ -4712,8 +4813,10 @@ class _TimeSheetState extends State<_TimeSheet> {
         : ui.TextDirection.ltr;
     return _sheetShell(
         widget.colors, _rootKey, MediaQuery.of(context).padding.bottom, [
-      _segmented(dir),
-      _mode == _TimeMode.manual ? _manualBody() : _timerBody(dir),
+      if (!widget.manualOnly) _segmented(dir),
+      widget.manualOnly || _mode == _TimeMode.manual
+          ? _manualBody()
+          : _timerBody(dir),
     ]);
   }
 }

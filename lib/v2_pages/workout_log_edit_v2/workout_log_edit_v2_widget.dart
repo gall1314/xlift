@@ -55,7 +55,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
         _model.exEdit!.toList(),
         _model.sets!.toList(),
       );
-      FFAppState().exerciseSetsCretion = _model.set1!.toList().cast<dynamic>();
+      FFAppState().exerciseSetsCreation = _model.set1!.toList().cast<dynamic>();
       safeSetState(() {});
       _model.logged = await actions.buildLoggedSetsCheckedFromGetAllSets(
         _model.sets!.toList(),
@@ -153,7 +153,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                 onPressed: () async {
                   FFAppState().dropSetsCreation = [];
                   FFAppState().restTimerCreation = null;
-                  FFAppState().exerciseSetsCretion = [];
+                  FFAppState().exerciseSetsCreation = [];
                   FFAppState().loggedSetsCreation = [];
                   safeSetState(() {});
                   context.safePop();
@@ -242,7 +242,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                       await SQLiteManager.instance.uPDATEWorkoutLogVolume(
                         newVolume: functions
                             .calculateWorkoutVolumeInt(_model.setsk!.toList(),
-                                FFAppState().exerciseSetsCretion.toList())
+                                FFAppState().exerciseSetsCreation.toList())
                             .toDouble(),
                         workoutLogId: widget.workoutLogId!,
                       );
@@ -712,7 +712,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                         builder: (context) {
                           final list = functions
                               .buildExerciseTableFromSets(
-                                  FFAppState().exerciseSetsCretion.toList())
+                                  FFAppState().exerciseSetsCreation.toList())
                               .toList();
 
                           return ListView.separated(

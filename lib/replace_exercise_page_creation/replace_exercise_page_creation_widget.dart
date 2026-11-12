@@ -2210,11 +2210,11 @@ class _ReplaceExercisePageCreationWidgetState
                         onPressed: () async {
                           _model.replace =
                               await actions.replaceExerciseInExerciseSets(
-                            FFAppState().exerciseSetsCretion.toList(),
+                            FFAppState().exerciseSetsCreation.toList(),
                             widget.exerciseId!,
                             _model.idToReplace!,
                           );
-                          FFAppState().exerciseSetsCretion =
+                          FFAppState().exerciseSetsCreation =
                               _model.replace!.toList().cast<dynamic>();
                           safeSetState(() {});
                           context.safePop();

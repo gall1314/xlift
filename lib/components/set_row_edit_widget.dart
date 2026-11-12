@@ -152,13 +152,13 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                           _model.removeCopy = await actions
                                               .removeSetFromExercise(
                                             FFAppState()
-                                                .exerciseSetsCretion
+                                                .exerciseSetsCreation
                                                 .toList(),
                                             widget.exerciseId!,
                                             widget.setNumber!,
                                           );
                                           _shouldSetState = true;
-                                          FFAppState().exerciseSetsCretion =
+                                          FFAppState().exerciseSetsCreation =
                                               _model.removeCopy!
                                                   .toList()
                                                   .cast<dynamic>();
@@ -240,7 +240,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                                   .dropSetsCreation
                                                   .toList(),
                                               FFAppState()
-                                                  .exerciseSetsCretion
+                                                  .exerciseSetsCreation
                                                   .toList(),
                                               widget.allowsBodyweight!,
                                               widget.timed)) {
@@ -259,7 +259,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                                   widget.exerciseId!,
                                                   widget.setNumber!,
                                                   FFAppState()
-                                                      .exerciseSetsCretion
+                                                      .exerciseSetsCreation
                                                       .toList()),
                                               functions.getWeightFromLoggedSets(
                                                   FFAppState()
@@ -270,7 +270,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                               functions.resolveSetDurationMs(
                                                   _model.durationMs,
                                                   FFAppState()
-                                                      .exerciseSetsCretion
+                                                      .exerciseSetsCreation
                                                       .toList(),
                                                   widget.exerciseId!,
                                                   widget.setNumber!,
@@ -279,7 +279,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                                       .toList()),
                                               true,
                                               FFAppState()
-                                                  .exerciseSetsCretion
+                                                  .exerciseSetsCreation
                                                   .toList(),
                                             );
                                             HapticFeedback.heavyImpact();
@@ -516,7 +516,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                     FFAppState().loggedSetsCreation.toList(),
                                     widget.exerciseId!,
                                     widget.setNumber!,
-                                    FFAppState().exerciseSetsCretion.toList()),
+                                    FFAppState().exerciseSetsCreation.toList()),
                                 functions.getWeightFromLoggedSets(
                                     FFAppState().loggedSetsCreation.toList(),
                                     widget.exerciseId!,
@@ -572,7 +572,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                 widget.exerciseId!,
                                 widget.setNumber!,
                                 FFAppState().loggedSets.toList(),
-                                FFAppState().exerciseSetsCretion.toList(),
+                                FFAppState().exerciseSetsCreation.toList(),
                                 widget.timed),
                             plusButtonSize: 35.0,
                             loggedSets: FFAppState().loggedSetsCreation,
@@ -586,14 +586,14 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                     FFAppState().loggedSetsCreation.toList(),
                                     widget.exerciseId!,
                                     widget.setNumber!,
-                                    FFAppState().exerciseSetsCretion.toList()),
+                                    FFAppState().exerciseSetsCreation.toList()),
                                 functions.getWeightFromLoggedSets(
                                     FFAppState().loggedSetsCreation.toList(),
                                     widget.exerciseId!,
                                     widget.setNumber!),
                                 _model.durationMs,
                                 false,
-                                FFAppState().exerciseSetsCretion.toList(),
+                                FFAppState().exerciseSetsCreation.toList(),
                               );
                               FFAppState().loggedSetsCreation = _model
                                   .weightUpdate2!
@@ -650,14 +650,14 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                     FFAppState().loggedSetsCreation.toList(),
                                     widget.exerciseId!,
                                     widget.setNumber!,
-                                    FFAppState().exerciseSetsCretion.toList()),
+                                    FFAppState().exerciseSetsCreation.toList()),
                                 functions.getWeightFromLoggedSets(
                                     FFAppState().loggedSets.toList(),
                                     widget.exerciseId!,
                                     widget.setNumber!),
                                 _model.durationMs,
                                 false,
-                                FFAppState().exerciseSetsCretion.toList(),
+                                FFAppState().exerciseSetsCreation.toList(),
                               );
                               _model.expand = false;
                               safeSetState(() {});
@@ -712,7 +712,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                     widget.setNumber!,
                                     _model.durationMs,
                                     FFAppState().dropSetsCreation.toList(),
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                     widget.allowsBodyweight!,
                                     widget.timed)) {
                                   _model.doneTrue =
@@ -727,7 +727,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                         widget.exerciseId!,
                                         widget.setNumber!,
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList()),
                                     functions.getWeightFromLoggedSets(
                                         FFAppState().loggedSets.toList(),
@@ -736,7 +736,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                     functions.resolveSetDurationMs(
                                         _model.durationMs,
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList(),
                                         widget.exerciseId!,
                                         widget.setNumber!,
@@ -744,7 +744,7 @@ class _SetRowEditWidgetState extends State<SetRowEditWidget> {
                                             .loggedSetsCreation
                                             .toList()),
                                     true,
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                   );
                                   FFAppState().loggedSetsCreation =
                                       _model.doneTrue!.toList().cast<dynamic>();

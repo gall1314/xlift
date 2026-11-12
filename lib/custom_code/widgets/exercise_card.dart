@@ -316,6 +316,8 @@ class ExerciseCard extends StatefulWidget {
     required this.exerciseId,
     this.isLiveWorkout = true,
     this.exerciseCount = 1,
+    this.isLogEdit = false,
+    this.isTemplate = false,
     this.showCameraGuidance,
     this.onHeaderTap,
     this.onCustomHeaderTap,
@@ -340,6 +342,15 @@ class ExerciseCard extends StatefulWidget {
 
   /// Number of exercises in the workout ("Reorder" only when > 1).
   final int exerciseCount;
+
+  /// Editing a logged workout: no rest button, no superset, no warm-up,
+  /// no analysis, and a short options menu.
+  final bool isLogEdit;
+
+  /// Building a workout template (create / edit template): target reps only,
+  /// nothing to complete, no weight and no analysis. The rest time is still
+  /// set here, because it is saved with the template.
+  final bool isTemplate;
   final bool? showCameraGuidance;
 
   final Future Function()? onHeaderTap;
@@ -428,7 +439,7 @@ class _ExerciseCardState extends State<ExerciseCard> {
   bool get _live => widget.isLiveWorkout;
 
   List<dynamic> get _exerciseSets => List<dynamic>.from(
-      _live ? FFAppState().exercisesets : FFAppState().exerciseSetsCretion);
+      _live ? FFAppState().exercisesets : FFAppState().exerciseSetsCreation);
   List<dynamic> get _loggedSets => List<dynamic>.from(
       _live ? FFAppState().loggedSets : FFAppState().loggedSetsCreation);
   List<dynamic> get _dropSets => List<dynamic>.from(
@@ -439,8 +450,9 @@ class _ExerciseCardState extends State<ExerciseCard> {
       _live ? FFAppState().restTimers : FFAppState().restTimerCreation;
   List<dynamic> get _analysisState =>
       List<dynamic>.from(FFAppState().workoutAnalysisState);
-  List<dynamic> get _completed =>
-      List<dynamic>.from(FFAppState().completedExercises);
+  List<dynamic> get _completed => List<dynamic>.from(_live
+      ? FFAppState().completedExercises
+      : FFAppState().completedExercisesCreation);
 
   void _write(void Function(FFAppState s) f) =>
       FFAppState().update(() => f(FFAppState()));
@@ -449,7 +461,7 @@ class _ExerciseCardState extends State<ExerciseCard> {
         if (_live) {
           s.exercisesets = v;
         } else {
-          s.exerciseSetsCretion = v;
+          s.exerciseSetsCreation = v;
         }
       });
   Future<void> _setLoggedSets(List<dynamic> v) async => _write((s) {
@@ -475,8 +487,13 @@ class _ExerciseCardState extends State<ExerciseCard> {
       });
   Future<void> _setAnalysisState(List<dynamic> v) async =>
       _write((s) => s.workoutAnalysisState = v);
-  Future<void> _setCompleted(List<dynamic> v) async =>
-      _write((s) => s.completedExercises = v);
+  Future<void> _setCompleted(List<dynamic> v) async => _write((s) {
+        if (_live) {
+          s.completedExercises = v;
+        } else {
+          s.completedExercisesCreation = v;
+        }
+      });
   Future<void> _setRestMs(int ms) async {
     final Map<String, dynamic> m = {};
     final cur = _restTimers;
@@ -685,14 +702,15 @@ class _ExerciseCardState extends State<ExerciseCard> {
               const SizedBox(height: 4),
               item(Icons.refresh_rounded, theme.primary, _tr(lang, 'replace'),
                   () async => widget.onReplaceExercise?.call()),
-              superset
-                  ? item(Icons.link_off_rounded, const Color(0xFF7C3AED),
-                      _tr(lang, 'cancelSuperset'), _cancelSuperset)
-                  : item(
-                      Icons.link_rounded,
-                      const Color(0xFF7C3AED),
-                      _tr(lang, 'superset'),
-                      () async => widget.onSupersetTap?.call()),
+              if (!widget.isLogEdit)
+                superset
+                    ? item(Icons.link_off_rounded, const Color(0xFF7C3AED),
+                        _tr(lang, 'cancelSuperset'), _cancelSuperset)
+                    : item(
+                        Icons.link_rounded,
+                        const Color(0xFF7C3AED),
+                        _tr(lang, 'superset'),
+                        () async => widget.onSupersetTap?.call()),
               item(
                   Icons.bar_chart_rounded,
                   const Color(0xFF64748B),
@@ -700,9 +718,13 @@ class _ExerciseCardState extends State<ExerciseCard> {
                   () async => _isCustom
                       ? widget.onCustomViewHistory?.call()
                       : widget.onViewHistory?.call()),
-              item(Icons.local_fire_department_rounded, const Color(0xFF38BDF8),
-                  _tr(lang, 'warmup'), () async => _openWarmupGenerator(lang),
-                  chevron: !hasWarmup),
+              if (!widget.isLogEdit)
+                item(
+                    Icons.local_fire_department_rounded,
+                    const Color(0xFF38BDF8),
+                    _tr(lang, 'warmup'),
+                    () async => _openWarmupGenerator(lang),
+                    chevron: !hasWarmup),
               if (widget.exerciseCount > 1)
                 item(Icons.menu_rounded, const Color(0xFF64748B),
                     _tr(lang, 'reorder'), () async => widget.onReorder?.call()),
@@ -894,7 +916,10 @@ class _ExerciseCardState extends State<ExerciseCard> {
     final String lang = _langOf(context);
     final bool rtl = _kRtl.contains(lang);
     final bool dark = Theme.of(context).brightness == Brightness.dark;
-    final bool complete = _isComplete;
+    // While editing a logged workout the card never collapses: every set is
+    // already done, and the ✓ is just a marker the user can toggle.
+    final bool complete =
+        _isComplete && !widget.isLogEdit && !widget.isTemplate;
     final Color border =
         dark ? const Color(0xFF2A3644) : const Color(0xFFE3E7EB);
 
@@ -926,7 +951,7 @@ class _ExerciseCardState extends State<ExerciseCard> {
                               ? const Color(0xFF5EEAD4)
                               : const Color(0xFF0F766E))),
                 ),
-              if (!complete) ...[
+              if (!complete && !widget.isLogEdit) ...[
                 if (_isSuperset) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -954,7 +979,7 @@ class _ExerciseCardState extends State<ExerciseCard> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (_live)
+            if ((_live || widget.isLogEdit) && !widget.isTemplate)
               ExerciseFinishButton(
                 exerciseId: widget.exerciseId,
                 exerciseName: localizedName(_nameRaw, lang),
@@ -1005,6 +1030,8 @@ class _ExerciseCardState extends State<ExerciseCard> {
             isBodyweight: _isBodyweight,
             allowsBodyweight: _allowsBodyweight,
             showHeaders: true,
+            isLogEdit: widget.isLogEdit,
+            isTemplate: widget.isTemplate,
             showCameraGuidance: widget.showCameraGuidance,
             exerciseSets: _exerciseSets,
             loggedSets: _loggedSets,

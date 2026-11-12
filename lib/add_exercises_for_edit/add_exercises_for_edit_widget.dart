@@ -61,7 +61,7 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       _model.selected = functions
           .extractExerciseIdsFromExerciseSets(
-              FFAppState().exerciseSetsCretion.toList())
+              FFAppState().exerciseSetsCreation.toList())
           .toList()
           .cast<int>();
       safeSetState(() {});
@@ -119,7 +119,7 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
             onConfirm: (selected) async {
               _model.updatedListCopy =
                   await actions.syncExerciseSetsWithSelectedIds(
-                FFAppState().exerciseSetsCretion.toList(),
+                FFAppState().exerciseSetsCreation.toList(),
                 selected.toList(),
               );
               _model.newRestCopy =
@@ -127,7 +127,7 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
                 FFAppState().restTimerCreation,
                 selected.toList(),
               );
-              FFAppState().exerciseSetsCretion =
+              FFAppState().exerciseSetsCreation =
                   _model.updatedListCopy!.toList().cast<dynamic>();
               FFAppState().restTimerCreation = _model.newRestCopy!;
               safeSetState(() {});
@@ -196,6 +196,7 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
             onBack: () async {
               context.safePop();
             },
+            onLockedTap: () async {},
           ),
         ),
       ),

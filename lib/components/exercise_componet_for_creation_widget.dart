@@ -171,7 +171,7 @@ class _ExerciseComponetForCreationWidgetState
                                 ),
                               ),
                               if (functions.isExerciseSuperset(
-                                  FFAppState().exerciseSetsCretion.toList(),
+                                  FFAppState().exerciseSetsCreation.toList(),
                                   widget.exerciseId!))
                                 Container(
                                   width: 95.0,
@@ -694,7 +694,7 @@ class _ExerciseComponetForCreationWidgetState
                                 final setList = functions
                                     .getSetCountForExercise(
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList(),
                                         widget.exerciseId!)
                                     .toList();
@@ -765,7 +765,7 @@ class _ExerciseComponetForCreationWidgetState
                                   HapticFeedback.selectionClick();
                                   _model.addSet =
                                       await actions.addSetToExercise(
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                     widget.exerciseId!,
                                     containerExercise2RowList
                                                 .firstOrNull?.isBodyweight ==
@@ -773,7 +773,7 @@ class _ExerciseComponetForCreationWidgetState
                                         ? true
                                         : false,
                                   );
-                                  FFAppState().exerciseSetsCretion =
+                                  FFAppState().exerciseSetsCreation =
                                       _model.addSet!.toList().cast<dynamic>();
                                   safeSetState(() {});
 

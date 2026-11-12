@@ -171,8 +171,12 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               },
               onAddExercises: () async {
                 context.pushNamed(
-                  AddExercisesV3CopyWidget.routeName,
+                  AddExercisesMidSeissionCopyWidget.routeName,
                   queryParameters: {
+                    'workoutId': serializeParam(
+                      widget.workoutId,
+                      ParamType.String,
+                    ),
                     'addUserEx': serializeParam(
                       false,
                       ParamType.bool,
@@ -180,6 +184,12 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                   }.withoutNulls,
                 );
               },
+              onAddExercisesEdit: () async {},
+              onAddExercisesTemplate: () async {},
+              onSave: () async {},
+              onWorkoutNameChanged: (name) async {},
+              onWorkoutDateChanged: (date) async {},
+              onDurationChanged: (minutes) async {},
               onHeaderTap: (exerciseId) async {
                 context.pushNamed(
                   ExerciseHistoryWidget.routeName,

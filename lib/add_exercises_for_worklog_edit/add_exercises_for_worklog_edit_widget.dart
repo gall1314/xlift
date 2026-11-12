@@ -85,14 +85,14 @@ class _AddExercisesForWorklogEditWidgetState
             languageCode: FFLocalizations.of(context).languageCode,
             isLiveWorkout: false,
             originalSelection: widget.alreadySelceted,
-            liveExerciseSets: FFAppState().exerciseSetsCretion,
+            liveExerciseSets: FFAppState().exerciseSetsCreation,
             onConfirm: (selected) async {
               _model.addedCopy =
                   await actions.addExercisesToExerciseSetsInWorkout(
-                FFAppState().exerciseSetsCretion.toList(),
+                FFAppState().exerciseSetsCreation.toList(),
                 selected.toList(),
               );
-              FFAppState().exerciseSetsCretion =
+              FFAppState().exerciseSetsCreation =
                   _model.addedCopy!.toList().cast<dynamic>();
               safeSetState(() {});
 
@@ -152,6 +152,7 @@ class _AddExercisesForWorklogEditWidgetState
             onBack: () async {
               context.safePop();
             },
+            onLockedTap: () async {},
           ),
         ),
       ),

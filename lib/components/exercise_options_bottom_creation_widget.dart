@@ -225,7 +225,7 @@ class _ExerciseOptionsBottomCreationWidgetState
                         ),
                       ),
                       if (!functions.isExerciseSuperset(
-                          FFAppState().exerciseSetsCretion.toList(),
+                          FFAppState().exerciseSetsCreation.toList(),
                           widget.exerciseId!))
                         InkWell(
                           splashColor: Colors.transparent,
@@ -307,7 +307,7 @@ class _ExerciseOptionsBottomCreationWidgetState
                           ),
                         ),
                       if (functions.isExerciseSuperset(
-                          FFAppState().exerciseSetsCretion.toList(),
+                          FFAppState().exerciseSetsCreation.toList(),
                           widget.exerciseId!))
                         InkWell(
                           splashColor: Colors.transparent,
@@ -318,10 +318,10 @@ class _ExerciseOptionsBottomCreationWidgetState
                             HapticFeedback.selectionClick();
                             _model.cancSuperset =
                                 await actions.unpairSupersetByExercise(
-                              FFAppState().exerciseSetsCretion.toList(),
+                              FFAppState().exerciseSetsCreation.toList(),
                               widget.exerciseId!,
                             );
-                            FFAppState().exerciseSetsCretion =
+                            FFAppState().exerciseSetsCreation =
                                 _model.cancSuperset!.toList().cast<dynamic>();
                             safeSetState(() {});
                             Navigator.pop(context);
@@ -557,7 +557,7 @@ class _ExerciseOptionsBottomCreationWidgetState
                           ),
                         ),
                       ),
-                      if (FFAppState().exerciseSetsCretion.length > 1)
+                      if (FFAppState().exerciseSetsCreation.length > 1)
                         InkWell(
                           splashColor: Colors.transparent,
                           focusColor: Colors.transparent,
@@ -675,10 +675,10 @@ class _ExerciseOptionsBottomCreationWidgetState
                             } else {
                               _model.remove =
                                   await actions.removeExerciseFromExerciseSets(
-                                FFAppState().exerciseSetsCretion.toList(),
+                                FFAppState().exerciseSetsCreation.toList(),
                                 widget.exerciseId!,
                               );
-                              FFAppState().exerciseSetsCretion =
+                              FFAppState().exerciseSetsCreation =
                                   _model.remove!.toList().cast<dynamic>();
                               safeSetState(() {});
                               Navigator.pop(context);

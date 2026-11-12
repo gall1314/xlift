@@ -647,7 +647,7 @@ class _ExerciseComponetFornEdit2WidgetState
                                 final setList = functions
                                     .getSetCountForExercise(
                                         FFAppState()
-                                            .exerciseSetsCretion
+                                            .exerciseSetsCreation
                                             .toList(),
                                         widget.exerciseId!)
                                     .toList();
@@ -701,7 +701,7 @@ class _ExerciseComponetFornEdit2WidgetState
                                   HapticFeedback.selectionClick();
                                   _model.addSet =
                                       await actions.addSetToExercise(
-                                    FFAppState().exerciseSetsCretion.toList(),
+                                    FFAppState().exerciseSetsCreation.toList(),
                                     widget.exerciseId!,
                                     containerExercise2RowList
                                                 .firstOrNull?.isBodyweight ==
@@ -709,7 +709,7 @@ class _ExerciseComponetFornEdit2WidgetState
                                         ? true
                                         : false,
                                   );
-                                  FFAppState().exerciseSetsCretion =
+                                  FFAppState().exerciseSetsCreation =
                                       _model.addSet!.toList().cast<dynamic>();
                                   safeSetState(() {});
 
