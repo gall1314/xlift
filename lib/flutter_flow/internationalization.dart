@@ -1317,37 +1317,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'he': 'הצע תכונה',
     },
   },
-  // editWorkoutV2
-  {
-    '7fgre2jr': {
-      'en': '',
-      'de': '',
-      'es': '',
-      'fr': '',
-      'he': '',
-    },
-    '40roqkvg': {
-      'en': 'Add exercises',
-      'de': 'Übungen hinzufügen',
-      'es': 'Agregar ejercicios',
-      'fr': 'Ajouter des exercices',
-      'he': 'הוספת תרגילים',
-    },
-    '62rcsx1a': {
-      'en': 'Save',
-      'de': 'Speichern',
-      'es': 'Guardar',
-      'fr': 'Enregistrer',
-      'he': 'שמירה',
-    },
-    '1eaq2q45': {
-      'en': 'Edit Workout',
-      'de': 'Training bearbeiten',
-      'es': 'Editar entrenamiento',
-      'fr': 'Modifier l\'entraînement',
-      'he': 'עריכת אימון',
-    },
-  },
   // profEditV2
   {
     '6vw3sskc': {

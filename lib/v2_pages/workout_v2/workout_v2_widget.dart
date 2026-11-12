@@ -109,6 +109,8 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               height: MediaQuery.sizeOf(context).height * 1.0,
               isLiveWorkout: true,
               showCameraGuidance: true,
+              isWorkoutLogEdit: false,
+              isTemplateMode: false,
               onBack: () async {
                 context.pop();
               },
