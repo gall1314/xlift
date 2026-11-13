@@ -166,6 +166,10 @@ class FFAppState extends ChangeNotifier {
           await secureStorage.getStringList('ff_generationDates') ??
               _generationDates;
     });
+    await _safeInitAsync(() async {
+      _dontShowGuidenc =
+          await secureStorage.getBool('ff_dontShowGuidenc') ?? _dontShowGuidenc;
+    });
   }
 
   void update(VoidCallback callback) {
@@ -994,6 +998,49 @@ class FFAppState extends ChangeNotifier {
 
   void insertAtIndexInCompletedExercisesCreation(int index, dynamic value) {
     completedExercisesCreation.insert(index, value);
+  }
+
+  bool _dontShowGuidenc = false;
+  bool get dontShowGuidenc => _dontShowGuidenc;
+  set dontShowGuidenc(bool value) {
+    _dontShowGuidenc = value;
+    secureStorage.setBool('ff_dontShowGuidenc', value);
+  }
+
+  void deleteDontShowGuidenc({bool resetState = false}) {
+    if (resetState) {
+      _dontShowGuidenc = false;
+    }
+    secureStorage.delete(key: 'ff_dontShowGuidenc');
+  }
+
+  List<dynamic> _analysisStateCreation = [];
+  List<dynamic> get analysisStateCreation => _analysisStateCreation;
+  set analysisStateCreation(List<dynamic> value) {
+    _analysisStateCreation = value;
+  }
+
+  void addToAnalysisStateCreation(dynamic value) {
+    analysisStateCreation.add(value);
+  }
+
+  void removeFromAnalysisStateCreation(dynamic value) {
+    analysisStateCreation.remove(value);
+  }
+
+  void removeAtIndexFromAnalysisStateCreation(int index) {
+    analysisStateCreation.removeAt(index);
+  }
+
+  void updateAnalysisStateCreationAtIndex(
+    int index,
+    dynamic Function(dynamic) updateFn,
+  ) {
+    analysisStateCreation[index] = updateFn(_analysisStateCreation[index]);
+  }
+
+  void insertAtIndexInAnalysisStateCreation(int index, dynamic value) {
+    analysisStateCreation.insert(index, value);
   }
 }
 

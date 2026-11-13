@@ -1,18 +1,19 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
-import '/components/exercise_compone_for_edit_widget.dart';
-import '/components/workout_change_cupertino_widget.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/components/analyze2_app_after_edit_widget.dart';
+import '/components/remove_exercise_from_workout_alert_widget.dart';
+import '/components/reorder_creation_widget.dart';
+import '/components/replace_new_widget.dart';
+import '/components/superset_creation_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/instant_timer.dart';
 import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'workout_log_edit_v2_model.dart';
 export 'workout_log_edit_v2_model.dart';
@@ -137,664 +138,262 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
           child: Scaffold(
             key: scaffoldKey,
             backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-            appBar: AppBar(
-              backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
-              automaticallyImplyLeading: false,
-              leading: FlutterFlowIconButton(
-                borderColor: Colors.transparent,
-                borderRadius: 30.0,
-                borderWidth: 1.0,
-                buttonSize: 60.0,
-                icon: Icon(
-                  Icons.chevron_left,
-                  color: FlutterFlowTheme.of(context).secondaryText,
-                  size: 30.0,
-                ),
-                onPressed: () async {
-                  FFAppState().dropSetsCreation = [];
-                  FFAppState().restTimerCreation = null;
-                  FFAppState().exerciseSetsCreation = [];
-                  FFAppState().loggedSetsCreation = [];
-                  safeSetState(() {});
-                  context.safePop();
-                },
-              ),
-              title: Text(
-                FFLocalizations.of(context).getText(
-                  'ii4brc6e' /* Edit Workout */,
-                ),
-                style: FlutterFlowTheme.of(context).titleMedium.override(
-                      font: GoogleFonts.interTight(
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                      ),
-                      fontSize: 16.0,
-                      letterSpacing: 0.0,
-                      fontWeight:
-                          FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                    ),
-              ),
-              actions: [
-                Padding(
-                  padding: EdgeInsets.all(5.0),
-                  child: FFButtonWidget(
-                    onPressed: () async {
-                      await SQLiteManager.instance.deleteSetLogs(
-                        workoutLogId: widget.workoutLogId!,
-                      );
-                      _model.setsk = await actions.getAllSets(
-                        FFAppState().loggedSetsCreation.toList(),
-                      );
-                      for (int loop1Index = 0;
-                          loop1Index < _model.setsk!.length;
-                          loop1Index++) {
-                        final currentLoop1Item = _model.setsk![loop1Index];
-                        _model.uuid = await actions.generateUuidV4();
-                        await SQLiteManager.instance.setLogTest(
-                          workoutLogId: widget.workoutLogId!,
-                          createdAt: dateTimeFormat(
-                            "yyyy-MM-dd HH:mm:ss",
-                            getCurrentTimestamp,
-                            locale: FFLocalizations.of(context).languageCode,
-                          ),
-                          exerciseId: getJsonField(
-                            currentLoop1Item,
-                            r'''$["exerciseId"]''',
-                          ),
-                          setNumber: getJsonField(
-                            currentLoop1Item,
-                            r'''$["setNumber"]''',
-                          ),
-                          reps: getJsonField(
-                            currentLoop1Item,
-                            r'''$["reps"]''',
-                          ),
-                          weight: getJsonField(
-                            currentLoop1Item,
-                            r'''$["weight"]''',
-                          ),
-                          durationSeconds: getJsonField(
-                            currentLoop1Item,
-                            r'''$["durationMs"]''',
-                          ),
-                          isKg: FFAppState().isKg ? 1 : 0,
-                          isDropSet: getJsonField(
-                            currentLoop1Item,
-                            r'''$["isDropSet"]''',
-                          ),
-                          dropNumber: getJsonField(
-                            currentLoop1Item,
-                            r'''$["dropNumber"]''',
-                          ),
-                          id: _model.uuid!,
-                          userId: currentUserUid,
-                        );
-                      }
-                      await SQLiteManager.instance.updateWorkoutLog(
-                        workoutLogId: widget.workoutLogId!,
-                        newDate: _model.date!,
-                        newDuration: _model.durationMs!,
-                      );
-                      await SQLiteManager.instance.uPDATEWorkoutLogVolume(
-                        newVolume: functions
-                            .calculateWorkoutVolumeInt(_model.setsk!.toList(),
-                                FFAppState().exerciseSetsCreation.toList())
-                            .toDouble(),
-                        workoutLogId: widget.workoutLogId!,
-                      );
+            body: Builder(
+              builder: (context) => Container(
+                width: MediaQuery.sizeOf(context).width * 1.0,
+                height: MediaQuery.sizeOf(context).height * 1.0,
+                child: custom_widgets.WorkoutPage(
+                  width: MediaQuery.sizeOf(context).width * 1.0,
+                  height: MediaQuery.sizeOf(context).height * 1.0,
+                  workoutName: '',
+                  showCameraGuidance: false,
+                  mode: 'logEdit',
+                  workoutDate: _model.workoutLog?.firstOrNull?.createdAt,
+                  onBack: () async {
+                    context.safePop();
+                  },
+                  onFinish: (workoutName, workoutDate, durationMs) async {
+                    _model.saveCopy2 = await actions.updateWorkoutComplete(
+                      widget.workoutLogId,
+                      currentUserUid,
+                      durationMs,
+                      workoutDate,
+                      FFAppState().loggedSetsCreation.toList(),
+                      FFAppState().analysisStateCreation.toList(),
+                      FFAppState().exerciseSetsCreation.toList(),
+                    );
+                    FFAppState().warmUpCreation = [];
+                    FFAppState().restTimerCreation = null;
+                    FFAppState().dropSetsCreation = [];
+                    FFAppState().loggedSetsCreation = [];
+                    FFAppState().exerciseSetsCreation = [];
+                    safeSetState(() {});
 
-                      context.pushNamed(
-                        MasterPageWidget.routeName,
-                        queryParameters: {
-                          'initialTab': serializeParam(
-                            1,
-                            ParamType.int,
-                          ),
-                        }.withoutNulls,
-                      );
+                    context.pushNamed(MasterPageWidget.routeName);
 
-                      safeSetState(() {});
-                    },
-                    text: FFLocalizations.of(context).getText(
-                      'fr9z4xqp' /* Save */,
-                    ),
-                    options: FFButtonOptions(
-                      height: 16.6,
-                      padding:
-                          EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                      iconPadding:
-                          EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                      color: FlutterFlowTheme.of(context).primary,
-                      textStyle:
-                          FlutterFlowTheme.of(context).titleSmall.override(
-                                font: GoogleFonts.interTight(
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontStyle,
-                                ),
-                                color: Colors.white,
-                                letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .titleSmall
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .titleSmall
-                                    .fontStyle,
-                              ),
-                      elevation: 0.0,
-                      borderSide: BorderSide(
-                        color: functions.shouldDisableFinishButton(
-                                FFAppState().loggedSets.toList())
-                            ? FlutterFlowTheme.of(context).alternate
-                            : FlutterFlowTheme.of(context).secondary,
-                        width: 1.5,
-                      ),
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                ),
-              ],
-              centerTitle: true,
-              elevation: 1.0,
-            ),
-            body: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: FlutterFlowTheme.of(context).secondaryBackground,
-                        borderRadius: BorderRadius.circular(12.0),
-                        border: Border.all(
-                          color: FlutterFlowTheme.of(context).alternate,
+                    await actions.syncAllPending();
+
+                    safeSetState(() {});
+                  },
+                  onAddExercises: () async {
+                    context
+                        .pushNamed(AddExercisesForWorklogEditWidget.routeName);
+                  },
+                  onHeaderTap: (exerciseId) async {
+                    context.pushNamed(
+                      ExerciseHistoryWidget.routeName,
+                      queryParameters: {
+                        'exerciseId': serializeParam(
+                          exerciseId,
+                          ParamType.int,
                         ),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              FFLocalizations.of(context).getText(
-                                'rjqwdl5n' /* Workout Details */,
-                              ),
-                              style: FlutterFlowTheme.of(context)
-                                  .headlineSmall
-                                  .override(
-                                    font: GoogleFonts.interTight(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .headlineSmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .headlineSmall
-                                          .fontStyle,
-                                    ),
-                                    letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .headlineSmall
-                                        .fontStyle,
-                                  ),
-                            ),
-                            Row(
-                              mainAxisSize: MainAxisSize.max,
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          Icon(
-                                            Icons.calendar_today,
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondary,
-                                            size: 20.0,
-                                          ),
-                                          Text(
-                                            FFLocalizations.of(context).getText(
-                                              'cvvb2v22' /* Workout Date */,
-                                            ),
-                                            style: FlutterFlowTheme.of(context)
-                                                .labelMedium
-                                                .override(
-                                                  font: GoogleFonts.inter(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                        ].divide(SizedBox(width: 8.0)),
-                                      ),
-                                      InkWell(
-                                        splashColor: Colors.transparent,
-                                        focusColor: Colors.transparent,
-                                        hoverColor: Colors.transparent,
-                                        highlightColor: Colors.transparent,
-                                        onTap: () async {
-                                          await showModalBottomSheet(
-                                            isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
-                                            enableDrag: false,
-                                            context: context,
-                                            builder: (context) {
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  FocusScope.of(context)
-                                                      .unfocus();
-                                                  FocusManager
-                                                      .instance.primaryFocus
-                                                      ?.unfocus();
-                                                },
-                                                child: Padding(
-                                                  padding:
-                                                      MediaQuery.viewInsetsOf(
-                                                          context),
-                                                  child:
-                                                      WorkoutChangeCupertinoWidget(
-                                                    datePicker: true,
-                                                    initialMs:
-                                                        workoutLogEditV2History1RowList
-                                                            .firstOrNull
-                                                            ?.durationSeconds,
-                                                    initialDate: functions
-                                                        .isoStringToDateTime(
-                                                            _model.date),
-                                                    newDuration: (ms) async {
-                                                      _model.durationMs = ms;
-                                                      safeSetState(() {});
-                                                    },
-                                                    newDate: (date) async {
-                                                      _model.date = date;
-                                                      safeSetState(() {});
-                                                    },
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ).then(
-                                              (value) => safeSetState(() {}));
-                                        },
-                                        child: Container(
-                                          width: double.infinity,
-                                          height: 48.0,
-                                          decoration: BoxDecoration(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryBackground,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                            border: Border.all(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .alternate,
-                                              width: 1.0,
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 12.0, 12.0, 12.0),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.max,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    functions
-                                                        .formatWorkoutDateShort(
-                                                            _model.date!),
-                                                    style: FlutterFlowTheme.of(
-                                                            context)
-                                                        .bodyMedium
-                                                        .override(
-                                                          font:
-                                                              GoogleFonts.inter(
-                                                            fontWeight:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontWeight,
-                                                            fontStyle:
-                                                                FlutterFlowTheme.of(
-                                                                        context)
-                                                                    .bodyMedium
-                                                                    .fontStyle,
-                                                          ),
-                                                          color: FlutterFlowTheme
-                                                                  .of(context)
-                                                              .secondaryText,
-                                                          letterSpacing: 0.0,
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Icon(
-                                                  Icons.keyboard_arrow_down,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryText,
-                                                  size: 20.0,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ].divide(SizedBox(height: 8.0)),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.max,
-                                        children: [
-                                          Icon(
-                                            Icons.access_time,
-                                            color: FlutterFlowTheme.of(context)
-                                                .secondary,
-                                            size: 20.0,
-                                          ),
-                                          Text(
-                                            FFLocalizations.of(context).getText(
-                                              'd7trjszc' /* Duration */,
-                                            ),
-                                            style: FlutterFlowTheme.of(context)
-                                                .labelMedium
-                                                .override(
-                                                  font: GoogleFonts.inter(
-                                                    fontWeight:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontWeight,
-                                                    fontStyle:
-                                                        FlutterFlowTheme.of(
-                                                                context)
-                                                            .labelMedium
-                                                            .fontStyle,
-                                                  ),
-                                                  letterSpacing: 0.0,
-                                                  fontWeight:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontWeight,
-                                                  fontStyle:
-                                                      FlutterFlowTheme.of(
-                                                              context)
-                                                          .labelMedium
-                                                          .fontStyle,
-                                                ),
-                                          ),
-                                        ].divide(SizedBox(width: 8.0)),
-                                      ),
-                                      InkWell(
-                                        splashColor: Colors.transparent,
-                                        focusColor: Colors.transparent,
-                                        hoverColor: Colors.transparent,
-                                        highlightColor: Colors.transparent,
-                                        onTap: () async {
-                                          await showModalBottomSheet(
-                                            isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
-                                            enableDrag: false,
-                                            context: context,
-                                            builder: (context) {
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  FocusScope.of(context)
-                                                      .unfocus();
-                                                  FocusManager
-                                                      .instance.primaryFocus
-                                                      ?.unfocus();
-                                                },
-                                                child: Padding(
-                                                  padding:
-                                                      MediaQuery.viewInsetsOf(
-                                                          context),
-                                                  child:
-                                                      WorkoutChangeCupertinoWidget(
-                                                    datePicker: false,
-                                                    initialMs:
-                                                        _model.durationMs,
-                                                    newDuration: (ms) async {
-                                                      _model.durationMs = ms;
-                                                      safeSetState(() {});
-                                                    },
-                                                    newDate: (date) async {},
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ).then(
-                                              (value) => safeSetState(() {}));
-                                        },
-                                        child: Container(
-                                          width: double.infinity,
-                                          height: 48.0,
-                                          decoration: BoxDecoration(
-                                            color: FlutterFlowTheme.of(context)
-                                                .primaryBackground,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                            border: Border.all(
-                                              color:
-                                                  FlutterFlowTheme.of(context)
-                                                      .alternate,
-                                              width: 1.0,
-                                            ),
-                                          ),
-                                          child: Padding(
-                                            padding:
-                                                EdgeInsetsDirectional.fromSTEB(
-                                                    12.0, 12.0, 12.0, 12.0),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.max,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Text(
-                                                  valueOrDefault<String>(
-                                                    functions
-                                                        .formatDurationSmart(
-                                                            _model.durationMs!),
-                                                    '0',
-                                                  ),
-                                                  style: FlutterFlowTheme.of(
-                                                          context)
-                                                      .bodyMedium
-                                                      .override(
-                                                        font: GoogleFonts.inter(
-                                                          fontWeight:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontWeight,
-                                                          fontStyle:
-                                                              FlutterFlowTheme.of(
-                                                                      context)
-                                                                  .bodyMedium
-                                                                  .fontStyle,
-                                                        ),
-                                                        color:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .secondaryText,
-                                                        letterSpacing: 0.0,
-                                                        fontWeight:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontWeight,
-                                                        fontStyle:
-                                                            FlutterFlowTheme.of(
-                                                                    context)
-                                                                .bodyMedium
-                                                                .fontStyle,
-                                                      ),
-                                                ),
-                                                Icon(
-                                                  Icons.keyboard_arrow_down,
-                                                  color: FlutterFlowTheme.of(
-                                                          context)
-                                                      .secondaryText,
-                                                  size: 20.0,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ].divide(SizedBox(height: 8.0)),
-                                  ),
-                                ),
-                              ].divide(SizedBox(width: 16.0)),
-                            ),
-                          ].divide(SizedBox(height: 16.0)),
+                        'overview': serializeParam(
+                          true,
+                          ParamType.bool,
                         ),
-                      ),
-                    ),
-                    Container(
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      decoration: BoxDecoration(),
-                      child: Builder(
-                        builder: (context) {
-                          final list = functions
-                              .buildExerciseTableFromSets(
-                                  FFAppState().exerciseSetsCreation.toList())
-                              .toList();
-
-                          return ListView.separated(
-                            padding: EdgeInsets.zero,
-                            primary: false,
-                            shrinkWrap: true,
-                            scrollDirection: Axis.vertical,
-                            itemCount: list.length,
-                            separatorBuilder: (_, __) => SizedBox(height: 20.0),
-                            itemBuilder: (context, listIndex) {
-                              final listItem = list[listIndex];
-                              return ExerciseComponeForEditWidget(
-                                key: Key(
-                                    'Keyu2g_${listIndex}_of_${list.length}'),
-                                exerciseId: getJsonField(
-                                  listItem,
-                                  r'''$["exerciseId"]''',
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                    FFButtonWidget(
-                      onPressed: () async {
-                        context.pushNamed(
-                          AddExercisesForWorklogEditWidget.routeName,
-                          queryParameters: {
-                            'workoutLOgId': serializeParam(
-                              widget.workoutLogId,
-                              ParamType.String,
+                        'analytics': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
+                      }.withoutNulls,
+                    );
+                  },
+                  onCustomHeaderTap: (exerciseId) async {
+                    context.pushNamed(
+                      ExerciseHistoryCustomWidget.routeName,
+                      queryParameters: {
+                        'exerciseId': serializeParam(
+                          exerciseId,
+                          ParamType.int,
+                        ),
+                        'overview': serializeParam(
+                          true,
+                          ParamType.bool,
+                        ),
+                        'analytics': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
+                      }.withoutNulls,
+                    );
+                  },
+                  onReplaceExercise: (exerciseId) async {
+                    await showModalBottomSheet(
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      enableDrag: false,
+                      context: context,
+                      builder: (context) {
+                        return GestureDetector(
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          },
+                          child: Padding(
+                            padding: MediaQuery.viewInsetsOf(context),
+                            child: ReplaceNewWidget(
+                              exerciseId: 0,
+                              workoutId: '',
                             ),
-                          }.withoutNulls,
+                          ),
                         );
                       },
-                      text: FFLocalizations.of(context).getText(
-                        'ap6suf99' /* Add Exercises */,
-                      ),
-                      icon: Icon(
-                        Icons.add,
-                        size: 15.0,
-                      ),
-                      options: FFButtonOptions(
-                        width: double.infinity,
-                        height: 50.0,
-                        padding: EdgeInsets.all(8.0),
-                        iconPadding:
-                            EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                        iconColor: FlutterFlowTheme.of(context).info,
-                        color: FlutterFlowTheme.of(context).primary,
-                        textStyle:
-                            FlutterFlowTheme.of(context).titleSmall.override(
-                                  font: GoogleFonts.interTight(
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .titleSmall
-                                        .fontStyle,
-                                  ),
-                                  color: FlutterFlowTheme.of(context).info,
-                                  letterSpacing: 0.0,
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontStyle,
-                                ),
-                        elevation: 0.0,
-                        borderSide: BorderSide(
-                          color: Colors.transparent,
-                          width: 1.0,
+                    ).then((value) => safeSetState(() {}));
+                  },
+                  onSupersetTap: (exerciseId) async {
+                    await showModalBottomSheet(
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      enableDrag: false,
+                      context: context,
+                      builder: (context) {
+                        return GestureDetector(
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          },
+                          child: Padding(
+                            padding: MediaQuery.viewInsetsOf(context),
+                            child: SupersetCreationWidget(
+                              currentExerciseId: exerciseId,
+                            ),
+                          ),
+                        );
+                      },
+                    ).then((value) => safeSetState(() {}));
+                  },
+                  onViewHistory: (exerciseId) async {
+                    context.pushNamed(
+                      ExerciseHistoryWidget.routeName,
+                      queryParameters: {
+                        'exerciseId': serializeParam(
+                          exerciseId,
+                          ParamType.int,
                         ),
-                        borderRadius: BorderRadius.circular(16.0),
-                      ),
-                    ),
-                  ]
-                      .divide(SizedBox(height: 16.0))
-                      .addToStart(SizedBox(height: 20.0))
-                      .addToEnd(SizedBox(height: 20.0)),
+                        'overview': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
+                        'analytics': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
+                      }.withoutNulls,
+                    );
+                  },
+                  onCustomViewHistory: (exerciseId) async {
+                    context.pushNamed(
+                      ExerciseHistoryCustomWidget.routeName,
+                      queryParameters: {
+                        'exerciseId': serializeParam(
+                          exerciseId,
+                          ParamType.int,
+                        ),
+                        'overview': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
+                        'analytics': serializeParam(
+                          false,
+                          ParamType.bool,
+                        ),
+                      }.withoutNulls,
+                    );
+                  },
+                  onReorder: () async {
+                    await showModalBottomSheet(
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      enableDrag: false,
+                      context: context,
+                      builder: (context) {
+                        return GestureDetector(
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          },
+                          child: Padding(
+                            padding: MediaQuery.viewInsetsOf(context),
+                            child: ReorderCreationWidget(),
+                          ),
+                        );
+                      },
+                    ).then((value) => safeSetState(() {}));
+                  },
+                  onRemoveExercise: (exerciseId) async {
+                    if (functions.exerciseHasLoggedValuesFlat(
+                        FFAppState().loggedSetsCreation.toList(), exerciseId)) {
+                      await showDialog(
+                        context: context,
+                        builder: (dialogContext) {
+                          return Dialog(
+                            elevation: 0,
+                            insetPadding: EdgeInsets.zero,
+                            backgroundColor: Colors.transparent,
+                            alignment: AlignmentDirectional(0.0, 0.0)
+                                .resolve(Directionality.of(context)),
+                            child: GestureDetector(
+                              onTap: () {
+                                FocusScope.of(dialogContext).unfocus();
+                                FocusManager.instance.primaryFocus?.unfocus();
+                              },
+                              child: RemoveExerciseFromWorkoutAlertWidget(
+                                exerciseId: exerciseId,
+                                closeBottom: () async {
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      _model.remove =
+                          await actions.removeExerciseFromExerciseSets(
+                        FFAppState().exerciseSetsCreation.toList(),
+                        exerciseId,
+                      );
+                      FFAppState().exerciseSetsCreation =
+                          _model.remove!.toList().cast<dynamic>();
+                      safeSetState(() {});
+                      Navigator.pop(context);
+                    }
+
+                    safeSetState(() {});
+                  },
+                  onResultTap: (exerciseId, exerciseName, setNumber, video,
+                      setLogId) async {
+                    _model.anal = await SQLiteManager.instance.getSetAnalysis(
+                      setLogId: '',
+                    );
+                    await showDialog(
+                      context: context,
+                      builder: (dialogContext) {
+                        return Dialog(
+                          elevation: 0,
+                          insetPadding: EdgeInsets.zero,
+                          backgroundColor: Colors.transparent,
+                          alignment: AlignmentDirectional(0.0, 0.0)
+                              .resolve(Directionality.of(context)),
+                          child: GestureDetector(
+                            onTap: () {
+                              FocusScope.of(dialogContext).unfocus();
+                              FocusManager.instance.primaryFocus?.unfocus();
+                            },
+                            child: Analyze2AppAfterEditWidget(
+                              anlysis: _model.anal!.firstOrNull!,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+
+                    safeSetState(() {});
+                  },
+                  onLockTap: () async {},
+                  onStartRest:
+                      (exerciseId, exerciseName, setNumber, restMs) async {},
+                  onDontShowAgain: () async {},
                 ),
               ),
             ),

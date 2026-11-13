@@ -31,12 +31,17 @@ import '/auth/supabase_auth/auth_util.dart';
 // App State directly and rebuilds on every change. Give it width ∞ and
 // height ∞ in FF; nothing else to set.
 //
+// One widget for four screens; `mode` picks which:
+//   'live'     — the running workout
+//   'logEdit'  — editing a logged workout
+//   'template' — creating a workout / editing a workout template
+//
 // Callbacks (navigation only):
-//   onBack(), onFinish(), onAddExercises()
+//   onBack(), onFinish(workoutName, workoutDate, durationMs), onAddExercises()
 //   onHeaderTap(exerciseId), onCustomHeaderTap(exerciseId), onReplaceExercise(exerciseId),
 //   onSupersetTap(exerciseId), onViewHistory(exerciseId),
 //   onReorder(), onRemoveExercise(exerciseId)
-//   onResultTap(exerciseId, exerciseName, setNumber, video), onLockTap()
+//   onResultTap(exerciseId, exerciseName, setNumber, video, setLogId)
 //   onStartRest(exerciseId, exerciseName, setNumber, restMs), onDontShowAgain()
 // =============================================================================
 
@@ -247,6 +252,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Dauer wählen",
     "fr": "Choisir la durée"
   },
+  "create": {
+    "en": "Create",
+    "es": "Crear",
+    "he": "צור",
+    "de": "Erstellen",
+    "fr": "Créer"
+  },
   "createWorkout": {
     "en": "Create Workout",
     "es": "Crear entreno",
@@ -349,23 +361,16 @@ class WorkoutPage extends StatefulWidget {
     super.key,
     this.width,
     this.height,
-    this.isLiveWorkout = true,
-    this.isWorkoutLogEdit = false,
-    this.isTemplateMode = false,
+    this.mode = 'live',
     this.title,
+    this.saveLabel,
     this.workoutName,
     this.workoutDate,
-    this.durationMinutes,
+    this.durationMs,
     this.showCameraGuidance,
     this.onBack,
     this.onFinish,
     this.onAddExercises,
-    this.onAddExercisesEdit,
-    this.onAddExercisesTemplate,
-    this.onSave,
-    this.onWorkoutNameChanged,
-    this.onWorkoutDateChanged,
-    this.onDurationChanged,
     this.onHeaderTap,
     this.onCustomHeaderTap,
     this.onReplaceExercise,
@@ -383,50 +388,60 @@ class WorkoutPage extends StatefulWidget {
   final double? width;
   final double? height;
 
-  /// true → live App State lists; false → the *Creation lists.
-  final bool isLiveWorkout;
-
-  /// Editing a logged workout. Implies the *Creation App State lists and
-  /// turns off everything that belongs to a running workout: the clock, all
-  /// rest timers, supersets, warm-ups, the analysis column and Play mode.
-  /// Instead the page shows a Workout Details card (date + duration) and a
-  /// Save button.
-  final bool isWorkoutLogEdit;
-
-  /// Creating a workout or editing a workout template. Also runs on the
-  /// *Creation App State lists. The table holds target reps (or a target
-  /// duration) instead of logged values, nothing is completed, there is no
-  /// weight column and no analysis; the rest time is still set per exercise,
-  /// because it is saved with the template. The header is a workout-name
-  /// field instead of the clock.
-  final bool isTemplateMode;
+  /// Which screen this is. One of:
+  ///
+  ///   'live'     — the running workout: clock, rest timers, Play mode,
+  ///                analysis, warm-ups. Reads the live App State lists.
+  ///   'logEdit'  — editing a logged workout: no clock, no rest timer, no
+  ///                superset, no warm-up, no analysis, a short options menu,
+  ///                and a Workout Details card (date + duration).
+  ///   'template' — creating a workout or editing a workout template: the
+  ///                table holds target reps / a target duration, nothing is
+  ///                completed, no weight column, no analysis, and the header
+  ///                is a workout-name field. The rest time is still set per
+  ///                exercise, because it is saved with the template.
+  ///
+  /// Anything other than 'live' runs on the *Creation App State lists.
+  final String mode;
 
   /// Overrides the title in the top bar ("Create Workout", "Edit Template"…).
   final String? title;
+
+  /// Overrides the label of the top-right button ("Create", "Save"…).
+  /// Default: "Save" when editing a logged workout, "Create" in template mode.
+  final String? saveLabel;
 
   /// Template mode: the workout's name, pre-filled when editing.
   final String? workoutName;
 
   /// Log-edit only: the workout's date and its length in minutes. Bind them
   /// to whatever holds them (App State / page state); the widget reports a
-  /// change through onWorkoutDateChanged / onDurationChanged.
-  final DateTime? workoutDate;
-  final int? durationMinutes;
+  /// change back through onFinish.
+  ///
+  /// The date is a String because that is how it is stored: anything
+  /// DateTime.parse understands (an ISO-8601 timestamp such as
+  /// "2026-11-11T00:00:00.000" or just "2026-11-11"). Unparsable or empty
+  /// falls back to today, and the value reported back is ISO-8601.
+  final String? workoutDate;
+
+  /// Log-edit only: the workout's length, in the same unit the save action
+  /// stores it in (milliseconds).
+  final int? durationMs;
 
   final bool? showCameraGuidance;
 
   final Future Function()? onBack;
-  final Future Function()? onFinish;
+
+  /// The top-right button: Finish / Save / Create, depending on the mode.
+  /// Carries everything the header holds, so nothing has to be stored on the
+  /// way: the name typed in template mode (empty elsewhere), and the date
+  /// (ISO-8601) and length (ms) from the Workout Details card in logEdit -
+  /// the values on screen at that moment, changed or not. Outside logEdit the
+  /// date is an empty string and the duration is 0.
+  final Future Function(String workoutName, String workoutDate, int durationMs)?
+      onFinish;
   final Future Function()? onAddExercises;
 
-  /// "Add Exercises" goes somewhere else in each of the two modes; either
-  /// one falls back to onAddExercises when it is left empty.
-  final Future Function()? onAddExercisesEdit;
-  final Future Function()? onAddExercisesTemplate;
-  final Future Function()? onSave;
-  final Future Function(String name)? onWorkoutNameChanged;
-  final Future Function(DateTime date)? onWorkoutDateChanged;
-  final Future Function(int minutes)? onDurationChanged;
   final Future Function(int exerciseId)? onHeaderTap;
   final Future Function(int exerciseId)? onCustomHeaderTap;
   final Future Function(int exerciseId)? onReplaceExercise;
@@ -435,8 +450,11 @@ class WorkoutPage extends StatefulWidget {
   final Future Function(int exerciseId)? onCustomViewHistory;
   final Future Function()? onReorder;
   final Future Function(int exerciseId)? onRemoveExercise;
+
+  /// [setLogId] is the set_log row the saved analysis hangs off ('' when
+  /// there is none).
   final Future Function(int exerciseId, String exerciseName, int setNumber,
-      FFUploadedFile? video)? onResultTap;
+      FFUploadedFile? video, String setLogId)? onResultTap;
   final Future Function()? onLockTap;
   final Future Function(
           int exerciseId, String exerciseName, int setNumber, int restMs)?
@@ -469,12 +487,14 @@ class _WorkoutPageState extends State<WorkoutPage> {
     super.dispose();
   }
 
-  /// Editing a logged workout always runs on the *Creation lists.
-  bool get _edit => widget.isWorkoutLogEdit;
+  String get _mode => widget.mode.trim().toLowerCase();
+
+  /// Editing a logged workout — runs on the *Creation lists.
+  bool get _edit => _mode == 'logedit';
 
   /// Creating a workout / editing a template — also on the *Creation lists.
-  bool get _tpl => widget.isTemplateMode;
-  bool get _live => widget.isLiveWorkout && !_edit && !_tpl;
+  bool get _tpl => _mode == 'template';
+  bool get _live => !_edit && !_tpl;
 
   List<dynamic> get _exerciseSets => List<dynamic>.from(
       _live ? FFAppState().exercisesets : FFAppState().exerciseSetsCreation);
@@ -560,8 +580,18 @@ class _WorkoutPageState extends State<WorkoutPage> {
   DateTime? _date;
   int? _minutes;
 
-  DateTime get _dateValue => _date ?? widget.workoutDate ?? DateTime.now();
-  int get _minutesValue => _minutes ?? widget.durationMinutes ?? 0;
+  DateTime get _dateValue {
+    final d = _date;
+    if (d != null) return d;
+    final raw = (widget.workoutDate ?? '').trim();
+    if (raw.isNotEmpty) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.now();
+  }
+
+  int get _minutesValue => _minutes ?? ((widget.durationMs ?? 0) ~/ 60000);
 
   /// "Wed, Nov 11" in the app's language.
   String _dateLabel(String lang) {
@@ -592,7 +622,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
     if (picked == null) return;
     setState(() => _date = picked);
-    await widget.onWorkoutDateChanged?.call(picked);
   }
 
   Future<void> _pickDuration(String lang) async {
@@ -605,7 +634,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
     if (picked == null) return;
     setState(() => _minutes = picked);
-    await widget.onDurationChanged?.call(picked);
   }
 
   static TextStyle _ts(
@@ -633,7 +661,13 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final DateTime startedAt =
         FFAppState().activeWorkoutStartTime ?? DateTime.now();
     final double topInset = MediaQuery.of(context).padding.top;
-    final double bottomInset = MediaQuery.of(context).padding.bottom;
+    // Room under the last card. The page above may already have eaten the
+    // safe area, so a floor keeps "Add Exercises" off the screen edge, and
+    // the keyboard inset gives the focused field somewhere to scroll to.
+    final MediaQueryData mq = MediaQuery.of(context);
+    final double safeBottom = mq.padding.bottom > 0 ? mq.padding.bottom : 12;
+    final double keyboard = mq.viewInsets.bottom;
+    final double bottomInset = safeBottom + keyboard;
 
     final Widget topBar = Container(
       color: theme.secondaryBackground,
@@ -695,9 +729,14 @@ class _WorkoutPageState extends State<WorkoutPage> {
                 const SizedBox(width: 8),
               ],
               _Tap(
-                onTap: () => (_edit || _tpl)
-                    ? widget.onSave?.call()
-                    : widget.onFinish?.call(),
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  widget.onFinish?.call(
+                    _tpl ? _nameCtrl.text.trim() : '',
+                    _edit ? _dateValue.toIso8601String() : '',
+                    _edit ? _minutesValue * 60000 : 0,
+                  );
+                },
                 child: Container(
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -711,7 +750,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
                         ? null
                         : Border.all(color: border, width: 1.5),
                   ),
-                  child: Text(_tr(lang, (_edit || _tpl) ? 'save' : 'finish'),
+                  child: Text(
+                      (widget.saveLabel ?? '').trim().isNotEmpty
+                          ? widget.saveLabel!.trim()
+                          : _tr(lang,
+                              _edit ? 'save' : (_tpl ? 'create' : 'finish')),
                       style: _ts(
                           theme,
                           17,
@@ -831,7 +874,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
       child: TextField(
         controller: _nameCtrl,
         textInputAction: TextInputAction.done,
-        onChanged: (v) => widget.onWorkoutNameChanged?.call(v),
+        onChanged: (_) => setState(() {}),
         onTapOutside: (_) => FocusScope.of(context).unfocus(),
         style: _ts(theme, 19, FontWeight.w400, theme.primaryText),
         decoration: InputDecoration(
@@ -927,15 +970,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
 
     final Widget addButton = _Tap(
-      onTap: () {
-        if (_edit) {
-          (widget.onAddExercisesEdit ?? widget.onAddExercises)?.call();
-        } else if (_tpl) {
-          (widget.onAddExercisesTemplate ?? widget.onAddExercises)?.call();
-        } else {
-          widget.onAddExercises?.call();
-        }
-      },
+      onTap: () => widget.onAddExercises?.call(),
       child: Container(
         height: 56,
         alignment: Alignment.center,
@@ -968,9 +1003,14 @@ class _WorkoutPageState extends State<WorkoutPage> {
               child: ListView.builder(
                 controller: _scroll,
                 padding: EdgeInsets.fromLTRB(
-                    16, (_edit || _tpl) ? 16 : 12, 16, 24 + bottomInset),
+                    16, (_edit || _tpl) ? 16 : 12, 16, 28 + bottomInset),
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
+                // cards are tall and their height depends on their content:
+                // keeping a screenful alive on either side stops the list
+                // from re-measuring (and shifting) when you scroll back
+                cacheExtent: 1400,
+                physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: ids.length + ((_edit || _tpl) ? 2 : 1),
                 itemBuilder: (ctx, raw) {
                   if ((_edit || _tpl) && raw == 0) {
@@ -1020,8 +1060,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
                       onReorder: () async => widget.onReorder?.call(),
                       onRemoveExercise: () async =>
                           widget.onRemoveExercise?.call(id),
-                      onResultTap: (name, setNumber, video) async =>
-                          widget.onResultTap?.call(id, name, setNumber, video),
+                      onResultTap: (name, setNumber, video, setLogId) async =>
+                          widget.onResultTap
+                              ?.call(id, name, setNumber, video, setLogId),
                       onLockTap: () async => widget.onLockTap?.call(),
                       onStartRest: widget.onStartRest,
                       onDontShowAgain: widget.onDontShowAgain,
@@ -2499,6 +2540,5 @@ class _DurationSheetState extends State<_DurationSheet> {
     );
   }
 }
-
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

@@ -11,95 +11,41 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
-// Return: JSON (isList=true)
-//
-// replacement = the JSON you build on tap (e.g. page state idToReplace):
-//   { id, name, is_assisted, is_public }  - snake_case or camelCase both OK
+/// Swaps one exercise for another in exerciseSets, in place.
+///
+/// Keeps the slot: same position, same orderIndex, same restSeconds. The new
+/// exercise starts with a single empty set, and the old name / flags are
+/// dropped — the card reads those from the exercise2 query by id.
+/// If the replacement is already in the list, its old entry is removed.
 List<dynamic> replaceExerciseInExerciseSets(
   List<dynamic> exerciseSets,
   int originalExerciseId,
-  dynamic replacement,
+  int replacementExerciseId,
 ) {
-  // הגנה בסיסית
   final list = List<Map<String, dynamic>>.from(
-    (exerciseSets ?? []).map((e) => Map<String, dynamic>.from(e ?? {})),
+    (exerciseSets).map((e) => Map<String, dynamic>.from(e as Map)),
   );
 
-  // ---- read the replacement JSON (tolerant to key naming / types) ----
-  if (replacement == null || replacement is! Map) return list;
-  final Map rep = replacement;
-
-  dynamic pick(List<String> keys) {
-    for (final k in keys) {
-      if (rep.containsKey(k) && rep[k] != null) return rep[k];
-    }
-    return null;
-  }
-
-  int? toInt(dynamic v) {
+  int? id(dynamic v) {
     if (v == null) return null;
     if (v is int) return v;
     if (v is num) return v.toInt();
     return int.tryParse(v.toString().trim());
   }
 
-  int toFlag(dynamic v) {
-    if (v == null) return 0;
-    if (v is bool) return v ? 1 : 0;
-    if (v is num) return v != 0 ? 1 : 0;
-    final s = v.toString().trim().toLowerCase();
-    return (s == '1' || s == 'true') ? 1 : 0;
-  }
+  final origIdx =
+      list.indexWhere((e) => id(e['exerciseId']) == originalExerciseId);
+  if (origIdx == -1) return list;
 
-  String? toStr(dynamic v) {
-    if (v == null) return null;
-    final s = v.toString().trim();
-    return s.isEmpty ? null : s;
-  }
+  // nothing to do when it is already the right exercise
+  if (originalExerciseId == replacementExerciseId) return list;
 
-  final int? replacementExerciseId =
-      toInt(pick(['id', 'exerciseId', 'exercise_id']));
-  if (replacementExerciseId == null) return list;
-
-  final String? replacementExerciseName =
-      toStr(pick(['name', 'exerciseName', 'exercise_name']));
-  final int replacementIsAssisted = toFlag(pick(['is_assisted', 'isAssisted']));
-  final int replacementIsPublic = toFlag(pick(['is_public', 'isPublic']));
-
-  // מצא את האינדקס של התרגיל המקורי
-  final origIdx = list.indexWhere((e) => e['exerciseId'] == originalExerciseId);
-  if (origIdx == -1) {
-    // אין תרגיל כזה – מחזירים כמו שהוא
-    return list;
-  }
-
-  // שמור סדר מקורי אם קיים
-  final int orderIndex = (list[origIdx]['orderIndex'] is int)
-      ? list[origIdx]['orderIndex'] as int
-      : (origIdx + 1);
-
-  // שמור את זמן המנוחה של התרגיל המקורי (המשתמש כבר בחר אותו)
-  final dynamic restSeconds = list[origIdx]['restSeconds'] ?? 0;
-
-  // הסר את התרגיל המקורי
-  list.removeAt(origIdx);
-
-  // למניעת כפילות – אם כבר קיים התרגיל המחליף, נסיר אותו לפני הוספה
-  final existedRepIdx =
-      list.indexWhere((e) => e['exerciseId'] == replacementExerciseId);
-  if (existedRepIdx != -1) {
-    list.removeAt(existedRepIdx);
-  }
-
-  // בנה פריט חדש עם סט ראשון ברירת-מחדל
-  // Same keys as initializeExerciseSetsFromSimpleQueryV2 / addExercises...
+  final old = list[origIdx];
   final Map<String, dynamic> newItem = {
+    ...old,
     'exerciseId': replacementExerciseId,
-    'exerciseName': replacementExerciseName,
-    'isPublic': replacementIsPublic,
-    'isAssisted': replacementIsAssisted,
-    'orderIndex': orderIndex,
-    'restSeconds': restSeconds,
+    'orderIndex': old['orderIndex'] ?? (origIdx + 1),
+    'restSeconds': old['restSeconds'] ?? 0,
     'sets': <Map<String, dynamic>>[
       {
         'setNumber': 1,
@@ -107,22 +53,24 @@ List<dynamic> replaceExerciseInExerciseSets(
         'weight': null,
         'durationSeconds': null,
         'isChecked': false,
-        'timerMode': 1, // כמו אצלך
-        'showWeightField': true, // כמו אצלך
+        'timerMode': 1,
+        'showWeightField': true,
       },
     ],
-  };
+  }
+    ..remove('exerciseName')
+    ..remove('isPublic')
+    ..remove('isAssisted');
 
-  // הכנס למיקום המקורי (כדי לשמר סדר), ואם חורג – הוסף לסוף
-  final insertIdx =
-      (origIdx >= 0 && origIdx <= list.length) ? origIdx : list.length;
-  list.insert(insertIdx, newItem);
+  list[origIdx] = newItem;
 
-  // מיון בטיחות לפי orderIndex (במידת הצורך)
-  list.sort((a, b) => ((a['orderIndex'] ?? 9999) as int)
-      .compareTo((b['orderIndex'] ?? 9999) as int));
+  // the replacement may already sit somehwhere else in the list
+  final dupIdx = list.indexWhere(
+      (e) => e != newItem && id(e['exerciseId']) == replacementExerciseId);
+  if (dupIdx != -1) list.removeAt(dupIdx);
 
   return list;
 }
+
 // Set your action name, define your arguments and return parameter,
 // and then add the boilerplate code using the green button on the right!

@@ -16,14 +16,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'xlift_log_add.dart';
 
 /// Saves a workout TEMPLATE in one atomic pass: workout ->
-/// workout_exercises -> exercise_sets (warmups + working + drops,
-/// merged like the old merge action) -> Hive sync queues.
+/// workout_exercises -> exercise_sets (warmups + working + drops, merged
+/// like the old merge action) -> Hive sync queues.
 /// workout_exercise ids are generated internally. Empty/null name ->
 /// "Unnamed Workout N". rest_seconds gets restDurations[exerciseId]
 /// AS-IS (ms, default 90000). Superset flags come from exerciseSets.
-/// EXERCISE ORDER ("order" column) follows the position of each exercise
-/// in exerciseSets - the on-screen order - not the order of
-/// alreadySelected.
+/// EXERCISE ORDER ("order" column) and WHICH exercises are saved both come
+/// from exerciseSets - the on-screen list. alreadySelected is only a source
+/// for the display name.
 /// All progress lines go through xliftLogAdd -> visible live in the
 /// DebugConsole widget AND in the real console.
 ///
@@ -49,6 +49,8 @@ Future<dynamic> saveWorkoutTemplate(
   final Map<String, int> timings = {};
   Map<String, dynamic> inputs = {};
 
+  String workoutId = '';
+
   Map<String, dynamic> debugBlock(String? error, String? errorType) {
     return {
       'stage': stage,
@@ -64,11 +66,11 @@ Future<dynamic> saveWorkoutTemplate(
   }
 
   Map<String, dynamic> failure(String msg, String type) {
-    xliftLogAdd('[saveWT] FATAL at stage=$stage failedAt=$failedAt '
+    xliftLogAdd('[TAG] FATAL at stage=$stage failedAt=$failedAt '
         'hang=$hangSuspect type=$type: $msg');
     return {
       'success': false,
-      'workoutId': '',
+      'workoutId': workoutId,
       'name': '',
       'error': msg,
       'debug': debugBlock(msg, type),
@@ -82,7 +84,7 @@ Future<dynamic> saveWorkoutTemplate(
     void mark(String step) {
       stepsDone.add(step);
       timings[step] = sw.elapsedMilliseconds;
-      xliftLogAdd('[saveWT] ✓ $step @${sw.elapsedMilliseconds}ms');
+      xliftLogAdd('[TAG] ✓ $step @${sw.elapsedMilliseconds}ms');
     }
 
     Future<dynamic> guarded(String step, Future<dynamic> Function() fn) async {
@@ -154,7 +156,7 @@ Future<dynamic> saveWorkoutTemplate(
       'warmupItems': warmupList == null ? 0 : warmupList.length,
       'restDurationsIsMap': restDurations is Map,
     };
-    xliftLogAdd('[saveWT] START inputs=$inputs');
+    xliftLogAdd('[TAG] START inputs=$inputs');
     mark('scan-inputs');
 
     // ---- validation ----
@@ -163,9 +165,9 @@ Future<dynamic> saveWorkoutTemplate(
       failedAt = 'validate';
       return failure('Missing userId', 'ValidationError');
     }
-    if (alreadySelected.isEmpty) {
+    if (exerciseSets.isEmpty) {
       failedAt = 'validate';
-      return failure('No exercises selected', 'ValidationError');
+      return failure('No exercises', 'ValidationError');
     }
     mark('validate');
 
@@ -188,7 +190,7 @@ Future<dynamic> saveWorkoutTemplate(
           'hive-open-exerciseSets', () => Hive.openBox('pendingExerciseSets'));
       mark('hive-open');
 
-      // ---- 1. workout name ----
+      // ---- workout name ----
       String name = (workoutName ?? '').trim();
       if (name.isEmpty) {
         final List rows = await guarded(
@@ -206,8 +208,8 @@ Future<dynamic> saveWorkoutTemplate(
       }
       mark('name("$name")');
 
-      // ---- 2. workout ----
-      final String workoutId = uuid();
+      // ---- workout ----
+      workoutId = uuid();
       await guarded(
           'insert-workout',
           () => db.rawInsert(
@@ -225,64 +227,80 @@ Future<dynamic> saveWorkoutTemplate(
               }));
       mark('workout');
 
-      // exerciseSets keyed by exerciseId (superset info + sets) and the
-      // on-screen position of each exercise (drives "order").
-      final Map<int, Map<String, dynamic>> exSetsById = {};
-      final Map<int, int> positionById = {};
-      for (int i = 0; i < exerciseSets.length; i++) {
-        final e = exerciseSets[i];
+      // ---- exercises: exerciseSets is the source of truth ----
+      // The on-screen list decides which exercises exist and in what order.
+      // alreadySelected is only consulted for the display name.
+      stage = 'collect-exercises';
+      final Map<int, String> nameBySelected = {};
+      for (final raw in alreadySelected) {
+        if (raw is! Map) continue;
+        final int? id = toInt(raw['exerciseId'] ?? raw['exercise_id']);
+        if (id == null) continue;
+        final dynamic n =
+            raw['exerciseName'] ?? raw['name'] ?? raw['exercise_name'];
+        final String s = n == null ? '' : n.toString().trim();
+        if (s.isNotEmpty) nameBySelected[id] = s;
+      }
+
+      // ordered, de-duplicated exercise list straight off the screen
+      final List<Map<String, dynamic>> ordered = [];
+      final Set<int> seen = {};
+      for (final e in exerciseSets) {
         if (e is! Map) continue;
         final int? exId = toInt(e['exerciseId']);
-        if (exId == null) continue;
-        exSetsById[exId] = Map<String, dynamic>.from(e);
-        positionById.putIfAbsent(exId, () => i);
+        if (exId == null || exId <= 0 || !seen.add(exId)) continue;
+        ordered.add(Map<String, dynamic>.from(e));
       }
 
-      // alreadySelected in exerciseSets order (stable for ties).
-      final List<Map<String, dynamic>> selectedOrdered = [];
-      for (final raw in alreadySelected) {
-        if (raw is Map) selectedOrdered.add(Map<String, dynamic>.from(raw));
+      // name: selection -> the item itself -> the exercise table -> empty.
+      // An unknown name never costs us the exercise; it is only a label.
+      Future<String> nameFor(int exerciseId, Map<String, dynamic> item) async {
+        final String fromSel = nameBySelected[exerciseId] ?? '';
+        if (fromSel.isNotEmpty) return fromSel;
+        final dynamic own =
+            item['exerciseName'] ?? item['name'] ?? item['exercise_name'];
+        final String fromItem = own == null ? '' : own.toString().trim();
+        if (fromItem.isNotEmpty) return fromItem;
+        try {
+          final List rows = await db.rawQuery(
+              'SELECT name FROM exercise WHERE id = ? LIMIT 1', [exerciseId]);
+          if (rows.isNotEmpty) {
+            final dynamic n = rows.first['name'];
+            if (n != null) return n.toString().trim();
+          }
+        } catch (_) {
+          // table named differently / not available - label stays empty
+        }
+        return '';
       }
-      final List<int> idx = List<int>.generate(selectedOrdered.length, (i) => i)
-        ..sort((a, b) {
-          final int? ea = toInt(selectedOrdered[a]['exerciseId'] ??
-              selectedOrdered[a]['exercise_id']);
-          final int? eb = toInt(selectedOrdered[b]['exerciseId'] ??
-              selectedOrdered[b]['exercise_id']);
-          final int pa = ea == null ? 1 << 30 : (positionById[ea] ?? 1 << 30);
-          final int pb = eb == null ? 1 << 30 : (positionById[eb] ?? 1 << 30);
-          if (pa != pb) return pa.compareTo(pb);
-          return a.compareTo(b);
-        });
 
-      // ---- 3. workout_exercises ----
+      mark('collect-exercises(${ordered.length})');
+
+      // ---- workout_exercises ----
       final Map<int, String> weIdByExerciseId = {};
+      final Map<int, Map<String, dynamic>> exSetsById = {};
       int savedExercises = 0;
       int order = 0;
 
-      for (final i in idx) {
-        final Map<String, dynamic> raw = selectedOrdered[i];
-        final int? exerciseId = toInt(raw['exerciseId'] ?? raw['exercise_id']);
-        if (exerciseId == null || exerciseId <= 0) continue;
+      for (final item in ordered) {
+        final int exerciseId = toInt(item['exerciseId'])!;
+        exSetsById[exerciseId] = item;
 
-        final dynamic rawName =
-            raw['exerciseName'] ?? raw['name'] ?? raw['exercise_name'];
-        final String exerciseName = rawName == null ? '' : rawName.toString();
+        final String exerciseName = await nameFor(exerciseId, item);
         if (exerciseName.isEmpty) {
-          xliftLogAdd('[saveWT] SKIP ex=$exerciseId - missing exerciseName');
-          continue;
+          xliftLogAdd(
+              '[saveWT] WARN ex=$exerciseId - no name found, saving anyway');
         }
 
         order++;
-        final Map<String, dynamic>? exInfo = exSetsById[exerciseId];
         final int restMs = restFor(exerciseId);
-        final int isSuperset =
-            toFlag(exInfo == null ? null : exInfo['isSuperset']);
+        final int isSuperset = toFlag(item['isSuperset']);
         String? supersetGroupId;
-        if (isSuperset == 1 &&
-            exInfo != null &&
-            exInfo['supersetGroupId'] != null) {
-          supersetGroupId = exInfo['supersetGroupId'].toString();
+        if (isSuperset == 1) {
+          final dynamic gid = item['supersetGroupId'] ?? item['supersetId'];
+          if (gid != null && gid.toString().trim().isNotEmpty) {
+            supersetGroupId = gid.toString();
+          }
         }
 
         final String weId = uuid();
@@ -324,7 +342,7 @@ Future<dynamic> saveWorkoutTemplate(
       }
       mark('workout_exercises($savedExercises)');
 
-      // ---- 4. merge sets ----
+      // ---- merge sets ----
       stage = 'merge';
       final List<Map<String, dynamic>> logged = [];
       for (final l in loggedSets) {
@@ -342,10 +360,7 @@ Future<dynamic> saveWorkoutTemplate(
       for (final ex in exSetsById.values) {
         final int exerciseId = toInt(ex['exerciseId'])!;
         final String? weId = weIdByExerciseId[exerciseId];
-        if (weId == null) {
-          xliftLogAdd('[saveWT] merge SKIP ex=$exerciseId - not in selection');
-          continue;
-        }
+        if (weId == null) continue;
 
         final List<Map<String, dynamic>> workingSets = [];
         final dynamic rawSets = ex['sets'];
@@ -376,10 +391,14 @@ Future<dynamic> saveWorkoutTemplate(
           }
         }
 
+        // warm-up and working sets both start at 1, so the carry-over chain
+        // is kept per kind, not per set number.
+        final Map<int, Map<String, dynamic>> resolvedWarm = {};
+        final Map<int, Map<String, dynamic>> resolvedWork = {};
+
         final List<Map<String, dynamic>> allSets = [];
         allSets.addAll(warmupSets);
         allSets.addAll(workingSets);
-        final Map<int, Map<String, dynamic>> resolved = {};
 
         for (final s in allSets) {
           final int? setNumber = toInt(s['setNumber']);
@@ -395,7 +414,7 @@ Future<dynamic> saveWorkoutTemplate(
             'targetReps': toInt(s['targetReps']),
             'weighted': toFlag(s['weighted']),
             'isWarmup': rowIsWarmup,
-            'durationSeconds': null,
+            'durationSeconds': toInt(s['durationSeconds']),
           };
 
           if (rowIsWarmup == 1) {
@@ -413,39 +432,52 @@ Future<dynamic> saveWorkoutTemplate(
               }
             }
             if (match != null) {
-              if (match.containsKey('targetReps')) {
+              if (match['targetReps'] != null) {
                 row['targetReps'] = toInt(match['targetReps']);
               }
-              if (match.containsKey('durationSeconds')) {
+              if (match['durationSeconds'] != null) {
                 row['durationSeconds'] = toInt(match['durationSeconds']);
               }
             }
           }
 
+          // nothing typed? carry the previous set of the same kind
+          final Map<int, Map<String, dynamic>> bucket =
+              rowIsWarmup == 1 ? resolvedWarm : resolvedWork;
           if (setNumber > 1 && row['targetReps'] == null) {
             for (int prev = setNumber - 1; prev >= 1; prev--) {
-              final Map<String, dynamic>? prevRow = resolved[prev];
+              final Map<String, dynamic>? prevRow = bucket[prev];
               if (prevRow == null) continue;
-              if (prevRow['isWarmup'] == row['isWarmup'] &&
-                  prevRow['targetReps'] != null) {
+              if (prevRow['targetReps'] != null) {
                 row['targetReps'] = prevRow['targetReps'];
                 break;
               }
             }
           }
 
-          resolved[setNumber] = row;
+          bucket[setNumber] = row;
           merged.add(row);
         }
       }
 
+      // ---- drop sets: the plan says how many, loggedSets says what was typed
       for (final d in drops) {
         final int? exerciseId = toInt(d['exerciseId']);
         final int? parentSetNumber = toInt(d['parentSetNumber']);
-        final int? dropOrder = toInt(d['dropOrder']);
+        final int? dropOrder = toInt(d['dropOrder'] ?? d['dropNumber']);
         if (exerciseId == null || parentSetNumber == null) continue;
         final String? weId = weIdByExerciseId[exerciseId];
         if (weId == null) continue;
+
+        int? dropReps = toInt(d['targetReps'] ?? d['reps']);
+        for (final l in logged) {
+          if (toInt(l['exerciseId']) != exerciseId) continue;
+          if (toInt(l['setNumber']) != parentSetNumber) continue;
+          if (toFlag(l['isDropSet']) != 1) continue;
+          if (toInt(l['dropNumber'] ?? l['dropOrder']) != dropOrder) continue;
+          if (l['targetReps'] != null) dropReps = toInt(l['targetReps']);
+          break;
+        }
 
         merged.add({
           'exerciseId': exerciseId,
@@ -453,7 +485,7 @@ Future<dynamic> saveWorkoutTemplate(
           'setNumber': parentSetNumber,
           'isDropSet': 1,
           'dropNumber': dropOrder,
-          'targetReps': toInt(d['reps']),
+          'targetReps': dropReps,
           'weighted': 1,
           'isWarmup': 0,
           'durationSeconds': null,
@@ -461,7 +493,7 @@ Future<dynamic> saveWorkoutTemplate(
       }
       mark('merge(${merged.length})');
 
-      // ---- 5. exercise_sets ----
+      // ---- exercise_sets ----
       int savedSets = 0;
       for (final row in merged) {
         final String setId = uuid();
@@ -508,7 +540,7 @@ Future<dynamic> saveWorkoutTemplate(
       mark('exercise_sets($savedSets)');
 
       stage = 'done';
-      xliftLogAdd('[saveWT] DONE "$name" exercises=$savedExercises '
+      xliftLogAdd('[TAG] DONE "$name" exercises=$savedExercises '
           'sets=$savedSets total=${sw.elapsedMilliseconds}ms');
       return {
         'success': true,
@@ -528,7 +560,7 @@ Future<dynamic> saveWorkoutTemplate(
     } catch (_) {
       return {
         'success': false,
-        'workoutId': '',
+        'workoutId': workoutId,
         'name': '',
         'error': 'Unrecoverable: $e',
         'debug': {

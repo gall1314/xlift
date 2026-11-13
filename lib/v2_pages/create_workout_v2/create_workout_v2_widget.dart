@@ -1,17 +1,16 @@
 import '/auth/supabase_auth/auth_util.dart';
-import '/components/exercise_componet_for_creation_widget.dart';
-import '/components/place_holder_widget.dart';
-import '/components/rest_shit_creation_widget.dart';
-import '/flutter_flow/flutter_flow_icon_button.dart';
+import '/components/remove_exercise_from_workout_alert_widget.dart';
+import '/components/reorder_creation_widget.dart';
+import '/components/replace_new_widget.dart';
+import '/components/superset_creation_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
+import '/flutter_flow/custom_functions.dart' as functions;
 import '/index.dart';
-import 'package:easy_debounce/easy_debounce.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'create_workout_v2_model.dart';
 export 'create_workout_v2_model.dart';
@@ -67,9 +66,6 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
       _model.workoutName = widget.workoutName;
       safeSetState(() {});
     });
-
-    _model.textController ??= TextEditingController(text: widget.workoutName);
-    _model.textFieldFocusNode ??= FocusNode();
   }
 
   @override
@@ -91,378 +87,242 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
       child: Scaffold(
         key: scaffoldKey,
         backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).secondaryBackground,
-          automaticallyImplyLeading: false,
-          leading: FlutterFlowIconButton(
-            borderColor: Colors.transparent,
-            borderRadius: 30.0,
-            borderWidth: 1.0,
-            buttonSize: 60.0,
-            icon: Icon(
-              Icons.chevron_left,
-              color: FlutterFlowTheme.of(context).secondaryText,
-              size: 30.0,
-            ),
-            onPressed: () async {
-              FFAppState().loggedSetsCreation = [];
-              FFAppState().dropSetsCreation = [];
-              FFAppState().exerciseSetsCreation = [];
-              FFAppState().restTimerCreation = null;
-              safeSetState(() {});
+        body: Builder(
+          builder: (context) => Container(
+            width: MediaQuery.sizeOf(context).width * 1.0,
+            height: MediaQuery.sizeOf(context).height * 1.0,
+            child: custom_widgets.WorkoutPage(
+              width: MediaQuery.sizeOf(context).width * 1.0,
+              height: MediaQuery.sizeOf(context).height * 1.0,
+              workoutName: widget.workoutName,
+              showCameraGuidance: false,
+              mode: 'template',
+              onBack: () async {
+                context.safePop();
+              },
+              onFinish: (workoutName, workoutDate, durationMs) async {
+                _model.saveCopy2 = await actions.saveWorkoutTemplate(
+                  _model.workoutName,
+                  currentUserUid,
+                  _model.selected.toList(),
+                  FFAppState().exerciseSetsCreation.toList(),
+                  FFAppState().loggedSetsCreation.toList(),
+                  FFAppState().dropSetsCreation.toList(),
+                  FFAppState().warmUpCreation.toList(),
+                  FFAppState().restTimerCreation,
+                );
+                FFAppState().warmUpCreation = [];
+                FFAppState().restTimerCreation = null;
+                FFAppState().dropSetsCreation = [];
+                FFAppState().loggedSetsCreation = [];
+                FFAppState().exerciseSetsCreation = [];
+                safeSetState(() {});
 
-              context.goNamed(MasterPageWidget.routeName);
-            },
-          ),
-          title: Text(
-            FFLocalizations.of(context).getText(
-              'c6sgql8x' /* Create Workout */,
-            ),
-            style: FlutterFlowTheme.of(context).headlineSmall.override(
-                  font: GoogleFonts.interTight(
-                    fontWeight:
-                        FlutterFlowTheme.of(context).headlineSmall.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).headlineSmall.fontStyle,
-                  ),
-                  fontSize: 16.0,
-                  letterSpacing: 0.0,
-                  fontWeight:
-                      FlutterFlowTheme.of(context).headlineSmall.fontWeight,
-                  fontStyle:
-                      FlutterFlowTheme.of(context).headlineSmall.fontStyle,
-                ),
-          ),
-          actions: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(10.0, 10.0, 10.0, 10.0),
-              child: FFButtonWidget(
-                onPressed: (FFAppState().exerciseSetsCreation.length == 0)
-                    ? null
-                    : () async {
-                        _model.save = await actions.saveWorkoutTemplate(
-                          _model.workoutName,
-                          currentUserUid,
-                          _model.selected.toList(),
-                          FFAppState().exerciseSetsCreation.toList(),
-                          FFAppState().loggedSetsCreation.toList(),
-                          FFAppState().dropSetsCreation.toList(),
-                          FFAppState().warmUpCreation.toList(),
-                          FFAppState().restTimerCreation,
-                        );
-                        FFAppState().warmUpCreation = [];
-                        FFAppState().restTimerCreation = null;
-                        FFAppState().dropSetsCreation = [];
-                        FFAppState().loggedSetsCreation = [];
-                        FFAppState().exerciseSetsCreation = [];
-                        safeSetState(() {});
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              getJsonField(
-                                _model.save,
-                                r'''$["debug"]''',
-                              ).toString(),
-                              style: TextStyle(
-                                color: FlutterFlowTheme.of(context).primaryText,
-                              ),
-                            ),
-                            duration: Duration(milliseconds: 4000),
-                            backgroundColor:
-                                FlutterFlowTheme.of(context).secondary,
-                          ),
-                        );
+                context.pushNamed(MasterPageWidget.routeName);
 
-                        context.pushNamed(MasterPageWidget.routeName);
+                await actions.syncAllPending();
 
-                        await actions.syncAllPending();
-
-                        safeSetState(() {});
-                      },
-                text: FFLocalizations.of(context).getText(
-                  'hxqefook' /* Save */,
-                ),
-                options: FFButtonOptions(
-                  height: 12.0,
-                  padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                  iconPadding:
-                      EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                  color: FlutterFlowTheme.of(context).primary,
-                  textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-                        font: GoogleFonts.interTight(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .titleSmall
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                        ),
-                        color: Colors.white,
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).titleSmall.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).titleSmall.fontStyle,
-                      ),
-                  elevation: 0.0,
-                  borderSide: BorderSide(
-                    width: 0.0,
-                  ),
-                  borderRadius: BorderRadius.circular(8.0),
-                  disabledColor:
-                      FlutterFlowTheme.of(context).secondaryBackground,
-                  disabledTextColor: FlutterFlowTheme.of(context).alternate,
-                ),
-              ),
-            ),
-          ],
-          centerTitle: true,
-          elevation: 1.0,
-        ),
-        body: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                child: Container(
-                  width: double.infinity,
-                  child: TextFormField(
-                    controller: _model.textController,
-                    focusNode: _model.textFieldFocusNode,
-                    onChanged: (_) => EasyDebounce.debounce(
-                      '_model.textController',
-                      Duration(milliseconds: 0),
-                      () async {
-                        _model.workoutName = _model.textController.text;
-                        safeSetState(() {});
-                      },
+                safeSetState(() {});
+              },
+              onAddExercises: () async {
+                context.pushNamed(
+                  AddExercisesV3CopyWidget.routeName,
+                  queryParameters: {
+                    'addUserEx': serializeParam(
+                      false,
+                      ParamType.bool,
                     ),
-                    autofocus: false,
-                    textInputAction: TextInputAction.done,
-                    obscureText: false,
-                    decoration: InputDecoration(
-                      labelText: FFLocalizations.of(context).getText(
-                        'ewirjb69' /* Workout name */,
-                      ),
-                      labelStyle: FlutterFlowTheme.of(context)
-                          .bodyMedium
-                          .override(
-                            font: GoogleFonts.inter(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                      hintText: FFLocalizations.of(context).getText(
-                        'x8lkt3tb' /* Enter workout name */,
-                      ),
-                      hintStyle: FlutterFlowTheme.of(context)
-                          .bodyMedium
-                          .override(
-                            font: GoogleFonts.inter(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: FlutterFlowTheme.of(context).alternate,
-                          width: 1.0,
-                        ),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: FlutterFlowTheme.of(context).primary,
-                          width: 1.0,
-                        ),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Color(0x00000000),
-                          width: 1.0,
-                        ),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: Color(0x00000000),
-                          width: 1.0,
-                        ),
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      filled: true,
-                      fillColor:
-                          FlutterFlowTheme.of(context).secondaryBackground,
-                      contentPadding: EdgeInsetsDirectional.fromSTEB(
-                          16.0, 16.0, 16.0, 16.0),
+                  }.withoutNulls,
+                );
+              },
+              onHeaderTap: (exerciseId) async {
+                context.pushNamed(
+                  ExerciseHistoryWidget.routeName,
+                  queryParameters: {
+                    'exerciseId': serializeParam(
+                      exerciseId,
+                      ParamType.int,
                     ),
-                    style: FlutterFlowTheme.of(context).bodyLarge.override(
-                          font: GoogleFonts.inter(
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyLarge
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyLarge
-                                .fontStyle,
-                          ),
-                          fontSize: 16.0,
-                          letterSpacing: 0.0,
-                          fontWeight:
-                              FlutterFlowTheme.of(context).bodyLarge.fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyLarge.fontStyle,
+                    'overview': serializeParam(
+                      true,
+                      ParamType.bool,
+                    ),
+                    'analytics': serializeParam(
+                      false,
+                      ParamType.bool,
+                    ),
+                  }.withoutNulls,
+                );
+              },
+              onCustomHeaderTap: (exerciseId) async {
+                context.pushNamed(
+                  ExerciseHistoryCustomWidget.routeName,
+                  queryParameters: {
+                    'exerciseId': serializeParam(
+                      exerciseId,
+                      ParamType.int,
+                    ),
+                    'overview': serializeParam(
+                      true,
+                      ParamType.bool,
+                    ),
+                    'analytics': serializeParam(
+                      false,
+                      ParamType.bool,
+                    ),
+                  }.withoutNulls,
+                );
+              },
+              onReplaceExercise: (exerciseId) async {
+                await showModalBottomSheet(
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  enableDrag: false,
+                  context: context,
+                  builder: (context) {
+                    return GestureDetector(
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      },
+                      child: Padding(
+                        padding: MediaQuery.viewInsetsOf(context),
+                        child: ReplaceNewWidget(
+                          exerciseId: 0,
+                          workoutId: '',
                         ),
-                    cursorColor: FlutterFlowTheme.of(context).primary,
-                    validator:
-                        _model.textControllerValidator.asValidator(context),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                child: Container(
-                  child: Builder(
-                    builder: (context) {
-                      final exercise =
-                          FFAppState().exerciseSetsCreation.toList();
-                      if (exercise.isEmpty) {
-                        return PlaceHolderWidget();
-                      }
-
-                      return ListView.separated(
-                        padding: EdgeInsets.zero,
-                        primary: false,
-                        shrinkWrap: true,
-                        scrollDirection: Axis.vertical,
-                        itemCount: exercise.length,
-                        separatorBuilder: (_, __) => SizedBox(height: 20.0),
-                        itemBuilder: (context, exerciseIndex) {
-                          final exerciseItem = exercise[exerciseIndex];
-                          return ExerciseComponetForCreationWidget(
-                            key: Key(
-                                'Key5j3_${exerciseIndex}_of_${exercise.length}'),
-                            exerciseId: getJsonField(
-                              exerciseItem,
-                              r'''$["exerciseId"]''',
-                            ),
-                            selectRest: () async {
-                              await showModalBottomSheet(
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                enableDrag: false,
-                                context: context,
-                                builder: (context) {
-                                  return GestureDetector(
-                                    onTap: () {
-                                      FocusScope.of(context).unfocus();
-                                      FocusManager.instance.primaryFocus
-                                          ?.unfocus();
-                                    },
-                                    child: Padding(
-                                      padding: MediaQuery.viewInsetsOf(context),
-                                      child: RestShitCreationWidget(
-                                        exerciseId: getJsonField(
-                                          exerciseItem,
-                                          r'''$["exerciseId"]''',
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ).then((value) => safeSetState(() {}));
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                child: FFButtonWidget(
-                  onPressed: () async {
-                    context.goNamed(
-                      AddExercisesV3CopyWidget.routeName,
-                      queryParameters: {
-                        'addUserEx': serializeParam(
-                          false,
-                          ParamType.bool,
-                        ),
-                        'alreadySelceted': serializeParam(
-                          widget.alreadySelceted,
-                          ParamType.JSON,
-                          isList: true,
-                        ),
-                        'workoutName': serializeParam(
-                          _model.workoutName,
-                          ParamType.String,
-                        ),
-                      }.withoutNulls,
+                      ),
                     );
                   },
-                  text: FFLocalizations.of(context).getText(
-                    's28y3dxn' /* Add exercises */,
-                  ),
-                  options: FFButtonOptions(
-                    width: MediaQuery.sizeOf(context).width * 1.0,
-                    height: 55.0,
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 0.0),
-                    iconPadding:
-                        EdgeInsetsDirectional.fromSTEB(0.0, 0.0, 0.0, 0.0),
-                    color: FlutterFlowTheme.of(context).primary,
-                    textStyle: FlutterFlowTheme.of(context).titleSmall.override(
-                          font: GoogleFonts.interTight(
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .titleSmall
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .titleSmall
-                                .fontStyle,
-                          ),
-                          color: Colors.white,
-                          letterSpacing: 0.0,
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .titleSmall
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).titleSmall.fontStyle,
+                ).then((value) => safeSetState(() {}));
+              },
+              onSupersetTap: (exerciseId) async {
+                await showModalBottomSheet(
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  enableDrag: false,
+                  context: context,
+                  builder: (context) {
+                    return GestureDetector(
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      },
+                      child: Padding(
+                        padding: MediaQuery.viewInsetsOf(context),
+                        child: SupersetCreationWidget(
+                          currentExerciseId: exerciseId,
                         ),
-                    elevation: 0.0,
-                    borderRadius: BorderRadius.circular(16.0),
-                  ),
-                ),
-              ),
-            ]
-                .divide(SizedBox(height: 24.0))
-                .addToStart(SizedBox(height: 24.0))
-                .addToEnd(SizedBox(height: 100.0)),
+                      ),
+                    );
+                  },
+                ).then((value) => safeSetState(() {}));
+              },
+              onViewHistory: (exerciseId) async {
+                context.pushNamed(
+                  ExerciseHistoryWidget.routeName,
+                  queryParameters: {
+                    'exerciseId': serializeParam(
+                      exerciseId,
+                      ParamType.int,
+                    ),
+                    'overview': serializeParam(
+                      false,
+                      ParamType.bool,
+                    ),
+                    'analytics': serializeParam(
+                      false,
+                      ParamType.bool,
+                    ),
+                  }.withoutNulls,
+                );
+              },
+              onCustomViewHistory: (exerciseId) async {
+                context.pushNamed(
+                  ExerciseHistoryCustomWidget.routeName,
+                  queryParameters: {
+                    'exerciseId': serializeParam(
+                      exerciseId,
+                      ParamType.int,
+                    ),
+                    'overview': serializeParam(
+                      false,
+                      ParamType.bool,
+                    ),
+                    'analytics': serializeParam(
+                      false,
+                      ParamType.bool,
+                    ),
+                  }.withoutNulls,
+                );
+              },
+              onReorder: () async {
+                await showModalBottomSheet(
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  enableDrag: false,
+                  context: context,
+                  builder: (context) {
+                    return GestureDetector(
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      },
+                      child: Padding(
+                        padding: MediaQuery.viewInsetsOf(context),
+                        child: ReorderCreationWidget(),
+                      ),
+                    );
+                  },
+                ).then((value) => safeSetState(() {}));
+              },
+              onRemoveExercise: (exerciseId) async {
+                if (functions.exerciseHasLoggedValuesFlat(
+                    FFAppState().loggedSetsCreation.toList(), exerciseId)) {
+                  await showDialog(
+                    context: context,
+                    builder: (dialogContext) {
+                      return Dialog(
+                        elevation: 0,
+                        insetPadding: EdgeInsets.zero,
+                        backgroundColor: Colors.transparent,
+                        alignment: AlignmentDirectional(0.0, 0.0)
+                            .resolve(Directionality.of(context)),
+                        child: GestureDetector(
+                          onTap: () {
+                            FocusScope.of(dialogContext).unfocus();
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          },
+                          child: RemoveExerciseFromWorkoutAlertWidget(
+                            exerciseId: exerciseId,
+                            closeBottom: () async {
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                } else {
+                  _model.remove = await actions.removeExerciseFromExerciseSets(
+                    FFAppState().exerciseSetsCreation.toList(),
+                    exerciseId,
+                  );
+                  FFAppState().exerciseSetsCreation =
+                      _model.remove!.toList().cast<dynamic>();
+                  safeSetState(() {});
+                  Navigator.pop(context);
+                }
+
+                safeSetState(() {});
+              },
+              onResultTap: (exerciseId, exerciseName, setNumber, video,
+                  setLogId) async {},
+              onLockTap: () async {},
+              onStartRest:
+                  (exerciseId, exerciseName, setNumber, restMs) async {},
+              onDontShowAgain: () async {},
+            ),
           ),
         ),
       ),

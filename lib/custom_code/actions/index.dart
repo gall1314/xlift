@@ -177,3 +177,7 @@ export 'vision_squat_test.dart' show visionSquatTest;
 export 'save_template_as_workout.dart' show saveTemplateAsWorkout;
 export 'create_user_exercise.dart' show createUserExercise;
 export 'restore_app_language.dart' show restoreAppLanguage;
+export 'update_workout_template.dart' show updateWorkoutTemplate;
+export 'update_workout_complete.dart' show updateWorkoutComplete;
+export 'load_workout_analysis_state.dart' show loadWorkoutAnalysisState;
+export 'remove_analysis_from_state.dart' show removeAnalysisFromState;

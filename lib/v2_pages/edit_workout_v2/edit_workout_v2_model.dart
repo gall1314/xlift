@@ -27,6 +27,12 @@ class EditWorkoutV2Model extends FlutterFlowModel<EditWorkoutV2Widget> {
   List<dynamic>? drop1;
   // Stores action output result for [Custom Action - initializeExerciseRestTimes] action in editWorkoutV2 widget.
   dynamic rest1;
+  // Stores action output result for [Custom Action - saveWorkoutTemplate] action in WorkoutPage widget.
+  dynamic saveCopy;
+  // Stores action output result for [Custom Action - updateWorkoutTemplate] action in WorkoutPage widget.
+  dynamic saveCopy2;
+  // Stores action output result for [Custom Action - removeExerciseFromExerciseSets] action in WorkoutPage widget.
+  List<dynamic>? remove;
 
   @override
   void initState(BuildContext context) {}

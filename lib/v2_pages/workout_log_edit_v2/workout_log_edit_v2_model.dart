@@ -27,10 +27,12 @@ class WorkoutLogEditV2Model extends FlutterFlowModel<WorkoutLogEditV2Widget> {
   // Stores action output result for [Backend Call - SQLite (history 1)] action in workoutLogEditV2 widget.
   List<History1Row>? workoutLog;
   InstantTimer? instantTimerHome;
-  // Stores action output result for [Custom Action - getAllSets] action in Button widget.
-  List<dynamic>? setsk;
-  // Stores action output result for [Custom Action - generateUuidV4] action in Button widget.
-  String? uuid;
+  // Stores action output result for [Custom Action - updateWorkoutComplete] action in WorkoutPage widget.
+  dynamic saveCopy2;
+  // Stores action output result for [Custom Action - removeExerciseFromExerciseSets] action in WorkoutPage widget.
+  List<dynamic>? remove;
+  // Stores action output result for [Backend Call - SQLite (getSetAnalysis)] action in WorkoutPage widget.
+  List<GetSetAnalysisRow>? anal;
 
   @override
   void initState(BuildContext context) {}

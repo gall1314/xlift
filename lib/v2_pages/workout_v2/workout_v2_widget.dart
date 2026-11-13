@@ -107,14 +107,12 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
             child: custom_widgets.WorkoutPage(
               width: MediaQuery.sizeOf(context).width * 1.0,
               height: MediaQuery.sizeOf(context).height * 1.0,
-              isLiveWorkout: true,
               showCameraGuidance: true,
-              isWorkoutLogEdit: false,
-              isTemplateMode: false,
+              mode: 'live',
               onBack: () async {
                 context.pop();
               },
-              onFinish: () async {
+              onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy = await actions.saveWorkoutComplete(
                   widget.workoutId,
                   currentUserUid,
@@ -186,12 +184,6 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                   }.withoutNulls,
                 );
               },
-              onAddExercisesEdit: () async {},
-              onAddExercisesTemplate: () async {},
-              onSave: () async {},
-              onWorkoutNameChanged: (name) async {},
-              onWorkoutDateChanged: (date) async {},
-              onDurationChanged: (minutes) async {},
               onHeaderTap: (exerciseId) async {
                 context.pushNamed(
                   ExerciseHistoryWidget.routeName,
@@ -373,7 +365,8 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
 
                 safeSetState(() {});
               },
-              onResultTap: (exerciseId, exerciseName, setNumber, video) async {
+              onResultTap:
+                  (exerciseId, exerciseName, setNumber, video, setLogId) async {
                 await showDialog(
                   context: context,
                   builder: (dialogContext) {

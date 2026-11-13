@@ -1031,48 +1031,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // workoutLogEditV2
   {
-    'fr9z4xqp': {
-      'en': 'Save',
-      'de': 'Enregistrer',
-      'es': 'Guardar',
-      'fr': 'Sauvegarder',
-      'he': 'שמירה',
-    },
-    'ii4brc6e': {
-      'en': 'Edit Workout',
-      'de': 'Training bearbeiten',
-      'es': 'Editar entrenamiento',
-      'fr': 'Modifier l\'entraînement',
-      'he': 'עריכת אימון',
-    },
-    'rjqwdl5n': {
-      'en': 'Workout Details',
-      'de': 'Trainingsdetails',
-      'es': 'Detalles del entrenamiento',
-      'fr': 'Détails de l\'entraînement',
-      'he': 'פרטי האימון',
-    },
-    'cvvb2v22': {
-      'en': 'Workout Date',
-      'de': 'Trainingsdatum',
-      'es': 'Fecha de entrenamiento',
-      'fr': 'Date d\'entraînement',
-      'he': 'תאריך אימון',
-    },
-    'd7trjszc': {
-      'en': 'Duration',
-      'de': 'Dauer',
-      'es': 'Duración',
-      'fr': 'Durée',
-      'he': 'מֶשֶׁך',
-    },
-    'ap6suf99': {
-      'en': 'Add Exercises',
-      'de': 'Übungen hinzufügen',
-      'es': 'Agregar ejercicios',
-      'fr': 'Ajouter des exercices',
-      'he': 'הוספת תרגילים',
-    },
     'cfli7m5j': {
       'en': 'Home',
       'de': 'Heim',
@@ -3381,44 +3339,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Hogar',
       'fr': 'Maison',
       'he': 'בַּיִת',
-    },
-  },
-  // CreateWorkoutV2
-  {
-    'ewirjb69': {
-      'en': 'Workout name',
-      'de': 'Name des Workouts',
-      'es': 'Nombre del entrenamiento',
-      'fr': 'Nom de l\'entraînement',
-      'he': 'שם האימון',
-    },
-    'x8lkt3tb': {
-      'en': 'Enter workout name',
-      'de': 'Trainingsnamen eingeben',
-      'es': 'Ingrese el nombre del entrenamiento',
-      'fr': 'Saisissez le nom de l\'entraînement',
-      'he': 'הזינו שם אימון',
-    },
-    's28y3dxn': {
-      'en': 'Add exercises',
-      'de': 'Übungen hinzufügen',
-      'es': 'Agregar ejercicios',
-      'fr': 'Ajouter des exercices',
-      'he': 'הוספת תרגילים',
-    },
-    'hxqefook': {
-      'en': 'Save',
-      'de': 'Speichern',
-      'es': 'Guardar',
-      'fr': 'Enregistrer',
-      'he': 'שמירה',
-    },
-    'c6sgql8x': {
-      'en': 'Create Workout',
-      'de': 'Workout erstellen',
-      'es': 'Crear entrenamiento',
-      'fr': 'Créer un entraînement',
-      'he': 'יצירת אימון',
     },
   },
   // workoutComplete
@@ -6227,6 +6147,37 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Eliminar',
       'fr': 'Supprimer',
       'he': 'מחיקה',
+    },
+  },
+  // analyze2AppAfterEdit
+  {
+    'aihxd6a7': {
+      'en': 'Total Reps',
+      'de': 'Gesamtwiederholungen',
+      'es': 'Repeticiones totales',
+      'fr': 'Reps totales',
+      'he': 'סה\"כ חזרות',
+    },
+    'yvyxdz59': {
+      'en': 'Proper Reps',
+      'de': 'Richtige Wiederholungen',
+      'es': 'Reps correctas',
+      'fr': 'Reps correctes',
+      'he': 'חזרות נכונות',
+    },
+    'gsrv09a1': {
+      'en': 'Form Tip',
+      'de': 'Technik-Tipp',
+      'es': 'Tip de técnica',
+      'fr': 'Conseil technique',
+      'he': 'טיפ לטכניקה',
+    },
+    'tgrbhr1u': {
+      'en': 'Feedback',
+      'de': 'Rückmeldung',
+      'es': 'Comentarios',
+      'fr': 'Commentaires',
+      'he': 'משוב',
     },
   },
   // Miscellaneous

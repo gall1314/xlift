@@ -60,10 +60,7 @@ class _ReplaceNewWidgetState extends State<ReplaceNewWidget> {
           _model.replace = await actions.replaceExerciseInExerciseSets(
             FFAppState().exercisesets.toList(),
             widget.exerciseId!,
-            <String, dynamic>{
-              'id': exerciseId,
-              'name': exerciseId,
-            },
+            exerciseId,
           );
           FFAppState().exercisesets = _model.replace!.toList().cast<dynamic>();
           safeSetState(() {});

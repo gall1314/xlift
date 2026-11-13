@@ -731,7 +731,12 @@ class SetTable extends StatefulWidget {
   final Future Function(List<dynamic> exerciseSets)? onExerciseSetsChanged;
   final Future Function(List<dynamic> dropSets)? onDropSetsChanged;
   final Future Function(List<dynamic> analysisState)? onAnalysisStateChanged;
-  final Future Function(int setNumber, FFUploadedFile? video)? onResultTap;
+
+  /// [setLogId] is the set_log row the saved analysis hangs off ('' when the
+  /// set has none, or when it was analysed just now and not saved yet) -
+  /// bind it straight to a query.
+  final Future Function(int setNumber, FFUploadedFile? video, String setLogId)?
+      onResultTap;
   final Future Function()? onLockTap;
   final Future Function(int exerciseId, int setNumber, int restMs)? onStartRest;
   final Future Function()? onDontShowAgain;
@@ -794,12 +799,25 @@ class _SetTableState extends State<SetTable> {
   // AI exercises keep a 44px action column; the others spread reps / weight.
   /// Log-edit mode has no camera / analysis column at all.
   bool get _tpl => widget.isTemplate;
+
+  /// Creating an analysis (camera, retry, lock) — never while editing a log
+  /// or building a template.
   bool get _ai => widget.aiEnabled && !widget.isLogEdit && !_tpl;
 
-  double get _colVal => _ai ? 64 : 80;
-  double get _colAct => _ai ? 44 : 0;
+  /// Editing a logged workout: saved analyses are still shown, read-only.
+  /// The column only appears when at least one set actually has one.
+  bool get _aiReadOnly =>
+      widget.isLogEdit &&
+      !_tpl &&
+      _template.any((t) => _truthy(_analysisFor(t.setNumber)?['analysisDone']));
+
+  /// The analysis column exists (either mode).
+  bool get _aiCol => _ai || _aiReadOnly;
+
+  double get _colVal => _aiCol ? 64 : 80;
+  double get _colAct => _aiCol ? 44 : 0;
   double get _colTime => _colVal * 2 + _gap;
-  double get _tail => _ai ? 0 : 18;
+  double get _tail => _aiCol ? 0 : 18;
 
   // ---------- template ----------
 
@@ -1349,12 +1367,29 @@ class _SetTableState extends State<SetTable> {
     if (next == null) return;
     final int n = next.setNumber;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final ctx = _rowKeys[n]?.currentContext;
-      if (ctx == null || !mounted) return;
+      if (ctx == null) return;
+      // Never move the page while someone is typing - that is the jump.
+      final mq = MediaQuery.of(context);
+      if (mq.viewInsets.bottom > 0) return;
       try {
+        final box = ctx.findRenderObject() as RenderBox?;
+        if (box == null || !box.hasSize) return;
+        final double top = box.localToGlobal(Offset.zero).dy;
+        final double bottom = top + box.size.height;
+        final double screen = mq.size.height;
+        // Already sitting comfortably in view? Leave it alone. ensureVisible
+        // would scroll to its alignment regardless, which reads as a jolt
+        // after every tick.
+        const double margin = 24;
+        if (top >= mq.padding.top + 72 + margin &&
+            bottom <= screen - mq.padding.bottom - margin) {
+          return;
+        }
         Scrollable.ensureVisible(ctx,
-            alignment: 0.35,
-            duration: const Duration(milliseconds: 320),
+            alignment: 0.4,
+            duration: const Duration(milliseconds: 280),
             curve: Curves.easeOutCubic);
       } catch (_) {}
     });
@@ -1663,7 +1698,7 @@ class _SetTableState extends State<SetTable> {
                       ),
               ),
             ],
-            if (_ai) ...[
+            if (_aiCol) ...[
               const SizedBox(width: _gap),
               SizedBox(width: _colAct),
             ] else
@@ -2361,7 +2396,7 @@ class _SetTableState extends State<SetTable> {
                         muted)),
               ],
             ],
-            if (_ai) ...[
+            if (_aiCol) ...[
               const SizedBox(width: _gap),
               SizedBox(width: _colAct),
             ] else
@@ -2598,7 +2633,7 @@ class _SetTableState extends State<SetTable> {
                       ),
               ),
             ],
-            if (_ai) ...[
+            if (_aiCol) ...[
               const SizedBox(width: _gap),
               SizedBox(
                   width: _colAct,
@@ -2694,7 +2729,7 @@ class _SetTableState extends State<SetTable> {
                       onManualChanged: (ms) => _commitDuration(t, ms),
                     ),
             ),
-            if (_ai) ...[
+            if (_aiCol) ...[
               const SizedBox(width: _gap),
               SizedBox(
                   width: _colAct,
@@ -2807,7 +2842,7 @@ class _SetTableState extends State<SetTable> {
               ),
               const SizedBox(width: _gap),
               SizedBox(
-                width: _ai ? _colAct : 44 + _tail - _gap,
+                width: _aiCol ? _colAct : 44 + _tail - _gap,
                 child: done
                     ? const SizedBox.shrink()
                     : Center(
@@ -2906,10 +2941,35 @@ class _SetTableState extends State<SetTable> {
 
   // ---------- analysis cell ----------
 
+  /// set_log id stored with a loaded analysis; '' for one made just now.
+  String _setLogIdOf(Map? a) {
+    final dynamic an = a?['analysis'];
+    if (an is Map) {
+      final v = an['setLogId'] ?? an['set_log_id'];
+      if (v != null) return v.toString();
+    }
+    return '';
+  }
+
   Widget _analysisCell(
       _TplSet t, bool done, String lang, Color accent, bool dark) {
-    if (!_ai) return const SizedBox.shrink();
+    if (!_aiCol) return const SizedBox.shrink();
     final a = _analysisFor(t.setNumber);
+    // Log-edit: show a saved result and nothing else - no camera, no retry,
+    // no lock. Tapping it opens the result view, where it can be removed.
+    if (!_ai) {
+      if (!_truthy(a?['analysisDone'])) return const SizedBox.shrink();
+      double s10 = _scoreOf(a) ?? 0;
+      if (s10 > 10) s10 = s10 / 10;
+      return Center(
+        child: AiScoreRing(
+          score: s10,
+          size: 40,
+          onTap: () async =>
+              widget.onResultTap?.call(t.setNumber, null, _setLogIdOf(a)),
+        ),
+      );
+    }
     final bool processing = _truthy(a?['isProcessing']);
     final bool hasError = _truthy(a?['hasError']);
     final bool analysisDone = _truthy(a?['analysisDone']);
@@ -2924,8 +2984,10 @@ class _SetTableState extends State<SetTable> {
       child = AiScoreRing(
         score: s10,
         size: 40,
-        onTap: () async => widget.onResultTap?.call(t.setNumber,
-            _VideoStore.get(_jobKey(widget.exerciseId, t.setNumber))),
+        onTap: () async => widget.onResultTap?.call(
+            t.setNumber,
+            _VideoStore.get(_jobKey(widget.exerciseId, t.setNumber)),
+            _setLogIdOf(a)),
       );
     } else if (hasError) {
       child = _Pressable(

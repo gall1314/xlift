@@ -331,6 +331,7 @@ class ExerciseCard extends StatefulWidget {
     this.onLockTap,
     this.onStartRest,
     this.onDontShowAgain,
+    this.onRestTimeChanged,
   });
 
   final double? width;
@@ -367,13 +368,18 @@ class ExerciseCard extends StatefulWidget {
   final Future Function()? onRemoveExercise;
 
   /// [exerciseName] is the raw DB name (JSON or plain), as the dialog expects.
-  final Future Function(
-      String exerciseName, int setNumber, FFUploadedFile? video)? onResultTap;
+  final Future Function(String exerciseName, int setNumber,
+      FFUploadedFile? video, String setLogId)? onResultTap;
   final Future Function()? onLockTap;
   final Future Function(
           int exerciseId, String exerciseName, int setNumber, int restMs)?
       onStartRest;
   final Future Function()? onDontShowAgain;
+
+  /// Fired after the user picks a rest time for this exercise, with the new
+  /// value in milliseconds (0 = Off). The card has already written it to
+  /// App State; this is only for saving it somewhere else.
+  final Future Function(int exerciseId, int restMs)? onRestTimeChanged;
 
   @override
   State<ExerciseCard> createState() => _ExerciseCardState();
@@ -448,8 +454,9 @@ class _ExerciseCardState extends State<ExerciseCard> {
       _live ? FFAppState().warmupSets : FFAppState().warmUpCreation);
   dynamic get _restTimers =>
       _live ? FFAppState().restTimers : FFAppState().restTimerCreation;
-  List<dynamic> get _analysisState =>
-      List<dynamic>.from(FFAppState().workoutAnalysisState);
+  List<dynamic> get _analysisState => List<dynamic>.from(_live
+      ? FFAppState().workoutAnalysisState
+      : FFAppState().analysisStateCreation);
   List<dynamic> get _completed => List<dynamic>.from(_live
       ? FFAppState().completedExercises
       : FFAppState().completedExercisesCreation);
@@ -485,8 +492,13 @@ class _ExerciseCardState extends State<ExerciseCard> {
           s.warmUpCreation = v;
         }
       });
-  Future<void> _setAnalysisState(List<dynamic> v) async =>
-      _write((s) => s.workoutAnalysisState = v);
+  Future<void> _setAnalysisState(List<dynamic> v) async => _write((s) {
+        if (_live) {
+          s.workoutAnalysisState = v;
+        } else {
+          s.analysisStateCreation = v;
+        }
+      });
   Future<void> _setCompleted(List<dynamic> v) async => _write((s) {
         if (_live) {
           s.completedExercises = v;
@@ -585,7 +597,9 @@ class _ExerciseCardState extends State<ExerciseCard> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => _RestSheet(initialMs: _restMs, lang: lang),
     );
-    if (ms != null) await _setRestMs(ms);
+    if (ms == null) return;
+    await _setRestMs(ms);
+    await widget.onRestTimeChanged?.call(widget.exerciseId, ms);
   }
 
   // ---------- menu ----------
@@ -1044,8 +1058,8 @@ class _ExerciseCardState extends State<ExerciseCard> {
             onDropSetsChanged: _setDropSets,
             onAnalysisStateChanged: _setAnalysisState,
             onWarmupSetsChanged: _setWarmupSets,
-            onResultTap: (setNumber, video) async =>
-                widget.onResultTap?.call(_nameRaw, setNumber, video),
+            onResultTap: (setNumber, video, setLogId) async =>
+                widget.onResultTap?.call(_nameRaw, setNumber, video, setLogId),
             onLockTap: widget.onLockTap,
             onStartRest: (exerciseId, setNumber, restMs) async => widget
                 .onStartRest

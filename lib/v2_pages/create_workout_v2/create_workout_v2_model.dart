@@ -23,19 +23,16 @@ class CreateWorkoutV2Model extends FlutterFlowModel<CreateWorkoutV2Widget> {
 
   ///  State fields for stateful widgets in this page.
 
-  // State field(s) for TextField widget.
-  FocusNode? textFieldFocusNode;
-  TextEditingController? textController;
-  String? Function(BuildContext, String?)? textControllerValidator;
-  // Stores action output result for [Custom Action - saveWorkoutTemplate] action in Button widget.
-  dynamic save;
+  // Stores action output result for [Custom Action - saveWorkoutTemplate] action in WorkoutPage widget.
+  dynamic saveCopy;
+  // Stores action output result for [Custom Action - saveWorkoutTemplate] action in WorkoutPage widget.
+  dynamic saveCopy2;
+  // Stores action output result for [Custom Action - removeExerciseFromExerciseSets] action in WorkoutPage widget.
+  List<dynamic>? remove;
 
   @override
   void initState(BuildContext context) {}
 
   @override
-  void dispose() {
-    textFieldFocusNode?.dispose();
-    textController?.dispose();
-  }
+  void dispose() {}
 }
