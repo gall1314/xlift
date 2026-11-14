@@ -1816,48 +1816,50 @@ class _SetTableState extends State<SetTable> {
           )
         : row;
 
-    final Widget? bar = done
-        ? (unmarkOpen
-            ? _Pressable(
-                onTap: () => _warmUnmark(n),
+    final Widget? bar = _tpl
+        ? null // a template has nothing to tick
+        : done
+            ? (unmarkOpen
+                ? _Pressable(
+                    onTap: () => _warmUnmark(n),
+                    child: Container(
+                      height: _unmarkH,
+                      color: cellBg,
+                      alignment: Alignment.center,
+                      child: Icon(Icons.remove_done_rounded,
+                          size: 20, color: muted),
+                    ),
+                  )
+                : null)
+            : _Pressable(
+                onTap: () => _warmComplete(n),
                 child: Container(
-                  height: _unmarkH,
-                  color: cellBg,
-                  alignment: Alignment.center,
-                  child:
-                      Icon(Icons.remove_done_rounded, size: 20, color: muted),
+                  height: _barH,
+                  color: doneBg,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_rounded, size: 18, color: onDone),
+                      if (isLast) ...[
+                        const SizedBox(width: 8),
+                        Text(_tr(lang, 'finishWarmup'),
+                            style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: onDone)),
+                      ] else if (_asInt(w['restSec']) > 0) ...[
+                        const SizedBox(width: 8),
+                        Text('+ ${_mmss(_asInt(w['restSec']) * 1000)}',
+                            textDirection: ui.TextDirection.ltr,
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: onDone)),
+                      ],
+                    ],
+                  ),
                 ),
-              )
-            : null)
-        : _Pressable(
-            onTap: () => _warmComplete(n),
-            child: Container(
-              height: _barH,
-              color: doneBg,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_rounded, size: 18, color: onDone),
-                  if (isLast) ...[
-                    const SizedBox(width: 8),
-                    Text(_tr(lang, 'finishWarmup'),
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: onDone)),
-                  ] else if (_asInt(w['restSec']) > 0) ...[
-                    const SizedBox(width: 8),
-                    Text('+ ${_mmss(_asInt(w['restSec']) * 1000)}',
-                        textDirection: ui.TextDirection.ltr,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: onDone)),
-                  ],
-                ],
-              ),
-            ),
-          );
+              );
 
     return Container(
       decoration: BoxDecoration(
@@ -2601,7 +2603,8 @@ class _SetTableState extends State<SetTable> {
             if (!widget.isTimed)
               ..._dropRows(
                   t, done, lang, dark, text, muted, accent, cellBg, onDone),
-            if (!done) _completeBar(t, lang, doneBg, onDone),
+            // a template has nothing to tick: no ✓ bar under its rows
+            if (!done && !_tpl) _completeBar(t, lang, doneBg, onDone),
             if (unmarkOpen) _unmarkStrip(t, muted, cellBg),
           ],
         ),
@@ -2644,7 +2647,7 @@ class _SetTableState extends State<SetTable> {
       if (done) {
         h += 2;
         if (_warmUnmarkOpen.contains(n)) h += _unmarkH;
-      } else {
+      } else if (!_tpl) {
         h += _barH;
       }
       if (_warmRestEnd.containsKey(n) && i < warm - 1) {
@@ -2665,7 +2668,7 @@ class _SetTableState extends State<SetTable> {
         h += 2; // border
         if (_unmarkOpen.contains(t.setNumber)) h += _unmarkH;
       } else {
-        h += _barH;
+        if (!_tpl) h += _barH;
         if (drops > 0) h += 36; // "Add drop" line
       }
     }

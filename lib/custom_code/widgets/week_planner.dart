@@ -20,11 +20,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 /// Weekly plan builder, in three short steps: 1.
 ///
-/// how many workouts a week, how much rest between them and which days are
-/// off; 2. which workouts, in rotation order (picked from the library: the
-/// ones in the plan on top, the rest below, most recent first, with search);
-/// 3. the week itself: laid out automatically, and every workout can be
-/// dragged (long press) or tapped onto another day by hand.
+/// how many workouts a week and which days are off; 2. which workouts, in
+/// rotation order (picked from the library: the ones in the plan on top, the
+/// rest below, most recent first, with search), and - only when a workout
+/// comes back within the same week - how much rest it needs before it is done
+/// again; 3. the week itself: laid out automatically, and every workout can
+/// be dragged (long press) or tapped onto another day by hand.
 ///
 /// The plan follows "which workout is next", not the calendar: a missed
 /// workout stays next and the rest of the week moves with it. That holds for
@@ -134,21 +135,28 @@ const Map<String, List<String>> _kS = {
     'Choisis ce que tu peux tenir chaque semaine.'
   ],
   'restBetween': [
-    'Rest between workouts',
-    'Descanso entre entrenos',
-    'מנוחה בין אימונים',
-    'Pause zwischen Workouts',
-    'Repos entre séances'
+    'Rest before the same workout again',
+    'Descanso antes de repetir el mismo entreno',
+    'מנוחה לפני שאותו אימון חוזר',
+    'Pause, bevor dasselbe Workout wiederkommt',
+    'Repos avant de refaire la même séance'
+  ],
+  'restWhy': [
+    '{n} a week with {s} in the plan: a workout comes back within the same week.',
+    'Con {n} por semana y {s} en el plan, un entreno se repite en la misma semana.',
+    '{n} בשבוע עם {s} בתוכנית: אותו אימון חוזר באותו שבוע.',
+    'Bei {n} pro Woche und {s} im Plan kommt ein Workout in derselben Woche wieder.',
+    'Avec {n} par semaine et {s} dans le plan, une séance revient dans la même semaine.'
   ],
   'rest0': ['No preference', 'Da igual', 'לא משנה', 'Egal', 'Peu importe'],
   'rest1': ['1 day +', '1 día +', 'יום +', '1 Tag +', '1 jour +'],
   'rest2': ['2 days +', '2 días +', 'יומיים +', '2 Tage +', '2 jours +'],
   'tight': [
-    'With {n} a week, some workouts will fall back to back.',
-    'Con {n} por semana, algunos entrenos quedarán seguidos.',
-    'עם {n} בשבוע, חלק מהאימונים ייצאו ברצף.',
-    'Bei {n} pro Woche liegen einige Workouts direkt hintereinander.',
-    'Avec {n} par semaine, certaines séances se suivront.'
+    "Doesn't fully fit your days. The closest layout is used.",
+    'No encaja del todo con tus días. Se usa la distribución más cercana.',
+    'לא מסתדר לגמרי עם הימים שלך. נבחר הסידור הקרוב ביותר.',
+    'Passt nicht ganz zu deinen Tagen. Die nächstbeste Aufteilung wird genutzt.',
+    'Ça ne rentre pas tout à fait dans tes jours. La répartition la plus proche est utilisée.'
   ],
   'daysOff': [
     "Days you can't train",
@@ -499,7 +507,7 @@ class _Plan {
   _Plan(this.perWeek, this.rest, this.blocked, this.trainDays, this.slots,
       this.held);
   final int perWeek;
-  final int rest; // preferred rest days between workouts
+  final int rest; // rest days wanted before the SAME workout comes back
   final List<int> blocked; // weekdays off
   final List<int> trainDays; // the fixed weekdays
   final List<List<String>> slots; // each slot = variants (workout ids)
@@ -584,10 +592,51 @@ int _lexCmp(List<int> a, List<int> b) {
   return a.length - b.length;
 }
 
+/// How many training days of a week bring the same workout back with fewer
+/// than [rest] rest days in between. [set] = the week positions in order; a
+/// workout comes back [cycle] sessions later (possibly in the next week).
+int _sameViol(List<int> set, int cycle, int rest) {
+  final int k = set.length;
+  int v = 0;
+  for (int i = 0; i < k; i++) {
+    int j = i + (cycle < 1 ? 1 : cycle);
+    int add = 0;
+    while (j >= k) {
+      j -= k;
+      add += 7;
+    }
+    if (set[j] + add - set[i] - 1 < rest) v++;
+  }
+  return v;
+}
+
+/// After how many sessions the rotation brings a workout back: the number of
+/// slots, or fewer when a week arranged by hand repeats one.
+int _cycleOf(List<_Act> act) {
+  final int n = act.length;
+  if (n == 0) return 1;
+  final List<String> keys = [];
+  for (final _Act a in act) {
+    keys.add(a.vars.join('|'));
+  }
+  int best = n;
+  for (int i = 0; i < n; i++) {
+    for (int d = 1; d < best; d++) {
+      if (keys[(i + d) % n] == keys[i]) {
+        best = d;
+        break;
+      }
+    }
+  }
+  return best;
+}
+
 /// Every way to place [n] workouts on the free weekdays, best first: fewest
-/// rest-preference breaks, then the widest smallest gap, then the most even
-/// spread, then the earliest days. Weekdays come back in week order.
-List<List<int>> _pickDays(int n, List<int> blocked, int rest, int first) {
+/// too-early repeats of the same workout ([cycle] = workouts in the
+/// rotation), then the widest smallest gap between training days, then the
+/// most even spread, then the earliest days. Weekdays come back in week order.
+List<List<int>> _pickDays(
+    int n, List<int> blocked, int rest, int first, int cycle) {
   final List<List<int>> res = [];
   final List<int> allowed = [];
   for (int p = 0; p < 7; p++) {
@@ -603,10 +652,10 @@ List<List<int>> _pickDays(int n, List<int> blocked, int rest, int first) {
       if ((m & (1 << i)) != 0) set.add(allowed[i]);
     }
     if (set.length != k) continue;
-    int viol = 0, minGap = 9, spread = 0;
+    final int viol = _sameViol(set, cycle, rest);
+    int minGap = 9, spread = 0;
     for (int i = 0; i < k; i++) {
       final int g = k == 1 ? 7 : (set[(i + 1) % k] - set[i] + 7) % 7;
-      if (g - 1 < rest) viol++;
       if (g < minGap) minGap = g;
       spread += (g * k - 7) * (g * k - 7);
     }
@@ -628,20 +677,14 @@ List<List<int>> _pickDays(int n, List<int> blocked, int rest, int first) {
   return res;
 }
 
-/// Rest-preference breaks that the fixed week itself contains.
-int _baseViol(List<int> trainDays, int rest, int first) {
+/// Too-early repeats that the fixed week itself contains.
+int _baseViol(List<int> trainDays, int rest, int first, int cycle) {
   final List<int> set = [];
   for (final int wd in trainDays) {
     set.add(_posOf(wd, first));
   }
   set.sort();
-  final int k = set.length;
-  int v = 0;
-  for (int i = 0; i < k; i++) {
-    final int g = k == 1 ? 7 : (set[(i + 1) % k] - set[i] + 7) % 7;
-    if (g - 1 < rest) v++;
-  }
-  return v;
+  return _sameViol(set, cycle, rest);
 }
 
 /// Slots that still have a variant that is not on hold.
@@ -722,7 +765,23 @@ _Week _planWeek(_Plan plan, List<_Log> logs, int today, int first) {
     if (d == today && trainedToday) continue;
     cand.add(d);
   }
-  final int base = _baseViol(plan.trainDays, plan.rest, first);
+  final List<_Act> act = _activeSlots(plan.slots, plan.held);
+  final int ptr = _pointerOf(act, plan.slots, logsDesc);
+  // Per active slot: what it is, and the last day it (any variant) was done.
+  final List<String> keys = [];
+  final List<int> doneDay = [];
+  for (final _Act a in act) {
+    keys.add(a.vars.join('|'));
+    int dd = -1;
+    for (final _Log l in logsDesc) {
+      if (plan.slots[a.i].contains(l.wid)) {
+        dd = l.day;
+        break;
+      }
+    }
+    doneDay.add(dd);
+  }
+  final int base = _baseViol(plan.trainDays, plan.rest, first, _cycleOf(act));
   _Cand best = _Cand(<int>[], 0, need, 0, 99, 0);
   for (int m = 1; m < (1 << cand.length); m++) {
     final List<int> set = [];
@@ -731,11 +790,22 @@ _Week _planWeek(_Plan plan, List<_Log> logs, int today, int first) {
     }
     if (set.length > need) continue;
     int viol = 0, minGap = 99, overlap = 0, sum = 0, prev = last;
-    for (final int d in set) {
-      if (prev >= 0) {
-        if (d - prev - 1 < plan.rest) viol++;
-        if (d - prev < minGap) minGap = d - prev;
+    for (int k = 0; k < set.length; k++) {
+      final int d = set[k];
+      if (act.isNotEmpty) {
+        // The same workout again: after an earlier day of this plan, or
+        // after the last time it was actually done.
+        final int a = (ptr + k) % act.length;
+        int before = doneDay[a];
+        for (int j = k - 1; j >= 0; j--) {
+          if (keys[(ptr + j) % act.length] == keys[a]) {
+            before = set[j];
+            break;
+          }
+        }
+        if (before >= 0 && d - before - 1 < plan.rest) viol++;
       }
+      if (prev >= 0 && d - prev < minGap) minGap = d - prev;
       if (plan.trainDays.contains(_wdOf(d))) overlap++;
       sum += d - today;
       prev = d;
@@ -745,8 +815,6 @@ _Week _planWeek(_Plan plan, List<_Log> logs, int today, int first) {
     if (_cmpWeek(c, best) < 0) best = c;
   }
 
-  final List<_Act> act = _activeSlots(plan.slots, plan.held);
-  final int ptr = _pointerOf(act, plan.slots, logsDesc);
   // Variants take turns inside the week too; a workout placed twice by hand
   // shares one counter.
   final Map<String, int> occ = {};
@@ -1363,8 +1431,9 @@ class _WeekPlannerState extends State<WeekPlanner> {
   List<List<String>> _slots() => _buildSlots(_cfg.order, _exMap(), _cfg.split);
 
   List<List<int>> _options(int first) {
-    final List<List<int>> all =
-        _pickDays(_cfg.n, _cfg.blocked, _cfg.rest, first);
+    final int cycle = _slots().length;
+    final List<List<int>> all = _pickDays(
+        _cfg.n, _cfg.blocked, _cfg.rest, first, cycle < 1 ? 1 : cycle);
     return all.length > 6 ? all.sublist(0, 6) : all;
   }
 
@@ -1854,7 +1923,6 @@ class _WeekPlannerState extends State<WeekPlanner> {
 
   // ---------- step 1: how often ----------
   List<Widget> _stepOne(BuildContext context, String lang, _Pal p, int first) {
-    final bool tight = _cfg.rest > 0 && _cfg.n > (7 ~/ (_cfg.rest + 1));
     return [
       ..._titles(context, p, _tr(lang, 's1'), _tr(lang, 's1s')),
       _box(p, [
@@ -1866,33 +1934,6 @@ class _WeekPlannerState extends State<WeekPlanner> {
               })),
           ],
         ),
-      ]),
-      const SizedBox(height: 12),
-      _box(p, [
-        _label(context, p, _tr(lang, 'restBetween')),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (int r = 0; r <= 2; r++)
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsetsDirectional.only(start: r == 0 ? 0 : 6),
-                  child: _chip(context, p, _tr(lang, 'rest' + r.toString()),
-                      _cfg.rest == r, () {
-                    _change(() => _cfg.rest = r);
-                  }),
-                ),
-              ),
-          ],
-        ),
-        if (tight)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Text(
-              _tr(lang, 'tight', {'n': _cfg.n.toString()}),
-              style: _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.35),
-            ),
-          ),
       ]),
       const SizedBox(height: 12),
       _box(p, [
@@ -2058,7 +2099,8 @@ class _WeekPlannerState extends State<WeekPlanner> {
     );
   }
 
-  List<Widget> _stepTwo(BuildContext context, String lang, _Pal p, _Data d) {
+  List<Widget> _stepTwo(
+      BuildContext context, String lang, _Pal p, _Data d, int first) {
     final Map<String, List<int>> ex = _exMap();
     final List<List<String>> slots = _slots();
     final int today = _dayNo(DateTime.now());
@@ -2090,6 +2132,20 @@ class _WeekPlannerState extends State<WeekPlanner> {
     });
     final bool cut = q.isEmpty && !_showAll && pool.length > 4;
     final int shown = cut ? 3 : pool.length;
+    // Rest is asked only when it can matter: more workouts a week than
+    // workouts in the plan, so one of them comes back within the same week.
+    final Map<int, String>? hand = _manual;
+    final int perWeek = hand == null ? _cfg.n : hand.length;
+    final bool repeats = slots.isNotEmpty && perWeek > slots.length;
+    bool tight = false;
+    if (repeats && hand == null && _cfg.rest > 0) {
+      final List<int> pos = [
+        for (final int wd in _draftDays(first)) _posOf(wd, first)
+      ];
+      pos.sort();
+      tight = _sameViol(pos, slots.length, _cfg.rest) > 0;
+    }
+
     final List<Widget> lib = [];
     for (int k = 0; k < shown; k++) {
       final _Wk w = pool[idx[k]];
@@ -2200,6 +2256,44 @@ class _WeekPlannerState extends State<WeekPlanner> {
             ),
           ),
       ]),
+      if (repeats) ...[
+        const SizedBox(height: 12),
+        _box(p, [
+          _label(
+            context,
+            p,
+            _tr(lang, 'restBetween'),
+            _tr(lang, 'restWhy', {
+              'n': perWeek.toString(),
+              's': slots.length.toString(),
+            }),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (int r = 0; r <= 2; r++)
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(start: r == 0 ? 0 : 6),
+                    child: _chip(context, p, _tr(lang, 'rest' + r.toString()),
+                        _cfg.rest == r, () {
+                      _change(() => _cfg.rest = r);
+                    }),
+                  ),
+                ),
+            ],
+          ),
+          if (tight)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                _tr(lang, 'tight'),
+                style:
+                    _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.35),
+              ),
+            ),
+        ]),
+      ],
       const SizedBox(height: 14),
       _pill(
         context,
@@ -2634,7 +2728,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
         final List<Widget> body = _step == 1
             ? _stepOne(context, lang, p, first)
             : (_step == 2
-                ? _stepTwo(context, lang, p, d)
+                ? _stepTwo(context, lang, p, d, first)
                 : _stepThree(context, lang, p, first, rtl));
         kids.add(AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),

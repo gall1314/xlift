@@ -13,7 +13,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:async';
-import 'dart:ui' as ui show TextDirection;
+import 'dart:ui' as ui show TextDirection, FontFeature;
 import 'package:flutter/cupertino.dart'
     show CupertinoPicker, CupertinoPickerDefaultSelectionOverlay;
 import 'package:flutter/services.dart';
@@ -24,10 +24,11 @@ import '/auth/supabase_auth/auth_util.dart';
 // =============================================================================
 // WorkoutPage — the whole live-workout screen.
 //
-// Top bar (back · WorkoutClock · Finish) with the progress line under it, a
-// live-stats strip hanging off the bar (collapsed to a chevron handle; tap →
-// Sets · Volume · Exercises), a scrolling list of ExerciseCard (one per
-// exercise, in exercisesets order) and "Add Exercises" at the bottom. Reads
+// No bar surface: the controls float on the page background - a round back
+// button, the workout clock in a capsule, and the Finish pill. Under them,
+// while training, one progress segment per exercise with sets and volume
+// below. Then a scrolling list of ExerciseCard (one per exercise, in
+// exercisesets order) and "Add Exercises" at the bottom. Reads
 // App State directly and rebuilds on every change. Give it width ∞ and
 // height ∞ in FF; nothing else to set.
 //
@@ -109,6 +110,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "תרגילים",
     "de": "Übungen",
     "fr": "Exercices"
+  },
+  "exercise1": {
+    "en": "Exercise",
+    "es": "Ejercicio",
+    "he": "תרגיל",
+    "de": "Übung",
+    "fr": "Exercice"
   },
   "kg": {"en": "kg", "es": "kg", "he": "ק״ג", "de": "kg", "fr": "kg"},
   "lbs": {"en": "lbs", "es": "lb", "he": "ליב׳", "de": "lbs", "fr": "lb"},
@@ -425,7 +433,10 @@ class WorkoutPage extends StatefulWidget {
   /// Default: "Save" when editing a logged workout, "Create" in template mode.
   final String? saveLabel;
 
-  /// Template mode: the workout's name, pre-filled when editing.
+  /// Template mode: the workout's name, pre-filled when editing - it is the
+  /// page title, typed straight onto the page.
+  /// Log-edit: optional; when passed it is shown as a read-only title above
+  /// the date and duration chips.
   final String? workoutName;
 
   /// Log-edit only: the workout's date and its length in minutes. Bind them
@@ -487,6 +498,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
   final ScrollController _scroll = ScrollController();
   late final TextEditingController _nameCtrl =
       TextEditingController(text: widget.workoutName ?? '');
+  final FocusNode _nameFocus = FocusNode();
+
+  /// Used for the clock when App State holds no start time, so the clock
+  /// does not restart on every rebuild.
+  late final DateTime _fallbackStart = DateTime.now();
 
   /// The ids whose exercise rows were last sent to ExerciseCard.warm.
   String _warmedFor = '';
@@ -533,6 +549,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _scroll.dispose();
     _scrolled.dispose();
     _nameCtrl.dispose();
+    _nameFocus.dispose();
     super.dispose();
   }
 
@@ -611,6 +628,46 @@ class _WorkoutPageState extends State<WorkoutPage> {
           ids.contains(_asInt(c['exerciseId'], -1))) doneEx++;
     }
     return _Stats(done, total, volume, doneEx, ids.length);
+  }
+
+  /// Live header: one value per exercise, 0..1 - its ticked sets over its
+  /// planned sets (drop sets and warm-ups do not count). An exercise that
+  /// was marked finished is full, whatever was ticked.
+  List<double> _segments(List<int> ids) {
+    final Map<int, int> total = {};
+    for (final e in _exerciseSets) {
+      if (e is! Map) continue;
+      final id = _asInt(e['exerciseId'], -1);
+      if (id < 0) continue;
+      total[id] = (total[id] ?? 0) +
+          (e['sets'] is List ? (e['sets'] as List).length : 0);
+    }
+    final Map<int, int> done = {};
+    for (final l in _loggedSets) {
+      if (l is! Map || _truthy(l['isDropSet']) || !_truthy(l['isDone']))
+        continue;
+      final id = _asInt(l['exerciseId'], -1);
+      done[id] = (done[id] ?? 0) + 1;
+    }
+    final Set<int> finished = {};
+    for (final c in (_live
+        ? FFAppState().completedExercises
+        : FFAppState().completedExercisesCreation)) {
+      if (c is Map && _truthy(c['isComplete']))
+        finished.add(_asInt(c['exerciseId'], -1));
+    }
+    final List<double> out = [];
+    for (final id in ids) {
+      final int t = total[id] ?? 0;
+      if (finished.contains(id)) {
+        out.add(1.0);
+      } else if (t <= 0) {
+        out.add(0.0);
+      } else {
+        out.add(((done[id] ?? 0) / t).clamp(0.0, 1.0).toDouble());
+      }
+    }
+    return out;
   }
 
   /// Full-screen set-by-set mode; writes to the same App State as the list.
@@ -708,8 +765,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final bool canFinish = progress > 0;
     final Color border =
         dark ? const Color(0xFF2A3644) : const Color(0xFFE3E7EB);
-    final DateTime startedAt =
-        FFAppState().activeWorkoutStartTime ?? DateTime.now();
     final double topInset = MediaQuery.of(context).padding.top;
     // Room under the last card. The page above may already have eaten the
     // safe area, so a floor keeps "Add Exercises" off the screen edge, and
@@ -720,23 +775,25 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final double bottomInset = safeBottom + keyboard;
 
     // ---- header --------------------------------------------------------
-    // No bar surface: the page background runs to the top of the screen and
-    // the controls float on it - a round back button and a pill on the right.
+    // No bar surface. Every control is the same material as the cards - the
+    // surface colour with a hairline border - floating on the page
+    // background. Teal is kept for the main action and for progress.
+    final Color surface = theme.secondaryBackground;
+    final Color track =
+        dark ? const Color(0xFF2A3644) : const Color(0xFFD8DEE6);
+    final Color hint = dark ? const Color(0xFF7E8A99) : const Color(0xFF7A8494);
+    String ltr(Object v) => '⁦$v⁩';
+
     final Widget backButton = _Tap(
       onTap: () => widget.onBack?.call(),
       child: Container(
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: theme.secondaryBackground,
+          color: surface,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(dark ? 0.30 : 0.08),
-                blurRadius: 4,
-                offset: const Offset(0, 1)),
-          ],
+          border: Border.all(color: border),
         ),
         child: Icon(
             rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
@@ -745,6 +802,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
       ),
     );
 
+    // Finish stays quiet (same material as the other controls) until there
+    // is something to finish; Save / Create are always the solid pill.
     final bool solid = _edit || _tpl || canFinish;
     final Widget finishButton = _Tap(
       onTap: () {
@@ -756,13 +815,13 @@ class _WorkoutPageState extends State<WorkoutPage> {
         );
       },
       child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: solid ? theme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: solid ? null : Border.all(color: border, width: 1.5),
+          color: solid ? theme.primary : surface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: solid ? theme.primary : border),
         ),
         child: Text(
             (widget.saveLabel ?? '').trim().isNotEmpty
@@ -772,6 +831,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     (_edit || _tplEdit)
                         ? 'save'
                         : (_tpl ? 'create' : 'finish')),
+            maxLines: 1,
             style: _ts(theme, 15, FontWeight.w700,
                 solid ? Colors.white : theme.secondaryText)),
       ),
@@ -784,12 +844,13 @@ class _WorkoutPageState extends State<WorkoutPage> {
           _Tap(
             onTap: _openPlayMode,
             child: Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               alignment: Alignment.center,
               decoration: BoxDecoration(
+                color: surface,
                 shape: BoxShape.circle,
-                border: Border.all(color: border, width: 1.5),
+                border: Border.all(color: border),
               ),
               child: Icon(Icons.play_arrow_rounded,
                   size: 22, color: theme.primary),
@@ -801,204 +862,250 @@ class _WorkoutPageState extends State<WorkoutPage> {
       ],
     );
 
-    // Edit / template: one quiet row - back, a small centred title, the pill.
-    // A hairline fades in under it once the list has scrolled.
-    final Widget staticHeader = Container(
-      color: theme.primaryBackground,
-      padding: EdgeInsets.fromLTRB(16, topInset + 4, 16, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
+    // Centre of the row. Live: the clock in a capsule, with a "running" dot.
+    // Elsewhere: the screen's title.
+    final Widget middle = _live
+        ? Container(
             height: 44,
-            child: Stack(
-              alignment: Alignment.center,
+            padding: const EdgeInsetsDirectional.only(start: 18, end: 18),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 104),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                        (widget.title ?? '').trim().isNotEmpty
-                            ? widget.title!.trim()
-                            : _tr(
-                                lang,
-                                (_edit || _tplEdit)
-                                    ? 'editWorkout'
-                                    : 'createWorkout'),
-                        style:
-                            _ts(theme, 17, FontWeight.w600, theme.primaryText)),
-                  ),
-                ),
-                Row(children: [backButton, const Spacer(), trailing]),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          ValueListenableBuilder<bool>(
-            valueListenable: _scrolled,
-            builder: (_, scrolled, __) => AnimatedOpacity(
-              duration: const Duration(milliseconds: 160),
-              opacity: scrolled ? 1.0 : 0.0,
-              child: Container(height: 1, color: border),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    // Log-edit: the Workout Details card, in place of the running clock.
-    Widget detailField(
-            IconData icon, String label, String value, VoidCallback onTap) =>
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 18, color: theme.primary),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _ts(
-                            theme, 15, FontWeight.w400, theme.secondaryText)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _Tap(
-                onTap: onTap,
-                child: Container(
-                  height: 48,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                Container(
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: theme.primaryBackground,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: border),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _ts(
-                                theme, 16, FontWeight.w400, theme.primaryText)),
-                      ),
-                      Icon(Icons.expand_more_rounded,
-                          size: 20, color: theme.secondaryText),
+                    color: theme.primary,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: theme.primary.withOpacity(dark ? 0.28 : 0.18),
+                          spreadRadius: 4),
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
+                const SizedBox(width: 12),
+                _LiveClock(
+                  startedAt:
+                      FFAppState().activeWorkoutStartTime ?? _fallbackStart,
+                  style: _ts(theme, 17, FontWeight.w700, theme.primaryText),
+                ),
+              ],
+            ),
+          )
+        : Text(
+            (widget.title ?? '').trim().isNotEmpty
+                ? widget.title!.trim()
+                : _tr(lang,
+                    (_edit || _tplEdit) ? 'editWorkout' : 'createWorkout'),
+            maxLines: 1,
+            style: _ts(theme, 16, FontWeight.w600, theme.primaryText));
 
-    final Widget detailsCard = Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: BoxDecoration(
-        color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border),
-      ),
+    // Live: one segment per exercise, filling as its sets are ticked, and
+    // under them the sets on one side and the volume on the other.
+    final _Stats st = _stats(ids);
+    final String unit = _tr(lang, FFAppState().isKg ? 'kg' : 'lbs');
+    final List<double> segs = _live ? _segments(ids) : const <double>[];
+    final double segGap = segs.length > 24 ? 2 : 4;
+    final TextStyle capStyle =
+        _ts(theme, 12, FontWeight.w500, theme.secondaryText);
+    final TextStyle capStrong =
+        _ts(theme, 12, FontWeight.w700, theme.primaryText);
+
+    final Widget header = Container(
+      color: theme.primaryBackground,
+      padding: EdgeInsets.fromLTRB(16, topInset + 6, 16, _live ? 14 : 10),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              detailField(
-                  Icons.calendar_today_rounded,
-                  _tr(lang, 'workoutDate'),
-                  _dateLabel(lang),
-                  () => _pickDate(lang)),
-              const SizedBox(width: 14),
-              detailField(Icons.schedule_rounded, _tr(lang, 'duration'),
-                  _durationLabel, () => _pickDuration(lang)),
-            ],
+          SizedBox(
+            height: 44,
+            // keeps the middle dead centre, and nudges it aside only when a
+            // long label on one side leaves no room
+            child: NavigationToolbar(
+              leading: backButton,
+              middle: FittedBox(fit: BoxFit.scaleDown, child: middle),
+              trailing: trailing,
+              centerMiddle: true,
+              middleSpacing: 10,
+            ),
           ),
+          if (_live && segs.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                for (int k = 0; k < segs.length; k++)
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsetsDirectional.only(
+                          start: k == 0 ? 0 : segGap),
+                      child: _Segment(
+                          value: segs[k], track: track, fill: theme.primary),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: '⁦${st.doneSets}', style: capStrong),
+                        TextSpan(
+                            text: ' / ${st.totalSets}⁩ '
+                                '${_tr(lang, st.totalSets == 1 ? 'set' : 'sets').toLowerCase()}'),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: capStyle,
+                  ),
+                ),
+                if (st.volume > 0)
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                            text: ltr(_fmtVolume(st.volume)), style: capStrong),
+                        TextSpan(text: ' $unit'),
+                      ],
+                    ),
+                    maxLines: 1,
+                    style: capStyle,
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
 
-    // Template mode: the workout name, in place of the clock / details.
-    final Widget nameCard = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: theme.secondaryBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border),
-      ),
-      child: TextField(
-        controller: _nameCtrl,
-        textInputAction: TextInputAction.done,
-        onChanged: (_) => setState(() {}),
-        onTapOutside: (_) => FocusScope.of(context).unfocus(),
-        style: _ts(theme, 19, FontWeight.w400, theme.primaryText),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 22),
-          hintText: _tr(lang, 'workoutNameHint'),
-          hintStyle: _ts(theme, 19, FontWeight.w400, theme.secondaryText),
-        ),
+    // ---- top of the list ------------------------------------------------
+    TextStyle bigTitle(Color c, FontWeight w) => _ts(theme, 28, w, c)
+        .copyWith(letterSpacing: rtl ? 0 : -0.5, height: 1.2);
+
+    // Template: the workout's name IS the page title - typed straight onto
+    // the page, with the size of the workout under it.
+    final String countLine = ids.isEmpty
+        ? ''
+        : '${ltr(ids.length)} ${_tr(lang, ids.length == 1 ? 'exercise1' : 'exercises').toLowerCase()}'
+            '  ·  ${ltr(st.totalSets)} ${_tr(lang, st.totalSets == 1 ? 'set' : 'sets').toLowerCase()}';
+
+    final Widget nameBlock = Padding(
+      padding: const EdgeInsetsDirectional.only(start: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _nameCtrl,
+                  focusNode: _nameFocus,
+                  maxLines: 1,
+                  textInputAction: TextInputAction.done,
+                  textCapitalization: TextCapitalization.sentences,
+                  cursorColor: theme.primary,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  style: bigTitle(theme.primaryText, FontWeight.w800),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    isDense: true,
+                    filled: false,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                    hintText: _tr(lang, 'workoutNameHint'),
+                    hintStyle: bigTitle(hint, FontWeight.w600),
+                  ),
+                ),
+              ),
+              _Tap(
+                onTap: () => _nameFocus.requestFocus(),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(Icons.edit_outlined, size: 20, color: hint),
+                ),
+              ),
+            ],
+          ),
+          if (countLine.isNotEmpty)
+            Text(countLine,
+                maxLines: 1,
+                style: _ts(theme, 14, FontWeight.w500, theme.secondaryText)),
+        ],
       ),
     );
 
-    // Live: the numbers the header shows beside the clock.
-    final _Stats st = _stats(ids);
-    final String unit = _tr(lang, FFAppState().isKg ? 'kg' : 'lbs');
-    final String liveName = (widget.workoutName ?? '').trim();
+    // Log-edit: the workout's name (when the page passes one) as a read-only
+    // title, and its date and length as two chips that open the pickers.
+    Widget chip(IconData icon, String label, VoidCallback onTap) => _Tap(
+          onTap: onTap,
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: border),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: theme.primary),
+                const SizedBox(width: 8),
+                Text(label,
+                    maxLines: 1,
+                    style: _ts(theme, 14, FontWeight.w600, theme.primaryText)),
+                const SizedBox(width: 4),
+                Icon(Icons.expand_more_rounded,
+                    size: 18, color: theme.secondaryText),
+              ],
+            ),
+          ),
+        );
 
-    final Widget liveHeader = SliverPersistentHeader(
-      pinned: true,
-      delegate: _LiveHeaderDelegate(
-        topInset: topInset,
-        background: theme.primaryBackground,
-        leading: backButton,
-        trailing: trailing,
-        bigClock: WorkoutClock(
-            startedAt: startedAt, fontSize: 40, color: theme.primaryText),
-        smallClock: WorkoutClock(
-            startedAt: startedAt, fontSize: 20, color: theme.primaryText),
-        label: liveName.isEmpty
-            ? null
-            : Text(rtl ? liveName : liveName.toUpperCase(),
-                maxLines: 1,
+    String logName = (widget.workoutName ?? '').trim();
+    if (logName.isNotEmpty) {
+      try {
+        final String loc = localizedName(logName, lang).trim();
+        if (loc.isNotEmpty) logName = loc;
+      } catch (_) {}
+    }
+
+    final Widget detailsBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (logName.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4, end: 4, top: 4),
+            child: Text(logName,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: _ts(theme, 13, FontWeight.w600, theme.secondaryText)
-                    .copyWith(letterSpacing: rtl ? 0 : 0.4)),
-        statTop: st.totalSets == 0
-            ? null
-            : Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                        text: '\u2066${st.doneSets}\u2069',
-                        style:
-                            _ts(theme, 17, FontWeight.w700, theme.primaryText)),
-                    TextSpan(
-                        text:
-                            ' / \u2066${st.totalSets}\u2069 ${_tr(lang, 'sets').toLowerCase()}',
-                        style: _ts(
-                            theme, 17, FontWeight.w500, theme.secondaryText)),
-                  ],
-                ),
-                maxLines: 1,
-              ),
-        statBottom: st.totalSets == 0
-            ? null
-            : Text('${_fmtVolume(st.volume)} $unit',
-                textDirection: ui.TextDirection.ltr,
-                maxLines: 1,
-                style: _ts(theme, 13, FontWeight.w400, theme.secondaryText)),
-        track: border,
-        fill: theme.primary,
-        progress: progress,
-        rtl: rtl,
-      ),
+                style: bigTitle(theme.primaryText, FontWeight.w800)),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            chip(Icons.calendar_today_rounded, _dateLabel(lang),
+                () => _pickDate(lang)),
+            chip(Icons.schedule_rounded, _durationLabel,
+                () => _pickDuration(lang)),
+          ],
+        ),
+      ],
     );
 
     final Widget addButton = _Tap(
@@ -1007,14 +1114,14 @@ class _WorkoutPageState extends State<WorkoutPage> {
         height: 56,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-            color: theme.primary, borderRadius: BorderRadius.circular(16)),
+            color: theme.primary, borderRadius: BorderRadius.circular(28)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.add_rounded, size: 24, color: Colors.white),
             const SizedBox(width: 8),
             Text(_tr(lang, 'addExercises'),
-                style: _ts(theme, 18, FontWeight.w700, Colors.white)),
+                style: _ts(theme, 17, FontWeight.w700, Colors.white)),
           ],
         ),
       ),
@@ -1028,126 +1135,210 @@ class _WorkoutPageState extends State<WorkoutPage> {
         color: theme.primaryBackground,
         child: Column(
           children: [
-            if (!_live) staticHeader,
+            header,
             Expanded(
-              child: CustomScrollView(
-                controller: _scroll,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                // cards are tall and their height depends on their content:
-                // keeping a screenful alive on either side stops the list
-                // from re-measuring (and shifting) when you scroll back
-                cacheExtent: 1400,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  // Live: the clock block is part of the scroll view - it
-                  // shrinks to one row as the list moves, frame for frame.
-                  if (_live) liveHeader,
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                        16, _live ? 8 : 12, 16, 28 + bottomInset),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (ctx, raw) {
-                          if ((_edit || _tpl) && raw == 0) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _edit ? detailsCard : nameCard,
-                            );
-                          }
-                          final int i = (_edit || _tpl) ? raw - 1 : raw;
-                          if (i == ids.length) {
-                            return Padding(
-                              padding:
-                                  EdgeInsets.only(top: ids.isEmpty ? 40 : 8),
-                              child: Column(
-                                children: [
-                                  if (ids.isEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          24, 24, 24, 28),
-                                      child: Column(
-                                        children: [
-                                          Container(
-                                            width: 88,
-                                            height: 88,
-                                            alignment: Alignment.center,
-                                            decoration: BoxDecoration(
-                                              color: theme.primary
-                                                  .withOpacity(0.10),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                                Icons.fitness_center_rounded,
-                                                size: 38,
-                                                color: theme.primary),
+              child: Stack(
+                children: [
+                  CustomScrollView(
+                    controller: _scroll,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    // cards are tall and their height depends on their content:
+                    // keeping a screenful alive on either side stops the list
+                    // from re-measuring (and shifting) when you scroll back
+                    cacheExtent: 1400,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding:
+                            EdgeInsets.fromLTRB(16, 4, 16, 28 + bottomInset),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (ctx, raw) {
+                              if ((_edit || _tpl) && raw == 0) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: _edit ? detailsBlock : nameBlock,
+                                );
+                              }
+                              final int i = (_edit || _tpl) ? raw - 1 : raw;
+                              if (i == ids.length) {
+                                // Nothing added yet: only the placeholder lives in the
+                                // list - the button is pinned to the bottom of the page.
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                      top: ids.isEmpty
+                                          ? mq.size.height * 0.10
+                                          : 8),
+                                  child: Column(
+                                    children: [
+                                      if (ids.isEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              24, 24, 24, 28),
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                width: 88,
+                                                height: 88,
+                                                alignment: Alignment.center,
+                                                decoration: BoxDecoration(
+                                                  color: theme.primary
+                                                      .withOpacity(0.10),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                    Icons
+                                                        .fitness_center_rounded,
+                                                    size: 38,
+                                                    color: theme.primary),
+                                              ),
+                                              const SizedBox(height: 18),
+                                              Text(_tr(lang, 'empty'),
+                                                  textAlign: TextAlign.center,
+                                                  style: _ts(
+                                                      theme,
+                                                      19,
+                                                      FontWeight.w700,
+                                                      theme.primaryText)),
+                                              const SizedBox(height: 6),
+                                              Text(_tr(lang, 'emptySub'),
+                                                  textAlign: TextAlign.center,
+                                                  style: _ts(
+                                                      theme,
+                                                      15,
+                                                      FontWeight.w400,
+                                                      theme.secondaryText)),
+                                            ],
                                           ),
-                                          const SizedBox(height: 18),
-                                          Text(_tr(lang, 'empty'),
-                                              textAlign: TextAlign.center,
-                                              style: _ts(
-                                                  theme,
-                                                  19,
-                                                  FontWeight.w700,
-                                                  theme.primaryText)),
-                                          const SizedBox(height: 6),
-                                          Text(_tr(lang, 'emptySub'),
-                                              textAlign: TextAlign.center,
-                                              style: _ts(
-                                                  theme,
-                                                  15,
-                                                  FontWeight.w400,
-                                                  theme.secondaryText)),
-                                        ],
-                                      ),
-                                    ),
-                                  addButton,
-                                ],
-                              ),
-                            );
-                          }
-                          final int id = ids[i];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: ExerciseCard(
-                              key: ValueKey('exercise_$id'),
-                              exerciseId: id,
-                              isLiveWorkout: _live,
-                              isLogEdit: _edit,
-                              isTemplate: _tpl,
-                              exerciseCount: ids.length,
-                              showCameraGuidance: widget.showCameraGuidance,
-                              onHeaderTap: () async =>
-                                  widget.onHeaderTap?.call(id),
-                              onCustomHeaderTap: () async =>
-                                  widget.onCustomHeaderTap?.call(id),
-                              onReplaceExercise: () async =>
-                                  widget.onReplaceExercise?.call(id),
-                              onSupersetTap: () async =>
-                                  widget.onSupersetTap?.call(id),
-                              onViewHistory: () async =>
-                                  widget.onViewHistory?.call(id),
-                              onCustomViewHistory: () async =>
-                                  widget.onCustomViewHistory?.call(id),
-                              onReorder: () async => widget.onReorder?.call(),
-                              onRemoveExercise: () async =>
-                                  widget.onRemoveExercise?.call(id),
-                              onResultTap:
-                                  (name, setNumber, video, setLogId) async =>
+                                        ),
+                                      if (ids.isNotEmpty) addButton,
+                                    ],
+                                  ),
+                                );
+                              }
+                              final int id = ids[i];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: ExerciseCard(
+                                  key: ValueKey('exercise_$id'),
+                                  exerciseId: id,
+                                  isLiveWorkout: _live,
+                                  isLogEdit: _edit,
+                                  isTemplate: _tpl,
+                                  exerciseCount: ids.length,
+                                  showCameraGuidance: widget.showCameraGuidance,
+                                  onHeaderTap: () async =>
+                                      widget.onHeaderTap?.call(id),
+                                  onCustomHeaderTap: () async =>
+                                      widget.onCustomHeaderTap?.call(id),
+                                  onReplaceExercise: () async =>
+                                      widget.onReplaceExercise?.call(id),
+                                  onSupersetTap: () async =>
+                                      widget.onSupersetTap?.call(id),
+                                  onViewHistory: () async =>
+                                      widget.onViewHistory?.call(id),
+                                  onCustomViewHistory: () async =>
+                                      widget.onCustomViewHistory?.call(id),
+                                  onReorder: () async =>
+                                      widget.onReorder?.call(),
+                                  onRemoveExercise: () async =>
+                                      widget.onRemoveExercise?.call(id),
+                                  onResultTap: (name, setNumber, video,
+                                          setLogId) async =>
                                       widget.onResultTap?.call(
                                           id, name, setNumber, video, setLogId),
-                              onLockTap: () async => widget.onLockTap?.call(),
-                              onUnitChanged: widget.onUnitChanged,
-                              onStartRest: widget.onStartRest,
-                              onDontShowAgain: widget.onDontShowAgain,
+                                  onLockTap: () async =>
+                                      widget.onLockTap?.call(),
+                                  onUnitChanged: widget.onUnitChanged,
+                                  onStartRest: widget.onStartRest,
+                                  onDontShowAgain: widget.onDontShowAgain,
+                                ),
+                              );
+                            },
+                            childCount: ids.length + ((_edit || _tpl) ? 2 : 1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Scroll edge: once the list has moved, the cards fade out
+                  // under the header instead of being cut by a hard line.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 18,
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _scrolled,
+                        builder: (_, scrolled, __) => AnimatedOpacity(
+                          duration: const Duration(milliseconds: 160),
+                          opacity: scrolled ? 1.0 : 0.0,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  theme.primaryBackground,
+                                  theme.primaryBackground.withOpacity(0),
+                                ],
+                              ),
                             ),
-                          );
-                        },
-                        childCount: ids.length + ((_edit || _tpl) ? 2 : 1),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ],
+              ),
+            ),
+            // Empty workout: "Add Exercises" sits where a floating button
+            // would, so the page reads as full. It steps aside for the
+            // keyboard (typing the workout's name).
+            if (ids.isEmpty && keyboard == 0)
+              Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, safeBottom + 12),
+                child: addButton,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One exercise in the live header's progress row: a 4px rounded track that
+/// fills from the start edge, animating when the value changes.
+class _Segment extends StatelessWidget {
+  const _Segment(
+      {required this.value, required this.track, required this.fill});
+  final double value;
+  final Color track;
+  final Color fill;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: SizedBox(
+        height: 4,
+        child: Stack(
+          children: [
+            Positioned.fill(child: ColoredBox(color: track)),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: value.clamp(0.0, 1.0).toDouble()),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              builder: (_, v, __) => FractionallySizedBox(
+                widthFactor: v,
+                heightFactor: 1,
+                alignment: AlignmentDirectional.centerStart,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                      color: fill, borderRadius: BorderRadius.circular(2)),
+                ),
               ),
             ),
           ],
@@ -1157,172 +1348,50 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 }
 
-/// The live-workout header: back and Finish float on the page background,
-/// the clock is the headline with sets and volume beside it, and a rounded
-/// progress bar closes the block. Pinned at the top of the scroll view: as
-/// the list moves it shrinks to a single row - back, a small centred clock,
-/// Finish - with the progress bar still under it.
-class _LiveHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _LiveHeaderDelegate({
-    required this.topInset,
-    required this.background,
-    required this.leading,
-    required this.trailing,
-    required this.bigClock,
-    required this.smallClock,
-    required this.label,
-    required this.statTop,
-    required this.statBottom,
-    required this.track,
-    required this.fill,
-    required this.progress,
-    required this.rtl,
-  });
-
-  final double topInset;
-  final Color background;
-  final Widget leading;
-  final Widget trailing;
-  final Widget bigClock;
-  final Widget smallClock;
-  final Widget? label;
-  final Widget? statTop;
-  final Widget? statBottom;
-  final Color track;
-  final Color fill;
-  final double progress;
-  final bool rtl;
-
-  static const double _rowTop = 4;
-  static const double _rowH = 44;
-  static const double _barH = 6;
-
-  /// Height of the headline block (clock, with the workout name over it).
-  double get _bigH => label == null ? 56 : 76;
+/// The workout's elapsed time as m:ss (h:mm:ss past the hour), in tabular
+/// figures so the digits do not shift. Ticks once a second and rebuilds only
+/// itself.
+class _LiveClock extends StatefulWidget {
+  const _LiveClock({required this.startedAt, required this.style});
+  final DateTime startedAt;
+  final TextStyle style;
 
   @override
-  double get minExtent => topInset + _rowTop + _rowH + 10 + _barH + 10;
+  State<_LiveClock> createState() => _LiveClockState();
+}
+
+class _LiveClockState extends State<_LiveClock> {
+  Timer? _timer;
 
   @override
-  double get maxExtent => minExtent + 8 + _bigH;
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
-  bool shouldRebuild(covariant _LiveHeaderDelegate old) => true;
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
-  Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
-    final double range = maxExtent - minExtent;
-    final double t =
-        range <= 0 ? 1.0 : (shrinkOffset / range).clamp(0.0, 1.0).toDouble();
-    // the headline is gone by 60% of the way, the small clock arrives after
-    final double bigOpacity = (1 - t / 0.6).clamp(0.0, 1.0).toDouble();
-    final double smallOpacity = ((t - 0.5) / 0.5).clamp(0.0, 1.0).toDouble();
-
-    return Container(
-      color: background,
-      child: ClipRect(
-        child: Stack(
-          children: [
-            // row: back · (small clock) · Finish
-            Positioned(
-              top: topInset + _rowTop,
-              left: 16,
-              right: 16,
-              height: _rowH,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (smallOpacity > 0)
-                    IgnorePointer(
-                        child:
-                            Opacity(opacity: smallOpacity, child: smallClock)),
-                  Row(children: [leading, const Spacer(), trailing]),
-                ],
-              ),
-            ),
-            // headline: name + big clock on one side, sets + volume on the other
-            if (bigOpacity > 0)
-              Positioned(
-                top: topInset + _rowTop + _rowH + 8 - shrinkOffset * 0.35,
-                left: 18,
-                right: 18,
-                height: _bigH,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: bigOpacity,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: AlignmentDirectional.bottomStart,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: AlignmentDirectional.bottomStart,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (label != null) label!,
-                                  bigClock,
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (statTop != null || statBottom != null) ...[
-                          const SizedBox(width: 12),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                if (statTop != null) statTop!,
-                                if (statBottom != null) ...[
-                                  const SizedBox(height: 2),
-                                  statBottom!,
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            // progress
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 10,
-              height: _barH,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_barH / 2),
-                child: Stack(
-                  children: [
-                    Positioned.fill(child: ColoredBox(color: track)),
-                    FractionallySizedBox(
-                      widthFactor: progress.clamp(0.0, 1.0).toDouble(),
-                      heightFactor: 1,
-                      alignment:
-                          rtl ? Alignment.centerRight : Alignment.centerLeft,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: fill,
-                          borderRadius: BorderRadius.circular(_barH / 2),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget build(BuildContext context) {
+    int s = DateTime.now().difference(widget.startedAt).inSeconds;
+    if (s < 0) s = 0;
+    final int h = s ~/ 3600;
+    final int m = (s % 3600) ~/ 60;
+    final String ss = (s % 60).toString().padLeft(2, '0');
+    final String text =
+        h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$ss' : '$m:$ss';
+    return Text(
+      text,
+      maxLines: 1,
+      textDirection: ui.TextDirection.ltr,
+      style: widget.style
+          .copyWith(fontFeatures: const [ui.FontFeature.tabularFigures()]),
     );
   }
 }
