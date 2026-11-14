@@ -116,6 +116,8 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
             languageCode: FFLocalizations.of(context).languageCode,
             isLiveWorkout: false,
             workoutName: widget.workoutName,
+            originalSelection: FFAppState().exerciseSetsCreation,
+            isPremium: false,
             onConfirm: (selected) async {
               _model.updatedListCopy =
                   await actions.syncExerciseSetsWithSelectedIds(

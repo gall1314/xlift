@@ -150,6 +150,12 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                   mode: 'logEdit',
                   workoutDate: _model.workoutLog?.firstOrNull?.createdAt,
                   onBack: () async {
+                    FFAppState().completedExercisesCreation = [];
+                    FFAppState().exerciseSetsCreation = [];
+                    FFAppState().loggedSetsCreation = [];
+                    FFAppState().dropSetsCreation = [];
+                    FFAppState().restTimerCreation = null;
+                    safeSetState(() {});
                     context.safePop();
                   },
                   onFinish: (workoutName, workoutDate, durationMs) async {
@@ -169,7 +175,15 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                     FFAppState().exerciseSetsCreation = [];
                     safeSetState(() {});
 
-                    context.pushNamed(MasterPageWidget.routeName);
+                    context.pushNamed(
+                      MasterPageWidget.routeName,
+                      queryParameters: {
+                        'initialTab': serializeParam(
+                          2,
+                          ParamType.int,
+                        ),
+                      }.withoutNulls,
+                    );
 
                     await actions.syncAllPending();
 
@@ -391,6 +405,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                     safeSetState(() {});
                   },
                   onLockTap: () async {},
+                  onUnitChanged: (isKg) async {},
                   onStartRest:
                       (exerciseId, exerciseName, setNumber, restMs) async {},
                   onDontShowAgain: () async {},

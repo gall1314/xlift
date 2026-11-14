@@ -234,6 +234,27 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Wdh.",
     "fr": "Reps"
   },
+  "unitTitle": {
+    "en": "Weight unit",
+    "es": "Unidad de peso",
+    "he": "יחידת משקל",
+    "de": "Gewichtseinheit",
+    "fr": "Unité de poids"
+  },
+  "unitKg": {
+    "en": "Kilograms (kg)",
+    "es": "Kilogramos (kg)",
+    "he": "קילוגרם (ק״ג)",
+    "de": "Kilogramm (kg)",
+    "fr": "Kilogrammes (kg)"
+  },
+  "unitLbs": {
+    "en": "Pounds (lbs)",
+    "es": "Libras (lb)",
+    "he": "ליברות (lbs)",
+    "de": "Pfund (lbs)",
+    "fr": "Livres (lb)"
+  },
   "hWeight": {
     "en": "Weight",
     "es": "Peso",
@@ -672,6 +693,7 @@ class SetTable extends StatefulWidget {
     this.onAnalysisStateChanged,
     this.onResultTap,
     this.onLockTap,
+    this.onUnitChanged,
     this.onStartRest,
     this.onDontShowAgain,
     this.onHeightChanged,
@@ -738,6 +760,10 @@ class SetTable extends StatefulWidget {
   final Future Function(int setNumber, FFUploadedFile? video, String setLogId)?
       onResultTap;
   final Future Function()? onLockTap;
+
+  /// Fired when the user picks another weight unit from the header sheet
+  /// (true = kg). Numbers are not converted - only the unit changes.
+  final Future Function(bool isKg)? onUnitChanged;
   final Future Function(int exerciseId, int setNumber, int restMs)? onStartRest;
   final Future Function()? onDontShowAgain;
 
@@ -773,9 +799,39 @@ class _Prev {
   final int? durationSec;
 }
 
+/// Previous-set values, kept for the app run. A card that is scrolled away
+/// and built again (or a page that is opened again) fills its "Previous"
+/// column from here on the first frame instead of popping in a moment later.
+/// Entries are re-read from the database once per table, so they never go
+/// stale after a workout is saved.
+final Map<String, _Prev> _kPrevCache = {};
+
 class _SetTableState extends State<SetTable> {
   final Map<int, _Prev> _prev = {};
   final Set<int> _prevLoading = {};
+
+  /// Sets whose value came from [_kPrevCache] and still has to be confirmed.
+  final Set<int> _prevStale = {};
+
+  String _prevKey(String uid, int exerciseId, int setNumber, bool isKg) =>
+      '$uid|$exerciseId|$setNumber|${isKg ? 1 : 0}';
+
+  /// Fills [_prev] from the cache, synchronously - no setState, call it
+  /// before a build.
+  void _seedPrevious() {
+    final uid = widget.userId ?? '';
+    if (uid.isEmpty) return;
+    for (final t in _template) {
+      final n = t.setNumber;
+      if (_prev.containsKey(n)) continue;
+      final c = _kPrevCache[_prevKey(uid, widget.exerciseId, n, widget.isKg)];
+      if (c != null) {
+        _prev[n] = c;
+        _prevStale.add(n);
+      }
+    }
+  }
+
   final Set<int> _unmarkOpen = {}; // done sets whose unmark strip is showing
   final Set<int> _warmUnmarkOpen = {}; // same, for warm-up sets
   final Map<int, GlobalKey> _rowKeys = {}; // working-set rows, for auto-scroll
@@ -1106,16 +1162,21 @@ class _SetTableState extends State<SetTable> {
       if (job != null && !job.running && _loggedMs(t.setNumber) == 0)
         job.clear();
     }
+    _seedPrevious();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrevious());
   }
 
   @override
   void didUpdateWidget(covariant SetTable old) {
     super.didUpdateWidget(old);
-    if (old.exerciseId != widget.exerciseId || old.userId != widget.userId) {
+    if (old.exerciseId != widget.exerciseId ||
+        old.userId != widget.userId ||
+        old.isKg != widget.isKg) {
       _prev.clear();
       _prevLoading.clear();
+      _prevStale.clear();
     }
+    _seedPrevious();
     _loadPrevious();
     _attachTimerCommits();
   }
@@ -1129,16 +1190,27 @@ class _SetTableState extends State<SetTable> {
 
   // ---------- previous (last workout) ----------
 
+  /// Reads the previous value of every set that does not have one yet (or
+  /// has one from the cache that is still unconfirmed) and applies them all
+  /// in ONE setState - a table of five sets used to rebuild five times.
   Future<void> _loadPrevious() async {
     final uid = widget.userId ?? '';
     if (uid.isEmpty) return;
+    final int exerciseId = widget.exerciseId;
+    final bool isKg = widget.isKg;
+    final Map<int, _Prev> fresh = {};
+
     for (final t in _template) {
       final n = t.setNumber;
-      if (_prev.containsKey(n) || _prevLoading.contains(n)) continue;
+      if (_prevLoading.contains(n)) continue;
+      final bool stale = _prevStale.remove(n);
+      if (!stale && _prev.containsKey(n)) continue;
       _prevLoading.add(n);
+      _Prev value;
+      bool ok = true;
       try {
         final rows = await SQLiteManager.instance.correctedPreviosSet(
-          exerciseId: widget.exerciseId,
+          exerciseId: exerciseId,
           setNumber: n,
           userId: uid,
         );
@@ -1161,17 +1233,40 @@ class _SetTableState extends State<SetTable> {
         final dur = _asIntN(g('duration_seconds'));
         String text;
         try {
-          text = correctedFormatPreviousSet(reps, weight, dur, widget.isKg);
+          text = correctedFormatPreviousSet(reps, weight, dur, isKg);
         } catch (_) {
           text = '-';
         }
-        if (mounted) setState(() => _prev[n] = _Prev(text, reps, weight, dur));
+        value = _Prev(text, reps, weight, dur);
       } catch (_) {
-        if (mounted) setState(() => _prev[n] = _Prev('-', null, null, null));
+        ok = false;
+        value = _Prev('-', null, null, null);
       } finally {
         _prevLoading.remove(n);
       }
+      if (ok) _kPrevCache[_prevKey(uid, exerciseId, n, isKg)] = value;
+      fresh[n] = value;
     }
+
+    if (fresh.isEmpty || !mounted) return;
+    // the table was pointed at another exercise / unit while this ran
+    if (widget.exerciseId != exerciseId ||
+        widget.isKg != isKg ||
+        (widget.userId ?? '') != uid) return;
+
+    bool changed = false;
+    fresh.forEach((n, v) {
+      final old = _prev[n];
+      if (old == null ||
+          old.text != v.text ||
+          old.reps != v.reps ||
+          old.weight != v.weight ||
+          old.durationSec != v.durationSec) {
+        changed = true;
+      }
+    });
+    if (!changed) return;
+    setState(() => _prev.addAll(fresh));
   }
 
   /// The previous-set text in the app language.
@@ -2094,6 +2189,7 @@ class _SetTableState extends State<SetTable> {
     _VideoStore.shiftDown(widget.exerciseId, n);
     _prev.clear();
     _prevLoading.clear();
+    _prevStale.clear();
 
     await widget.onExerciseSetsChanged?.call(List<dynamic>.from(ex));
     await _emit(logged);
@@ -2389,11 +2485,30 @@ class _SetTableState extends State<SetTable> {
                       _hdr(_tr(lang, _tpl ? 'hTargetReps' : 'hReps'), muted)),
               if (!_tpl) ...[
                 const SizedBox(width: _gap),
+                // the unit itself is the header: short, and tappable
                 SizedBox(
-                    width: _colVal,
-                    child: _hdr(
-                        '${_tr(lang, 'hWeight')} (${_tr(lang, widget.isKg ? 'kg' : 'lbs').toLowerCase()})',
-                        muted)),
+                  width: _colVal,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.onUnitChanged == null
+                        ? null
+                        : () => _openUnitSheet(lang),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: _hdr(
+                              _tr(lang, widget.isKg ? 'kg' : 'lbs')
+                                  .toUpperCase(),
+                              muted),
+                        ),
+                        if (widget.onUnitChanged != null)
+                          Icon(Icons.expand_more_rounded,
+                              size: 14, color: muted),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ],
             if (_aiCol) ...[
@@ -2565,6 +2680,79 @@ class _SetTableState extends State<SetTable> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onHeightChanged?.call(h);
     });
+  }
+
+  /// Weight-unit picker: two rows, the current one ticked.
+  Future<void> _openUnitSheet(String lang) async {
+    final theme = FlutterFlowTheme.of(context);
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final bool rtl = _kRtl.contains(lang);
+    final Color text = theme.primaryText;
+    final Color sheetBg = dark ? const Color(0xFF141A21) : Colors.white;
+    HapticFeedback.selectionClick();
+
+    Widget row(bool kg) {
+      final bool current = widget.isKg == kg;
+      return _Pressable(
+        onTap: () {
+          Navigator.of(context, rootNavigator: true).pop();
+          if (!current) widget.onUnitChanged?.call(kg);
+        },
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(_tr(lang, kg ? 'unitKg' : 'unitLbs'),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: current ? FontWeight.w700 : FontWeight.w500,
+                        color: text)),
+              ),
+              if (current)
+                Icon(Icons.check_rounded, size: 22, color: theme.primary),
+            ],
+          ),
+        ),
+      );
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Directionality(
+        textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+        child: Container(
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          ),
+          padding: EdgeInsets.only(
+              top: 10, bottom: MediaQuery.of(ctx).padding.bottom + 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                    color: text.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+              Text(_tr(lang, 'unitTitle'),
+                  style: TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w700, color: text)),
+              const SizedBox(height: 8),
+              row(true),
+              row(false),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _hdr(String s, Color c) => Text(s,
@@ -4882,5 +5070,4 @@ class _TimeSheetState extends State<_TimeSheet> {
     ]);
   }
 }
-// Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

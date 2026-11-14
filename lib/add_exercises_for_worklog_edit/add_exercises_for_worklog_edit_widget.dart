@@ -83,9 +83,10 @@ class _AddExercisesForWorklogEditWidgetState
             height: MediaQuery.sizeOf(context).height * 1.0,
             userId: currentUserUid,
             languageCode: FFLocalizations.of(context).languageCode,
-            isLiveWorkout: false,
+            isLiveWorkout: true,
             originalSelection: widget.alreadySelceted,
             liveExerciseSets: FFAppState().exerciseSetsCreation,
+            isPremium: false,
             onConfirm: (selected) async {
               _model.addedCopy =
                   await actions.addExercisesToExerciseSetsInWorkout(

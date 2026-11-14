@@ -82,6 +82,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Noch keine Übungen",
     "fr": "Pas encore d’exercices"
   },
+  "emptySub": {
+    "en": "Add exercises to build your workout",
+    "es": "Añade ejercicios para armar tu entreno",
+    "he": "הוסיפו תרגילים כדי לבנות את האימון",
+    "de": "Füge Übungen hinzu, um dein Workout zu bauen",
+    "fr": "Ajoute des exercices pour composer ta séance"
+  },
   "sets": {
     "en": "Sets",
     "es": "Series",
@@ -385,6 +392,7 @@ class WorkoutPage extends StatefulWidget {
     this.onRemoveExercise,
     this.onResultTap,
     this.onLockTap,
+    this.onUnitChanged,
     this.onStartRest,
     this.onDontShowAgain,
   });
@@ -462,6 +470,10 @@ class WorkoutPage extends StatefulWidget {
   final Future Function(int exerciseId, String exerciseName, int setNumber,
       FFUploadedFile? video, String setLogId)? onResultTap;
   final Future Function()? onLockTap;
+
+  /// The weight unit was switched from the set table's header (true = kg).
+  /// App State `isKg` is already updated; use this to persist the choice.
+  final Future Function(bool isKg)? onUnitChanged;
   final Future Function(
           int exerciseId, String exerciseName, int setNumber, int restMs)?
       onStartRest;
@@ -476,6 +488,35 @@ class _WorkoutPageState extends State<WorkoutPage> {
   late final TextEditingController _nameCtrl =
       TextEditingController(text: widget.workoutName ?? '');
 
+  /// The ids whose exercise rows were last sent to ExerciseCard.warm.
+  String _warmedFor = '';
+
+  /// Loads every exercise row up front, so a card built while scrolling
+  /// already has its content and its final height on the first frame.
+  void _warm(List<int> ids) {
+    final String sig = ids.join(',');
+    if (sig == _warmedFor) return;
+    _warmedFor = sig;
+    ExerciseCard.warm(ids);
+  }
+
+  /// True once the list has moved off its top - draws the hairline under
+  /// the header in the edit / template modes. A notifier, so scrolling never
+  /// rebuilds the page.
+  final ValueNotifier<bool> _scrolled = ValueNotifier<bool>(false);
+
+  void _onScroll() {
+    final bool s = _scroll.hasClients && _scroll.offset > 2;
+    if (s != _scrolled.value) _scrolled.value = s;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    _warm(_ids);
+  }
+
   @override
   void didUpdateWidget(covariant WorkoutPage old) {
     super.didUpdateWidget(old);
@@ -488,7 +529,9 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   @override
   void dispose() {
+    _scroll.removeListener(_onScroll);
     _scroll.dispose();
+    _scrolled.dispose();
     _nameCtrl.dispose();
     super.dispose();
   }
@@ -532,10 +575,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
       return 0.0;
     }
   }
-
-  /// Open/closed state of the stats strip; static so it survives rebuilds
-  /// and re-entering the page during one app run.
-  static bool _statsOpen = false;
 
   _Stats _stats(List<int> ids) {
     final ex = _exerciseSets;
@@ -664,6 +703,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final bool rtl = _kRtl.contains(lang);
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final ids = _ids;
+    _warm(ids); // exercises added since the last build
     final double progress = _progress;
     final bool canFinish = progress > 0;
     final Color border =
@@ -679,123 +719,129 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final double keyboard = mq.viewInsets.bottom;
     final double bottomInset = safeBottom + keyboard;
 
-    final Widget topBar = Container(
-      color: theme.secondaryBackground,
-      padding: EdgeInsets.fromLTRB(8, topInset + 6, 12, 10),
-      // The clock sits dead centre of the screen; back and Finish float over
-      // it, so an unequal left/right width never shifts it.
-      child: Stack(
+    // ---- header --------------------------------------------------------
+    // No bar surface: the page background runs to the top of the screen and
+    // the controls float on it - a round back button and a pill on the right.
+    final Widget backButton = _Tap(
+      onTap: () => widget.onBack?.call(),
+      child: Container(
+        width: 40,
+        height: 40,
         alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 112),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: (_edit || _tpl)
-                  ? Text(
-                      (widget.title ?? '').trim().isNotEmpty
-                          ? widget.title!.trim()
-                          : _tr(
-                              lang,
-                              (_edit || _tplEdit)
-                                  ? 'editWorkout'
-                                  : 'createWorkout'),
-                      style: _ts(theme, 22, FontWeight.w700, theme.primaryText))
-                  : (_live
-                      ? WorkoutClock(
-                          startedAt: startedAt,
-                          fontSize: 24,
-                          color: theme.primaryText)
-                      : const SizedBox.shrink()),
-            ),
-          ),
-          Row(
-            children: [
-              _Tap(
-                onTap: () => widget.onBack?.call(),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                      rtl
-                          ? Icons.chevron_right_rounded
-                          : Icons.chevron_left_rounded,
-                      size: 32,
-                      color: theme.primaryText),
-                ),
-              ),
-              const Spacer(),
-              if (_kPlayModeEnabled && _live && ids.isNotEmpty) ...[
-                _Tap(
-                  onTap: _openPlayMode,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: border, width: 1.5),
-                    ),
-                    child: Icon(Icons.play_arrow_rounded,
-                        size: 24, color: theme.primary),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              _Tap(
-                onTap: () {
-                  FocusScope.of(context).unfocus();
-                  widget.onFinish?.call(
-                    _tpl ? _nameCtrl.text.trim() : '',
-                    _edit ? _dateValue.toIso8601String() : '',
-                    _edit ? _minutesValue * 60000 : 0,
-                  );
-                },
-                child: Container(
-                  height: 44,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: (_edit || _tpl || canFinish)
-                        ? theme.primary
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: (_edit || _tpl || canFinish)
-                        ? null
-                        : Border.all(color: border, width: 1.5),
-                  ),
-                  child: Text(
-                      (widget.saveLabel ?? '').trim().isNotEmpty
-                          ? widget.saveLabel!.trim()
-                          : _tr(
-                              lang,
-                              (_edit || _tplEdit)
-                                  ? 'save'
-                                  : (_tpl ? 'create' : 'finish')),
-                      style: _ts(
-                          theme,
-                          17,
-                          FontWeight.w700,
-                          (_edit || _tpl || canFinish)
-                              ? Colors.white
-                              : theme.secondaryText)),
-                ),
-              ),
-            ],
-          ),
-        ],
+        decoration: BoxDecoration(
+          color: theme.secondaryBackground,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(dark ? 0.30 : 0.08),
+                blurRadius: 4,
+                offset: const Offset(0, 1)),
+          ],
+        ),
+        child: Icon(
+            rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+            size: 26,
+            color: theme.primaryText),
       ),
     );
 
-    final Widget progressLine = SizedBox(
-      height: 4,
-      child: Stack(
+    final bool solid = _edit || _tpl || canFinish;
+    final Widget finishButton = _Tap(
+      onTap: () {
+        FocusScope.of(context).unfocus();
+        widget.onFinish?.call(
+          _tpl ? _nameCtrl.text.trim() : '',
+          _edit ? _dateValue.toIso8601String() : '',
+          _edit ? _minutesValue * 60000 : 0,
+        );
+      },
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: solid ? theme.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: solid ? null : Border.all(color: border, width: 1.5),
+        ),
+        child: Text(
+            (widget.saveLabel ?? '').trim().isNotEmpty
+                ? widget.saveLabel!.trim()
+                : _tr(
+                    lang,
+                    (_edit || _tplEdit)
+                        ? 'save'
+                        : (_tpl ? 'create' : 'finish')),
+            style: _ts(theme, 15, FontWeight.w700,
+                solid ? Colors.white : theme.secondaryText)),
+      ),
+    );
+
+    final Widget trailing = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_kPlayModeEnabled && _live && ids.isNotEmpty) ...[
+          _Tap(
+            onTap: _openPlayMode,
+            child: Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: border, width: 1.5),
+              ),
+              child: Icon(Icons.play_arrow_rounded,
+                  size: 22, color: theme.primary),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+        finishButton,
+      ],
+    );
+
+    // Edit / template: one quiet row - back, a small centred title, the pill.
+    // A hairline fades in under it once the list has scrolled.
+    final Widget staticHeader = Container(
+      color: theme.primaryBackground,
+      padding: EdgeInsets.fromLTRB(16, topInset + 4, 16, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(color: border),
-          FractionallySizedBox(
-            widthFactor: progress,
-            alignment: rtl ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(color: theme.primary),
+          SizedBox(
+            height: 44,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 104),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                        (widget.title ?? '').trim().isNotEmpty
+                            ? widget.title!.trim()
+                            : _tr(
+                                lang,
+                                (_edit || _tplEdit)
+                                    ? 'editWorkout'
+                                    : 'createWorkout'),
+                        style:
+                            _ts(theme, 17, FontWeight.w600, theme.primaryText)),
+                  ),
+                ),
+                Row(children: [backButton, const Spacer(), trailing]),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<bool>(
+            valueListenable: _scrolled,
+            builder: (_, scrolled, __) => AnimatedOpacity(
+              duration: const Duration(milliseconds: 160),
+              opacity: scrolled ? 1.0 : 0.0,
+              child: Container(height: 1, color: border),
+            ),
           ),
         ],
       ),
@@ -852,7 +898,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
         );
 
     final Widget detailsCard = Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
         color: theme.secondaryBackground,
         borderRadius: BorderRadius.circular(20),
@@ -860,9 +906,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
       ),
       child: Column(
         children: [
-          Text(_tr(lang, 'workoutDetails'),
-              style: _ts(theme, 22, FontWeight.w700, theme.primaryText)),
-          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -904,85 +947,57 @@ class _WorkoutPageState extends State<WorkoutPage> {
       ),
     );
 
-    // Live stats strip, hanging off the app bar. Collapsed: only a chevron
-    // handle. Expanded: Sets · Volume · Exercises, chevron flips.
+    // Live: the numbers the header shows beside the clock.
     final _Stats st = _stats(ids);
     final String unit = _tr(lang, FFAppState().isKg ? 'kg' : 'lbs');
-    final bool open = _statsOpen;
+    final String liveName = (widget.workoutName ?? '').trim();
 
-    Widget stat(String value, String label, {Color? valueColor}) => Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(value,
-                  textDirection: ui.TextDirection.ltr,
-                  maxLines: 1,
-                  style: _ts(theme, 18, FontWeight.w800,
-                      valueColor ?? theme.primaryText)),
-              const SizedBox(height: 2),
-              Text(label,
-                  maxLines: 1,
-                  style: _ts(theme, 11, FontWeight.w500, theme.secondaryText)),
-            ],
-          ),
-        );
-    Widget vline() => Container(width: 1, height: 28, color: border);
-
-    final Widget statsStrip = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _statsOpen = !_statsOpen);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.secondaryBackground,
-          borderRadius:
-              const BorderRadius.vertical(bottom: Radius.circular(16)),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(dark ? 0.25 : 0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 2)),
-          ],
-        ),
-        child: AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          alignment: Alignment.topCenter,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (open)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Row(
-                    children: [
-                      stat('${st.doneSets}/${st.totalSets}', _tr(lang, 'sets'),
-                          valueColor: theme.primary),
-                      vline(),
-                      stat('${_fmtVolume(st.volume)} $unit',
-                          _tr(lang, 'volume')),
-                      vline(),
-                      stat('${st.doneExercises}/${st.totalExercises}',
-                          _tr(lang, 'exercises')),
-                    ],
-                  ),
+    final Widget liveHeader = SliverPersistentHeader(
+      pinned: true,
+      delegate: _LiveHeaderDelegate(
+        topInset: topInset,
+        background: theme.primaryBackground,
+        leading: backButton,
+        trailing: trailing,
+        bigClock: WorkoutClock(
+            startedAt: startedAt, fontSize: 40, color: theme.primaryText),
+        smallClock: WorkoutClock(
+            startedAt: startedAt, fontSize: 20, color: theme.primaryText),
+        label: liveName.isEmpty
+            ? null
+            : Text(rtl ? liveName : liveName.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _ts(theme, 13, FontWeight.w600, theme.secondaryText)
+                    .copyWith(letterSpacing: rtl ? 0 : 0.4)),
+        statTop: st.totalSets == 0
+            ? null
+            : Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                        text: '\u2066${st.doneSets}\u2069',
+                        style:
+                            _ts(theme, 17, FontWeight.w700, theme.primaryText)),
+                    TextSpan(
+                        text:
+                            ' / \u2066${st.totalSets}\u2069 ${_tr(lang, 'sets').toLowerCase()}',
+                        style: _ts(
+                            theme, 17, FontWeight.w500, theme.secondaryText)),
+                  ],
                 ),
-              SizedBox(
-                height: 22,
-                child: Center(
-                  child: Icon(
-                      open
-                          ? Icons.expand_less_rounded
-                          : Icons.expand_more_rounded,
-                      size: 22,
-                      color: theme.secondaryText),
-                ),
+                maxLines: 1,
               ),
-            ],
-          ),
-        ),
+        statBottom: st.totalSets == 0
+            ? null
+            : Text('${_fmtVolume(st.volume)} $unit',
+                textDirection: ui.TextDirection.ltr,
+                maxLines: 1,
+                style: _ts(theme, 13, FontWeight.w400, theme.secondaryText)),
+        track: border,
+        fill: theme.primary,
+        progress: progress,
+        rtl: rtl,
       ),
     );
 
@@ -1013,14 +1028,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
         color: theme.primaryBackground,
         child: Column(
           children: [
-            topBar,
-            if (!_edit && !_tpl) progressLine,
-            if (!_edit && !_tpl && ids.isNotEmpty) statsStrip,
+            if (!_live) staticHeader,
             Expanded(
-              child: ListView.builder(
+              child: CustomScrollView(
                 controller: _scroll,
-                padding: EdgeInsets.fromLTRB(
-                    16, (_edit || _tpl) ? 16 : 12, 16, 28 + bottomInset),
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 // cards are tall and their height depends on their content:
@@ -1028,64 +1039,285 @@ class _WorkoutPageState extends State<WorkoutPage> {
                 // from re-measuring (and shifting) when you scroll back
                 cacheExtent: 1400,
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: ids.length + ((_edit || _tpl) ? 2 : 1),
-                itemBuilder: (ctx, raw) {
-                  if ((_edit || _tpl) && raw == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _edit ? detailsCard : nameCard,
-                    );
-                  }
-                  final int i = (_edit || _tpl) ? raw - 1 : raw;
-                  if (i == ids.length) {
-                    return Padding(
-                      padding: EdgeInsets.only(top: ids.isEmpty ? 40 : 8),
-                      child: Column(
-                        children: [
-                          if (ids.isEmpty)
-                            Padding(
+                slivers: [
+                  // Live: the clock block is part of the scroll view - it
+                  // shrinks to one row as the list moves, frame for frame.
+                  if (_live) liveHeader,
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                        16, _live ? 8 : 12, 16, 28 + bottomInset),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (ctx, raw) {
+                          if ((_edit || _tpl) && raw == 0) {
+                            return Padding(
                               padding: const EdgeInsets.only(bottom: 16),
-                              child: Text(_tr(lang, 'empty'),
-                                  style: _ts(theme, 16, FontWeight.w500,
-                                      theme.secondaryText)),
+                              child: _edit ? detailsCard : nameCard,
+                            );
+                          }
+                          final int i = (_edit || _tpl) ? raw - 1 : raw;
+                          if (i == ids.length) {
+                            return Padding(
+                              padding:
+                                  EdgeInsets.only(top: ids.isEmpty ? 40 : 8),
+                              child: Column(
+                                children: [
+                                  if (ids.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          24, 24, 24, 28),
+                                      child: Column(
+                                        children: [
+                                          Container(
+                                            width: 88,
+                                            height: 88,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: theme.primary
+                                                  .withOpacity(0.10),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                                Icons.fitness_center_rounded,
+                                                size: 38,
+                                                color: theme.primary),
+                                          ),
+                                          const SizedBox(height: 18),
+                                          Text(_tr(lang, 'empty'),
+                                              textAlign: TextAlign.center,
+                                              style: _ts(
+                                                  theme,
+                                                  19,
+                                                  FontWeight.w700,
+                                                  theme.primaryText)),
+                                          const SizedBox(height: 6),
+                                          Text(_tr(lang, 'emptySub'),
+                                              textAlign: TextAlign.center,
+                                              style: _ts(
+                                                  theme,
+                                                  15,
+                                                  FontWeight.w400,
+                                                  theme.secondaryText)),
+                                        ],
+                                      ),
+                                    ),
+                                  addButton,
+                                ],
+                              ),
+                            );
+                          }
+                          final int id = ids[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: ExerciseCard(
+                              key: ValueKey('exercise_$id'),
+                              exerciseId: id,
+                              isLiveWorkout: _live,
+                              isLogEdit: _edit,
+                              isTemplate: _tpl,
+                              exerciseCount: ids.length,
+                              showCameraGuidance: widget.showCameraGuidance,
+                              onHeaderTap: () async =>
+                                  widget.onHeaderTap?.call(id),
+                              onCustomHeaderTap: () async =>
+                                  widget.onCustomHeaderTap?.call(id),
+                              onReplaceExercise: () async =>
+                                  widget.onReplaceExercise?.call(id),
+                              onSupersetTap: () async =>
+                                  widget.onSupersetTap?.call(id),
+                              onViewHistory: () async =>
+                                  widget.onViewHistory?.call(id),
+                              onCustomViewHistory: () async =>
+                                  widget.onCustomViewHistory?.call(id),
+                              onReorder: () async => widget.onReorder?.call(),
+                              onRemoveExercise: () async =>
+                                  widget.onRemoveExercise?.call(id),
+                              onResultTap:
+                                  (name, setNumber, video, setLogId) async =>
+                                      widget.onResultTap?.call(
+                                          id, name, setNumber, video, setLogId),
+                              onLockTap: () async => widget.onLockTap?.call(),
+                              onUnitChanged: widget.onUnitChanged,
+                              onStartRest: widget.onStartRest,
+                              onDontShowAgain: widget.onDontShowAgain,
                             ),
-                          addButton,
-                        ],
+                          );
+                        },
+                        childCount: ids.length + ((_edit || _tpl) ? 2 : 1),
                       ),
-                    );
-                  }
-                  final int id = ids[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: ExerciseCard(
-                      key: ValueKey('exercise_$id'),
-                      exerciseId: id,
-                      isLiveWorkout: _live,
-                      isLogEdit: _edit,
-                      isTemplate: _tpl,
-                      exerciseCount: ids.length,
-                      showCameraGuidance: widget.showCameraGuidance,
-                      onHeaderTap: () async => widget.onHeaderTap?.call(id),
-                      onCustomHeaderTap: () async =>
-                          widget.onCustomHeaderTap?.call(id),
-                      onReplaceExercise: () async =>
-                          widget.onReplaceExercise?.call(id),
-                      onSupersetTap: () async => widget.onSupersetTap?.call(id),
-                      onViewHistory: () async => widget.onViewHistory?.call(id),
-                      onCustomViewHistory: () async =>
-                          widget.onCustomViewHistory?.call(id),
-                      onReorder: () async => widget.onReorder?.call(),
-                      onRemoveExercise: () async =>
-                          widget.onRemoveExercise?.call(id),
-                      onResultTap: (name, setNumber, video, setLogId) async =>
-                          widget.onResultTap
-                              ?.call(id, name, setNumber, video, setLogId),
-                      onLockTap: () async => widget.onLockTap?.call(),
-                      onStartRest: widget.onStartRest,
-                      onDontShowAgain: widget.onDontShowAgain,
                     ),
-                  );
-                },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The live-workout header: back and Finish float on the page background,
+/// the clock is the headline with sets and volume beside it, and a rounded
+/// progress bar closes the block. Pinned at the top of the scroll view: as
+/// the list moves it shrinks to a single row - back, a small centred clock,
+/// Finish - with the progress bar still under it.
+class _LiveHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _LiveHeaderDelegate({
+    required this.topInset,
+    required this.background,
+    required this.leading,
+    required this.trailing,
+    required this.bigClock,
+    required this.smallClock,
+    required this.label,
+    required this.statTop,
+    required this.statBottom,
+    required this.track,
+    required this.fill,
+    required this.progress,
+    required this.rtl,
+  });
+
+  final double topInset;
+  final Color background;
+  final Widget leading;
+  final Widget trailing;
+  final Widget bigClock;
+  final Widget smallClock;
+  final Widget? label;
+  final Widget? statTop;
+  final Widget? statBottom;
+  final Color track;
+  final Color fill;
+  final double progress;
+  final bool rtl;
+
+  static const double _rowTop = 4;
+  static const double _rowH = 44;
+  static const double _barH = 6;
+
+  /// Height of the headline block (clock, with the workout name over it).
+  double get _bigH => label == null ? 56 : 76;
+
+  @override
+  double get minExtent => topInset + _rowTop + _rowH + 10 + _barH + 10;
+
+  @override
+  double get maxExtent => minExtent + 8 + _bigH;
+
+  @override
+  bool shouldRebuild(covariant _LiveHeaderDelegate old) => true;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final double range = maxExtent - minExtent;
+    final double t =
+        range <= 0 ? 1.0 : (shrinkOffset / range).clamp(0.0, 1.0).toDouble();
+    // the headline is gone by 60% of the way, the small clock arrives after
+    final double bigOpacity = (1 - t / 0.6).clamp(0.0, 1.0).toDouble();
+    final double smallOpacity = ((t - 0.5) / 0.5).clamp(0.0, 1.0).toDouble();
+
+    return Container(
+      color: background,
+      child: ClipRect(
+        child: Stack(
+          children: [
+            // row: back · (small clock) · Finish
+            Positioned(
+              top: topInset + _rowTop,
+              left: 16,
+              right: 16,
+              height: _rowH,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (smallOpacity > 0)
+                    IgnorePointer(
+                        child:
+                            Opacity(opacity: smallOpacity, child: smallClock)),
+                  Row(children: [leading, const Spacer(), trailing]),
+                ],
+              ),
+            ),
+            // headline: name + big clock on one side, sets + volume on the other
+            if (bigOpacity > 0)
+              Positioned(
+                top: topInset + _rowTop + _rowH + 8 - shrinkOffset * 0.35,
+                left: 18,
+                right: 18,
+                height: _bigH,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: bigOpacity,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.bottomStart,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: AlignmentDirectional.bottomStart,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (label != null) label!,
+                                  bigClock,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (statTop != null || statBottom != null) ...[
+                          const SizedBox(width: 12),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (statTop != null) statTop!,
+                                if (statBottom != null) ...[
+                                  const SizedBox(height: 2),
+                                  statBottom!,
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            // progress
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 10,
+              height: _barH,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_barH / 2),
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: ColoredBox(color: track)),
+                    FractionallySizedBox(
+                      widthFactor: progress.clamp(0.0, 1.0).toDouble(),
+                      heightFactor: 1,
+                      alignment:
+                          rtl ? Alignment.centerRight : Alignment.centerLeft,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: fill,
+                          borderRadius: BorderRadius.circular(_barH / 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

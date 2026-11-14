@@ -70,3 +70,4 @@ export 'recap_view.dart' show RecapView;
 export 'training_score.dart' show TrainingScore;
 export 'week_planner.dart' show WeekPlanner;
 export 'remove_analysis_alert.dart' show RemoveAnalysisAlert;
+export 'plan_status.dart' show PlanStatus;

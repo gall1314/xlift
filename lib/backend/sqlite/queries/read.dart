@@ -6927,18 +6927,64 @@ Future<List<WorkoutHeroStatRow>> performWorkoutHeroStat(
   Database database, {
   String? workoutLogId,
   String? userId,
+  String? languageCode,
 }) {
   final query = '''
--- params: ${workoutLogId}, ${userId}
--- Returns ONE row (all String):
+-- params: ${workoutLogId}, ${userId}, ${languageCode}  ('en' | 'es' | 'he' | 'de' | 'fr')
+-- Returns ONE row (all String), already in the requested language:
 --   workout_name, date_text,
 --   hero_value, hero_unit, hero_title, hero_subtitle, badge, comparison,
 --   duration_text, sets_text, stat3_value, stat3_label, breakdown_label
 -- Run AFTER saveWorkoutComplete. duration_seconds is stored in MILLISECONDS.
--- Text comes out in English with raw JSON names; pass every text column
--- through localizeStatText(text, languageCode) in the UI.
+-- Names stored as JSON ({"en":..,"he":..}) are resolved here, with English
+-- and then the raw text as fallbacks - no localizeStatText pass is needed.
+-- char(36) is the dollar sign of the JSON path (a literal one would be read
+-- as a FlutterFlow variable). Tokens like @v@ are filled in with replace().
 
 WITH
+lg AS (
+  SELECT CASE WHEN LOWER(TRIM('${languageCode}')) IN ('es', 'he', 'de', 'fr')
+              THEN LOWER(TRIM('${languageCode}')) ELSE 'en' END AS l
+),
+t AS (
+  SELECT s.* FROM (
+    SELECT 'en' AS lang,
+           'this workout' AS this_workout,
+           'reps' AS u_reps,
+           'Total volume' AS total_volume,
+           'Total reps' AS total_reps,
+           'Previous best @v@ kg' AS prev_best,
+           'Highest volume for @w@' AS highest_vol,
+           'First @w@ logged' AS first_logged,
+           'NEW PERSONAL RECORD' AS b_pr1,
+           '@n@ NEW PERSONAL RECORDS' AS b_prn,
+           'VOLUME RECORD' AS b_volrec,
+           'NEW MOVE: @x@' AS b_newmove,
+           '@n@ NEW MOVES' AS b_newmoves,
+           'FIRST TIME' AS b_first,
+           'UP FROM LAST TIME' AS b_up,
+           'FASTER THAN LAST TIME' AS b_faster,
+           'WORKOUT #@n@' AS b_no,
+           '@m@ DAY DONE' AS b_day,
+           'SHOWED UP' AS b_showed,
+           '@p@% vs last @w@' AS vs_last,
+           '@v@ kg total' AS kg_total,
+           'Form' AS form,
+           'Reps' AS reps_label,
+           '1 exercise' AS ex1,
+           '@n@ exercises' AS exn,
+           '1 set' AS set1,
+           '@n@ sets' AS setn,
+           '["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]' AS days,
+           '["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]' AS months,
+           '@d@, @m@ @n@' AS date_fmt
+    UNION ALL SELECT 'es', 'este entreno', 'reps', 'Volumen total', 'Reps totales', 'Mejor anterior: @v@ kg', 'Mayor volumen en @w@', 'Primer @w@ registrado', 'NUEVO RÉCORD PERSONAL', '@n@ NUEVOS RÉCORDS PERSONALES', 'RÉCORD DE VOLUMEN', 'NUEVO EJERCICIO: @x@', '@n@ EJERCICIOS NUEVOS', 'PRIMERA VEZ', 'MEJOR QUE LA ÚLTIMA VEZ', 'MÁS RÁPIDO QUE LA ÚLTIMA VEZ', 'ENTRENO N.º @n@', 'DÍA DE @m@ HECHO', 'CUMPLIDO', '@p@% vs. el último @w@', '@v@ kg en total', 'Técnica', 'Reps', '1 ejercicio', '@n@ ejercicios', '1 serie', '@n@ series', '["dom","lun","mar","mié","jue","vie","sáb"]', '["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]', '@d@, @n@ @m@'
+    UNION ALL SELECT 'he', 'האימון הזה', 'חזרות', 'נפח כולל', 'סך החזרות', 'השיא הקודם: @v@ kg', 'הנפח הגבוה ביותר ב-@w@', 'תיעוד ראשון של @w@', 'שיא אישי חדש', '@n@ שיאים אישיים חדשים', 'שיא נפח', 'תרגיל חדש: @x@', '@n@ תרגילים חדשים', 'פעם ראשונה', 'עלייה מהפעם הקודמת', 'מהיר יותר מהפעם הקודמת', 'אימון מספר @n@', 'יום @m@ הושלם', 'עוד אימון בפנים', '@p@% לעומת @w@ הקודם', '@v@ kg סה״כ', 'טכניקה', 'חזרות', 'תרגיל אחד', '@n@ תרגילים', 'סט אחד', '@n@ סטים', '["יום א׳","יום ב׳","יום ג׳","יום ד׳","יום ה׳","יום ו׳","שבת"]', '["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"]', '@d@, @n@ ב@m@'
+    UNION ALL SELECT 'de', 'dieses Workout', 'Wdh.', 'Gesamtvolumen', 'Wiederholungen gesamt', 'Bisheriger Bestwert: @v@ kg', 'Höchstes Volumen bei @w@', 'Erstes @w@ protokolliert', 'NEUER PERSÖNLICHER REKORD', '@n@ NEUE PERSÖNLICHE REKORDE', 'VOLUMENREKORD', 'NEUE ÜBUNG: @x@', '@n@ NEUE ÜBUNGEN', 'ERSTES MAL', 'MEHR ALS LETZTES MAL', 'SCHNELLER ALS LETZTES MAL', 'WORKOUT NR. @n@', '@m@-TAG GESCHAFFT', 'DURCHGEZOGEN', '@p@% ggü. letztem @w@', '@v@ kg gesamt', 'Technik', 'Wdh.', '1 Übung', '@n@ Übungen', '1 Satz', '@n@ Sätze', '["So.","Mo.","Di.","Mi.","Do.","Fr.","Sa."]', '["Jan.","Feb.","März","Apr.","Mai","Juni","Juli","Aug.","Sep.","Okt.","Nov.","Dez."]', '@d@, @n@. @m@'
+    UNION ALL SELECT 'fr', 'cette séance', 'reps', 'Volume total', 'Reps totales', 'Ancien record : @v@ kg', 'Plus gros volume pour @w@', 'Premier @w@ enregistré', 'NOUVEAU RECORD PERSONNEL', '@n@ NOUVEAUX RECORDS PERSONNELS', 'RECORD DE VOLUME', 'NOUVEL EXERCICE : @x@', '@n@ NOUVEAUX EXERCICES', 'PREMIÈRE FOIS', 'MIEUX QUE LA DERNIÈRE FOIS', 'PLUS RAPIDE QUE LA DERNIÈRE FOIS', 'SÉANCE N° @n@', 'JOUR @m@ TERMINÉ', 'SÉANCE FAITE', '@p@% vs dernier @w@', '@v@ kg au total', 'Technique', 'Reps', '1 exercice', '@n@ exercices', '1 série', '@n@ séries', '["dim.","lun.","mar.","mer.","jeu.","ven.","sam."]', '["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."]', '@d@ @n@ @m@'
+  ) s, lg
+  WHERE s.lang = lg.l
+),
 cur AS (
   SELECT
     wl.id,
@@ -6946,9 +6992,11 @@ cur AS (
     wl.created_at,
     COALESCE(wl.volume, 0)                    AS volume,
     COALESCE(wl.duration_seconds, 0) / 1000   AS duration,
-    COALESCE(NULLIF(TRIM(w.name), ''), 'this workout') AS workout_name
+    COALESCE(NULLIF(TRIM(CASE WHEN json_valid(w.name) THEN COALESCE(json_extract(w.name, char(36) || '.' || lg.l), json_extract(w.name, char(36) || '.en'), w.name) ELSE w.name END), ''), t.this_workout) AS workout_name
   FROM workout_log wl
   LEFT JOIN workout w ON w.id = wl.workout_id
+  CROSS JOIN lg
+  CROSS JOIN t
   WHERE TRIM(CAST(wl.id AS TEXT)) = TRIM('${workoutLogId}')
 ),
 cur_sets AS (
@@ -6992,11 +7040,12 @@ hist_max AS (
   GROUP BY s.exercise_id
 ),
 prs AS (
-  SELECT e.name AS exercise_name, t.today_best, h.prev_best,
+  SELECT CASE WHEN json_valid(e.name) THEN COALESCE(json_extract(e.name, char(36) || '.' || lg.l), json_extract(e.name, char(36) || '.en'), e.name) ELSE e.name END AS exercise_name, t.today_best, h.prev_best,
          (t.today_best - h.prev_best) * 100.0 / h.prev_best AS improve_pct
   FROM today_max t
   JOIN hist_max h ON h.exercise_id = t.exercise_id
   JOIN exercise e ON e.id = t.exercise_id
+  CROSS JOIN lg
   WHERE h.prev_best > 0 AND t.today_best > h.prev_best
 ),
 top_pr AS (
@@ -7008,16 +7057,16 @@ pr_count AS (
 
 /* exercises never done before (any workout) */
 new_moves AS (
-  SELECT e.name
+  SELECT CASE WHEN json_valid(e.name) THEN COALESCE(json_extract(e.name, char(36) || '.' || lg.l), json_extract(e.name, char(36) || '.en'), e.name) ELSE e.name END AS name
   FROM (SELECT DISTINCT exercise_id FROM cur_sets) c
   JOIN exercise e ON e.id = c.exercise_id
+  CROSS JOIN lg
   WHERE NOT EXISTS (
     SELECT 1 FROM set_log s
     WHERE s.exercise_id = c.exercise_id
       AND TRIM(CAST(s.user_id AS TEXT)) = TRIM('${userId}')
       AND TRIM(CAST(s.workout_log_id AS TEXT)) <> TRIM('${workoutLogId}')
   )
-  ORDER BY e.name
 ),
 new_moves_agg AS (
   SELECT COUNT(*) AS n, MIN(name) AS first_name FROM new_moves
@@ -7054,10 +7103,11 @@ workout_no AS (
 
 /* muscle with the most sets today */
 top_muscle AS (
-  SELECT mg.name AS muscle
+  SELECT CASE WHEN json_valid(mg.name) THEN COALESCE(json_extract(mg.name, char(36) || '.' || lg.l), json_extract(mg.name, char(36) || '.en'), mg.name) ELSE mg.name END AS muscle
   FROM cur_sets c
   JOIN exercise_muscle_group emg ON emg.exercise_id = c.exercise_id
   JOIN muscle_group mg ON mg.id = emg.muscle_group_id
+  CROSS JOIN lg
   WHERE COALESCE(emg.is_primary, 0) = 1 AND c.is_dropset = 0
   GROUP BY mg.id
   ORDER BY COUNT(*) DESC, mg.id
@@ -7095,8 +7145,8 @@ delta AS (
     CASE
       WHEN pl.volume IS NULL OR pl.volume = 0 OR cur.volume = 0 THEN ''
       WHEN cur.volume >= pl.volume
-        THEN '▲ ' || printf('%.1f', (cur.volume - pl.volume) * 100.0 / pl.volume) || '% vs last ' || cur.workout_name
-      ELSE '▼ ' || printf('%.1f', (pl.volume - cur.volume) * 100.0 / pl.volume) || '% vs last ' || cur.workout_name
+        THEN '▲ ' || REPLACE(REPLACE(t.vs_last, '@p@', printf('%.1f', (cur.volume - pl.volume) * 100.0 / pl.volume)), '@w@', cur.workout_name)
+      ELSE '▼ ' || REPLACE(REPLACE(t.vs_last, '@p@', printf('%.1f', (pl.volume - cur.volume) * 100.0 / pl.volume)), '@w@', cur.workout_name)
     END AS s,
     CASE
       WHEN pl.volume IS NULL OR pl.volume = 0 OR cur.volume = 0 THEN 0
@@ -7109,27 +7159,21 @@ delta AS (
       ELSE 0
     END AS faster
   FROM cur
+  CROSS JOIN t
   LEFT JOIN prev_log pl ON 1 = 1
 ),
 
-/* "Sat, Sep 6 · 18:42" */
+/* "Sat, Sep 6 · 18:42" - day and month names come from the JSON arrays in t,
+   the order of the parts from t.date_fmt */
 date_fmt AS (
   SELECT
-    CASE strftime('%w', cur.created_at)
-      WHEN '0' THEN 'Sun' WHEN '1' THEN 'Mon' WHEN '2' THEN 'Tue'
-      WHEN '3' THEN 'Wed' WHEN '4' THEN 'Thu' WHEN '5' THEN 'Fri'
-      ELSE 'Sat'
-    END
-    || ', ' ||
-    CASE strftime('%m', cur.created_at)
-      WHEN '01' THEN 'Jan' WHEN '02' THEN 'Feb' WHEN '03' THEN 'Mar'
-      WHEN '04' THEN 'Apr' WHEN '05' THEN 'May' WHEN '06' THEN 'Jun'
-      WHEN '07' THEN 'Jul' WHEN '08' THEN 'Aug' WHEN '09' THEN 'Sep'
-      WHEN '10' THEN 'Oct' WHEN '11' THEN 'Nov' ELSE 'Dec'
-    END
-    || ' ' || CAST(CAST(strftime('%d', cur.created_at) AS INTEGER) AS TEXT)
+    REPLACE(REPLACE(REPLACE(t.date_fmt,
+      '@d@', json_extract(t.days,   char(36) || '[' || CAST(strftime('%w', cur.created_at) AS INTEGER) || ']')),
+      '@m@', json_extract(t.months, char(36) || '[' || (CAST(strftime('%m', cur.created_at) AS INTEGER) - 1) || ']')),
+      '@n@', CAST(CAST(strftime('%d', cur.created_at) AS INTEGER) AS TEXT))
     || ' · ' || strftime('%H:%M', cur.created_at) AS s
   FROM cur
+  CROSS JOIN t
 )
 
 SELECT
@@ -7140,45 +7184,44 @@ SELECT
 
   CASE
     WHEN r.t = 'pr' OR cur.volume > 0 THEN 'kg'
-    ELSE 'reps'
+    ELSE t.u_reps
   END AS hero_unit,
 
   CASE r.t
     WHEN 'pr' THEN p.exercise_name
-    ELSE CASE WHEN cur.volume > 0 THEN 'Total volume' ELSE 'Total reps' END
+    ELSE CASE WHEN cur.volume > 0 THEN t.total_volume ELSE t.total_reps END
   END AS hero_title,
 
   CASE r.t
-    WHEN 'pr'            THEN 'Previous best ' || RTRIM(RTRIM(printf('%.2f', p.prev_best), '0'), '.') || ' kg'
-    WHEN 'volume_record' THEN 'Highest volume for ' || cur.workout_name
-    WHEN 'first'         THEN 'First ' || cur.workout_name || ' logged'
+    WHEN 'pr'            THEN REPLACE(t.prev_best, '@v@', RTRIM(RTRIM(printf('%.2f', p.prev_best), '0'), '.'))
+    WHEN 'volume_record' THEN REPLACE(t.highest_vol, '@w@', cur.workout_name)
+    WHEN 'first'         THEN REPLACE(t.first_logged, '@w@', cur.workout_name)
     ELSE ''
   END AS hero_subtitle,
 
-  /* badge ladder - always non-empty. Names stay raw (JSON); the UI
-     function localizes + uppercases them. */
+  /* badge ladder - always non-empty */
   CASE
     WHEN r.t = 'pr' THEN
-      CASE WHEN pc.n = 1 THEN 'NEW PERSONAL RECORD'
-           ELSE pc.n || ' NEW PERSONAL RECORDS' END
-    WHEN r.t = 'volume_record'                        THEN 'VOLUME RECORD'
+      CASE WHEN pc.n = 1 THEN t.b_pr1
+           ELSE REPLACE(t.b_prn, '@n@', pc.n) END
+    WHEN r.t = 'volume_record'                        THEN t.b_volrec
     WHEN nm.n > 0 AND r.t <> 'first' THEN
-      CASE WHEN nm.n = 1 THEN 'NEW MOVE: ' || nm.first_name
-           ELSE nm.n || ' NEW MOVES' END
-    WHEN r.t = 'first'                                THEN 'FIRST TIME'
-    WHEN d.dir = 1                                    THEN 'UP FROM LAST TIME'
-    WHEN d.faster = 1                                 THEN 'FASTER THAN LAST TIME'
+      CASE WHEN nm.n = 1 THEN REPLACE(t.b_newmove, '@x@', nm.first_name)
+           ELSE REPLACE(t.b_newmoves, '@n@', nm.n) END
+    WHEN r.t = 'first'                                THEN t.b_first
+    WHEN d.dir = 1                                    THEN t.b_up
+    WHEN d.faster = 1                                 THEN t.b_faster
     WHEN wn.n IN (10, 25) OR (wn.n >= 50 AND wn.n % 50 = 0)
-                                                      THEN 'WORKOUT #' || wn.n
-    WHEN tm.muscle IS NOT NULL                        THEN tm.muscle || ' DAY DONE'
-    ELSE                                                   'SHOWED UP'
+                                                      THEN REPLACE(t.b_no, '@n@', wn.n)
+    WHEN tm.muscle IS NOT NULL                        THEN REPLACE(t.b_day, '@m@', tm.muscle)
+    ELSE                                                   t.b_showed
   END AS badge,
 
   CASE
     WHEN r.t = 'pr' AND d.s <> ''
-      THEN RTRIM(RTRIM(printf('%.2f', cur.volume), '0'), '.') || ' kg total · ' || d.s
+      THEN REPLACE(t.kg_total, '@v@', RTRIM(RTRIM(printf('%.2f', cur.volume), '0'), '.')) || ' · ' || d.s
     WHEN r.t = 'pr' AND cur.volume > 0
-      THEN RTRIM(RTRIM(printf('%.2f', cur.volume), '0'), '.') || ' kg total'
+      THEN REPLACE(t.kg_total, '@v@', RTRIM(RTRIM(printf('%.2f', cur.volume), '0'), '.'))
     ELSE d.s
   END AS comparison,
 
@@ -7203,19 +7246,20 @@ SELECT
   END AS stat3_value,
 
   CASE
-    WHEN f.n > 0 THEN 'Form'
-    ELSE 'Reps'
+    WHEN f.n > 0 THEN t.form
+    ELSE t.reps_label
   END AS stat3_label,
 
   /* "5 exercises · 18 sets" */
-  CAST(st.exercises_count AS TEXT)
-    || CASE WHEN st.exercises_count = 1 THEN ' exercise' ELSE ' exercises' END
+  CASE WHEN st.exercises_count = 1 THEN t.ex1
+       ELSE REPLACE(t.exn, '@n@', st.exercises_count) END
     || ' · '
-    || CAST(st.sets_count AS TEXT)
-    || CASE WHEN st.sets_count = 1 THEN ' set' ELSE ' sets' END
+    || CASE WHEN st.sets_count = 1 THEN t.set1
+            ELSE REPLACE(t.setn, '@n@', st.sets_count) END
   AS breakdown_label
 
 FROM cur
+CROSS JOIN t
 CROSS JOIN cur_stats st
 CROSS JOIN pr_count pc
 CROSS JOIN resolved r
@@ -7263,22 +7307,14 @@ Future<List<WorkoutBreakdownSetsRow>> performWorkoutBreakdownSets(
 -- ONE ROW PER SET (drop sets included). Exercise-level fields repeat on
 -- every row of that exercise. WorkoutBreakdownSheet calls this itself.
 -- duration_seconds is stored in MILLISECONDS.
+-- pct_change compares each exercise with the LAST TIME THAT EXERCISE was
+-- logged, in any workout - not only the previous log of the same workout.
 
 WITH
 cur AS (
   SELECT id, workout_id, created_at
   FROM workout_log
   WHERE TRIM(CAST(id AS TEXT)) = TRIM('${workoutLogId}')
-),
-prev AS (
-  SELECT w.id
-  FROM workout_log w, cur
-  WHERE w.workout_id = cur.workout_id
-    AND w.id <> cur.id
-    AND w.created_at < cur.created_at
-    AND TRIM(CAST(w.user_id AS TEXT)) = TRIM('${userId}')
-  ORDER BY w.created_at DESC
-  LIMIT 1
 ),
 
 /* ---------- current sets ---------- */
@@ -7301,6 +7337,30 @@ base AS (
   FROM set_log s
   JOIN cur ON TRIM(CAST(s.workout_log_id AS TEXT)) = TRIM(CAST(cur.id AS TEXT))
   JOIN exercise e ON e.id = s.exercise_id
+),
+
+/* per exercise: the most recent earlier workout log that contains it */
+prev AS (
+  SELECT exercise_id, workout_log_id
+  FROM (
+    SELECT
+      s.exercise_id,
+      TRIM(CAST(s.workout_log_id AS TEXT)) AS workout_log_id,
+      ROW_NUMBER() OVER (
+        PARTITION BY s.exercise_id
+        ORDER BY MAX(w.created_at) DESC, TRIM(CAST(s.workout_log_id AS TEXT))
+      ) AS rn
+    FROM set_log s
+    JOIN workout_log w
+      ON TRIM(CAST(w.id AS TEXT)) = TRIM(CAST(s.workout_log_id AS TEXT))
+    CROSS JOIN cur
+    WHERE TRIM(CAST(w.user_id AS TEXT)) = TRIM('${userId}')
+      AND w.id <> cur.id
+      AND w.created_at < cur.created_at
+      AND s.exercise_id IN (SELECT exercise_id FROM base)
+    GROUP BY s.exercise_id, TRIM(CAST(s.workout_log_id AS TEXT))
+  )
+  WHERE rn = 1
 ),
 
 /* primary muscle per exercise */
@@ -7368,7 +7428,7 @@ ex_vals AS (
   FROM ex_agg
 ),
 
-/* ---------- exercise totals (previous workout) ---------- */
+/* ---------- exercise totals (last time each exercise was done) ---------- */
 prev_base AS (
   SELECT
     s.exercise_id,
@@ -7378,7 +7438,8 @@ prev_base AS (
     COALESCE(s.weight, 0)           AS weight,
     COALESCE(s.duration_seconds, 0) AS dur_ms
   FROM set_log s
-  JOIN prev ON TRIM(CAST(s.workout_log_id AS TEXT)) = TRIM(CAST(prev.id AS TEXT))
+  JOIN prev ON prev.exercise_id = s.exercise_id
+           AND TRIM(CAST(s.workout_log_id AS TEXT)) = prev.workout_log_id
   JOIN exercise e ON e.id = s.exercise_id
 ),
 prev_vals AS (

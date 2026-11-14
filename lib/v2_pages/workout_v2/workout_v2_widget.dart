@@ -395,6 +395,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               onLockTap: () async {
                 context.pushNamed(PremiumPaywallPageWidget.routeName);
               },
+              onUnitChanged: (isKg) async {},
               onStartRest: (exerciseId, exerciseName, setNumber, restMs) async {
                 await showModalBottomSheet(
                   isScrollControlled: true,

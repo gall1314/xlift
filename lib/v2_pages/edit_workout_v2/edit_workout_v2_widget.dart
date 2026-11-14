@@ -123,7 +123,22 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
               showCameraGuidance: false,
               mode: 'templateEdit',
               onBack: () async {
-                context.safePop();
+                FFAppState().completedExercisesCreation = [];
+                FFAppState().exerciseSetsCreation = [];
+                FFAppState().loggedSetsCreation = [];
+                FFAppState().dropSetsCreation = [];
+                FFAppState().restTimerCreation = null;
+                safeSetState(() {});
+
+                context.pushNamed(
+                  MasterPageWidget.routeName,
+                  queryParameters: {
+                    'initialTab': serializeParam(
+                      4,
+                      ParamType.int,
+                    ),
+                  }.withoutNulls,
+                );
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy2 = await actions.updateWorkoutTemplate(
@@ -151,7 +166,19 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                 safeSetState(() {});
               },
               onAddExercises: () async {
-                context.pushNamed(AddExercisesForEditWidget.routeName);
+                context.pushNamed(
+                  AddExercisesForEditWidget.routeName,
+                  queryParameters: {
+                    'workoutName': serializeParam(
+                      '',
+                      ParamType.String,
+                    ),
+                    'workoutId': serializeParam(
+                      '',
+                      ParamType.String,
+                    ),
+                  }.withoutNulls,
+                );
               },
               onHeaderTap: (exerciseId) async {
                 context.pushNamed(
@@ -337,6 +364,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
               onResultTap: (exerciseId, exerciseName, setNumber, video,
                   setLogId) async {},
               onLockTap: () async {},
+              onUnitChanged: (isKg) async {},
               onStartRest:
                   (exerciseId, exerciseName, setNumber, restMs) async {},
               onDontShowAgain: () async {},

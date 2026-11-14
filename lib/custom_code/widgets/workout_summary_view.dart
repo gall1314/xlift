@@ -217,6 +217,13 @@ const Map<String, Map<String, String>> _kStrings = {
   },
   "min": {"en": "min", "es": "min", "he": "דק׳", "de": "Min.", "fr": "min"},
   "bw": {"en": "BW", "es": "PC", "he": "מ״ג", "de": "KG", "fr": "PDC"},
+  "drop": {
+    "en": "Drop",
+    "es": "Drop",
+    "he": "דרופ",
+    "de": "Drop",
+    "fr": "Drop"
+  },
   "noSets": {
     "en": "No sets logged",
     "es": "Sin series registradas",
@@ -349,8 +356,11 @@ class _SetRow {
   final bool isKg;
   final Map<String, dynamic>? analysis; // null = no analysis for this set
   final GetSetAnalysisRow? analysisRow; // raw SQLite row (passed to callback)
+  final bool isDrop; // a drop set hanging off the set with the same number
+  final int dropNumber;
   const _SetRow(this.id, this.setNumber, this.reps, this.weight,
-      this.durationMs, this.isKg, this.analysis, this.analysisRow);
+      this.durationMs, this.isKg, this.analysis, this.analysisRow,
+      {this.isDrop = false, this.dropNumber = 0});
 }
 
 class _Exercise {
@@ -497,14 +507,30 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     for (final r in exRows) {
       final m = _rowMap(r);
       final int exId = _i(m['exercise_id']);
-      final setRows = await db.getSetLogs(workoutLogId: wlId, exerciseId: exId);
+      // Read set_log directly so drop sets come along (the getSetLogs query
+      // leaves them out); each drop follows its parent set. Falls back to
+      // the query if the raw read fails.
+      List<dynamic> setRows;
+      try {
+        setRows = await db.database.rawQuery(
+          'SELECT id, set_number, reps, weight, duration_seconds, is_kg, '
+          'is_dropset, drop_number FROM set_log '
+          'WHERE workout_log_id = ? AND CAST(exercise_id AS INTEGER) = ? '
+          'ORDER BY set_number, COALESCE(is_dropset, 0), '
+          'COALESCE(drop_number, 0)',
+          [wlId, exId],
+        );
+      } catch (_) {
+        setRows = await db.getSetLogs(workoutLogId: wlId, exerciseId: exId);
+      }
       final sets = <_SetRow>[];
       for (final sr in setRows) {
         final s = _rowMap(sr);
         final String setLogId = _s(s['id']);
+        final bool isDrop = _i(s['is_dropset']) == 1;
         Map<String, dynamic>? analysis;
         GetSetAnalysisRow? analysisRow;
-        if (setLogId.isNotEmpty) {
+        if (setLogId.isNotEmpty && !isDrop) {
           try {
             final aRows = await db.getSetAnalysis(setLogId: setLogId);
             if (aRows.isNotEmpty) {
@@ -522,6 +548,8 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           _i(s['is_kg'], 1) == 1,
           analysis,
           analysisRow,
+          isDrop: isDrop,
+          dropNumber: _i(s['drop_number']),
         ));
       }
       final String rawEx = _s(m['exercise_name']);
@@ -1130,6 +1158,42 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
       } else {
         right = dash();
       }
+    }
+
+    // A drop set sits under its parent: indented, tinted, labelled "Drop N".
+    if (s.isDrop) {
+      return Padding(
+        padding: const EdgeInsetsDirectional.only(start: 20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: th.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: th.secondaryBackground,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                    '${_tr(_lang, 'drop')} ${s.dropNumber > 0 ? s.dropNumber : ''}'
+                        .trim(),
+                    maxLines: 1,
+                    style: _t(ctx, 12, FontWeight.w700, th.primary)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Center(child: mid)),
+              Expanded(child: Center(child: right)),
+              if (reserveAi) const SizedBox(width: _aiColW),
+            ],
+          ),
+        ),
+      );
     }
 
     return Container(

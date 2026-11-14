@@ -98,7 +98,14 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
               showCameraGuidance: false,
               mode: 'template',
               onBack: () async {
-                context.safePop();
+                FFAppState().completedExercisesCreation = [];
+                FFAppState().exerciseSetsCreation = [];
+                FFAppState().loggedSetsCreation = [];
+                FFAppState().dropSetsCreation = [];
+                FFAppState().restTimerCreation = null;
+                safeSetState(() {});
+
+                context.pushNamed(MasterPageWidget.routeName);
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy2 = await actions.saveWorkoutTemplate(
@@ -319,6 +326,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
               onResultTap: (exerciseId, exerciseName, setNumber, video,
                   setLogId) async {},
               onLockTap: () async {},
+              onUnitChanged: (isKg) async {},
               onStartRest:
                   (exerciseId, exerciseName, setNumber, restMs) async {},
               onDontShowAgain: () async {},

@@ -18,37 +18,36 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-/// Weekly training plan: the user says how many workouts a week, which
-/// workouts (in rotation order), how much rest between them, which days are
-/// off and which body areas are on hold - and gets a fixed weekly schedule.
+/// Weekly plan builder, in three short steps: 1.
 ///
-/// The plan follows "which workout is next", not the calendar: train a day
-/// early, late or skip one, and the rest of the week re-plans itself
-/// (rotation continues from the last workout actually logged, the weekly
-/// target and the rest preference are kept, planned days are preferred).
+/// how many workouts a week, how much rest between them and which days are
+/// off; 2. which workouts, in rotation order (picked from the library: the
+/// ones in the plan on top, the rest below, most recent first, with search);
+/// 3. the week itself: laid out automatically, and every workout can be
+/// dragged (long press) or tapped onto another day by hand.
 ///
-/// Variations: workouts that share at least half of their exercises are
-/// treated as one slot and alternate (Push A, then Push B next time). The
-/// user can split them back into separate workouts.
+/// The plan follows "which workout is next", not the calendar: a missed
+/// workout stays next and the rest of the week moves with it. That holds for
+/// a week arranged by hand too - the hand-made week sets the days and the
+/// order, the re-planning stays automatic.
 ///
-/// Injuries: body areas put on hold skip every workout where at least half
-/// of the exercises target that area.
+/// Variations: workouts that share at least half of their exercises are one
+/// slot and take turns (Push A, then Push B next time). The user can keep
+/// them separate.
+///
+/// This widget only builds and edits the plan. PlanStatus shows the saved
+/// plan and its state; the Home screen reads it through [snapshot].
 ///
 /// Fully self-managed. Creates its own local table on first use
 /// (training_plan, one row per user) and reads workout, workout_exercise,
 /// workout_log and the muscle tables itself. Every save (and delete) also
-/// queues the row in the Hive box pendingTrainingPlans, which
-/// syncAllPending sends to the Supabase table training_plan. Reloads when [userId] or
-/// [refreshKey] changes and when a page opened on top of it is closed.
+/// queues the row in the Hive box pendingTrainingPlans, which syncAllPending
+/// sends to the Supabase table training_plan.
 ///
-/// Two looks in one widget:
-///  - [compact] = true: a Home card (width infinity, height 96) with today's
-///    workout and a Start button, or the next workout on a rest day, or an
-///    invitation to build a plan. The card fires [onOpen]; Start fires
-///    [onStart] with the workout id.
-///  - [compact] = false / unset: the full page (width and height infinity):
-///    this week, the rotation, and the plan builder with a live preview.
-///    [onClose] adds a back button.
+/// Opens on step 3 when a plan exists (edit), on step 1 otherwise. After a
+/// save or a delete it calls [onClose]; [onClose] also adds the back and
+/// close buttons. [compact], [onStart] and [onOpen] are no longer used and
+/// are only kept so existing parameter lists keep working.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 class WeekPlanner extends StatefulWidget {
@@ -73,14 +72,31 @@ class WeekPlanner extends StatefulWidget {
   final Future Function()? onOpen;
   final Future Function()? onClose;
 
-  /// For other widgets (the Home screen): what the saved plan says right
-  /// now. Keys: hasPlan (bool), workoutId (String, the workout that is up
-  /// next in the rotation, '' = none), isToday (bool, a workout is planned
-  /// for today), plannedWeekdays (List<int>, 1 = Monday .. 7 = Sunday, the
-  /// days still planned this week). [firstDay] = first day of the week
-  /// (1 = Monday, 7 = Sunday). Never throws.
+  /// For other widgets (Home, PlanStatus): what the saved plan says right
+  /// now. [firstDay] = first day of the week (1 = Monday, 7 = Sunday).
+  /// Never throws. Keys:
+  ///  hasPlan (bool), hasWorkouts (bool),
+  ///  workoutId (String, the workout that is up next, '' = none),
+  ///  isToday (bool, a workout is planned for today),
+  ///  trainedToday (bool), done (int, workouts this week), perWeek (int),
+  ///  missing (int, workouts that no longer fit this week),
+  ///  today (int, running day number), nextDay (int, day number of the next
+  ///  planned workout, -1 = none),
+  ///  plannedWeekdays (List<int>, 1 = Monday .. 7 = Sunday, still planned),
+  ///  missedWeekday (int, last planned day that passed without a workout,
+  ///  0 = none),
+  ///  cells (List<Map>, the 7 days of this week: day, weekday, kind = done /
+  ///  plan / miss / off / rest, workoutId),
+  ///  hold (List<int>, body areas on hold, 0 chest .. 5 core),
+  ///  paused (List<String>, workout ids of the slots that are fully on hold),
+  ///  names (Map<String, String>, workout id -> stored name).
   static Future<Map<String, dynamic>> snapshot(String userId, int firstDay) =>
       _snapshot(userId, firstDay);
+
+  /// Puts body areas on hold (injury) or clears them, on the saved plan.
+  /// 0 chest, 1 back, 2 shoulders, 3 legs, 4 arms, 5 core. Never throws.
+  static Future<void> setHold(String userId, List<int> groups) =>
+      _setHold(userId, groups);
 
   @override
   State<WeekPlanner> createState() => _WeekPlannerState();
@@ -90,97 +106,32 @@ class WeekPlanner extends StatefulWidget {
 // Localization (order: en, es, he, de, fr)
 // ---------------------------------------------------------------------------
 
-const Color _kHero = Color(0xFF0B1413);
 const Set<String> _kRtl = {'he', 'ar'};
 const List<String> _kLangs = ['en', 'es', 'he', 'de', 'fr'];
+const List<String> _kHeDays = [
+  'שני',
+  'שלישי',
+  'רביעי',
+  'חמישי',
+  'שישי',
+  'שבת',
+  'ראשון'
+];
 
 const Map<String, List<String>> _kS = {
-  'title': [
-    'Weekly plan',
-    'Plan semanal',
-    'התוכנית השבועית',
-    'Wochenplan',
-    'Plan hebdo'
+  's1': [
+    'How often do you train?',
+    '¿Cuántas veces entrenas?',
+    'כמה אימונים בשבוע?',
+    'Wie oft trainierst du?',
+    "Tu t'entraînes combien de fois ?"
   ],
-  'thisWeek': [
-    'This week',
-    'Esta semana',
-    'השבוע',
-    'Diese Woche',
-    'Cette semaine'
-  ],
-  'progress': [
-    '{a} of {b} done',
-    '{a} de {b} hechos',
-    '{a} מתוך {b} בוצעו',
-    '{a} von {b} erledigt',
-    '{a} sur {b} faites'
-  ],
-  'today': ['Today', 'Hoy', 'היום', 'Heute', "Aujourd'hui"],
-  'tomorrow': ['Tomorrow', 'Mañana', 'מחר', 'Morgen', 'Demain'],
-  'restDay': [
-    'Rest day',
-    'Día de descanso',
-    'יום מנוחה',
-    'Ruhetag',
-    'Jour de repos'
-  ],
-  'doneToday': [
-    'Done for today',
-    'Hecho por hoy',
-    'האימון של היום בוצע',
-    'Für heute erledigt',
-    "Fait pour aujourd'hui"
-  ],
-  'next': [
-    'Next: {w} · {d}',
-    'Siguiente: {w} · {d}',
-    'הבא: {w} · {d}',
-    'Als Nächstes: {w} · {d}',
-    'Ensuite : {w} · {d}'
-  ],
-  'start': ['Start', 'Empezar', 'התחלה', 'Starten', 'Démarrer'],
-  'anyway': [
-    'Train anyway',
-    'Entrenar igual',
-    'אימון בכל זאת',
-    'Trotzdem trainieren',
-    "S'entraîner quand même"
-  ],
-  'perWeek': [
-    'Workouts per week',
-    'Entrenos por semana',
-    'אימונים בשבוע',
-    'Workouts pro Woche',
-    'Séances par semaine'
-  ],
-  'rotation': [
-    'Your rotation',
-    'Tu rotación',
-    'סבב האימונים',
-    'Deine Rotation',
-    'Ta rotation'
-  ],
-  'rotHint': [
-    'Tap in the order you train',
-    'Toca en el orden en que entrenas',
-    'בחירה לפי סדר האימונים',
-    'Tippe in deiner Reihenfolge',
-    "Touche dans l'ordre voulu"
-  ],
-  'altWith': [
-    'Alternates with {w}',
-    'Alterna con {w}',
-    'מתחלף עם {w}',
-    'Wechselt mit {w}',
-    'Alterne avec {w}'
-  ],
-  'altOff': [
-    'Similar to {w} · separate',
-    'Parecido a {w} · aparte',
-    'דומה ל-{w} · נפרד',
-    'Ähnlich wie {w} · getrennt',
-    'Proche de {w} · à part'
+  's1s': [
+    'Pick what you can keep up every week.',
+    'Elige lo que puedas mantener cada semana.',
+    'בוחרים מספר שאפשר לעמוד בו כל שבוע.',
+    'Wähle, was du jede Woche schaffst.',
+    'Choisis ce que tu peux tenir chaque semaine.'
   ],
   'restBetween': [
     'Rest between workouts',
@@ -189,29 +140,136 @@ const Map<String, List<String>> _kS = {
     'Pause zwischen Workouts',
     'Repos entre séances'
   ],
-  'rest0': ['Any', 'Da igual', 'לא משנה', 'Egal', 'Peu importe'],
+  'rest0': ['No preference', 'Da igual', 'לא משנה', 'Egal', 'Peu importe'],
   'rest1': ['1 day +', '1 día +', 'יום +', '1 Tag +', '1 jour +'],
   'rest2': ['2 days +', '2 días +', 'יומיים +', '2 Tage +', '2 jours +'],
+  'tight': [
+    'With {n} a week, some workouts will fall back to back.',
+    'Con {n} por semana, algunos entrenos quedarán seguidos.',
+    'עם {n} בשבוע, חלק מהאימונים ייצאו ברצף.',
+    'Bei {n} pro Woche liegen einige Workouts direkt hintereinander.',
+    'Avec {n} par semaine, certaines séances se suivront.'
+  ],
   'daysOff': [
     "Days you can't train",
-    'Días sin entreno',
-    'ימים בלי אימון',
-    'Tage ohne Training',
-    'Jours sans séance'
+    'Días que no puedes entrenar',
+    'ימים שאי אפשר להתאמן',
+    'Tage, an denen du nicht kannst',
+    "Jours où tu ne peux pas t'entraîner"
   ],
-  'hold': [
-    'Working around an injury?',
-    '¿Alguna lesión?',
-    'יש פציעה?',
-    'Verletzung?',
-    'Une blessure ?'
+  'daysOffSub': [
+    'Optional. The plan will skip them.',
+    'Opcional. El plan los saltará.',
+    'לא חובה. התוכנית תדלג עליהם.',
+    'Optional. Der Plan lässt sie aus.',
+    'Facultatif. Le plan les évitera.'
   ],
-  'holdHint': [
-    'Workouts built around these areas are skipped',
-    'Se saltan los entrenos centrados en estas zonas',
-    'אימונים שמבוססים על האזורים האלה ידולגו',
-    'Workouts mit diesem Fokus werden übersprungen',
-    'Les séances centrées sur ces zones sont sautées'
+  'next': ['Next', 'Siguiente', 'הבא', 'Weiter', 'Suivant'],
+  's2': [
+    'Which workouts?',
+    '¿Qué entrenos?',
+    'אילו אימונים?',
+    'Welche Workouts?',
+    'Quelles séances ?'
+  ],
+  's2s': [
+    'Add them in the order you do them. They rotate.',
+    'Añádelos en el orden en que los haces. Van rotando.',
+    'מוסיפים לפי הסדר. הם מתחלפים בסבב.',
+    'Füge sie in deiner Reihenfolge hinzu. Sie rotieren.',
+    "Ajoute-les dans l'ordre où tu les fais. Elles tournent."
+  ],
+  'inPlan': [
+    'In your plan',
+    'En tu plan',
+    'בתוכנית',
+    'In deinem Plan',
+    'Dans ton plan'
+  ],
+  'none': [
+    'Nothing yet. Add your first workout below.',
+    'Aún nada. Añade tu primer entreno abajo.',
+    'עדיין ריק. מוסיפים אימון ראשון מהרשימה למטה.',
+    'Noch leer. Füge unten dein erstes Workout hinzu.',
+    "Rien pour l'instant. Ajoute ta première séance ci-dessous."
+  ],
+  'all': [
+    'Your workouts',
+    'Tus entrenos',
+    'האימונים שלך',
+    'Deine Workouts',
+    'Tes séances'
+  ],
+  'search': [
+    'Search workouts',
+    'Buscar entrenos',
+    'חיפוש אימון',
+    'Workouts suchen',
+    'Rechercher une séance'
+  ],
+  'noMatch': [
+    'No workouts found',
+    'Sin resultados',
+    'לא נמצאו אימונים',
+    'Keine Workouts gefunden',
+    'Aucune séance trouvée'
+  ],
+  'allIn': [
+    'Every workout is already in the plan.',
+    'Todos los entrenos ya están en el plan.',
+    'כל האימונים כבר בתוכנית.',
+    'Alle Workouts sind schon im Plan.',
+    'Toutes les séances sont déjà dans le plan.'
+  ],
+  'showAll': [
+    'Show all {n}',
+    'Ver los {n}',
+    'הצגת כל ה-{n}',
+    'Alle {n} anzeigen',
+    'Voir les {n}'
+  ],
+  'exs': [
+    '{n} exercises',
+    '{n} ejercicios',
+    '{n} תרגילים',
+    '{n} Übungen',
+    '{n} exercices'
+  ],
+  'ago': [
+    '{n}d ago',
+    'hace {n} d',
+    'לפני {n} ימים',
+    'vor {n} T.',
+    'il y a {n} j'
+  ],
+  'today': ['today', 'hoy', 'היום', 'heute', "aujourd'hui"],
+  'alt': [
+    'They take turns: one this time, the other next time',
+    'Se turnan: uno esta vez, el otro la siguiente',
+    'מתחלפים: פעם אחד, פעם השני',
+    'Sie wechseln sich ab: mal das eine, mal das andere',
+    "Elles alternent : l'une cette fois, l'autre la suivante"
+  ],
+  'shared': [
+    '{a} of {b} exercises are the same',
+    '{a} de {b} ejercicios son iguales',
+    '{a} מתוך {b} תרגילים זהים',
+    '{a} von {b} Übungen sind gleich',
+    '{a} exercices sur {b} sont identiques'
+  ],
+  'sep': [
+    'Keep them separate',
+    'Mantenerlos separados',
+    'להפריד',
+    'Getrennt halten',
+    'Les séparer'
+  ],
+  'join': [
+    'Similar to {w}. Take turns with it?',
+    'Parecido a {w}. ¿Alternar con él?',
+    'דומה ל-{w}. להחליף ביניהם?',
+    'Ähnlich wie {w}. Abwechseln?',
+    'Proche de {w}. Alterner avec ?'
   ],
   'yourWeek': [
     'Your week',
@@ -220,12 +278,56 @@ const Map<String, List<String>> _kS = {
     'Deine Woche',
     'Ta semaine'
   ],
+  's3s': [
+    'Hold and drag a workout to a day. Or tap it, then tap the day.',
+    'Mantén pulsado y arrastra un entreno a un día. O tócalo y luego toca el día.',
+    'לחיצה ארוכה וגרירה של אימון ליום. או לחיצה עליו ואז על היום.',
+    'Halte ein Workout gedrückt und zieh es auf einen Tag. Oder tippe es an, dann den Tag.',
+    'Maintiens une séance et glisse-la sur un jour. Ou touche-la, puis le jour.'
+  ],
+  'auto': ['Automatic', 'Automático', 'אוטומטי', 'Automatisch', 'Automatique'],
+  'edited': [
+    'Edited by you',
+    'Editado por ti',
+    'נערך ידנית',
+    'Von dir angepasst',
+    'Modifié par toi'
+  ],
   'other': [
     'Another layout',
     'Otra distribución',
     'סידור אחר',
     'Andere Aufteilung',
     'Autre répartition'
+  ],
+  'backAuto': [
+    'Back to automatic',
+    'Volver a automático',
+    'חזרה לאוטומטי',
+    'Zurück zu automatisch',
+    "Revenir à l'automatique"
+  ],
+  'cnt': [
+    '{n} a week',
+    '{n} por semana',
+    '{n} בשבוע',
+    '{n} pro Woche',
+    '{n} par semaine'
+  ],
+  'rest': ['Rest', 'Descanso', 'מנוחה', 'Pause', 'Repos'],
+  'here': [
+    'Place here',
+    'Colocar aquí',
+    'להציב כאן',
+    'Hier platzieren',
+    'Placer ici'
+  ],
+  'cant': [
+    "Can't train",
+    'No disponible',
+    'אי אפשר',
+    'Nicht möglich',
+    'Indisponible'
   ],
   'save': [
     'Save plan',
@@ -234,14 +336,27 @@ const Map<String, List<String>> _kS = {
     'Plan speichern',
     'Enregistrer le plan'
   ],
-  'edit': [
-    'Edit plan',
-    'Editar plan',
-    'עריכת התוכנית',
-    'Plan bearbeiten',
-    'Modifier le plan'
+  'saved': [
+    'Plan saved',
+    'Plan guardado',
+    'התוכנית נשמרה',
+    'Plan gespeichert',
+    'Plan enregistré'
   ],
-  'cancel': ['Cancel', 'Cancelar', 'ביטול', 'Abbrechen', 'Annuler'],
+  'pick': [
+    'Add at least one workout',
+    'Añade al menos un entreno',
+    'צריך להוסיף אימון אחד לפחות',
+    'Füge mindestens ein Workout hinzu',
+    'Ajoute au moins une séance'
+  ],
+  'place1': [
+    'Place at least one workout',
+    'Coloca al menos un entreno',
+    'צריך להציב אימון אחד לפחות',
+    'Platziere mindestens ein Workout',
+    'Place au moins une séance'
+  ],
   'delete': [
     'Delete plan',
     'Eliminar plan',
@@ -249,68 +364,19 @@ const Map<String, List<String>> _kS = {
     'Plan löschen',
     'Supprimer le plan'
   ],
+  'deleteSure': [
+    'Tap again to delete',
+    'Toca otra vez para eliminar',
+    'לחיצה נוספת למחיקה',
+    'Zum Löschen erneut tippen',
+    'Touche encore pour supprimer'
+  ],
   'noWorkouts': [
     'Create a workout first, then build your week.',
     'Crea un entreno primero y luego arma tu semana.',
     'קודם יוצרים אימון, ואז בונים את השבוע.',
     'Erstell zuerst ein Workout, dann plan deine Woche.',
     "Crée d'abord une séance, puis planifie ta semaine."
-  ],
-  'pick': [
-    'Pick at least one workout',
-    'Elige al menos un entreno',
-    'צריך לבחור לפחות אימון אחד',
-    'Wähle mindestens ein Workout',
-    'Choisis au moins une séance'
-  ],
-  'noteB2B': [
-    'Some workouts fall back to back',
-    'Algunos entrenos quedan seguidos',
-    'חלק מהאימונים יוצאים ברצף',
-    'Einige Workouts liegen direkt hintereinander',
-    'Certaines séances se suivent'
-  ],
-  'noteFew': [
-    'Only {n} days are free',
-    'Solo hay {n} días libres',
-    'רק {n} ימים פנויים',
-    'Nur {n} Tage sind frei',
-    'Seuls {n} jours sont libres'
-  ],
-  'noteHeld': [
-    '{w} is on hold',
-    '{w} está en pausa',
-    '{w} בהמתנה',
-    '{w} pausiert',
-    '{w} est en pause'
-  ],
-  'noteMiss': [
-    "{n} won't fit this week",
-    '{n} no caben esta semana',
-    '{n} לא ייכנסו השבוע',
-    '{n} passen diese Woche nicht mehr',
-    '{n} ne rentrent plus cette semaine'
-  ],
-  'noteMore': [
-    'The rotation continues next week',
-    'La rotación sigue la próxima semana',
-    'הסבב ממשיך בשבוע הבא',
-    'Die Rotation läuft nächste Woche weiter',
-    'La rotation continue la semaine prochaine'
-  ],
-  'build': [
-    'Build your weekly plan',
-    'Arma tu plan semanal',
-    'בניית תוכנית שבועית',
-    'Wochenplan erstellen',
-    'Crée ton plan hebdo'
-  ],
-  'buildSub': [
-    'Pick your days, get your next workout',
-    'Elige tus días y sabrás qué toca',
-    'בוחרים ימים ומקבלים את האימון הבא',
-    'Tage wählen, nächstes Workout sehen',
-    'Choisis tes jours, vois ta prochaine séance'
   ],
   'g0': ['Chest', 'Pecho', 'חזה', 'Brust', 'Pectoraux'],
   'g1': ['Back', 'Espalda', 'גב', 'Rücken', 'Dos'],
@@ -591,26 +657,26 @@ List<_Act> _activeSlots(List<List<String>> slots, List<String> held) {
   return out;
 }
 
-/// Position in [act] of the slot that is up next: the one after the last
-/// plan workout that was actually logged ([logsDesc] is newest first).
+/// Position in [act] of the slot that is up next. The log is replayed oldest
+/// to newest, every workout moving the pointer past the nearest slot that
+/// holds it, so a week that repeats a workout (Push, Pull, Push, Legs) keeps
+/// its place. [logsDesc] is newest first.
 int _pointerOf(List<_Act> act, List<List<String>> slots, List<_Log> logsDesc) {
   if (act.isEmpty) return 0;
-  int lastSlot = -1;
-  for (final _Log l in logsDesc) {
-    int si = -1;
-    for (int i = 0; i < slots.length; i++) {
-      if (slots[i].contains(l.wid)) {
-        si = i;
+  final int n = slots.length;
+  int ptr = 0;
+  for (int k = logsDesc.length - 1; k >= 0; k--) {
+    final String w = logsDesc[k].wid;
+    for (int j = 0; j < n; j++) {
+      final int i = (ptr + j) % n;
+      if (slots[i].contains(w)) {
+        ptr = (i + 1) % n;
         break;
       }
     }
-    if (si >= 0) {
-      lastSlot = si;
-      break;
-    }
   }
   for (int p = 0; p < act.length; p++) {
-    if (act[p].i > lastSlot) return p;
+    if (act[p].i >= ptr) return p;
   }
   return 0;
 }
@@ -681,14 +747,17 @@ _Week _planWeek(_Plan plan, List<_Log> logs, int today, int first) {
 
   final List<_Act> act = _activeSlots(plan.slots, plan.held);
   final int ptr = _pointerOf(act, plan.slots, logsDesc);
-  final Map<int, int> occ = {};
+  // Variants take turns inside the week too; a workout placed twice by hand
+  // shares one counter.
+  final Map<String, int> occ = {};
   final Map<int, _Pick> planned = {};
   _Pick? upNext;
   if (act.isNotEmpty) {
     for (int k = 0; k < best.set.length; k++) {
       final _Act s = act[(ptr + k) % act.length];
-      final int o = occ[s.i] ?? 0;
-      occ[s.i] = o + 1;
+      final String key = s.vars.join('|');
+      final int o = occ[key] ?? 0;
+      occ[key] = o + 1;
       planned[best.set[k]] = _Pick(s.i, _variantOf(s, logsDesc, o));
     }
     if (best.set.isNotEmpty) {
@@ -792,6 +861,10 @@ const String _kCreate = 'CREATE TABLE IF NOT EXISTS training_plan ('
     'blocked_days TEXT, train_days TEXT, slots TEXT, split_ids TEXT, '
     'hold_groups TEXT, layout_index INTEGER, created_at TEXT, updated_at TEXT)';
 
+// A week arranged by hand is stored in the same columns: layout_index = -1,
+// train_days = the chosen weekdays in week order and slots = the workout of
+// each of those days, in the same order (a workout may repeat).
+
 class _Wk {
   _Wk(this.id, this.name, this.ex);
   final String id;
@@ -800,11 +873,12 @@ class _Wk {
 }
 
 class _Data {
-  _Data(this.workouts, this.exGroups, this.logs, this.row);
+  _Data(this.workouts, this.exGroups, this.logs, this.row, this.lastDone);
   final List<_Wk> workouts;
   final Map<int, List<int>> exGroups; // exercise -> body areas (0..5)
-  final List<_Log> logs;
+  final List<_Log> logs; // the last 8 weeks
   final Map<String, Object?>? row; // the saved plan, null = none
+  final Map<String, int> lastDone; // workout id -> day number, all time
 }
 
 /// What the builder edits.
@@ -814,7 +888,7 @@ class _Cfg {
   List<int> blocked = [];
   List<String> order = []; // workout ids in rotation order
   List<String> split = []; // similar workouts the user keeps separate
-  List<int> hold = []; // body areas on hold
+  List<int> hold = []; // body areas on hold (edited in PlanStatus)
   int layout = 0;
 }
 
@@ -928,71 +1002,159 @@ Future<_Data> _loadData(String userId) async {
   // The last 8 weeks are plenty for "what was done last".
   final int from = _dayNo(DateTime.now()) - 56;
   final List<_Log> logs = [];
+  final Map<String, int> lastDone = {};
   for (final r in lRows) {
     final DateTime? dt = _parseDt(r['created_at']);
     if (dt == null) continue;
     final int day = _dayNo(dt);
+    final String wid = (r['wid'] ?? '').toString();
+    if (day > (lastDone[wid] ?? -1)) lastDone[wid] = day;
     if (day < from) continue;
-    logs.add(_Log(day, dt.millisecondsSinceEpoch, (r['wid'] ?? '').toString()));
+    logs.add(_Log(day, dt.millisecondsSinceEpoch, wid));
   }
-  return _Data(workouts, exGroups, logs, pRows.isEmpty ? null : pRows.first);
+  return _Data(
+      workouts, exGroups, logs, pRows.isEmpty ? null : pRows.first, lastDone);
+}
+
+/// Workouts where at least half of the exercises hit an area on hold.
+List<String> _heldOf(_Data d, List<int> hold) {
+  final List<String> out = [];
+  if (hold.isEmpty) return out;
+  for (final _Wk w in d.workouts) {
+    if (w.ex.isEmpty) continue;
+    int hit = 0;
+    for (final int e in w.ex) {
+      final List<int> g = d.exGroups[e] ?? const <int>[];
+      if (g.any((x) => hold.contains(x))) hit++;
+    }
+    if (hit * 2 >= w.ex.length) out.add(w.id);
+  }
+  return out;
+}
+
+/// The saved plan, ready for the engine (deleted workouts dropped).
+_Plan? _planOf(_Data d) {
+  final Map<String, Object?>? row = d.row;
+  if (row == null) return null;
+  final List<String> known = [for (final _Wk w in d.workouts) w.id];
+  final List<int> days = _csvInts(row['train_days']);
+  final bool manual = _toI(row['layout_index']) < 0;
+  final List<List<String>> stored = _jsonSlots(row['slots']);
+  final List<List<String>> slots = [];
+  final List<int> keptDays = [];
+  for (int k = 0; k < stored.length; k++) {
+    final List<String> v = [
+      for (final String w in stored[k])
+        if (known.contains(w)) w
+    ];
+    if (v.isEmpty) continue;
+    slots.add(v);
+    if (manual && k < days.length) keptDays.add(days[k]);
+  }
+  if (slots.isEmpty) return null;
+  return _Plan(
+    manual ? slots.length : _toI(row['per_week'], 3).clamp(1, 7).toInt(),
+    _toI(row['rest_days'], 1).clamp(0, 2).toInt(),
+    _csvInts(row['blocked_days']),
+    manual ? keptDays : days,
+    slots,
+    _heldOf(d, _csvInts(row['hold_groups'])),
+  );
 }
 
 Future<Map<String, dynamic>> _snapshot(String userId, int first) async {
-  final Map<String, dynamic> none = {
+  final Map<String, dynamic> out = {
     'hasPlan': false,
+    'hasWorkouts': false,
     'workoutId': '',
     'isToday': false,
+    'trainedToday': false,
+    'done': 0,
+    'perWeek': 0,
+    'missing': 0,
+    'today': _dayNo(DateTime.now()),
+    'nextDay': -1,
     'plannedWeekdays': <int>[],
+    'missedWeekday': 0,
+    'cells': <Map<String, dynamic>>[],
+    'hold': <int>[],
+    'paused': <String>[],
+    'names': <String, String>{},
   };
   try {
     final _Data d = await _loadData(userId);
-    final Map<String, Object?>? row = d.row;
-    if (row == null) return none;
-    final List<String> known = [for (final _Wk w in d.workouts) w.id];
-    final List<List<String>> slots = [];
-    for (final List<String> slot in _jsonSlots(row['slots'])) {
-      final List<String> v = [
-        for (final String w in slot)
-          if (known.contains(w)) w
-      ];
-      if (v.isNotEmpty) slots.add(v);
+    out['hasWorkouts'] = d.workouts.isNotEmpty;
+    out['names'] = <String, String>{
+      for (final _Wk w in d.workouts) w.id: w.name
+    };
+    final _Plan? plan = _planOf(d);
+    if (plan == null) return out;
+    final int today = _dayNo(DateTime.now());
+    final _Week w = _planWeek(plan, d.logs, today, first);
+    int missed = 0;
+    final List<Map<String, dynamic>> cells = [];
+    for (final _Cell c in w.cells) {
+      if (c.kind == 'miss') missed = _wdOf(c.day);
+      cells.add(<String, dynamic>{
+        'day': c.day,
+        'weekday': _wdOf(c.day),
+        'kind': c.kind,
+        'workoutId': c.wid,
+      });
     }
-    if (slots.isEmpty) return none;
-    final List<int> hold = _csvInts(row['hold_groups']);
-    final List<String> held = [];
-    if (hold.isNotEmpty) {
-      for (final _Wk w in d.workouts) {
-        if (w.ex.isEmpty) continue;
-        int hit = 0;
-        for (final int e in w.ex) {
-          final List<int> g = d.exGroups[e] ?? const <int>[];
-          if (g.any((x) => hold.contains(x))) hit++;
-        }
-        if (hit * 2 >= w.ex.length) held.add(w.id);
+    final List<String> paused = [];
+    for (final List<String> s in plan.slots) {
+      if (s.every((x) => plan.held.contains(x)) && !paused.contains(s.first)) {
+        paused.add(s.first);
       }
     }
-    final _Plan plan = _Plan(
-      _toI(row['per_week'], 3).clamp(1, 7).toInt(),
-      _toI(row['rest_days'], 1).clamp(0, 2).toInt(),
-      _csvInts(row['blocked_days']),
-      _csvInts(row['train_days']),
-      slots,
-      held,
-    );
-    final _Week w = _planWeek(plan, d.logs, _dayNo(DateTime.now()), first);
-    return {
-      'hasPlan': true,
-      'workoutId': w.upNext?.wid ?? '',
-      'isToday': w.rec?.isToday ?? false,
-      'plannedWeekdays': <int>[
-        for (final _Cell c in w.cells)
-          if (c.kind == 'plan') _wdOf(c.day)
-      ],
-    };
+    out['hasPlan'] = true;
+    out['workoutId'] = w.upNext?.wid ?? '';
+    out['isToday'] = w.rec?.isToday ?? false;
+    out['trainedToday'] = w.trainedToday;
+    out['done'] = w.done;
+    out['perWeek'] = plan.perWeek;
+    out['missing'] = w.missing;
+    out['today'] = today;
+    out['nextDay'] = w.rec?.day ?? -1;
+    out['plannedWeekdays'] = <int>[
+      for (final _Cell c in w.cells)
+        if (c.kind == 'plan') _wdOf(c.day)
+    ];
+    out['missedWeekday'] = missed;
+    out['cells'] = cells;
+    out['hold'] = _csvInts(d.row?['hold_groups']);
+    out['paused'] = paused;
+    return out;
   } catch (_) {
-    return none;
+    return out;
   }
+}
+
+/// Puts the plan row in the offline queue (one entry per user: a newer save
+/// replaces an unsent older one). Never throws.
+Future<void> _queuePlan(String userId, Map<String, dynamic> row) async {
+  try {
+    await Hive.initFlutter();
+    final Box box = await Hive.openBox('pendingTrainingPlans');
+    await box.put(userId, row);
+  } catch (_) {}
+}
+
+Future<void> _setHold(String userId, List<int> groups) async {
+  try {
+    final db = SQLiteManager.instance.database;
+    await db.execute(_kCreate);
+    await db.execute(
+      'UPDATE training_plan SET hold_groups = ?, updated_at = ? WHERE id = ?',
+      [groups.join(','), DateTime.now().toIso8601String(), userId],
+    );
+    final stored =
+        await db.rawQuery('SELECT * FROM training_plan WHERE id = ?', [userId]);
+    if (stored.isNotEmpty) {
+      await _queuePlan(userId, Map<String, dynamic>.from(stored.first));
+    }
+  } catch (_) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -1010,6 +1172,7 @@ class _Pal {
     final bool light = card.computeLuminance() > 0.5;
     final Color pole = light ? Colors.black : Colors.white;
     mint = Color.alphaBlend(primary.withAlpha(light ? 0x38 : 0x40), card);
+    mintLine = Color.alphaBlend(primary.withAlpha(light ? 0x70 : 0x80), card);
     mintInk = Color.lerp(primary, pole, light ? 0.68 : 0.78)!;
     mintSoft = Color.lerp(primary, pole, light ? 0.42 : 0.5)!;
   }
@@ -1021,20 +1184,41 @@ class _Pal {
   final Color ink;
   final Color soft;
   late final Color mint;
+  late final Color mintLine;
   late final Color mintInk;
   late final Color mintSoft;
 }
 
-String _initials(String name) {
-  final List<String> parts =
-      name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
-  if (parts.isEmpty) return '';
-  if (parts.length == 1) {
-    return parts.first.characters.take(2).toString().toUpperCase();
+/// Dashed rounded outline of an empty day.
+class _DashPainter extends CustomPainter {
+  _DashPainter(this.color, this.radius);
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final Path path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
+        Radius.circular(radius),
+      ));
+    for (final ui.PathMetric m in path.computeMetrics()) {
+      double at = 0;
+      while (at < m.length) {
+        final double end = at + 5 < m.length ? at + 5 : m.length;
+        canvas.drawPath(m.extractPath(at, end), paint);
+        at += 9;
+      }
+    }
   }
-  return (parts[0].characters.take(1).toString() +
-          parts[1].characters.take(1).toString())
-      .toUpperCase();
+
+  @override
+  bool shouldRepaint(covariant _DashPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 // ---------------------------------------------------------------------------
@@ -1044,11 +1228,18 @@ String _initials(String name) {
 class _WeekPlannerState extends State<WeekPlanner> {
   _Data? _data;
   _Cfg _cfg = _Cfg();
-  bool _editing = false;
+  // A week arranged by hand: weekday -> workout id. null = automatic.
+  Map<int, String>? _manual;
+  int _step = 1;
+  // What is picked up by a tap: 's<slot index>' or 'd<weekday>'.
+  String? _arm;
+  String _query = '';
+  bool _showAll = false;
+  bool _saved = false;
+  bool _sure = false;
+  bool _ready = false;
   int _token = 0;
-  ModalRoute<dynamic>? _route;
-
-  bool get _hasPlan => _data?.row != null;
+  final TextEditingController _search = TextEditingController();
 
   @override
   void initState() {
@@ -1057,35 +1248,18 @@ class _WeekPlannerState extends State<WeekPlanner> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload when a page opened on top of this one is closed again
-    // (for example: back from a finished workout).
-    final ModalRoute<dynamic>? r = ModalRoute.of(context);
-    if (!identical(r, _route)) {
-      _route?.secondaryAnimation?.removeStatusListener(_onRouteStatus);
-      _route = r;
-      _route?.secondaryAnimation?.addStatusListener(_onRouteStatus);
-    }
-  }
-
-  @override
   void didUpdateWidget(covariant WeekPlanner old) {
     super.didUpdateWidget(old);
     if (old.userId != widget.userId || old.refreshKey != widget.refreshKey) {
-      _editing = false;
+      _ready = false;
       _load();
     }
   }
 
   @override
   void dispose() {
-    _route?.secondaryAnimation?.removeStatusListener(_onRouteStatus);
+    _search.dispose();
     super.dispose();
-  }
-
-  void _onRouteStatus(AnimationStatus status) {
-    if (status == AnimationStatus.dismissed && mounted) _load();
   }
 
   // ---------- data ----------
@@ -1095,35 +1269,80 @@ class _WeekPlannerState extends State<WeekPlanner> {
     try {
       d = await _loadData(widget.userId);
     } catch (_) {
-      d = _Data(<_Wk>[], <int, List<int>>{}, <_Log>[], null);
+      d = _Data(<_Wk>[], <int, List<int>>{}, <_Log>[], null, <String, int>{});
     }
     if (!mounted || token != _token) return;
     setState(() {
       _data = d;
-      if (!_editing) _cfg = _cfgFromRow(d);
+      if (!_ready) {
+        _ready = true;
+        _startFrom(d);
+      }
     });
   }
 
-  _Cfg _cfgFromRow(_Data d) {
+  /// Opens the saved plan for editing, or a fresh draft.
+  void _startFrom(_Data d) {
     final _Cfg c = _Cfg();
+    Map<int, String>? manual;
     final Map<String, Object?>? row = d.row;
-    if (row == null) return c;
     final List<String> known = [for (final _Wk w in d.workouts) w.id];
-    c.n = _toI(row['per_week'], 3).clamp(1, 7).toInt();
-    c.rest = _toI(row['rest_days'], 1).clamp(0, 2).toInt();
-    c.blocked = _csvInts(row['blocked_days']);
-    c.hold = _csvInts(row['hold_groups']);
-    c.layout = _toI(row['layout_index']);
-    for (final List<String> slot in _jsonSlots(row['slots'])) {
-      for (final String w in slot) {
-        if (known.contains(w) && !c.order.contains(w)) c.order.add(w);
+    if (row != null) {
+      c.n = _toI(row['per_week'], 3).clamp(1, 7).toInt();
+      c.rest = _toI(row['rest_days'], 1).clamp(0, 2).toInt();
+      c.blocked = _csvInts(row['blocked_days']);
+      c.hold = _csvInts(row['hold_groups']);
+      final int layout = _toI(row['layout_index']);
+      c.layout = layout < 0 ? 0 : layout;
+      final List<List<String>> stored = _jsonSlots(row['slots']);
+      for (final List<String> slot in stored) {
+        for (final String w in slot) {
+          if (known.contains(w) && !c.order.contains(w)) c.order.add(w);
+        }
+      }
+      c.split = [
+        for (final String w in _jsonStrings(row['split_ids']))
+          if (known.contains(w)) w
+      ];
+      if (layout < 0) {
+        final Map<int, String> m = {};
+        final List<int> days = _csvInts(row['train_days']);
+        for (int k = 0; k < days.length && k < stored.length; k++) {
+          for (final String w in stored[k]) {
+            if (known.contains(w)) {
+              m[days[k]] = w;
+              break;
+            }
+          }
+        }
+        manual = m;
       }
     }
-    c.split = [
-      for (final String w in _jsonStrings(row['split_ids']))
-        if (known.contains(w)) w
-    ];
-    return c;
+    final bool editing = row != null && c.order.isNotEmpty;
+    if (c.order.isEmpty) {
+      // A fresh plan starts with what was trained in the last 30 days, the
+      // workout done longest ago first (it is the one that is due).
+      final int today = _dayNo(DateTime.now());
+      final List<_Wk> recent = [
+        for (final _Wk w in d.workouts)
+          if ((d.lastDone[w.id] ?? -1) >= today - 30) w
+      ];
+      recent.sort(
+          (a, b) => (d.lastDone[a.id] ?? 0).compareTo(d.lastDone[b.id] ?? 0));
+      for (final _Wk w in recent) {
+        if (c.order.length < 6) c.order.add(w.id);
+      }
+      manual = null;
+    }
+    _cfg = c;
+    _manual = manual;
+    _arm = null;
+    _query = '';
+    _search.text = '';
+    _showAll = false;
+    _saved = false;
+    _sure = false;
+    _step = editing ? 3 : 1;
   }
 
   Map<String, List<int>> _exMap() {
@@ -1141,22 +1360,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
     return '';
   }
 
-  /// Workouts where at least half of the exercises hit an area on hold.
-  List<String> _heldFor(List<int> hold) {
-    final List<String> out = [];
-    final _Data? d = _data;
-    if (d == null || hold.isEmpty) return out;
-    for (final _Wk w in d.workouts) {
-      if (w.ex.isEmpty) continue;
-      int hit = 0;
-      for (final int e in w.ex) {
-        final List<int> g = d.exGroups[e] ?? const <int>[];
-        if (g.any((x) => hold.contains(x))) hit++;
-      }
-      if (hit * 2 >= w.ex.length) out.add(w.id);
-    }
-    return out;
-  }
+  List<List<String>> _slots() => _buildSlots(_cfg.order, _exMap(), _cfg.split);
 
   List<List<int>> _options(int first) {
     final List<List<int>> all =
@@ -1169,79 +1373,186 @@ class _WeekPlannerState extends State<WeekPlanner> {
     return o.isEmpty ? <int>[] : o[_cfg.layout % o.length];
   }
 
-  /// The saved plan, ready for the engine (deleted workouts dropped).
-  _Plan? _savedPlan() {
-    final _Data? d = _data;
-    final Map<String, Object?>? row = d?.row;
-    if (d == null || row == null) return null;
-    final List<String> known = [for (final _Wk w in d.workouts) w.id];
-    final List<List<String>> slots = [];
-    for (final List<String> slot in _jsonSlots(row['slots'])) {
-      final List<String> v = [
-        for (final String w in slot)
-          if (known.contains(w)) w
-      ];
-      if (v.isNotEmpty) slots.add(v);
+  int _wdAt(int pos, int first) => ((first - 1 + pos) % 7) + 1;
+
+  /// The week as the board shows it, per week position: a slot index,
+  /// -1 = rest, -2 = a day the user can't train.
+  List<int> _assign(int first, List<List<String>> slots) {
+    final List<int> a = [];
+    final Map<int, String>? m = _manual;
+    final List<int> days = m == null ? _draftDays(first) : <int>[];
+    int k = 0;
+    for (int pos = 0; pos < 7; pos++) {
+      final int wd = _wdAt(pos, first);
+      if (_cfg.blocked.contains(wd)) {
+        a.add(-2);
+      } else if (m != null) {
+        final String w = m[wd] ?? '';
+        int si = -1;
+        if (w.isNotEmpty) {
+          for (int i = 0; i < slots.length; i++) {
+            if (slots[i].contains(w)) {
+              si = i;
+              break;
+            }
+          }
+        }
+        a.add(si);
+      } else if (days.contains(wd) && slots.isNotEmpty) {
+        a.add(k % slots.length);
+        k++;
+      } else {
+        a.add(-1);
+      }
     }
-    return _Plan(
-      _toI(row['per_week'], 3).clamp(1, 7).toInt(),
-      _toI(row['rest_days'], 1).clamp(0, 2).toInt(),
-      _csvInts(row['blocked_days']),
-      _csvInts(row['train_days']),
-      slots,
-      _heldFor(_csvInts(row['hold_groups'])),
-    );
+    return a;
+  }
+
+  /// Which variant falls on each position (variants take turns in a week).
+  List<String> _turns(List<int> a, List<List<String>> slots) {
+    final Map<int, int> seen = {};
+    final List<String> out = [];
+    for (final int v in a) {
+      if (v < 0 || v >= slots.length) {
+        out.add('');
+        continue;
+      }
+      final int k = seen[v] ?? 0;
+      seen[v] = k + 1;
+      out.add(slots[v][k % slots[v].length]);
+    }
+    return out;
   }
 
   // ---------- actions ----------
   void _tap() => HapticFeedback.selectionClick();
 
-  void _start(String wid) {
-    if (wid.isEmpty) return;
-    _tap();
-    widget.onStart?.call(wid);
-  }
-
-  void _toggleWorkout(String wid) {
-    _tap();
+  void _go(int step) {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
-      if (_cfg.order.contains(wid)) {
-        _cfg.order.remove(wid);
-        _cfg.split.remove(wid);
-      } else {
-        _cfg.order.add(wid);
-      }
-      _cfg.layout = 0;
+      _step = step;
+      _arm = null;
+      _sure = false;
     });
   }
 
-  void _toggleIn(List<dynamic> list, dynamic v) {
+  /// A change to the draft. The hand-made week survives everything except a
+  /// new number of workouts per week.
+  void _change(VoidCallback fn, {bool keepManual = true}) {
     _tap();
     setState(() {
-      if (list.contains(v)) {
-        list.remove(v);
-      } else {
-        list.add(v);
-      }
+      fn();
       _cfg.layout = 0;
+      _arm = null;
+      _saved = false;
+      _sure = false;
+      if (!keepManual) _manual = null;
     });
   }
 
-  /// Puts the plan row in the offline queue (one entry per user: a newer
-  /// save replaces an unsent older one). Never throws.
-  Future<void> _queue(Map<String, dynamic> row) async {
-    try {
-      await Hive.initFlutter();
-      final Box box = await Hive.openBox('pendingTrainingPlans');
-      await box.put(widget.userId, row);
-    } catch (_) {}
+  void _moveUp(int i) {
+    final List<List<String>> sl = _slots();
+    if (i <= 0 || i >= sl.length) return;
+    _change(() {
+      final List<String> t = sl[i];
+      sl[i] = sl[i - 1];
+      sl[i - 1] = t;
+      _cfg.order = [for (final List<String> s in sl) ...s];
+    });
+  }
+
+  /// Moves a workout on the board. [src] is 's<slot index>' (from the tray)
+  /// or 'd<weekday>'; [tgt] is 'd<weekday>' or 'tray' (take it off the week).
+  void _applyDrop(String src, String tgt, int first) {
+    if (src.length < 2) return;
+    final List<List<String>> slots = _slots();
+    final List<int> a = _assign(first, slots);
+    final Map<int, String> m = {};
+    for (int pos = 0; pos < 7; pos++) {
+      if (a[pos] >= 0) m[_wdAt(pos, first)] = slots[a[pos]].first;
+    }
+    final int from = int.tryParse(src.substring(1)) ?? -1;
+    if (tgt == 'tray') {
+      if (!src.startsWith('d')) return;
+      m.remove(from);
+    } else {
+      final int to = int.tryParse(tgt.length < 2 ? '' : tgt.substring(1)) ?? -1;
+      if (to < 1 || to > 7 || _cfg.blocked.contains(to)) return;
+      if (src.startsWith('s')) {
+        if (from < 0 || from >= slots.length) return;
+        m[to] = slots[from].first;
+      } else {
+        if (from == to) return;
+        final String? x = m[from];
+        final String? y = m[to];
+        if (y == null) {
+          m.remove(from);
+        } else {
+          m[from] = y;
+        }
+        if (x == null) {
+          m.remove(to);
+        } else {
+          m[to] = x;
+        }
+      }
+    }
+    _tap();
+    setState(() {
+      _manual = m;
+      _arm = null;
+      _saved = false;
+      _sure = false;
+    });
+  }
+
+  /// Tap on a workout (tray chip or a workout on a day).
+  void _tapPill(String id, int first) {
+    final String? arm = _arm;
+    if (arm == null) {
+      _tap();
+      setState(() => _arm = id);
+    } else if (arm == id) {
+      setState(() => _arm = null);
+    } else if (id.startsWith('s')) {
+      if (arm.startsWith('d')) {
+        _applyDrop(id, arm, first);
+      } else {
+        setState(() => _arm = id);
+      }
+    } else {
+      _applyDrop(arm, id, first);
+    }
+  }
+
+  /// Tap on an empty day.
+  void _tapEmpty(int wd, int first) {
+    final String id = 'd' + wd.toString();
+    final String? arm = _arm;
+    if (arm == null) {
+      _tap();
+      setState(() => _arm = id);
+    } else if (arm == id) {
+      setState(() => _arm = null);
+    } else {
+      _applyDrop(arm, id, first);
+    }
   }
 
   Future<void> _save(int first) async {
-    final List<List<String>> slots =
-        _buildSlots(_cfg.order, _exMap(), _cfg.split);
-    if (slots.isEmpty) return;
+    final List<List<String>> slots = _slots();
+    final List<int> a = _assign(first, slots);
+    final List<int> days = [];
+    final List<List<String>> seq = [];
+    for (int pos = 0; pos < 7; pos++) {
+      if (a[pos] >= 0) {
+        days.add(_wdAt(pos, first));
+        seq.add(slots[a[pos]]);
+      }
+    }
+    if (seq.isEmpty) return;
     _tap();
+    final bool manual = _manual != null;
     final String uid = widget.userId;
     final String now = DateTime.now().toIso8601String();
     try {
@@ -1256,14 +1567,14 @@ class _WeekPlannerState extends State<WeekPlanner> {
         [
           uid,
           uid,
-          _cfg.n,
+          manual ? days.length : _cfg.n,
           _cfg.rest,
           _cfg.blocked.join(','),
-          _draftDays(first).join(','),
-          jsonEncode(slots),
+          days.join(','),
+          jsonEncode(manual ? seq : slots),
           jsonEncode(_cfg.split),
           _cfg.hold.join(','),
-          _cfg.layout,
+          manual ? -1 : _cfg.layout,
           uid,
           now,
           now,
@@ -1273,11 +1584,12 @@ class _WeekPlannerState extends State<WeekPlanner> {
       final stored =
           await db.rawQuery('SELECT * FROM training_plan WHERE id = ?', [uid]);
       if (stored.isNotEmpty) {
-        await _queue(Map<String, dynamic>.from(stored.first));
+        await _queuePlan(uid, Map<String, dynamic>.from(stored.first));
       }
     } catch (_) {}
-    _editing = false;
+    _saved = true;
     await _load();
+    if (mounted) widget.onClose?.call();
   }
 
   Future<void> _delete() async {
@@ -1288,7 +1600,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
     } catch (_) {}
     // The cloud queue only upserts, so a deleted plan goes up as an empty
     // one (no workouts); restoreAllFromCloud skips empty plans.
-    await _queue(<String, dynamic>{
+    await _queuePlan(widget.userId, <String, dynamic>{
       'id': widget.userId,
       'user_id': widget.userId,
       'slots': '[]',
@@ -1296,34 +1608,38 @@ class _WeekPlannerState extends State<WeekPlanner> {
       'train_days': '',
       'updated_at': DateTime.now().toIso8601String(),
     });
-    _editing = false;
-    await _load();
+    if (!mounted) return;
+    if (widget.onClose != null) {
+      widget.onClose?.call();
+    } else {
+      _ready = false;
+      await _load();
+    }
   }
 
   // ---------- shared pieces ----------
   Widget _pill(BuildContext context, _Pal p, String label, VoidCallback? onTap,
-      {bool filled = true, bool onDark = false, bool small = false}) {
-    final Color fg = filled ? Colors.white : (onDark ? Colors.white : p.ink);
-    final Color edge = onDark ? Colors.white.withAlpha(70) : p.line;
+      {bool filled = true}) {
     return Opacity(
       opacity: onTap == null ? 0.4 : 1.0,
       child: Material(
         color: filled ? p.primary : Colors.transparent,
         shape: StadiumBorder(
-          side: filled ? BorderSide.none : BorderSide(color: edge, width: 1),
+          side: filled ? BorderSide.none : BorderSide(color: p.line, width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: Container(
-            height: small ? 38 : 48,
-            padding: EdgeInsets.symmetric(horizontal: small ? 16 : 20),
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             alignment: Alignment.center,
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: _ts(context, small ? 13.5 : 15, FontWeight.w700, fg,
+              style: _ts(
+                  context, 15, FontWeight.w700, filled ? Colors.white : p.ink,
                   height: 1.2),
             ),
           ),
@@ -1332,8 +1648,8 @@ class _WeekPlannerState extends State<WeekPlanner> {
     );
   }
 
-  Widget _chip(BuildContext context, _Pal p, String label, bool on,
-      Color onColor, VoidCallback onTap) {
+  Widget _chip(
+      BuildContext context, _Pal p, String label, bool on, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1343,15 +1659,15 @@ class _WeekPlannerState extends State<WeekPlanner> {
         padding: const EdgeInsets.symmetric(horizontal: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? onColor : p.card,
+          color: on ? p.primary : p.card,
           borderRadius: BorderRadius.circular(19),
-          border: Border.all(color: on ? onColor : p.line, width: 1),
+          border: Border.all(color: on ? p.primary : p.line, width: 1),
         ),
         child: Text(
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: _ts(context, 13, FontWeight.w600, on ? p.card : p.ink,
+          style: _ts(context, 13, FontWeight.w600, on ? Colors.white : p.ink,
               height: 1.2),
         ),
       ),
@@ -1392,492 +1708,164 @@ class _WeekPlannerState extends State<WeekPlanner> {
     );
   }
 
-  String _dayLabel(String lang, int day, int today) {
-    if (day == today) return _tr(lang, 'today');
-    if (day == today + 1) return _tr(lang, 'tomorrow');
-    return _tr(lang, 'd' + _wdOf(day).toString());
+  Widget _circle(_Pal p, IconData icon, VoidCallback onTap) {
+    return Material(
+      color: p.card,
+      shape: CircleBorder(side: BorderSide(color: p.line, width: 1)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, color: p.ink, size: 18),
+        ),
+      ),
+    );
   }
 
-  /// Seven day cells on a dark card. [today] < 0 = no day is highlighted.
-  Widget _strip(
-      BuildContext context, String lang, _Pal p, List<_Cell> cells, int today) {
-    final Color faint = Colors.white.withAlpha(36);
-    final Color soft = Colors.white.withAlpha(158);
-    final List<Widget> cols = [];
-    for (final _Cell c in cells) {
-      final bool isToday = c.day == today;
-      Widget inner = const SizedBox.shrink();
-      Color fill = Colors.transparent;
-      Color edge = faint;
-      double edgeW = 1;
-      if (c.kind == 'done') {
-        fill = p.primary;
-        edge = p.primary;
-        inner = const Icon(Icons.check_rounded, color: _kHero, size: 20);
-      } else if (c.kind == 'plan') {
-        edge = p.primary;
-        edgeW = 2;
-        if (isToday) fill = p.primary.withAlpha(70);
-        inner = Text(
-          _initials(_nameOf(lang, c.wid)),
+  /// A small round button inside a row (move up, remove, add).
+  Widget _mini(_Pal p, IconData icon, VoidCallback onTap, {bool mint = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: mint ? p.mint : p.bg,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18, color: mint ? p.mintInk : p.soft),
+      ),
+    );
+  }
+
+  Widget _link(BuildContext context, _Pal p, String text, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 5, bottom: 1),
+        child: Text(
+          text,
+          style: _ts(context, 12.5, FontWeight.w600, p.mintSoft, height: 1.3),
+        ),
+      ),
+    );
+  }
+
+  /// One of seven equal cells in a row; the round child shrinks on narrow
+  /// screens instead of overflowing.
+  Widget _cell(Widget child) {
+    return Expanded(
+      child: Align(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 42, maxHeight: 42),
+          child: AspectRatio(aspectRatio: 1, child: child),
+        ),
+      ),
+    );
+  }
+
+  Widget _round(BuildContext context, _Pal p, String label, bool on,
+      bool struck, VoidCallback onTap) {
+    final Color fg = on ? Colors.white : (struck ? p.soft : p.ink);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: on ? p.primary : (struck ? p.bg : p.card),
+          shape: BoxShape.circle,
+          border: Border.all(color: on ? p.primary : p.line, width: 1),
+        ),
+        child: Text(
+          label,
           maxLines: 1,
-          style: _ts(context, 12, FontWeight.w700, Colors.white, height: 1.0),
-        );
-      } else if (c.kind == 'miss') {
-        inner = Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: soft, shape: BoxShape.circle),
-        );
-      } else if (c.kind == 'off') {
-        fill = Colors.white.withAlpha(14);
-        edge = Colors.transparent;
-        inner = Text('–',
-            style: _ts(context, 13, FontWeight.w600, soft, height: 1.0));
-      }
-      cols.add(Expanded(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _tr(lang, 'd' + _wdOf(c.day).toString()),
-              maxLines: 1,
-              style: _ts(
-                  context,
-                  11.5,
-                  isToday ? FontWeight.w700 : FontWeight.w500,
-                  isToday ? p.primary : soft,
-                  height: 1.2),
-            ),
-            const SizedBox(height: 7),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              width: 38,
-              height: 38,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: fill,
-                shape: BoxShape.circle,
-                border: Border.all(color: edge, width: edgeW),
-              ),
-              child: inner,
-            ),
-          ],
+          style: _ts(context, label.length > 2 ? 12 : 15,
+                  on ? FontWeight.w700 : FontWeight.w600, fg,
+                  height: 1.0)
+              .copyWith(
+            decoration:
+                struck ? TextDecoration.lineThrough : TextDecoration.none,
+          ),
         ),
-      ));
-    }
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: cols);
-  }
-
-  /// "Mon · Push A" rows for the planned days.
-  List<Widget> _sessionRows(
-      BuildContext context, String lang, _Pal p, List<_Cell> cells, int today) {
-    final Color soft = Colors.white.withAlpha(158);
-    final List<Widget> out = [];
-    for (final _Cell c in cells) {
-      if (c.kind != 'plan') continue;
-      out.add(Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 76,
-              child: Text(
-                _dayLabel(lang, c.day, today),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _ts(context, 13, FontWeight.w500,
-                    c.day == today ? p.primary : soft,
-                    height: 1.25),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                _nameOf(lang, c.wid),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _ts(context, 14, FontWeight.w600, Colors.white,
-                    height: 1.25),
-              ),
-            ),
-          ],
-        ),
-      ));
-    }
-    return out;
-  }
-
-  Widget _dark(List<Widget> kids) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _kHero,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: kids,
       ),
     );
   }
 
-  Widget _note(BuildContext context, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(
-        text,
-        style: _ts(context, 12.5, FontWeight.w500, Colors.white.withAlpha(158),
-            height: 1.35),
-      ),
-    );
-  }
-
-  /// Slots whose every variant is on hold -> one note each.
-  List<Widget> _heldNotes(BuildContext context, String lang,
-      List<List<String>> slots, List<String> held) {
-    final List<Widget> out = [];
-    for (final List<String> s in slots) {
-      if (s.every((w) => held.contains(w))) {
-        out.add(_note(
-            context, _tr(lang, 'noteHeld', {'w': _nameOf(lang, s.first)})));
-      }
-    }
-    return out;
-  }
-
-  // ---------- this week (saved plan) ----------
-  List<Widget> _planView(BuildContext context, String lang, _Pal p, int first,
-      _Plan plan, List<_Log> logs) {
-    final int today = _dayNo(DateTime.now());
-    final _Week w = _planWeek(plan, logs, today, first);
-    final _Rec? rec = w.rec;
-    final _Pick? up = w.upNext;
-    final Color soft = Colors.white.withAlpha(158);
-    final bool now = rec != null && rec.isToday;
-    final String recWid = rec?.wid ?? '';
-
-    String label = _tr(lang, w.trainedToday ? 'doneToday' : 'restDay');
-    String big = '';
-    if (rec != null) {
-      big = now
-          ? _nameOf(lang, rec.wid)
-          : _tr(lang, 'next', {
-              'w': _nameOf(lang, rec.wid),
-              'd': _dayLabel(lang, rec.day, today),
-            });
-    }
-    if (now) label = _tr(lang, 'today');
-
-    final List<Widget> hero = [
-      Row(
+  Widget _header(BuildContext context, _Pal p) {
+    final bool canClose = widget.onClose != null;
+    return SizedBox(
+      height: 40,
+      child: Row(
         children: [
-          Expanded(
-            child: Text(_tr(lang, 'thisWeek'),
-                style: _ts(context, 15, FontWeight.w700, Colors.white,
-                    height: 1.2)),
-          ),
-          Text(
-            _tr(lang, 'progress',
-                {'a': w.done.toString(), 'b': plan.perWeek.toString()}),
-            style: _ts(context, 12.5, FontWeight.w500, soft, height: 1.2),
-          ),
+          if (_step > 1 || canClose)
+            _circle(p, Icons.arrow_back_ios_new_rounded, () {
+              _tap();
+              if (_step > 1) {
+                _go(_step - 1);
+              } else {
+                widget.onClose?.call();
+              }
+            }),
+          const Spacer(),
+          for (int i = 1; i <= 3; i++)
+            Container(
+              width: 22,
+              height: 4,
+              margin: EdgeInsetsDirectional.only(start: i == 1 ? 0 : 5),
+              decoration: BoxDecoration(
+                color: i <= _step ? p.primary : p.line,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          if (canClose && _step > 1) ...[
+            const SizedBox(width: 14),
+            _circle(p, Icons.close_rounded, () {
+              _tap();
+              widget.onClose?.call();
+            }),
+          ],
         ],
       ),
-      const SizedBox(height: 14),
-      _strip(context, lang, p, w.cells, today),
-      const SizedBox(height: 16),
-      Container(height: 1, color: Colors.white.withAlpha(26)),
-      const SizedBox(height: 14),
-      Text(label,
-          style: _ts(context, 12.5, FontWeight.w600, p.primary, height: 1.2)),
-      if (big.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: 3),
-          child: Text(
-            big,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: _ts(context, now ? 24 : 17, FontWeight.w700, Colors.white,
-                height: 1.2, ls: now ? -0.4 : 0),
-          ),
-        ),
-    ];
-    final bool canStart = widget.onStart != null;
-    if (now && canStart) {
-      hero.add(const SizedBox(height: 14));
-      hero.add(_pill(context, p, _tr(lang, 'start'), () => _start(recWid)));
-    } else if (!now && canStart && up != null && !w.trainedToday) {
-      hero.add(const SizedBox(height: 14));
-      hero.add(_pill(context, p, _tr(lang, 'anyway'), () => _start(up.wid),
-          filled: false, onDark: true));
-    }
-    if (w.missing > 0) {
-      hero.add(
-          _note(context, _tr(lang, 'noteMiss', {'n': w.missing.toString()})));
-    }
-    hero.addAll(_heldNotes(context, lang, plan.slots, plan.held));
+    );
+  }
 
-    final List<Widget> rot = [_label(context, p, _tr(lang, 'rotation'))];
-    for (int i = 0; i < plan.slots.length; i++) {
-      final bool isNext = up != null && up.slot == i;
-      final bool held = plan.slots[i].every((x) => plan.held.contains(x));
-      rot.add(Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isNext ? p.primary : p.mint,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                (i + 1).toString(),
-                style: _ts(context, 12.5, FontWeight.w700,
-                    isNext ? Colors.white : p.mintInk,
-                    height: 1.0),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                [for (final String x in plan.slots[i]) _nameOf(lang, x)]
-                    .join('  ⇄  '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: _ts(
-                    context, 14.5, FontWeight.w600, held ? p.soft : p.ink,
-                    height: 1.3),
-              ),
-            ),
-          ],
-        ),
-      ));
-    }
-
+  List<Widget> _titles(BuildContext context, _Pal p, String title, String sub) {
     return [
-      _dark(hero),
-      const SizedBox(height: 12),
-      _box(p, rot),
       const SizedBox(height: 14),
-      _pill(context, p, _tr(lang, 'edit'), () {
-        _tap();
-        setState(() => _editing = true);
-      }, filled: false),
-      const SizedBox(height: 8),
-      Center(
-        child: GestureDetector(
-          onTap: _delete,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Text(_tr(lang, 'delete'),
-                style:
-                    _ts(context, 13.5, FontWeight.w600, p.soft, height: 1.2)),
-          ),
-        ),
-      ),
+      Text(title,
+          style:
+              _ts(context, 26, FontWeight.w700, p.ink, height: 1.15, ls: -0.4)),
+      const SizedBox(height: 4),
+      Text(sub,
+          style: _ts(context, 13.5, FontWeight.w400, p.soft, height: 1.4)),
+      const SizedBox(height: 14),
     ];
   }
 
-  // ---------- builder ----------
-  List<Widget> _builder(
-      BuildContext context, String lang, _Pal p, int first, _Data d) {
-    final Map<String, List<int>> ex = _exMap();
-    final List<List<String>> slots = _buildSlots(_cfg.order, ex, _cfg.split);
-    final List<String> held = _heldFor(_cfg.hold);
-    final List<_Act> act = _activeSlots(slots, held);
-    final List<List<int>> opts = _options(first);
-    final List<int> days = _draftDays(first);
+  String _dayRow(String lang, int wd) =>
+      lang == 'he' ? _kHeDays[wd - 1] : _tr(lang, 'd' + wd.toString());
 
-    // The fixed week of this draft, rotation starting at the first workout.
-    final List<_Cell> cells = [];
-    final Map<int, int> occ = {};
-    int k = 0;
-    for (int pos = 0; pos < 7; pos++) {
-      final int wd = ((first - 1 + pos) % 7) + 1;
-      String kind = _cfg.blocked.contains(wd) ? 'off' : 'rest';
-      String wid = '';
-      if (days.contains(wd)) {
-        kind = 'plan';
-        if (act.isNotEmpty) {
-          final _Act s = act[k % act.length];
-          final int o = occ[s.i] ?? 0;
-          occ[s.i] = o + 1;
-          wid = s.vars[o % s.vars.length];
-        }
-        k++;
-      }
-      cells.add(_Cell(wd + 3, kind, wid)); // weekday of day (wd + 3) is wd
-    }
-
-    final List<Widget> rows = [];
-    for (final _Wk w in d.workouts) {
-      final int idx = _cfg.order.indexOf(w.id);
-      final bool on = idx >= 0;
-      String chip = '';
-      if (on) {
-        if (_cfg.split.contains(w.id)) {
-          for (int j = 0; j < idx; j++) {
-            final String h = _cfg.order[j];
-            if (_jaccard(ex[h] ?? const <int>[], w.ex) >= 0.5) {
-              chip = _tr(lang, 'altOff', {'w': _nameOf(lang, h)});
-              break;
-            }
-          }
-        } else {
-          for (final List<String> s in slots) {
-            if (s.length > 1 && s.first != w.id && s.contains(w.id)) {
-              chip = _tr(lang, 'altWith', {'w': _nameOf(lang, s.first)});
-            }
-          }
-        }
-      }
-      rows.add(InkWell(
-        onTap: () => _toggleWorkout(w.id),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: on ? p.primary : p.card,
-                  shape: BoxShape.circle,
-                  border:
-                      Border.all(color: on ? p.primary : p.line, width: 1.5),
-                ),
-                child: on
-                    ? Text((idx + 1).toString(),
-                        style: _ts(context, 13, FontWeight.w700, Colors.white,
-                            height: 1.0))
-                    : const SizedBox.shrink(),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      localizedName(w.name, lang),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _ts(context, 14.5, FontWeight.w600, p.ink,
-                          height: 1.3),
-                    ),
-                    if (chip.isNotEmpty)
-                      GestureDetector(
-                        onTap: () => _toggleIn(_cfg.split, w.id),
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: p.mint,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '⇄  ' + chip,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _ts(context, 12, FontWeight.w600, p.mintInk,
-                                height: 1.2),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ));
-    }
-
-    Widget step(IconData icon, VoidCallback? onTap) {
-      return Opacity(
-        opacity: onTap == null ? 0.35 : 1.0,
-        child: Material(
-          color: p.mint,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(icon, color: p.mintInk, size: 22),
-            ),
-          ),
-        ),
-      );
-    }
-
-    void setN(int v) {
-      _tap();
-      setState(() {
-        _cfg.n = v;
-        _cfg.layout = 0;
-      });
-    }
-
-    final int free = 7 - _cfg.blocked.toSet().length;
-    final List<Widget> preview = [
-      Text(_tr(lang, 'yourWeek'),
-          style: _ts(context, 15, FontWeight.w700, Colors.white, height: 1.2)),
-      const SizedBox(height: 14),
-      _strip(context, lang, p, cells, -1),
-      const SizedBox(height: 6),
-      ..._sessionRows(context, lang, p, cells, -1),
-      if (free < _cfg.n)
-        _note(context, _tr(lang, 'noteFew', {'n': free.toString()})),
-      if (_cfg.rest > 0 && _baseViol(days, _cfg.rest, first) > 0)
-        _note(context, _tr(lang, 'noteB2B')),
-      if (act.length > days.length && days.isNotEmpty)
-        _note(context, _tr(lang, 'noteMore')),
-      ..._heldNotes(context, lang, slots, held),
-      if (opts.length > 1) ...[
-        const SizedBox(height: 14),
-        _pill(context, p, _tr(lang, 'other'), () {
-          _tap();
-          setState(() => _cfg.layout = (_cfg.layout + 1) % opts.length);
-        }, filled: false, onDark: true, small: true),
-      ],
-    ];
-
+  // ---------- step 1: how often ----------
+  List<Widget> _stepOne(BuildContext context, String lang, _Pal p, int first) {
+    final bool tight = _cfg.rest > 0 && _cfg.n > (7 ~/ (_cfg.rest + 1));
     return [
+      ..._titles(context, p, _tr(lang, 's1'), _tr(lang, 's1s')),
       _box(p, [
         Row(
           children: [
-            Expanded(child: _label(context, p, _tr(lang, 'perWeek'))),
-            step(Icons.remove_rounded,
-                _cfg.n > 1 ? () => setN(_cfg.n - 1) : null),
-            SizedBox(
-              width: 48,
-              child: Text(
-                _cfg.n.toString(),
-                textAlign: TextAlign.center,
-                style: _ts(context, 26, FontWeight.w800, p.ink, height: 1.0),
-              ),
-            ),
-            step(Icons.add_rounded, _cfg.n < 7 ? () => setN(_cfg.n + 1) : null),
+            for (int n = 1; n <= 7; n++)
+              _cell(_round(context, p, n.toString(), _cfg.n == n, false, () {
+                _change(() => _cfg.n = n, keepManual: false);
+              })),
           ],
         ),
-      ]),
-      const SizedBox(height: 12),
-      _box(p, [
-        _label(context, p, _tr(lang, 'rotation'), _tr(lang, 'rotHint')),
-        const SizedBox(height: 6),
-        ...rows,
       ]),
       const SizedBox(height: 12),
       _box(p, [
@@ -1885,141 +1873,797 @@ class _WeekPlannerState extends State<WeekPlanner> {
         const SizedBox(height: 10),
         Row(
           children: [
-            for (int r = 0; r < 3; r++) ...[
-              if (r > 0) const SizedBox(width: 8),
+            for (int r = 0; r <= 2; r++)
               Expanded(
-                child: _chip(context, p, _tr(lang, 'rest' + r.toString()),
-                    _cfg.rest == r, p.primary, () {
-                  _tap();
-                  setState(() {
-                    _cfg.rest = r;
-                    _cfg.layout = 0;
-                  });
-                }),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 16),
-        _label(context, p, _tr(lang, 'daysOff')),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (int pos = 0; pos < 7; pos++) ...[
-              if (pos > 0) const SizedBox(width: 5),
-              Expanded(
-                child: _chip(
-                  context,
-                  p,
-                  _tr(lang, 'd' + (((first - 1 + pos) % 7) + 1).toString()),
-                  _cfg.blocked.contains(((first - 1 + pos) % 7) + 1),
-                  p.ink,
-                  () => _toggleIn(_cfg.blocked, ((first - 1 + pos) % 7) + 1),
+                child: Padding(
+                  padding: EdgeInsetsDirectional.only(start: r == 0 ? 0 : 6),
+                  child: _chip(context, p, _tr(lang, 'rest' + r.toString()),
+                      _cfg.rest == r, () {
+                    _change(() => _cfg.rest = r);
+                  }),
                 ),
               ),
-            ],
           ],
         ),
+        if (tight)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              _tr(lang, 'tight', {'n': _cfg.n.toString()}),
+              style: _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.35),
+            ),
+          ),
       ]),
       const SizedBox(height: 12),
       _box(p, [
-        _label(context, p, _tr(lang, 'hold'), _tr(lang, 'holdHint')),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        _label(context, p, _tr(lang, 'daysOff'), _tr(lang, 'daysOffSub')),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            for (int g = 0; g < 6; g++)
-              SizedBox(
-                width: 98,
-                child: _chip(
-                    context,
-                    p,
-                    _tr(lang, 'g' + g.toString()),
-                    _cfg.hold.contains(g),
-                    p.ink,
-                    () => _toggleIn(_cfg.hold, g)),
-              ),
+            for (int pos = 0; pos < 7; pos++)
+              _cell(_round(
+                  context,
+                  p,
+                  _tr(lang, 'd' + _wdAt(pos, first).toString()),
+                  false,
+                  _cfg.blocked.contains(_wdAt(pos, first)), () {
+                final int wd = _wdAt(pos, first);
+                if (!_cfg.blocked.contains(wd) && _cfg.blocked.length >= 6)
+                  return;
+                _change(() {
+                  if (_cfg.blocked.contains(wd)) {
+                    _cfg.blocked.remove(wd);
+                  } else {
+                    _cfg.blocked.add(wd);
+                  }
+                });
+              })),
           ],
         ),
       ]),
-      const SizedBox(height: 12),
-      _dark(preview),
       const SizedBox(height: 14),
-      _pill(context, p, _tr(lang, slots.isEmpty ? 'pick' : 'save'),
-          slots.isEmpty ? null : () => _save(first)),
-      if (_hasPlan) ...[
-        const SizedBox(height: 8),
-        _pill(context, p, _tr(lang, 'cancel'), () {
-          _tap();
-          _editing = false;
-          _load();
-        }, filled: false),
-      ],
+      _pill(context, p, _tr(lang, 'next'), () {
+        _tap();
+        _go(2);
+      }),
     ];
   }
 
-  // ---------- full page ----------
-  Widget _page(BuildContext context, String lang, int first) {
-    final _Pal p = _Pal(FlutterFlowTheme.of(context));
-    final _Data? d = _data;
-    final _Plan? plan = _savedPlan();
-    final List<Widget> kids = [
-      Row(
+  // ---------- step 2: which workouts ----------
+  String _metaOf(String lang, _Data d, _Wk w, int today) {
+    final List<String> parts = [
+      _tr(lang, 'exs', {'n': w.ex.length.toString()})
+    ];
+    final List<int> count = List<int>.filled(6, 0);
+    for (final int e in w.ex) {
+      for (final int g in d.exGroups[e] ?? const <int>[]) {
+        if (g >= 0 && g < 6) count[g]++;
+      }
+    }
+    final List<int> top = [
+      for (int g = 0; g < 6; g++)
+        if (count[g] > 0) g
+    ];
+    top.sort((a, b) {
+      if (count[a] != count[b]) return count[b].compareTo(count[a]);
+      return a.compareTo(b);
+    });
+    if (top.isNotEmpty) {
+      parts.add([for (final int g in top.take(2)) _tr(lang, 'g' + g.toString())]
+          .join(' · '));
+    }
+    final int? last = d.lastDone[w.id];
+    if (last != null) {
+      final int n = today - last;
+      parts.add(
+          n <= 0 ? _tr(lang, 'today') : _tr(lang, 'ago', {'n': n.toString()}));
+    }
+    return parts.join(' · ');
+  }
+
+  _Wk? _wk(_Data d, String wid) {
+    for (final _Wk w in d.workouts) {
+      if (w.id == wid) return w;
+    }
+    return null;
+  }
+
+  Widget _slotRow(BuildContext context, String lang, _Pal p, _Data d,
+      Map<String, List<int>> ex, List<List<String>> slots, int i, int today) {
+    final List<String> s = slots[i];
+    final TextStyle small =
+        _ts(context, 12, FontWeight.w400, p.soft, height: 1.35);
+    final List<Widget> lines = [
+      Text(
+        [for (final String w in s) _nameOf(lang, w)].join('  ⇄  '),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: _ts(context, 14.5, FontWeight.w600, p.ink, height: 1.25),
+      ),
+    ];
+    if (s.length > 1) {
+      final List<int> a = ex[s[0]] ?? const <int>[];
+      final List<int> b = ex[s[1]] ?? const <int>[];
+      int same = 0;
+      for (final int x in a) {
+        if (b.contains(x)) same++;
+      }
+      final int total = a.length > b.length ? a.length : b.length;
+      lines.add(Text(_tr(lang, 'alt'), style: small));
+      lines.add(Text(
+        _tr(lang, 'shared', {'a': same.toString(), 'b': total.toString()}),
+        style: small,
+      ));
+      lines.add(_link(context, p, _tr(lang, 'sep'), () {
+        _change(() => _cfg.split.add(s.last));
+      }));
+    } else {
+      final _Wk? w = _wk(d, s[0]);
+      if (w != null) {
+        lines.add(Text(_metaOf(lang, d, w, today),
+            maxLines: 1, overflow: TextOverflow.ellipsis, style: small));
+      }
+      if (_cfg.split.contains(s[0])) {
+        String home = '';
+        for (final String o in _cfg.order) {
+          if (o != s[0] &&
+              _jaccard(ex[o] ?? const <int>[], ex[s[0]] ?? const <int>[]) >=
+                  0.5) {
+            home = o;
+            break;
+          }
+        }
+        if (home.isNotEmpty) {
+          lines.add(_link(
+              context, p, _tr(lang, 'join', {'w': _nameOf(lang, home)}), () {
+            _change(() => _cfg.split.remove(s[0]));
+          }));
+        }
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
         children: [
-          if (widget.onClose != null) ...[
-            Material(
-              color: p.card,
-              shape: CircleBorder(side: BorderSide(color: p.line, width: 1)),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: () {
-                  _tap();
-                  widget.onClose?.call();
-                },
-                child: SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Icon(Icons.arrow_back_ios_new_rounded,
-                      color: p.ink, size: 18),
-                ),
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: p.primary, shape: BoxShape.circle),
+            child: Text((i + 1).toString(),
+                style: _ts(context, 13, FontWeight.w700, Colors.white,
+                    height: 1.0)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: lines,
+            ),
+          ),
+          if (i > 0) ...[
+            const SizedBox(width: 6),
+            _mini(p, Icons.arrow_upward_rounded, () => _moveUp(i)),
+          ],
+          const SizedBox(width: 6),
+          _mini(p, Icons.close_rounded, () {
+            _change(() {
+              _cfg.order.remove(s.last);
+              _cfg.split.remove(s.last);
+            });
+          }),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _stepTwo(BuildContext context, String lang, _Pal p, _Data d) {
+    final Map<String, List<int>> ex = _exMap();
+    final List<List<String>> slots = _slots();
+    final int today = _dayNo(DateTime.now());
+    final Widget rule = Container(height: 1, color: p.line);
+
+    final List<Widget> chosen = [];
+    for (int i = 0; i < slots.length; i++) {
+      if (i > 0) chosen.add(rule);
+      chosen.add(_slotRow(context, lang, p, d, ex, slots, i, today));
+    }
+
+    // The library: everything not in the plan, most recently done first.
+    final List<_Wk> free = [
+      for (final _Wk w in d.workouts)
+        if (!_cfg.order.contains(w.id)) w
+    ];
+    final String q = _query.trim().toLowerCase();
+    final List<_Wk> pool = [
+      for (final _Wk w in free)
+        if (q.isEmpty || localizedName(w.name, lang).toLowerCase().contains(q))
+          w
+    ];
+    final List<int> idx = [for (int i = 0; i < pool.length; i++) i];
+    idx.sort((a, b) {
+      final int da = d.lastDone[pool[a].id] ?? -1;
+      final int db = d.lastDone[pool[b].id] ?? -1;
+      if (da != db) return db.compareTo(da);
+      return a.compareTo(b);
+    });
+    final bool cut = q.isEmpty && !_showAll && pool.length > 4;
+    final int shown = cut ? 3 : pool.length;
+    final List<Widget> lib = [];
+    for (int k = 0; k < shown; k++) {
+      final _Wk w = pool[idx[k]];
+      if (k > 0) lib.add(rule);
+      lib.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    localizedName(w.name, lang),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _ts(context, 14.5, FontWeight.w600, p.ink,
+                        height: 1.25),
+                  ),
+                  Text(
+                    _metaOf(lang, d, w, today),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        _ts(context, 12, FontWeight.w400, p.soft, height: 1.35),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
+            _mini(p, Icons.add_rounded, () {
+              _change(() => _cfg.order.add(w.id));
+            }, mint: true),
           ],
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                _tr(lang, 'title'),
-                maxLines: 1,
-                style: _ts(context, 26, FontWeight.w700, p.ink,
-                    height: 1.15, ls: -0.4),
+        ),
+      ));
+    }
+
+    return [
+      ..._titles(context, p, _tr(lang, 's2'), _tr(lang, 's2s')),
+      _box(p, [
+        _label(context, p, _tr(lang, 'inPlan')),
+        if (chosen.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_tr(lang, 'none'),
+                style:
+                    _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.35)),
+          ),
+        ...chosen,
+      ]),
+      const SizedBox(height: 12),
+      _box(p, [
+        _label(context, p, _tr(lang, 'all')),
+        if (free.length > 4) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _search,
+            onChanged: (v) => setState(() => _query = v),
+            textInputAction: TextInputAction.search,
+            cursorColor: p.primary,
+            style: _ts(context, 14, FontWeight.w500, p.ink, height: 1.3),
+            decoration: InputDecoration(
+              hintText: _tr(lang, 'search'),
+              hintStyle: _ts(context, 14, FontWeight.w400, p.soft, height: 1.3),
+              prefixIcon: Icon(Icons.search_rounded, color: p.soft, size: 20),
+              isDense: true,
+              filled: true,
+              fillColor: p.card,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: p.line, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: p.primary, width: 1.5),
               ),
             ),
           ),
+          const SizedBox(height: 2),
+        ],
+        if (lib.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(_tr(lang, free.isEmpty ? 'allIn' : 'noMatch'),
+                style:
+                    _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.35)),
+          ),
+        ...lib,
+        if (cut)
+          GestureDetector(
+            onTap: () {
+              _tap();
+              setState(() => _showAll = true);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: 40,
+              alignment: Alignment.center,
+              child: Text(
+                _tr(lang, 'showAll', {'n': pool.length.toString()}),
+                style:
+                    _ts(context, 13, FontWeight.w600, p.mintSoft, height: 1.2),
+              ),
+            ),
+          ),
+      ]),
+      const SizedBox(height: 14),
+      _pill(
+        context,
+        p,
+        _tr(lang, slots.isEmpty ? 'pick' : 'next'),
+        slots.isEmpty
+            ? null
+            : () {
+                _tap();
+                _go(3);
+              },
+      ),
+    ];
+  }
+
+  // ---------- step 3: the week board ----------
+  /// What follows the finger while dragging.
+  Widget _ghost(BuildContext context, _Pal p, bool rtl, String label) {
+    return FractionalTranslation(
+      translation: const Offset(-0.5, -1.15),
+      child: Material(
+        color: Colors.transparent,
+        child: Directionality(
+          textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+          child: Container(
+            height: 42,
+            constraints: const BoxConstraints(maxWidth: 240),
+            padding: const EdgeInsetsDirectional.only(start: 8, end: 14),
+            decoration: BoxDecoration(
+              color: p.mint,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: p.primary, width: 1.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.drag_indicator_rounded,
+                    size: 18, color: p.mintInk.withAlpha(120)),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _ts(context, 13.5, FontWeight.w600, p.mintInk,
+                        height: 1.2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _trayChip(BuildContext context, String lang, _Pal p, int first,
+      bool rtl, int i, List<String> slot, int used) {
+    final String id = 's' + i.toString();
+    final bool on = _arm == id;
+    final String label =
+        [for (final String w in slot) _nameOf(lang, w)].join('  ⇄  ');
+    final Color fg = on ? Colors.white : p.mintInk;
+    final Widget chip = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      height: 36,
+      padding: const EdgeInsetsDirectional.only(start: 8, end: 12),
+      decoration: BoxDecoration(
+        color: on ? p.primary : p.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: on ? p.primary : p.mintLine, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.drag_indicator_rounded,
+              size: 16, color: fg.withAlpha(120)),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _ts(context, 13.5, FontWeight.w600, fg, height: 1.2),
+            ),
+          ),
+          if (used > 0) ...[
+            const SizedBox(width: 6),
+            Text('×' + used.toString(),
+                style: _ts(context, 11.5, FontWeight.w700, fg.withAlpha(150),
+                    height: 1.2)),
+          ],
         ],
       ),
+    );
+    return LongPressDraggable<String>(
+      data: id,
+      delay: const Duration(milliseconds: 180),
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: _ghost(context, p, rtl, label),
+      onDragStarted: () {
+        if (_arm != null) setState(() => _arm = null);
+      },
+      child: GestureDetector(
+        onTap: () => _tapPill(id, first),
+        behavior: HitTestBehavior.opaque,
+        child: chip,
+      ),
+    );
+  }
+
+  /// A workout on a day: drag it, tap it, or drop another one on it (swap).
+  Widget _dayPill(BuildContext context, String lang, _Pal p, int first,
+      bool rtl, int wd, String wid, bool alt) {
+    final String id = 'd' + wd.toString();
+    final bool on = _arm == id;
+    final String name = _nameOf(lang, wid);
+    final Color fg = on ? Colors.white : p.mintInk;
+    Widget pill(bool over) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        height: 42,
+        padding: const EdgeInsetsDirectional.only(start: 8),
+        decoration: BoxDecoration(
+          color: on ? p.primary : p.mint,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: (on || over) ? p.primary : Colors.transparent, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.drag_indicator_rounded,
+                size: 18, color: fg.withAlpha(120)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _ts(context, 13.5, FontWeight.w600, fg, height: 1.2),
+              ),
+            ),
+            if (alt)
+              Icon(Icons.swap_horiz_rounded,
+                  size: 16, color: fg.withAlpha(150)),
+            GestureDetector(
+              onTap: () => _applyDrop(id, 'tray', first),
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                width: 38,
+                height: 42,
+                child: Icon(Icons.close_rounded,
+                    size: 17, color: fg.withAlpha(160)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => details.data != id,
+      onAcceptWithDetails: (details) => _applyDrop(details.data, id, first),
+      builder: (ctx, candidates, rejected) {
+        return LongPressDraggable<String>(
+          data: id,
+          delay: const Duration(milliseconds: 180),
+          dragAnchorStrategy: pointerDragAnchorStrategy,
+          feedback: _ghost(context, p, rtl, name),
+          childWhenDragging: Opacity(opacity: 0.3, child: pill(false)),
+          onDragStarted: () {
+            if (_arm != null) setState(() => _arm = null);
+          },
+          child: GestureDetector(
+            onTap: () => _tapPill(id, first),
+            behavior: HitTestBehavior.opaque,
+            child: pill(candidates.isNotEmpty),
+          ),
+        );
+      },
+    );
+  }
+
+  /// A free day: drop a workout here, or tap to place the picked one.
+  Widget _emptyZone(
+      BuildContext context, String lang, _Pal p, int first, int wd, bool armS) {
+    final String id = 'd' + wd.toString();
+    final bool on = _arm == id;
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) => _applyDrop(details.data, id, first),
+      builder: (ctx, candidates, rejected) {
+        final bool over = candidates.isNotEmpty;
+        final bool hot = on || over;
+        final bool hint = armS && !hot;
+        return GestureDetector(
+          onTap: () => _tapEmpty(wd, first),
+          behavior: HitTestBehavior.opaque,
+          child: CustomPaint(
+            foregroundPainter:
+                hot ? null : _DashPainter(hint ? p.mintLine : p.line, 14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: (hot || hint)
+                    ? p.primary.withAlpha(22)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: hot ? p.primary : Colors.transparent, width: 1.5),
+              ),
+              child: Text(
+                (armS || over) ? '+ ' + _tr(lang, 'here') : _tr(lang, 'rest'),
+                maxLines: 1,
+                style: _ts(context, 12.5, FontWeight.w500,
+                    (hot || hint) ? p.mintSoft : p.soft,
+                    height: 1.2),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _stepThree(
+      BuildContext context, String lang, _Pal p, int first, bool rtl) {
+    final List<List<String>> slots = _slots();
+    final List<int> a = _assign(first, slots);
+    final List<String> turn = _turns(a, slots);
+    int cnt = 0;
+    for (final int v in a) {
+      if (v >= 0) cnt++;
+    }
+    final bool manual = _manual != null;
+    final String arm = _arm ?? '';
+    final bool armS = arm.startsWith('s');
+
+    final List<Widget> tray = [];
+    for (int i = 0; i < slots.length; i++) {
+      int used = 0;
+      for (final int v in a) {
+        if (v == i) used++;
+      }
+      tray.add(_trayChip(context, lang, p, first, rtl, i, slots[i], used));
+    }
+
+    final List<Widget> rows = [];
+    for (int pos = 0; pos < 7; pos++) {
+      final int wd = _wdAt(pos, first);
+      final int v = a[pos];
+      Widget zone;
+      if (v == -2) {
+        zone = Container(
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: p.bg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            _tr(lang, 'cant'),
+            maxLines: 1,
+            style: _ts(context, 12.5, FontWeight.w500, p.soft, height: 1.2)
+                .copyWith(decoration: TextDecoration.lineThrough),
+          ),
+        );
+      } else if (v >= 0) {
+        zone = _dayPill(
+            context, lang, p, first, rtl, wd, turn[pos], slots[v].length > 1);
+      } else {
+        zone = _emptyZone(context, lang, p, first, wd, armS);
+      }
+      rows.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 50,
+              child: Text(
+                _dayRow(lang, wd),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _ts(
+                    context, 12.5, FontWeight.w600, v >= 0 ? p.ink : p.soft,
+                    height: 1.2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: zone),
+          ],
+        ),
+      ));
+    }
+
+    final bool many = _options(first).length > 1;
+    final bool hasRow = _data?.row != null;
+    return [
+      ..._titles(context, p, _tr(lang, 'yourWeek'), _tr(lang, 's3s')),
+      Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: p.mint,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Text(
+              _tr(lang, manual ? 'edited' : 'auto'),
+              style:
+                  _ts(context, 11.5, FontWeight.w700, p.mintInk, height: 1.2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _tr(lang, 'cnt', {'n': cnt.toString()}),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _ts(context, 12.5, FontWeight.w400, p.soft, height: 1.2),
+            ),
+          ),
+          if (manual)
+            GestureDetector(
+              onTap: () {
+                _tap();
+                setState(() {
+                  _manual = null;
+                  _arm = null;
+                  _saved = false;
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Text(_tr(lang, 'backAuto'),
+                  style: _ts(context, 12.5, FontWeight.w600, p.mintSoft,
+                      height: 1.2)),
+            )
+          else if (many)
+            GestureDetector(
+              onTap: () {
+                _tap();
+                setState(() {
+                  _cfg.layout++;
+                  _arm = null;
+                  _saved = false;
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Text(_tr(lang, 'other'),
+                  style: _ts(context, 12.5, FontWeight.w600, p.mintSoft,
+                      height: 1.2)),
+            ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      _box(p, [
+        // The tray: every workout of the rotation. Dropping a workout back
+        // here takes it off the week.
+        DragTarget<String>(
+          onWillAcceptWithDetails: (details) => details.data.startsWith('d'),
+          onAcceptWithDetails: (details) =>
+              _applyDrop(details.data, 'tray', first),
+          builder: (ctx, candidates, rejected) {
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: double.infinity,
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: candidates.isNotEmpty
+                    ? p.primary.withAlpha(22)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Wrap(spacing: 8, runSpacing: 8, children: tray),
+            );
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 6),
+          child: Container(height: 1, color: p.line),
+        ),
+        ...rows,
+      ]),
       const SizedBox(height: 14),
+      _pill(
+        context,
+        p,
+        _tr(lang, _saved ? 'saved' : (cnt > 0 ? 'save' : 'place1')),
+        (cnt > 0 && !_saved) ? () => _save(first) : null,
+      ),
+      if (hasRow)
+        Center(
+          child: GestureDetector(
+            onTap: () {
+              if (_sure) {
+                _delete();
+              } else {
+                _tap();
+                setState(() => _sure = true);
+              }
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text(
+                _tr(lang, _sure ? 'deleteSure' : 'delete'),
+                style: _ts(context, 13, FontWeight.w600,
+                    _sure ? FlutterFlowTheme.of(context).error : p.soft,
+                    height: 1.2),
+              ),
+            ),
+          ),
+        ),
     ];
+  }
+
+  // ---------- page ----------
+  Widget _page(BuildContext context, String lang, int first, bool rtl) {
+    final _Pal p = _Pal(FlutterFlowTheme.of(context));
+    final _Data? d = _data;
+    final List<Widget> kids = [_header(context, p)];
     if (d != null) {
-      if (plan != null && plan.slots.isNotEmpty && !_editing) {
-        kids.addAll(_planView(context, lang, p, first, plan, d.logs));
-      } else if (d.workouts.isEmpty) {
+      if (d.workouts.isEmpty) {
+        kids.add(const SizedBox(height: 14));
         kids.add(_box(p, [
           Text(_tr(lang, 'noWorkouts'),
               style: _ts(context, 14.5, FontWeight.w500, p.soft, height: 1.4)),
         ]));
       } else {
-        kids.addAll(_builder(context, lang, p, first, d));
+        final List<Widget> body = _step == 1
+            ? _stepOne(context, lang, p, first)
+            : (_step == 2
+                ? _stepTwo(context, lang, p, d)
+                : _stepThree(context, lang, p, first, rtl));
+        kids.add(AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOutCubic,
+          layoutBuilder: (Widget? current, List<Widget> previous) {
+            return Stack(
+              alignment: Alignment.topCenter,
+              fit: StackFit.passthrough,
+              children: [
+                ...previous,
+                if (current != null) current,
+              ],
+            );
+          },
+          child: Column(
+            key: ValueKey<int>(_step),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: body,
+          ),
+        ));
       }
     }
-    return ColoredBox(
+    return Material(
       color: p.bg,
       child: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2030,140 +2674,10 @@ class _WeekPlannerState extends State<WeekPlanner> {
     );
   }
 
-  // ---------- compact card (Home) ----------
-  Widget _card(BuildContext context, String lang, int first) {
-    final _Pal p = _Pal(FlutterFlowTheme.of(context));
-    final _Data? d = _data;
-    final _Plan? plan = _savedPlan();
-    final List<Widget> row = [];
-    if (d != null && (plan == null || plan.slots.isEmpty)) {
-      row.addAll([
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(color: p.mint, shape: BoxShape.circle),
-          child: Icon(Icons.event_repeat_rounded, color: p.primary, size: 24),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_tr(lang, 'build'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      _ts(context, 16, FontWeight.w700, p.ink, height: 1.25)),
-              const SizedBox(height: 2),
-              Text(_tr(lang, 'buildSub'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      _ts(context, 12.5, FontWeight.w500, p.soft, height: 1.3)),
-            ],
-          ),
-        ),
-        Icon(Icons.chevron_right_rounded, color: p.soft, size: 24),
-      ]);
-    } else if (d != null && plan != null && plan.slots.isNotEmpty) {
-      final int today = _dayNo(DateTime.now());
-      final _Week w = _planWeek(plan, d.logs, today, first);
-      final _Rec? rec = w.rec;
-      final bool now = rec != null && rec.isToday;
-      final String recWid = rec?.wid ?? '';
-      final String label = now
-          ? _tr(lang, 'today')
-          : _tr(lang, w.trainedToday ? 'doneToday' : 'restDay');
-      String big = '';
-      if (rec != null) {
-        big = now
-            ? _nameOf(lang, rec.wid)
-            : _tr(lang, 'next', {
-                'w': _nameOf(lang, rec.wid),
-                'd': _dayLabel(lang, rec.day, today),
-              });
-      }
-      row.addAll([
-        Container(
-          width: 48,
-          height: 48,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: now ? p.primary : p.mint,
-            shape: BoxShape.circle,
-          ),
-          child: w.trainedToday
-              ? Icon(Icons.check_rounded, color: p.primary, size: 24)
-              : Text(
-                  rec == null ? '' : _initials(_nameOf(lang, rec.wid)),
-                  style: _ts(context, 15, FontWeight.w800,
-                      now ? Colors.white : p.mintInk,
-                      height: 1.0),
-                ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label +
-                    '  ·  ' +
-                    _tr(lang, 'progress',
-                        {'a': w.done.toString(), 'b': plan.perWeek.toString()}),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _ts(context, 12.5, FontWeight.w600, p.mintSoft,
-                    height: 1.25),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                big,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _ts(context, now ? 18 : 15, FontWeight.w700, p.ink,
-                    height: 1.25),
-              ),
-            ],
-          ),
-        ),
-        if (now && widget.onStart != null) ...[
-          const SizedBox(width: 10),
-          _pill(context, p, _tr(lang, 'start'), () => _start(recWid),
-              small: true),
-        ] else
-          Icon(Icons.chevron_right_rounded, color: p.soft, size: 24),
-      ]);
-    }
-    return Material(
-      color: p.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: p.line, width: 1),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: widget.onOpen == null
-            ? null
-            : () {
-                _tap();
-                widget.onOpen?.call();
-              },
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(14, 0, 12, 0),
-          child: Row(children: row),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final String lang = _langOf(context);
     final bool rtl = _kRtl.contains(lang);
-    final bool compact = widget.compact ?? false;
     // Week start follows the locale: 0 = Sunday in Flutter, 7 here.
     int first = 1;
     try {
@@ -2174,11 +2688,9 @@ class _WeekPlannerState extends State<WeekPlanner> {
       child: Directionality(
         textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
         child: SizedBox(
-          width: compact ? (widget.width ?? double.infinity) : widget.width,
-          height: compact ? (widget.height ?? 96.0) : widget.height,
-          child: compact
-              ? _card(context, lang, first)
-              : _page(context, lang, first),
+          width: widget.width,
+          height: widget.height,
+          child: _page(context, lang, first, rtl),
         ),
       ),
     );

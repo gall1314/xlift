@@ -39,14 +39,15 @@ import '/flutter_flow/internationalization.dart' show FFLocalizations;
 /// analysis; the camera itself is the page's FAB onOpenStats, onOpenLibrary,
 /// onOpenSettings onOpenTemplates    - Library on the Templates tab
 /// (initialTab = 1) onCreateWorkout    - open the existing create bottom
-/// sheet onOpenPlan         - open the weekly plan page (WeekPlanner)
+/// sheet onOpenPlan         - open the weekly plan page (PlanStatus)
 /// onOpenScore        - open the training score page (TrainingScore)
 ///
 /// Uses two other custom widgets, which must exist in the project:
 /// TrainingScore (as a half-width tile next to the form-check tile) and
 /// WeekPlanner (only its saved plan: when there is one, it decides the "Up
-/// next" workout and marks the planned days in "This week"; the Plan button
-/// there opens the planner page).
+/// next" workout, the label above it and the planned days in "This week").
+/// The row at the bottom of the dark card opens the plan page; with no plan
+/// yet it says so and leads to the same page.
 class HomeView extends StatefulWidget {
   const HomeView({
     super.key,
@@ -283,12 +284,54 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Diese Woche",
     "fr": "Cette semaine",
   },
-  "plan": {
-    "en": "Plan",
-    "es": "Plan",
-    "he": "תוכנית",
-    "de": "Plan",
-    "fr": "Plan",
+  "planToday": {
+    "en": "Today · from your plan",
+    "es": "Hoy · de tu plan",
+    "he": "היום · לפי התוכנית",
+    "de": "Heute · laut Plan",
+    "fr": "Aujourd'hui · selon ton plan",
+  },
+  "planRest": {
+    "en": "Rest day · up next",
+    "es": "Día de descanso · siguiente",
+    "he": "יום מנוחה · הבא בתור",
+    "de": "Ruhetag · als Nächstes",
+    "fr": "Jour de repos · à suivre",
+  },
+  "planDone": {
+    "en": "Done for today · up next",
+    "es": "Hecho por hoy · siguiente",
+    "he": "בוצע היום · הבא בתור",
+    "de": "Heute erledigt · als Nächstes",
+    "fr": "Fait pour aujourd'hui · à suivre",
+  },
+  "planRow": {
+    "en": "Weekly plan",
+    "es": "Plan semanal",
+    "he": "התוכנית השבועית",
+    "de": "Wochenplan",
+    "fr": "Plan hebdo",
+  },
+  "planProg": {
+    "en": "{n} of {m} this week",
+    "es": "{n} de {m} esta semana",
+    "he": "{n} מתוך {m} השבוע",
+    "de": "{n} von {m} diese Woche",
+    "fr": "{n} sur {m} cette semaine",
+  },
+  "noPlan": {
+    "en": "No weekly plan yet",
+    "es": "Aún no tienes plan semanal",
+    "he": "עדיין אין תוכנית שבועית",
+    "de": "Noch kein Wochenplan",
+    "fr": "Pas encore de plan hebdo",
+  },
+  "buildPlan": {
+    "en": "Build one",
+    "es": "Crear",
+    "he": "לבנות",
+    "de": "Erstellen",
+    "fr": "Créer",
   },
   "fullStats": {
     "en": "Full stats",
@@ -577,6 +620,9 @@ class _HomeViewState extends State<HomeView> {
   _HomeData? _data;
   String? _error;
   int _heroOffset = 0;
+  // Reload when a page opened on top of Home is closed again (a finished
+  // workout, a saved plan).
+  ModalRoute<dynamic>? _route;
 
   // App language ('en','es','he','de','fr'), resolved from FFLocalizations in
   // didChangeDependencies (inherited widgets aren't available in initState).
@@ -634,6 +680,20 @@ class _HomeViewState extends State<HomeView> {
   }
 
   @override
+  void dispose() {
+    _route?.secondaryAnimation?.removeStatusListener(_onRouteStatus);
+    super.dispose();
+  }
+
+  void _onRouteStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && mounted) {
+      _embedTick++;
+      _heroOffset = 0;
+      _load();
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final th = FlutterFlowTheme.of(context);
@@ -657,6 +717,13 @@ class _HomeViewState extends State<HomeView> {
     // Language: the first resolution triggers the initial load; a later
     // change (user switched language in settings) reloads so muscle and
     // exercise names come back localized.
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    if (!identical(route, _route)) {
+      _route?.secondaryAnimation?.removeStatusListener(_onRouteStatus);
+      _route = route;
+      _route?.secondaryAnimation?.addStatusListener(_onRouteStatus);
+    }
+
     final lang = _currentLang();
     if (!_langResolved || lang != _lang) {
       _lang = lang;
@@ -1242,14 +1309,32 @@ class _HomeViewState extends State<HomeView> {
     }
     final hasMuscles = w.muscles.isNotEmpty;
     final rested = hasMuscles && w.isRested;
+    // With a plan, the label says where today stands in it.
+    String heroLabel = _t('upNext');
+    if (_heroOffset == 0 && planId.isNotEmpty && w.id == planId) {
+      if (_plan?['isToday'] == true) {
+        heroLabel = _t('planToday');
+      } else if (_plan?['trainedToday'] == true) {
+        heroLabel = _t('planDone');
+      } else {
+        heroLabel = _t('planRest');
+      }
+    }
     return _darkCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(_t('upNext'), style: _label(color: _accentOnDark)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  heroLabel,
+                  style: _label(color: _accentOnDark),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               // Recovery status: muscles of this workout have had >= 48h.
               if (hasMuscles) ...[
                 Container(
@@ -1326,7 +1411,51 @@ class _HomeViewState extends State<HomeView> {
               ),
             ],
           ),
+          if (widget.onOpenPlan != null && _plan != null) ...[
+            const SizedBox(height: 16),
+            Container(height: 1, color: Colors.white.withOpacity(0.10)),
+            _planRow(),
+          ],
         ],
+      ),
+    );
+  }
+
+  // --- weekly plan row inside the dark card: status, or "no plan yet". ---
+  Widget _planRow() {
+    final bool has = _plan?['hasPlan'] == true;
+    final dynamic done = _plan?['done'];
+    final dynamic per = _plan?['perWeek'];
+    final Color tint = has ? _kOnDarkMuted : _accentOnDark;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => widget.onOpenPlan?.call(),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Row(
+          children: [
+            Icon(Icons.event_repeat_rounded, size: 16, color: tint),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                has ? _t('planRow') : _t('noPlan'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _body(13, color: _kOnDarkPill, w: FontWeight.w500),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              has
+                  ? _t('planProg',
+                      n: done is int ? done : 0, m: per is int ? per : 0)
+                  : _t('buildPlan'),
+              style: _body(13, color: tint, w: FontWeight.w600),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right_rounded, size: 18, color: tint),
+          ],
+        ),
       ),
     );
   }
@@ -1536,32 +1665,6 @@ class _HomeViewState extends State<HomeView> {
           Row(
             children: [
               Text(_t('thisWeek'), style: _cardTitle()),
-              if (widget.onOpenPlan != null) ...[
-                const SizedBox(width: 10),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => widget.onOpenPlan?.call(),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: _accentTint,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.event_repeat_rounded,
-                            size: 14, color: _accentDeep),
-                        const SizedBox(width: 4),
-                        Text(_t('plan'),
-                            style: _body(12,
-                                color: _accentDeep, w: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
               const Spacer(),
               _linkButton(_t('fullStats'),
                   onTap: () => widget.onOpenStats?.call()),
@@ -1933,7 +2036,7 @@ class _HomeViewState extends State<HomeView> {
         child: child,
       );
 
-  // Secondary in-card link (Full stats / See all): muted, never accent, so
+  // Secondary in-card link (Full stfats / See all): muted, never accent, so
   // the accent stays reserved for primary actions.
   Widget _linkButton(String text, {VoidCallback? onTap}) => GestureDetector(
         behavior: HitTestBehavior.opaque,

@@ -906,11 +906,13 @@ class SQLiteManager {
   Future<List<WorkoutHeroStatRow>> workoutHeroStat({
     String? workoutLogId,
     String? userId,
+    String? languageCode,
   }) =>
       performWorkoutHeroStat(
         _database,
         workoutLogId: workoutLogId,
         userId: userId,
+        languageCode: languageCode,
       );
 
   Future<List<WorkoutBreakdownSetsRow>> workoutBreakdownSets({

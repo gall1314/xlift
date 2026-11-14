@@ -398,8 +398,8 @@ full potential */
                     ),
                     Text(
                       _model.yearly
-                          ? 'Then \$29.99/year. Cancel anytime.'
-                          : 'Then \$3.99/month. Cancel anytime.',
+                          ? 'Then \$39.99/year. Cancel anytime.'
+                          : 'Then \$5.99/month. Cancel anytime.',
                       textAlign: TextAlign.center,
                       style: FlutterFlowTheme.of(context).labelSmall.override(
                             font: GoogleFonts.inter(

@@ -329,6 +329,7 @@ class ExerciseCard extends StatefulWidget {
     this.onRemoveExercise,
     this.onResultTap,
     this.onLockTap,
+    this.onUnitChanged,
     this.onStartRest,
     this.onDontShowAgain,
     this.onRestTimeChanged,
@@ -371,6 +372,10 @@ class ExerciseCard extends StatefulWidget {
   final Future Function(String exerciseName, int setNumber,
       FFUploadedFile? video, String setLogId)? onResultTap;
   final Future Function()? onLockTap;
+
+  /// Weight unit switched from the table header (true = kg). The card has
+  /// already written App State `isKg`.
+  final Future Function(bool isKg)? onUnitChanged;
   final Future Function(
           int exerciseId, String exerciseName, int setNumber, int restMs)?
       onStartRest;
@@ -381,13 +386,95 @@ class ExerciseCard extends StatefulWidget {
   /// App State; this is only for saving it somewhere else.
   final Future Function(int exerciseId, int restMs)? onRestTimeChanged;
 
+  /// Reads the exercise rows of [exerciseIds] into the in-memory cache, so a
+  /// card that is built later (scrolled into view) has its name, picture and
+  /// set table on its very first frame - no spinner, no change of height.
+  /// Safe to call as often as you like; ids already cached are skipped.
+  static Future<void> warm(List<int> exerciseIds) async {
+    for (final id in exerciseIds) {
+      if (_kExerciseCache.containsKey(id)) continue;
+      await _fetchExercise(id);
+    }
+  }
+
   @override
   State<ExerciseCard> createState() => _ExerciseCardState();
+}
+
+/// One row of the exercise table, as the card needs it.
+class _ExRow {
+  const _ExRow({
+    required this.nameRaw,
+    required this.illustration,
+    required this.equipment,
+    required this.isTimed,
+    required this.isBodyweight,
+    required this.allowsBodyweight,
+    required this.aiEnabled,
+    required this.isCustom,
+  });
+  final String nameRaw;
+  final String? illustration;
+  final String equipment;
+  final bool isTimed;
+  final bool isBodyweight;
+  final bool allowsBodyweight;
+  final bool aiEnabled;
+  final bool isCustom;
+
+  bool same(_ExRow o) =>
+      nameRaw == o.nameRaw &&
+      illustration == o.illustration &&
+      equipment == o.equipment &&
+      isTimed == o.isTimed &&
+      isBodyweight == o.isBodyweight &&
+      allowsBodyweight == o.allowsBodyweight &&
+      aiEnabled == o.aiEnabled &&
+      isCustom == o.isCustom;
+}
+
+/// Exercise rows, kept for the app run. A card that is scrolled away and
+/// built again reads from here instead of showing a spinner first. Every
+/// card still re-reads its row once, so an edited custom exercise shows up.
+final Map<int, _ExRow> _kExerciseCache = {};
+
+/// Reads one exercise row and stores it in [_kExerciseCache]. Null when the
+/// row does not exist or the query fails.
+Future<_ExRow?> _fetchExercise(int exerciseId) async {
+  try {
+    final rows = await SQLiteManager.instance.exercise2(exerciseId: exerciseId);
+    if (rows.isEmpty) return null;
+    final dynamic r = rows.first;
+    dynamic g(String k) {
+      try {
+        return (r as dynamic).data[k];
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final ill = (g('illustration') ?? '').toString().trim();
+    final row = _ExRow(
+      nameRaw: (g('name') ?? '').toString(),
+      illustration: ill.isEmpty ? null : ill,
+      equipment: (g('equipment') ?? '').toString(),
+      isTimed: _truthy(g('is_time_based')),
+      isBodyweight: _truthy(g('is_bodyweight_dominant') ?? g('is_bodyweight')),
+      allowsBodyweight: _truthy(g('allows_bodyweight')),
+      aiEnabled: _truthy(g('ai_form_analysis')),
+      isCustom: g('is_public') != null && !_truthy(g('is_public')),
+    );
+    _kExerciseCache[exerciseId] = row;
+    return row;
+  } catch (_) {
+    return null;
+  }
 }
 
 class _ExerciseCardState extends State<ExerciseCard> {
   // exercise row (SQLite exercise2)
   bool _loaded = false;
+  _ExRow? _row;
   String _nameRaw = '';
   String? _illustration;
   String _equipment = '';
@@ -400,44 +487,47 @@ class _ExerciseCardState extends State<ExerciseCard> {
   @override
   void initState() {
     super.initState();
+    _applyCached();
     _loadExercise();
   }
 
   @override
   void didUpdateWidget(covariant ExerciseCard old) {
     super.didUpdateWidget(old);
-    if (old.exerciseId != widget.exerciseId) _loadExercise();
+    if (old.exerciseId != widget.exerciseId) {
+      _applyCached();
+      _loadExercise();
+    }
   }
 
-  Future<void> _loadExercise() async {
-    try {
-      final rows =
-          await SQLiteManager.instance.exercise2(exerciseId: widget.exerciseId);
-      if (rows.isEmpty) return;
-      final dynamic r = rows.first;
-      dynamic g(String k) {
-        try {
-          return (r as dynamic).data[k];
-        } catch (_) {
-          return null;
-        }
-      }
+  void _apply(_ExRow r) {
+    _row = r;
+    _nameRaw = r.nameRaw;
+    _illustration = r.illustration;
+    _equipment = r.equipment;
+    _isTimed = r.isTimed;
+    _isBodyweight = r.isBodyweight;
+    _allowsBodyweight = r.allowsBodyweight;
+    _aiEnabled = r.aiEnabled;
+    _isCustom = r.isCustom;
+    _loaded = true;
+  }
 
-      if (!mounted) return;
-      setState(() {
-        _nameRaw = (g('name') ?? '').toString();
-        final ill = (g('illustration') ?? '').toString().trim();
-        _illustration = ill.isEmpty ? null : ill;
-        _equipment = (g('equipment') ?? '').toString();
-        _isTimed = _truthy(g('is_time_based'));
-        _isBodyweight =
-            _truthy(g('is_bodyweight_dominant') ?? g('is_bodyweight'));
-        _allowsBodyweight = _truthy(g('allows_bodyweight'));
-        _aiEnabled = _truthy(g('ai_form_analysis'));
-        _isCustom = g('is_public') != null && !_truthy(g('is_public'));
-        _loaded = true;
-      });
-    } catch (_) {}
+  /// Fills the card from the cache before its first build (no setState).
+  void _applyCached() {
+    final c = _kExerciseCache[widget.exerciseId];
+    if (c != null) _apply(c);
+  }
+
+  /// Reads the row from the database; rebuilds only when it differs from
+  /// what the card already shows.
+  Future<void> _loadExercise() async {
+    final int id = widget.exerciseId;
+    final row = await _fetchExercise(id);
+    if (row == null || !mounted || widget.exerciseId != id) return;
+    final cur = _row;
+    if (_loaded && cur != null && cur.same(row)) return;
+    setState(() => _apply(row));
   }
 
   // ---------- App State (live vs creation) ----------
@@ -1081,6 +1171,10 @@ class _ExerciseCardState extends State<ExerciseCard> {
             onResultTap: (setNumber, video, setLogId) async =>
                 widget.onResultTap?.call(_nameRaw, setNumber, video, setLogId),
             onLockTap: widget.onLockTap,
+            onUnitChanged: (kg) async {
+              _write((s) => s.isKg = kg);
+              await widget.onUnitChanged?.call(kg);
+            },
             onStartRest: (exerciseId, setNumber, restMs) async => widget
                 .onStartRest
                 ?.call(exerciseId, _nameRaw, setNumber, restMs),

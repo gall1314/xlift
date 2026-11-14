@@ -158,6 +158,7 @@ class _WorkoutCompleteWidgetState extends State<WorkoutCompleteWidget> {
       future: SQLiteManager.instance.workoutHeroStat(
         workoutLogId: widget.workoutLogId!,
         userId: currentUserUid,
+        languageCode: FFLocalizations.of(context).languageCode,
       ),
       builder: (context, snapshot) {
         // Customize what your widget looks like when it's loading.
