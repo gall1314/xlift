@@ -110,7 +110,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               showCameraGuidance: true,
               mode: 'live',
               onBack: () async {
-                context.pop();
+                context.pushNamed(MasterPageWidget.routeName);
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy = await actions.saveWorkoutComplete(

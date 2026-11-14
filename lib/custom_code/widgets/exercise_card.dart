@@ -868,6 +868,17 @@ class _ExerciseCardState extends State<ExerciseCard> {
     await _setWarmupSets(out);
   }
 
+  /// At least one working set of this exercise is ticked.
+  bool get _hasDoneSet {
+    for (final l in _loggedSets) {
+      if (l is Map &&
+          _asInt(l['exerciseId']) == widget.exerciseId &&
+          !_truthy(l['isDropSet']) &&
+          _truthy(l['isDone'])) return true;
+    }
+    return false;
+  }
+
   // ---------- completed summary ----------
 
   /// "4 sets · 100 kg × 8" / "4 sets · 12 reps" / "3 sets · 2:00".
@@ -994,13 +1005,22 @@ class _ExerciseCardState extends State<ExerciseCard> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if ((_live || widget.isLogEdit) && !widget.isTemplate)
-              ExerciseFinishButton(
-                exerciseId: widget.exerciseId,
-                exerciseName: localizedName(_nameRaw, lang),
-                exerciseSets: _exerciseSets,
-                loggedSets: _loggedSets,
-                completedExercises: _completed,
-                onApply: (list) async => _setCompleted(list),
+              // Nothing ticked yet → nothing to finish: dimmed and inert.
+              // An exercise that is already finished stays tappable (Reopen).
+              IgnorePointer(
+                ignoring: !_isComplete && !_hasDoneSet,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 160),
+                  opacity: (!_isComplete && !_hasDoneSet) ? 0.4 : 1.0,
+                  child: ExerciseFinishButton(
+                    exerciseId: widget.exerciseId,
+                    exerciseName: localizedName(_nameRaw, lang),
+                    exerciseSets: _exerciseSets,
+                    loggedSets: _loggedSets,
+                    completedExercises: _completed,
+                    onApply: (list) async => _setCompleted(list),
+                  ),
+                ),
               ),
             if (!complete) ...[
               const SizedBox(height: 10),

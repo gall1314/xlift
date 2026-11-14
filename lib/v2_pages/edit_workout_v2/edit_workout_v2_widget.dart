@@ -121,7 +121,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
               height: MediaQuery.sizeOf(context).height * 1.0,
               workoutName: widget.workoutName,
               showCameraGuidance: false,
-              mode: 'template',
+              mode: 'templateEdit',
               onBack: () async {
                 context.safePop();
               },

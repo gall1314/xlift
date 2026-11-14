@@ -95,16 +95,7 @@ class _AddExercisesForWorklogEditWidgetState
               FFAppState().exerciseSetsCreation =
                   _model.addedCopy!.toList().cast<dynamic>();
               safeSetState(() {});
-
-              context.pushNamed(
-                WorkoutLogEditV2Widget.routeName,
-                queryParameters: {
-                  'workoutLogId': serializeParam(
-                    widget.workoutLOgId,
-                    ParamType.String,
-                  ),
-                }.withoutNulls,
-              );
+              context.safePop();
 
               safeSetState(() {});
             },

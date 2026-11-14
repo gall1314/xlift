@@ -47,6 +47,10 @@ import '/auth/supabase_auth/auth_util.dart';
 
 const Set<String> _kRtl = {'he', 'ar'};
 
+/// Play mode is parked for now: the code stays, the ▶ button is hidden.
+/// Flip to true to bring it back.
+const bool _kPlayModeEnabled = false;
+
 String _langOf(BuildContext ctx) {
   try {
     final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
@@ -395,6 +399,8 @@ class WorkoutPage extends StatefulWidget {
   ///   'logEdit'  — editing a logged workout: no clock, no rest timer, no
   ///                superset, no warm-up, no analysis, a short options menu,
   ///                and a Workout Details card (date + duration).
+  ///   'templateEdit' — the same screen as 'template', for an existing
+  ///                template: titled "Edit Workout" with a Save button.
   ///   'template' — creating a workout or editing a workout template: the
   ///                table holds target reps / a target duration, nothing is
   ///                completed, no weight column, no analysis, and the header
@@ -493,7 +499,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
   bool get _edit => _mode == 'logedit';
 
   /// Creating a workout / editing a template — also on the *Creation lists.
-  bool get _tpl => _mode == 'template';
+  bool get _tpl => _mode == 'template' || _tplEdit;
+
+  /// Editing an existing template: same screen as creating one, but the
+  /// title and the button say "edit" / "save".
+  bool get _tplEdit => _mode == 'templateedit';
   bool get _live => !_edit && !_tpl;
 
   List<dynamic> get _exerciseSets => List<dynamic>.from(
@@ -685,7 +695,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   ? Text(
                       (widget.title ?? '').trim().isNotEmpty
                           ? widget.title!.trim()
-                          : _tr(lang, _edit ? 'editWorkout' : 'createWorkout'),
+                          : _tr(
+                              lang,
+                              (_edit || _tplEdit)
+                                  ? 'editWorkout'
+                                  : 'createWorkout'),
                       style: _ts(theme, 22, FontWeight.w700, theme.primaryText))
                   : (_live
                       ? WorkoutClock(
@@ -711,7 +725,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                 ),
               ),
               const Spacer(),
-              if (_live && ids.isNotEmpty) ...[
+              if (_kPlayModeEnabled && _live && ids.isNotEmpty) ...[
                 _Tap(
                   onTap: _openPlayMode,
                   child: Container(
@@ -753,8 +767,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   child: Text(
                       (widget.saveLabel ?? '').trim().isNotEmpty
                           ? widget.saveLabel!.trim()
-                          : _tr(lang,
-                              _edit ? 'save' : (_tpl ? 'create' : 'finish')),
+                          : _tr(
+                              lang,
+                              (_edit || _tplEdit)
+                                  ? 'save'
+                                  : (_tpl ? 'create' : 'finish')),
                       style: _ts(
                           theme,
                           17,
@@ -2432,8 +2449,9 @@ class _Wheel extends StatelessWidget {
         squeeze: 1.1,
         magnification: 1.1,
         useMagnifier: true,
+        // drawn ON TOP of the wheel, so it has to stay see-through
         selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
-          background: theme.primaryBackground,
+          background: theme.primaryText.withOpacity(0.07),
         ),
         childCount: count,
         onSelectedItemChanged: (i) {
