@@ -230,10 +230,9 @@ class _Analyze2AppAfterWidgetState extends State<Analyze2AppAfterWidget> {
                         ),
                       ),
                       Text(
-                        valueOrDefault<String>(
-                          widget.anlysis?.techniqueLabel,
-                          '-',
-                        ),
+                        functions.localizeAnalysisText(
+                            widget.anlysis?.techniqueLabel,
+                            FFLocalizations.of(context).languageCode),
                         style:
                             FlutterFlowTheme.of(context).titleMedium.override(
                                   font: GoogleFonts.interTight(
@@ -417,10 +416,9 @@ class _Analyze2AppAfterWidgetState extends State<Analyze2AppAfterWidget> {
                                     ),
                               ),
                               Text(
-                                valueOrDefault<String>(
-                                  widget.anlysis?.formTip,
-                                  '-',
-                                ),
+                                functions.localizeAnalysisText(
+                                    widget.anlysis?.formTip,
+                                    FFLocalizations.of(context).languageCode),
                                 style: FlutterFlowTheme.of(context)
                                     .labelMedium
                                     .override(
@@ -517,7 +515,7 @@ class _Analyze2AppAfterWidgetState extends State<Analyze2AppAfterWidget> {
                                         Icon(
                                           Icons.check_circle_sharp,
                                           color: FlutterFlowTheme.of(context)
-                                              .secondary,
+                                              .primary,
                                           size: 20.0,
                                         ),
                                     ],
@@ -529,7 +527,10 @@ class _Analyze2AppAfterWidgetState extends State<Analyze2AppAfterWidget> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          feedbackItem,
+                                          functions.localizeAnalysisText(
+                                              feedbackItem,
+                                              FFLocalizations.of(context)
+                                                  .languageCode),
                                           style: FlutterFlowTheme.of(context)
                                               .labelMedium
                                               .override(

@@ -55,6 +55,10 @@ import 'xlift_log_add.dart';
 /// right after ("stored") - and returned as `firstAnalysisJson` for
 /// on-device inspection (Snackbar / Text).
 ///
+/// UNIT: set_log.is_kg is written from FFAppState().isKg at the moment of
+/// saving (1 = kg, 0 = lbs) - the unit the weights were typed in. Volume is
+/// reps x weight in that same unit.
+///
 /// ALL arguments are NULLABLE on purpose: FlutterFlow silently skips
 /// launching a custom action when a required argument's binding
 /// resolves to null. Validation happens INSIDE, loudly.
@@ -319,6 +323,16 @@ Future<dynamic> saveWorkoutComplete(
           'hive-open-analyses', () => Hive.openBox('pendingSetAnalyses'));
       mark('hive-open');
 
+      // ---- unit of this workout ----
+      // The weights in loggedSets are the numbers the user typed, in the
+      // unit the app is set to right now - store that unit with them, so
+      // 220 lbs is never read back as 220 kg.
+      int isKgFlag = 1;
+      try {
+        isKgFlag = FFAppState().isKg ? 1 : 0;
+      } catch (_) {}
+      mark('unit(isKg=$isKgFlag)');
+
       // ---- 1. workout_log ----
       final String workoutLogId = uuid();
       await guarded(
@@ -410,7 +424,7 @@ Future<dynamic> saveWorkoutComplete(
                     reps,
                     weight,
                     durSetMs,
-                    1,
+                    isKgFlag,
                     0,
                     0,
                     uId,
@@ -427,7 +441,7 @@ Future<dynamic> saveWorkoutComplete(
                   'reps': reps,
                   'weight': weight,
                   'duration_seconds': durSetMs,
-                  'is_kg': 1,
+                  'is_kg': isKgFlag,
                   'is_dropset': 0,
                   'drop_number': null,
                 }));
@@ -478,7 +492,7 @@ Future<dynamic> saveWorkoutComplete(
                     reps,
                     weight,
                     null,
-                    1,
+                    isKgFlag,
                     1,
                     dropOrder,
                     uId,
@@ -495,7 +509,7 @@ Future<dynamic> saveWorkoutComplete(
                   'reps': reps,
                   'weight': weight,
                   'duration_seconds': null,
-                  'is_kg': 1,
+                  'is_kg': isKgFlag,
                   'is_dropset': 1,
                   'drop_number': dropOrder,
                 }));

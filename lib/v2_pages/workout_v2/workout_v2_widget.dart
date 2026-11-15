@@ -107,7 +107,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
             child: custom_widgets.WorkoutPage(
               width: MediaQuery.sizeOf(context).width * 1.0,
               height: MediaQuery.sizeOf(context).height * 1.0,
-              showCameraGuidance: true,
+              showCameraGuidance: FFAppState().ShowGuidenc,
               mode: 'live',
               onBack: () async {
                 context.pushNamed(MasterPageWidget.routeName);
@@ -420,7 +420,10 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                   },
                 ).then((value) => safeSetState(() {}));
               },
-              onDontShowAgain: () async {},
+              onDontShowAgain: () async {
+                FFAppState().ShowGuidenc = false;
+                safeSetState(() {});
+              },
             ),
           ),
         ),

@@ -149,6 +149,8 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                   showCameraGuidance: false,
                   mode: 'logEdit',
                   workoutDate: _model.workoutLog?.firstOrNull?.createdAt,
+                  durationMs: workoutLogEditV2History1RowList
+                      .firstOrNull?.durationSeconds,
                   onBack: () async {
                     FFAppState().completedExercisesCreation = [];
                     FFAppState().exerciseSetsCreation = [];

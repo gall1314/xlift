@@ -189,7 +189,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                   );
                                 }
                               },
-                              onEditWorkout: (workoutId) async {
+                              onEditWorkout: (workoutId, workoutName) async {
                                 context.pushNamed(
                                   EditWorkoutV2Widget.routeName,
                                   queryParameters: {
@@ -199,6 +199,10 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                     ),
                                     'workoutId': serializeParam(
                                       workoutId,
+                                      ParamType.String,
+                                    ),
+                                    'workoutName': serializeParam(
+                                      workoutName,
                                       ParamType.String,
                                     ),
                                   }.withoutNulls,

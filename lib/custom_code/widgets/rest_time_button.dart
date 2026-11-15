@@ -136,13 +136,25 @@ class _RestTimeButtonState extends State<RestTimeButton> {
       children: [
         Icon(Icons.timer_outlined, size: fs + 4, color: color),
         SizedBox(width: fs * 0.45),
-        Text(_tr(lang, 'rest'), style: textStyle(FontWeight.w400)),
-        SizedBox(width: fs * 0.5),
-        Text(
-          label,
-          textDirection: ui.TextDirection.ltr,
-          style: textStyle(FontWeight.w600),
+        // ONE text run for "Rest:" and its value, so both sit on the same
+        // baseline. As two separate Texts they were only centred against
+        // each other, and a word drawn from a fallback font (Hebrew "כבוי",
+        // or any script the app font lacks) at another weight came out a
+        // few pixels higher. The strut pins the line height for the same
+        // reason: the box no longer grows or shrinks with the fallback font.
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: _tr(lang, 'rest')),
+              WidgetSpan(child: SizedBox(width: fs * 0.5)),
+              TextSpan(text: label, style: textStyle(FontWeight.w600)),
+            ],
+          ),
+          style: textStyle(FontWeight.w400),
+          strutStyle:
+              StrutStyle(fontSize: fs, height: 1.25, forceStrutHeight: true),
           maxLines: 1,
+          softWrap: false,
           overflow: TextOverflow.clip,
         ),
         SizedBox(width: fs * 0.2),

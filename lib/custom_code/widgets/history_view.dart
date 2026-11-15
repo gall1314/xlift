@@ -572,6 +572,24 @@ class _HistoryViewState extends State<HistoryView> {
         out.add(_rowMap(r));
       }
     } catch (_) {}
+    // The unit each workout was logged in (from its own sets): its volume is
+    // stored in that unit, so the card can convert it only when needed.
+    try {
+      final unitRows = await SQLiteManager.instance.database.rawQuery(
+        'SELECT wl.id AS id, '
+        '(SELECT s.is_kg FROM set_log s WHERE s.workout_log_id = wl.id LIMIT 1) AS log_kg '
+        'FROM workout_log wl WHERE wl.user_id = ?',
+        [widget.userId],
+      );
+      final Map<String, int> kgById = {};
+      for (final r in unitRows) {
+        final v = r['log_kg'];
+        kgById[(r['id'] ?? '').toString()] = v == null ? 1 : _toInt(v);
+      }
+      for (final r in out) {
+        r['_log_kg'] = kgById[(r['workout_log_id'] ?? '').toString()] ?? 1;
+      }
+    } catch (_) {}
     if (!mounted) return;
     setState(() {
       _rows = out;
@@ -901,13 +919,18 @@ class _HistoryViewState extends State<HistoryView> {
                   shape: BoxShape.circle,
                   border: dark ? Border.all(color: th.alternate) : null,
                 ),
-                child: Icon(
-                  rtl
-                      ? Icons.arrow_forward_ios_rounded
-                      : Icons.arrow_back_ios_new_rounded,
-                  size: 18,
-                  color: th.primaryText,
-                  semanticLabel: _tr(lang, 'back'),
+                // arrow icons flip themselves in a right-to-left context;
+                // forcing LTR means the one chosen here is the one drawn
+                child: Directionality(
+                  textDirection: ui.TextDirection.ltr,
+                  child: Icon(
+                    rtl
+                        ? Icons.arrow_forward_ios_rounded
+                        : Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: th.primaryText,
+                    semanticLabel: _tr(lang, 'back'),
+                  ),
                 ),
               ),
             ),
@@ -1138,7 +1161,18 @@ class _WorkoutCardState extends State<_WorkoutCard> {
     final String name = rawName.isEmpty ? _tr(lang, 'workout') : rawName;
     final String dateLabel = _formatDate((d['created_at'] ?? '').toString());
     final int totalSets = _toInt(d['total_sets']);
-    final int volume = _toInt(d['volume']);
+    // Stored as logged; converted only when the workout's unit is not the
+    // one the app shows.
+    bool showKg = true;
+    try {
+      showKg = FFAppState().isKg;
+    } catch (_) {}
+    final bool loggedKg =
+        d['_log_kg'] == null ? true : _toInt(d['_log_kg']) != 0;
+    final num rawVolume = num.tryParse((d['volume'] ?? '').toString()) ?? 0;
+    final int volume = loggedKg == showKg
+        ? rawVolume.round()
+        : (rawVolume * (loggedKg ? 2.20462 : 0.453592)).round();
     final List<String> duration =
         _formatDuration(_toInt(d['duration_seconds']));
     final int analyzedSets = _toInt(d['analyzed_sets']);
@@ -1267,8 +1301,12 @@ class _WorkoutCardState extends State<_WorkoutCard> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _statTile(context, Icons.fitness_center_rounded,
-                    _tr(lang, 'volume'), _formatThousands(volume), 'kg'),
+                child: _statTile(
+                    context,
+                    Icons.fitness_center_rounded,
+                    _tr(lang, 'volume'),
+                    _formatThousands(volume),
+                    showKg ? 'kg' : 'lbs'),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1336,12 +1374,15 @@ class _WorkoutCardState extends State<_WorkoutCard> {
                         _tr(lang, 'viewSummary'),
                         style: _hs(context, 14, FontWeight.w600, accent),
                       ),
-                      Icon(
-                          rtl
-                              ? Icons.chevron_left_rounded
-                              : Icons.chevron_right_rounded,
-                          size: 20,
-                          color: accent),
+                      Directionality(
+                        textDirection: ui.TextDirection.ltr,
+                        child: Icon(
+                            rtl
+                                ? Icons.chevron_left_rounded
+                                : Icons.chevron_right_rounded,
+                            size: 20,
+                            color: accent),
+                      ),
                     ],
                   ),
           ),

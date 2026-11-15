@@ -1033,7 +1033,9 @@ class _SetRow2WidgetState extends State<SetRow2Widget> {
                                                   .toList(),
                                               widget.exerciseId!,
                                               widget.setNumber!,
-                                              'technique_score'),
+                                              'technique_score',
+                                              FFLocalizations.of(context)
+                                                  .languageCode),
                                           size: 35.0,
                                           isDark:
                                               Theme.of(context).brightness ==

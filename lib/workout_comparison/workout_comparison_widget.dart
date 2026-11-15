@@ -1288,7 +1288,11 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                             .start,
                                                     children: [
                                                       Text(
-                                                        aListItem.name,
+                                                        functions.localizedName(
+                                                            aListItem.name,
+                                                            FFLocalizations.of(
+                                                                    context)
+                                                                .languageCode),
                                                         style:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -1477,7 +1481,11 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                             .start,
                                                     children: [
                                                       Text(
-                                                        blistItem.name,
+                                                        functions.localizedName(
+                                                            blistItem.name,
+                                                            FFLocalizations.of(
+                                                                    context)
+                                                                .languageCode),
                                                         style:
                                                             FlutterFlowTheme.of(
                                                                     context)
@@ -1817,7 +1825,11 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                             .center,
                                                     children: [
                                                       Text(
-                                                        aExItem.name,
+                                                        functions.localizedName(
+                                                            aExItem.name,
+                                                            FFLocalizations.of(
+                                                                    context)
+                                                                .languageCode),
                                                         textAlign:
                                                             TextAlign.center,
                                                         style:
@@ -1941,7 +1953,11 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                             .center,
                                                     children: [
                                                       Text(
-                                                        bExItem.name,
+                                                        functions.localizedName(
+                                                            bExItem.name,
+                                                            FFLocalizations.of(
+                                                                    context)
+                                                                .languageCode),
                                                         textAlign:
                                                             TextAlign.center,
                                                         style:

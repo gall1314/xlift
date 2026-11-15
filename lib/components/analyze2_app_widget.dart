@@ -218,7 +218,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                 FFAppState().workoutAnalysisState.toList(),
                                 widget.exerciseId!,
                                 widget.setNumber!,
-                                'technique_score')!),
+                                'technique_score',
+                                FFLocalizations.of(context).languageCode)!),
                         radius: 47.5,
                         lineWidth: 12.0,
                         animation: true,
@@ -231,7 +232,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                   FFAppState().workoutAnalysisState.toList(),
                                   widget.exerciseId!,
                                   widget.setNumber!,
-                                  'technique_score_display')!
+                                  'technique_score_display',
+                                  FFLocalizations.of(context).languageCode)!
                               .toString(),
                           style: FlutterFlowTheme.of(context)
                               .headlineMedium
@@ -261,7 +263,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                   FFAppState().workoutAnalysisState.toList(),
                                   widget.exerciseId!,
                                   widget.setNumber!,
-                                  'technique_label')
+                                  'technique_label',
+                                  FFLocalizations.of(context).languageCode)
                               ?.toString(),
                           '-',
                         ),
@@ -331,7 +334,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                             .toList(),
                                         widget.exerciseId!,
                                         widget.setNumber!,
-                                        'squat_count')
+                                        'squat_count',
+                                        '')
                                     ?.toString(),
                                 '0',
                               ),
@@ -392,7 +396,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                             .toList(),
                                         widget.exerciseId!,
                                         widget.setNumber!,
-                                        'good_reps')
+                                        'good_reps',
+                                        '')
                                     ?.toString(),
                                 '0',
                               ),
@@ -423,7 +428,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                       FFAppState().workoutAnalysisState.toList(),
                       widget.exerciseId!,
                       widget.setNumber!,
-                      'form_tip') !=
+                      'form_tip',
+                      '') !=
                   null)
                 Container(
                   width: double.infinity,
@@ -476,7 +482,9 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                               .toList(),
                                           widget.exerciseId!,
                                           widget.setNumber!,
-                                          'form_tip')
+                                          'form_tip',
+                                          FFLocalizations.of(context)
+                                              .languageCode)
                                       ?.toString(),
                                   '0',
                                 ),
@@ -607,7 +615,8 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                   FFAppState().workoutAnalysisState.toList(),
                                   widget.exerciseId!,
                                   widget.setNumber!,
-                                  'feedback')
+                                  'feedback',
+                                  '')
                               ?.toList() ??
                           [];
 
@@ -668,7 +677,10 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          feedbackItem.toString(),
+                                          functions.localizeAnalysisText(
+                                              feedbackItem.toString(),
+                                              FFLocalizations.of(context)
+                                                  .languageCode),
                                           style: FlutterFlowTheme.of(context)
                                               .labelMedium
                                               .override(

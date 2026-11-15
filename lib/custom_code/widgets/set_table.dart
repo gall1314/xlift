@@ -1229,8 +1229,22 @@ class _SetTableState extends State<SetTable> {
         }
 
         final reps = _asIntN(g('reps'));
-        final weight = _asDoubleN(g('weight'));
+        double? weight = _asDoubleN(g('weight'));
         final dur = _asIntN(g('duration_seconds'));
+
+        // The stored number is in the unit the set was logged in. Showing
+        // it under another unit's label would turn 100 kg into "100 lbs",
+        // so convert it - to a round number, the way a plate would be read.
+        // A row without is_kg was logged in kg (the only unit saved so far).
+        if (weight != null && weight > 0) {
+          final dynamic rawKg = g('is_kg');
+          final bool loggedKg = rawKg == null ? true : _truthy(rawKg);
+          if (loggedKg && !isKg) {
+            weight = (weight * 2.20462).roundToDouble(); // whole pounds
+          } else if (!loggedKg && isKg) {
+            weight = (weight / 2.20462 * 2).roundToDouble() / 2; // half kilos
+          }
+        }
         String text;
         try {
           text = correctedFormatPreviousSet(reps, weight, dur, isKg);

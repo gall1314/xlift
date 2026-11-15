@@ -17,6 +17,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart' as intl show DateFormat;
 
 /// AI Form Analysis for one exercise — self-contained.
 ///
@@ -27,6 +28,11 @@ import 'package:google_fonts/google_fonts.dart';
 ///
 /// No analyses → non-tappable "preview" card showing what the user will get
 /// once a set is analyzed.
+///
+/// Localization: reads the app language from FFLocalizations (no parameter);
+/// Hebrew renders RTL, the charts stay left-to-right (oldest -> newest). The
+/// analyzer's own texts (feedback, tip) are stored in English and shown
+/// through the custom function localizeAnalysisText.
 ///
 /// [onSetTap](setLogId, analysis) fires from chart points / "Open set
 /// analysis": the widget runs getSetAnalysis(setLogId) itself and hands over
@@ -51,6 +57,279 @@ class FormAnalysisCard extends StatefulWidget {
 
   @override
   State<FormAnalysisCard> createState() => _FormAnalysisCardState();
+}
+
+// ---------------------------------------------------------------------------
+// Localization
+// ---------------------------------------------------------------------------
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+ui.TextDirection _dirOf(String lang) =>
+    _kRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr;
+
+/// {n} / {m} are numbers. Stat labels are short on purpose - the tiles are
+/// a third of the card.
+const Map<String, Map<String, String>> _kStrings = {
+  "formAnalysis": {
+    "en": "Form Analysis",
+    "es": "Análisis de técnica",
+    "he": "ניתוח טכניקה",
+    "de": "Technik-Analyse",
+    "fr": "Analyse technique"
+  },
+  "scoreOverTime": {
+    "en": "Technique score over time",
+    "es": "Tu técnica a lo largo del tiempo",
+    "he": "ציון טכניקה לאורך זמן",
+    "de": "Technikwert im Zeitverlauf",
+    "fr": "Score technique dans le temps"
+  },
+  "lastSets1": {
+    "en": "Technique score, last set",
+    "es": "Técnica, última serie",
+    "he": "ציון טכניקה, הסט האחרון",
+    "de": "Technikwert, letzter Satz",
+    "fr": "Score technique, dernière série"
+  },
+  "lastSetsN": {
+    "en": "Technique score, last {n} sets",
+    "es": "Técnica, últimas {n} series",
+    "he": "ציון טכניקה, {n} סטים אחרונים",
+    "de": "Technikwert, letzte {n} Sätze",
+    "fr": "Score technique, {n} dernières séries"
+  },
+  "vsLast": {
+    "en": "vs. last",
+    "es": "vs. anterior",
+    "he": "מול הקודם",
+    "de": "ggü. letztem",
+    "fr": "vs précédent"
+  },
+  "perfectReps": {
+    "en": "Perfect reps",
+    "es": "Reps perfectas",
+    "he": "חזרות מושלמות",
+    "de": "Perfekte Wdh.",
+    "fr": "Reps parfaites"
+  },
+  "avgDepth": {
+    "en": "Avg depth",
+    "es": "Prof. media",
+    "he": "עומק ממוצע",
+    "de": "Ø Tiefe",
+    "fr": "Prof. moy."
+  },
+  "avgScore": {
+    "en": "Avg score",
+    "es": "Punt. media",
+    "he": "ציון ממוצע",
+    "de": "Ø Wert",
+    "fr": "Score moy."
+  },
+  "best": {
+    "en": "Best",
+    "es": "Mejor",
+    "he": "שיא",
+    "de": "Bestwert",
+    "fr": "Meilleur"
+  },
+  "bestScore": {
+    "en": "Best score",
+    "es": "Mejor punt.",
+    "he": "ציון שיא",
+    "de": "Bestwert",
+    "fr": "Meilleur score"
+  },
+  "emptyHint": {
+    "en":
+        "Analyze a set with AI to see your technique score, depth and what to fix.",
+    "es":
+        "Analiza una serie con IA para ver tu puntuación, la profundidad y qué corregir.",
+    "he": "נתחו סט עם AI כדי לראות ציון טכניקה, עומק ומה לתקן.",
+    "de":
+        "Analysiere einen Satz mit KI und sieh Technikwert, Tiefe und was du verbessern kannst.",
+    "fr":
+        "Analyse une série avec l’IA pour voir ton score, la profondeur et quoi corriger."
+  },
+  "tapFull": {
+    "en": "Tap for full analysis",
+    "es": "Ver el análisis completo",
+    "he": "לניתוח המלא",
+    "de": "Zur vollständigen Analyse",
+    "fr": "Voir l’analyse complète"
+  },
+  "acrossSets": {
+    "en": "Technique score across analyzed sets",
+    "es": "Puntuación en las series analizadas",
+    "he": "ציון טכניקה בסטים שנותחו",
+    "de": "Technikwert der analysierten Sätze",
+    "fr": "Score technique des séries analysées"
+  },
+  "vsPrev": {
+    "en": "vs. previous set",
+    "es": "vs. serie anterior",
+    "he": "מול הסט הקודם",
+    "de": "ggü. vorherigem Satz",
+    "fr": "vs série précédente"
+  },
+  "holding": {
+    "en": "What’s holding you back",
+    "es": "Qué te frena",
+    "he": "מה מעכב אותך",
+    "de": "Was dich bremst",
+    "fr": "Ce qui te freine"
+  },
+  "setsReps1": {
+    "en": "{n} set · {m} reps",
+    "es": "{n} serie · {m} reps",
+    "he": "סט {n} · {m} חזרות",
+    "de": "{n} Satz · {m} Wdh.",
+    "fr": "{n} série · {m} reps"
+  },
+  "setsRepsN": {
+    "en": "{n} sets · {m} reps",
+    "es": "{n} series · {m} reps",
+    "he": "{n} סטים · {m} חזרות",
+    "de": "{n} Sätze · {m} Wdh.",
+    "fr": "{n} séries · {m} reps"
+  },
+  "noIssues": {
+    "en": "No issues detected — great form!",
+    "es": "Sin problemas: ¡gran técnica!",
+    "he": "לא זוהו בעיות, טכניקה מצוינת!",
+    "de": "Keine Probleme – starke Technik!",
+    "fr": "Aucun problème : super technique !"
+  },
+  "ofSets": {
+    "en": "{n} of {m} sets",
+    "es": "{n} de {m} series",
+    "he": "{n} מתוך {m} סטים",
+    "de": "{n} von {m} Sätzen",
+    "fr": "{n} sur {m} séries"
+  },
+  "lastSetRep": {
+    "en": "Last set, rep by rep",
+    "es": "Última serie, rep a rep",
+    "he": "הסט האחרון, חזרה אחר חזרה",
+    "de": "Letzter Satz, Wdh. für Wdh.",
+    "fr": "Dernière série, rep par rep"
+  },
+  "perfectCount": {
+    "en": "{n}/{m} perfect",
+    "es": "{n}/{m} perfectas",
+    "he": "{n}/{m} מושלמות",
+    "de": "{n}/{m} perfekt",
+    "fr": "{n}/{m} parfaites"
+  },
+  "setN": {
+    "en": "Set {n}",
+    "es": "Serie {n}",
+    "he": "סט {n}",
+    "de": "Satz {n}",
+    "fr": "Série {n}"
+  },
+  "repN": {
+    "en": "Rep {n}",
+    "es": "Rep {n}",
+    "he": "חזרה {n}",
+    "de": "Wdh. {n}",
+    "fr": "Rep {n}"
+  },
+  "depthPct": {
+    "en": "Depth {n}%",
+    "es": "Prof. {n}%",
+    "he": "עומק {n}%",
+    "de": "Tiefe {n}%",
+    "fr": "Prof. {n}%"
+  },
+  "perfectRep": {
+    "en": "Perfect rep",
+    "es": "Rep perfecta",
+    "he": "חזרה מושלמת",
+    "de": "Perfekte Wdh.",
+    "fr": "Rep parfaite"
+  },
+  "openSet": {
+    "en": "Open set analysis",
+    "es": "Abrir análisis de la serie",
+    "he": "לניתוח הסט",
+    "de": "Satz-Analyse öffnen",
+    "fr": "Ouvrir l’analyse de la série"
+  },
+  "excellentCaps": {
+    "en": "EXCELLENT",
+    "es": "EXCELENTE",
+    "he": "מצוין",
+    "de": "EXZELLENT",
+    "fr": "EXCELLENT"
+  },
+  // score labels
+  "lExcellent": {
+    "en": "Excellent",
+    "es": "Excelente",
+    "he": "מצוין",
+    "de": "Exzellent",
+    "fr": "Excellent"
+  },
+  "lVeryGood": {
+    "en": "Very good",
+    "es": "Muy bien",
+    "he": "טוב מאוד",
+    "de": "Sehr gut",
+    "fr": "Très bien"
+  },
+  "lGood": {"en": "Good", "es": "Bien", "he": "טוב", "de": "Gut", "fr": "Bien"},
+  "lFair": {
+    "en": "Fair",
+    "es": "Regular",
+    "he": "סביר",
+    "de": "Okay",
+    "fr": "Correct"
+  },
+  "lNeedsWork": {
+    "en": "Needs work",
+    "es": "A mejorar",
+    "he": "דורש שיפור",
+    "de": "Ausbaufähig",
+    "fr": "À travailler"
+  },
+};
+
+String _tr(String lang, String key, {int? n, int? m}) {
+  final map = _kStrings[key];
+  var s = map == null ? key : (map[lang] ?? map['en'] ?? key);
+  if (n != null) s = s.replaceAll('{n}', '$n');
+  if (m != null) s = s.replaceAll('{m}', '$m');
+  return s;
+}
+
+/// The label stored with an analysis is English ("Very good"); show it in
+/// the app language when it is one of the known ones, as stored otherwise.
+String _locLabel(String lang, String raw) {
+  switch (raw.trim().toLowerCase()) {
+    case 'excellent':
+      return _tr(lang, 'lExcellent');
+    case 'very good':
+      return _tr(lang, 'lVeryGood');
+    case 'good':
+      return _tr(lang, 'lGood');
+    case 'fair':
+      return _tr(lang, 'lFair');
+    case 'needs work':
+      return _tr(lang, 'lNeedsWork');
+    default:
+      return raw;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -98,33 +377,25 @@ class _Analysis {
 const Color _kWarn = Color(0xFFF59E0B);
 const Color _kWarnText = Color(0xFFB45309);
 
-const List<String> _kMonths = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec'
-];
-String _fmtDate(DateTime d) => '${_kMonths[d.month - 1]} ${d.day}';
+String _fmtDate(String lang, DateTime d) {
+  try {
+    return intl.DateFormat.MMMd(lang).format(d);
+  } catch (_) {
+    return intl.DateFormat.MMMd().format(d);
+  }
+}
 
 String _scoreStr(double s) {
   final q = (s * 2).round() / 2.0;
   return q == q.roundToDouble() ? q.round().toString() : q.toStringAsFixed(1);
 }
 
-String _labelFor(double s) {
-  if (s >= 9.5) return 'Excellent';
-  if (s >= 8.5) return 'Very good';
-  if (s >= 7.0) return 'Good';
-  if (s >= 5.5) return 'Fair';
-  return 'Needs work';
+String _labelFor(String lang, double s) {
+  if (s >= 9.5) return _tr(lang, 'lExcellent');
+  if (s >= 8.5) return _tr(lang, 'lVeryGood');
+  if (s >= 7.0) return _tr(lang, 'lGood');
+  if (s >= 5.5) return _tr(lang, 'lFair');
+  return _tr(lang, 'lNeedsWork');
 }
 
 double? _avgDepthOf(List<_Analysis> list) {
@@ -141,7 +412,8 @@ TextStyle _ts(BuildContext ctx, double size, FontWeight w, Color c,
     color: c,
     fontSize: size,
     fontWeight: w,
-    letterSpacing: ls,
+    // tracking looks wrong on Hebrew glyphs
+    letterSpacing: _kRtl.contains(_langOf(ctx)) ? 0 : ls,
     lineHeight: height,
     useGoogleFonts: GoogleFonts.asMap().containsKey(th.bodyMediumFamily),
   );
@@ -175,12 +447,15 @@ Widget _aiBadge(BuildContext ctx) {
   );
 }
 
-Widget _chip(BuildContext ctx, String text, Color bg, Color fg) {
+Widget _chip(BuildContext ctx, String text, Color bg, Color fg,
+    {bool ltr = false}) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     decoration:
         BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-    child: Text(text, style: _ts(ctx, 12, FontWeight.w600, fg)),
+    child: Text(text,
+        textDirection: ltr ? ui.TextDirection.ltr : null,
+        style: _ts(ctx, 12, FontWeight.w600, fg)),
   );
 }
 
@@ -197,12 +472,16 @@ Widget _miniStat(BuildContext ctx, String label, String value,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _ts(ctx, 11, FontWeight.w500, th.secondaryText)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(label,
+                maxLines: 1,
+                style: _ts(ctx, 11, FontWeight.w500, th.secondaryText)),
+          ),
           const SizedBox(height: 2),
           Text(value,
+              textDirection: ui.TextDirection.ltr,
               style: _ts(ctx, 18, FontWeight.w800, valueColor ?? th.primary)),
         ],
       ),
@@ -377,28 +656,31 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
   @override
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: FutureBuilder<List<_Analysis>>(
-          future: _future,
-          builder: (context, snap) {
-            if (!snap.hasData) {
-              return _cardBox(
-                context,
-                child: SizedBox(
-                  height: 120,
-                  child: Center(
-                      child: CircularProgressIndicator(color: th.primary)),
-                ),
-              );
-            }
-            final list = snap.data!;
-            if (list.isEmpty) return _empty(context);
-            return _teaser(context, list);
-          },
+    return Directionality(
+      textDirection: _dirOf(_langOf(context)),
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: FutureBuilder<List<_Analysis>>(
+            future: _future,
+            builder: (context, snap) {
+              if (!snap.hasData) {
+                return _cardBox(
+                  context,
+                  child: SizedBox(
+                    height: 120,
+                    child: Center(
+                        child: CircularProgressIndicator(color: th.primary)),
+                  ),
+                );
+              }
+              final list = snap.data!;
+              if (list.isEmpty) return _empty(context);
+              return _teaser(context, list);
+            },
+          ),
         ),
       ),
     );
@@ -407,6 +689,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
   // ---------- empty: dimmed preview of the real card, not tappable ----------
   Widget _empty(BuildContext ctx) {
     final th = FlutterFlowTheme.of(ctx);
+    final String lang = _langOf(ctx);
     final Color dim = th.secondaryText.withOpacity(0.45);
     return _cardBox(
       ctx,
@@ -422,14 +705,15 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Form Analysis',
+                    Text(_tr(lang, 'formAnalysis'),
                         style: _ts(ctx, 18, FontWeight.w700, th.primaryText)),
-                    Text('Technique score over time',
+                    Text(_tr(lang, 'scoreOverTime'),
                         style: _ts(ctx, 13, FontWeight.w500, th.secondaryText)),
                   ],
                 ),
               ),
               RichText(
+                textDirection: ui.TextDirection.ltr,
                 text: TextSpan(children: [
                   TextSpan(
                       text: '—',
@@ -454,11 +738,11 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _miniStat(ctx, 'Perfect reps', '—', valueColor: dim),
+              _miniStat(ctx, _tr(lang, 'perfectReps'), '—', valueColor: dim),
               const SizedBox(width: 8),
-              _miniStat(ctx, 'Avg depth', '—', valueColor: dim),
+              _miniStat(ctx, _tr(lang, 'avgDepth'), '—', valueColor: dim),
               const SizedBox(width: 8),
-              _miniStat(ctx, 'Best', '—', valueColor: dim),
+              _miniStat(ctx, _tr(lang, 'best'), '—', valueColor: dim),
             ],
           ),
           const SizedBox(height: 12),
@@ -470,7 +754,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Analyze a set with AI to see your technique score, depth and what to fix.',
+                  _tr(lang, 'emptyHint'),
                   style: _ts(ctx, 13, FontWeight.w500, th.secondaryText,
                       height: 1.3),
                 ),
@@ -485,6 +769,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
   // ---------- teaser ----------
   Widget _teaser(BuildContext ctx, List<_Analysis> list) {
     final th = FlutterFlowTheme.of(ctx);
+    final String lang = _langOf(ctx);
     final last = list.last;
     final double? delta =
         list.length >= 2 ? last.score - list[list.length - 2].score : null;
@@ -515,10 +800,12 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Form Analysis',
+                      Text(_tr(lang, 'formAnalysis'),
                           style: _ts(ctx, 18, FontWeight.w700, th.primaryText)),
                       Text(
-                          'Technique score, last $shown set${shown == 1 ? '' : 's'}',
+                          shown == 1
+                              ? _tr(lang, 'lastSets1')
+                              : _tr(lang, 'lastSetsN', n: shown),
                           style:
                               _ts(ctx, 13, FontWeight.w500, th.secondaryText)),
                     ],
@@ -528,6 +815,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     RichText(
+                      textDirection: ui.TextDirection.ltr,
                       text: TextSpan(children: [
                         TextSpan(
                             text: _scoreStr(last.score),
@@ -541,7 +829,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
                     ),
                     if (delta != null)
                       Text(
-                        '${delta >= 0 ? '+' : ''}${_scoreStr(delta)} vs. last',
+                        '\u2066${delta >= 0 ? '+' : ''}${_scoreStr(delta)}\u2069 ${_tr(lang, 'vsLast')}',
                         style: _ts(ctx, 12, FontWeight.w600,
                             delta >= 0 ? th.primary : _kWarn),
                       ),
@@ -550,37 +838,47 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
               ],
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 70,
-              child: _ScoreChart(
-                points: recent,
-                accent: th.primary,
-                warn: _kWarn,
-                grid: th.alternate.withOpacity(0.6),
-                compact: true,
+            // a time axis (oldest -> newest): left-to-right in every language
+            Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 70,
+                    child: _ScoreChart(
+                      points: recent,
+                      accent: th.primary,
+                      warn: _kWarn,
+                      grid: th.alternate.withOpacity(0.6),
+                      compact: true,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(_fmtDate(lang, recent.first.when),
+                          style:
+                              _ts(ctx, 11, FontWeight.w500, th.secondaryText)),
+                      Text(_fmtDate(lang, recent.last.when),
+                          style:
+                              _ts(ctx, 11, FontWeight.w500, th.secondaryText)),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(_fmtDate(recent.first.when),
-                    style: _ts(ctx, 11, FontWeight.w500, th.secondaryText)),
-                Text(_fmtDate(recent.last.when),
-                    style: _ts(ctx, 11, FontWeight.w500, th.secondaryText)),
-              ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                _miniStat(ctx, 'Perfect reps', '$perfectPct%'),
+                _miniStat(ctx, _tr(lang, 'perfectReps'), '$perfectPct%'),
                 const SizedBox(width: 8),
                 avgDepth != null
-                    ? _miniStat(
-                        ctx, 'Avg depth', '${(avgDepth * 100).round()}%')
-                    : _miniStat(ctx, 'Avg score', _scoreStr(avg)),
+                    ? _miniStat(ctx, _tr(lang, 'avgDepth'),
+                        '${(avgDepth * 100).round()}%')
+                    : _miniStat(ctx, _tr(lang, 'avgScore'), _scoreStr(avg)),
                 const SizedBox(width: 8),
-                _miniStat(ctx, 'Best', _scoreStr(best)),
+                _miniStat(ctx, _tr(lang, 'best'), _scoreStr(best)),
               ],
             ),
             const SizedBox(height: 12),
@@ -590,7 +888,7 @@ class _FormAnalysisCardState extends State<FormAnalysisCard> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Tap for full analysis',
+                  Text(_tr(lang, 'tapFull'),
                       style: _ts(ctx, 14, FontWeight.w600, th.primary)),
                   Icon(Icons.chevron_right_rounded,
                       size: 20, color: th.primary),
@@ -645,6 +943,15 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
   @override
   Widget build(BuildContext context) {
     final th = FlutterFlowTheme.of(context);
+    final String lang = _langOf(context);
+    String? exName = widget.exerciseName;
+    if (exName != null) {
+      try {
+        // the name may arrive as stored ({"en":..,"he":..})
+        final String loc = localizedName(exName, lang).trim();
+        if (loc.isNotEmpty) exName = loc;
+      } catch (_) {}
+    }
     final list = widget.list;
     final last = list.last;
     final double? delta =
@@ -675,274 +982,306 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
       }
     }
 
-    return Scaffold(
-      backgroundColor: th.primaryBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
-              child: Row(
-                children: [
-                  const SizedBox(width: 40),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _aiBadge(context),
-                            const SizedBox(width: 8),
-                            Text('Form Analysis',
-                                style: _ts(context, 20, FontWeight.w700,
-                                    th.primaryText)),
-                          ],
-                        ),
-                        if (widget.exerciseName != null)
-                          Text(widget.exerciseName!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _ts(context, 13, FontWeight.w500,
-                                  th.secondaryText)),
-                      ],
-                    ),
-                  ),
-                  _Pressable(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: th.secondaryBackground,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: th.alternate),
-                      ),
-                      child: Icon(Icons.close_rounded,
-                          size: 22, color: th.primaryText),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                children: [
-                  _cardBox(
-                    context,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Center(
-                          child: Text('Technique score across analyzed sets',
-                              style: _ts(context, 13, FontWeight.w500,
-                                  th.secondaryText)),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  RichText(
-                                    text: TextSpan(children: [
-                                      TextSpan(
-                                          text: _scoreStr(last.score),
-                                          style: _ts(context, 44,
-                                              FontWeight.w800, th.primary,
-                                              height: 1.0)),
-                                      TextSpan(
-                                          text: ' / 10',
-                                          style: _ts(
-                                              context,
-                                              16,
-                                              FontWeight.w600,
-                                              th.secondaryText)),
-                                    ]),
-                                  ),
-                                  Text(last.label ?? _labelFor(last.score),
-                                      style: _ts(context, 15, FontWeight.w700,
-                                          th.primaryText)),
-                                ],
-                              ),
-                            ),
-                            if (delta != null)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  _chip(
-                                    context,
-                                    '${delta >= 0 ? '▲ +' : '▼ '}${_scoreStr(delta)}',
-                                    (delta >= 0 ? th.primary : _kWarn)
-                                        .withOpacity(0.12),
-                                    delta >= 0 ? th.primary : _kWarnText,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text('vs. previous set',
-                                      style: _ts(context, 12, FontWeight.w500,
-                                          th.secondaryText)),
-                                ],
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.fromLTRB(8, 10, 10, 6),
-                          decoration: BoxDecoration(
-                            color: th.primaryBackground,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: th.alternate),
-                          ),
-                          child: Column(
+    return Directionality(
+      textDirection: _dirOf(lang),
+      child: Scaffold(
+        backgroundColor: th.primaryBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 40),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              SizedBox(
-                                height: 160,
-                                child: _ScoreChart(
-                                  points: list,
-                                  accent: th.primary,
-                                  warn: _kWarn,
-                                  grid: th.alternate.withOpacity(0.7),
-                                  labelColor: th.secondaryText,
-                                  compact: false,
-                                  onPointTap: widget.onSetTap == null
-                                      ? null
-                                      : (a) => _fireSetTap(a.setLogId),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 26),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                              _aiBadge(context),
+                              const SizedBox(width: 8),
+                              Text(_tr(lang, 'formAnalysis'),
+                                  style: _ts(context, 20, FontWeight.w700,
+                                      th.primaryText)),
+                            ],
+                          ),
+                          if (exName != null)
+                            Text(exName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _ts(context, 13, FontWeight.w500,
+                                    th.secondaryText)),
+                        ],
+                      ),
+                    ),
+                    _Pressable(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: th.secondaryBackground,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: th.alternate),
+                        ),
+                        child: Icon(Icons.close_rounded,
+                            size: 22, color: th.primaryText),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  children: [
+                    _cardBox(
+                      context,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Center(
+                            child: Text(_tr(lang, 'acrossSets'),
+                                style: _ts(context, 13, FontWeight.w500,
+                                    th.secondaryText)),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(_fmtDate(list.first.when),
-                                        style: _ts(context, 11, FontWeight.w500,
-                                            th.secondaryText)),
-                                    Text(_fmtDate(list.last.when),
-                                        style: _ts(context, 11, FontWeight.w500,
-                                            th.secondaryText)),
+                                    RichText(
+                                      textDirection: ui.TextDirection.ltr,
+                                      text: TextSpan(children: [
+                                        TextSpan(
+                                            text: _scoreStr(last.score),
+                                            style: _ts(context, 44,
+                                                FontWeight.w800, th.primary,
+                                                height: 1.0)),
+                                        TextSpan(
+                                            text: ' / 10',
+                                            style: _ts(
+                                                context,
+                                                16,
+                                                FontWeight.w600,
+                                                th.secondaryText)),
+                                      ]),
+                                    ),
+                                    Text(
+                                        last.label != null
+                                            ? _locLabel(lang, last.label!)
+                                            : _labelFor(lang, last.score),
+                                        style: _ts(context, 15, FontWeight.w700,
+                                            th.primaryText)),
                                   ],
                                 ),
                               ),
+                              if (delta != null)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    _chip(
+                                      context,
+                                      '${delta >= 0 ? '▲ +' : '▼ '}${_scoreStr(delta)}',
+                                      (delta >= 0 ? th.primary : _kWarn)
+                                          .withOpacity(0.12),
+                                      delta >= 0 ? th.primary : _kWarnText,
+                                      ltr: true,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(_tr(lang, 'vsPrev'),
+                                        style: _ts(context, 12, FontWeight.w500,
+                                            th.secondaryText)),
+                                  ],
+                                ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            _bigStat(context, 'Perfect reps', '$perfectPct%'),
-                            _vDiv(context),
-                            avgDepth != null
-                                ? _bigStat(context, 'Avg depth',
-                                    '${(avgDepth * 100).round()}%')
-                                : _bigStat(
-                                    context, 'Avg score', _scoreStr(avg)),
-                            _vDiv(context),
-                            _bigStat(context, 'Best score', _scoreStr(best)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _cardBox(
-                    context,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text("What's holding you back",
-                                  style: _ts(context, 17, FontWeight.w700,
-                                      th.primaryText)),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(8, 10, 10, 6),
+                            decoration: BoxDecoration(
+                              color: th.primaryBackground,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: th.alternate),
                             ),
-                            Text(
-                                '${list.length} set${list.length == 1 ? '' : 's'} · $totalReps reps',
-                                style: _ts(context, 12, FontWeight.w500,
-                                    th.secondaryText)),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        if (issueList.isEmpty)
+                            // a time axis: left-to-right in every language
+                            child: Directionality(
+                              textDirection: ui.TextDirection.ltr,
+                              child: Column(
+                                children: [
+                                  SizedBox(
+                                    height: 160,
+                                    child: _ScoreChart(
+                                      points: list,
+                                      accent: th.primary,
+                                      warn: _kWarn,
+                                      grid: th.alternate.withOpacity(0.7),
+                                      labelColor: th.secondaryText,
+                                      excellentLabel:
+                                          _tr(lang, 'excellentCaps'),
+                                      compact: false,
+                                      onPointTap: widget.onSetTap == null
+                                          ? null
+                                          : (a) => _fireSetTap(a.setLogId),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 26),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(_fmtDate(lang, list.first.when),
+                                            style: _ts(
+                                                context,
+                                                11,
+                                                FontWeight.w500,
+                                                th.secondaryText)),
+                                        Text(_fmtDate(lang, list.last.when),
+                                            style: _ts(
+                                                context,
+                                                11,
+                                                FontWeight.w500,
+                                                th.secondaryText)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
                           Row(
                             children: [
-                              Icon(Icons.check_circle_rounded,
-                                  size: 18, color: th.primary),
-                              const SizedBox(width: 8),
-                              Text('No issues detected — great form!',
-                                  style: _ts(context, 14, FontWeight.w600,
-                                      th.primaryText)),
+                              _bigStat(context, _tr(lang, 'perfectReps'),
+                                  '$perfectPct%'),
+                              _vDiv(context),
+                              avgDepth != null
+                                  ? _bigStat(context, _tr(lang, 'avgDepth'),
+                                      '${(avgDepth * 100).round()}%')
+                                  : _bigStat(context, _tr(lang, 'avgScore'),
+                                      _scoreStr(avg)),
+                              _vDiv(context),
+                              _bigStat(context, _tr(lang, 'bestScore'),
+                                  _scoreStr(best)),
                             ],
                           ),
-                        for (final e in issueList) ...[
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _cardBox(
+                      context,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
                             children: [
                               Expanded(
-                                child: Text(e.key,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: _ts(context, 14, FontWeight.w600,
+                                child: Text(_tr(lang, 'holding'),
+                                    style: _ts(context, 17, FontWeight.w700,
                                         th.primaryText)),
                               ),
-                              const SizedBox(width: 8),
-                              Text('${e.value} of ${list.length} sets',
+                              Text(
+                                  _tr(
+                                      lang,
+                                      list.length == 1
+                                          ? 'setsReps1'
+                                          : 'setsRepsN',
+                                      n: list.length,
+                                      m: totalReps),
                                   style: _ts(context, 12, FontWeight.w500,
                                       th.secondaryText)),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: e.value / list.length,
-                              minHeight: 7,
-                              backgroundColor: th.alternate.withOpacity(0.5),
-                              valueColor: AlwaysStoppedAnimation(
-                                e.value / list.length >= 0.5
-                                    ? _kWarn
-                                    : th.primary,
-                              ),
-                            ),
-                          ),
                           const SizedBox(height: 12),
-                        ],
-                        if (tip != null) ...[
-                          const SizedBox(height: 2),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: th.primary.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          if (issueList.isEmpty)
+                            Row(
                               children: [
-                                Icon(Icons.lightbulb_rounded,
+                                Icon(Icons.check_circle_rounded,
                                     size: 18, color: th.primary),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text(tip,
-                                      style: _ts(context, 13, FontWeight.w500,
-                                          th.primaryText,
-                                          height: 1.3)),
+                                  child: Text(_tr(lang, 'noIssues'),
+                                      style: _ts(context, 14, FontWeight.w600,
+                                          th.primaryText)),
                                 ),
                               ],
                             ),
-                          ),
+                          for (final e in issueList) ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(localizeAnalysisText(e.key, lang),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: _ts(context, 14, FontWeight.w600,
+                                          th.primaryText)),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                    _tr(lang, 'ofSets',
+                                        n: e.value, m: list.length),
+                                    style: _ts(context, 12, FontWeight.w500,
+                                        th.secondaryText)),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: e.value / list.length,
+                                minHeight: 7,
+                                backgroundColor: th.alternate.withOpacity(0.5),
+                                valueColor: AlwaysStoppedAnimation(
+                                  e.value / list.length >= 0.5
+                                      ? _kWarn
+                                      : th.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          if (tip != null) ...[
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: th.primary.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.lightbulb_rounded,
+                                      size: 18, color: th.primary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(localizeAnalysisText(tip, lang),
+                                        style: _ts(context, 13, FontWeight.w500,
+                                            th.primaryText,
+                                            height: 1.3)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  _cardBox(context, child: _lastSet(context, last)),
-                ],
+                    const SizedBox(height: 14),
+                    _cardBox(context, child: _lastSet(context, last)),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -950,6 +1289,9 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
 
   Widget _lastSet(BuildContext ctx, _Analysis last) {
     final th = FlutterFlowTheme.of(ctx);
+    final String lang = _langOf(ctx);
+    String labelOf(_Analysis a) =>
+        a.label != null ? _locLabel(lang, a.label!) : _labelFor(lang, a.score);
     final bool hasReps = last.reps.isNotEmpty;
     final int? sel = (_selectedRep != null &&
             hasReps &&
@@ -964,16 +1306,18 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
         Row(
           children: [
             Expanded(
-              child: Text('Last set, rep by rep',
+              child: Text(_tr(lang, 'lastSetRep'),
                   style: _ts(ctx, 17, FontWeight.w700, th.primaryText)),
             ),
-            Text('${last.properReps}/${last.totalReps} perfect',
+            Text(
+                _tr(lang, 'perfectCount',
+                    n: last.properReps, m: last.totalReps),
                 style: _ts(ctx, 12, FontWeight.w600, th.secondaryText)),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-            '${_fmtDate(last.when)} · Set ${last.setNumber} · ${last.label ?? _labelFor(last.score)}',
+            '${_fmtDate(lang, last.when)} · ${_tr(lang, 'setN', n: last.setNumber)} · ${labelOf(last)}',
             style: _ts(ctx, 12, FontWeight.w500, th.secondaryText)),
         const SizedBox(height: 12),
         if (hasReps) ...[
@@ -1005,6 +1349,7 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
                       ),
                       alignment: Alignment.center,
                       child: Text(_scoreStr(last.reps[i].score),
+                          textDirection: ui.TextDirection.ltr,
                           style: _ts(ctx, 13, FontWeight.w800, Colors.white)),
                     ),
                   ),
@@ -1024,13 +1369,13 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
                 children: [
                   Row(
                     children: [
-                      Text('Rep ${sel + 1}',
+                      Text(_tr(lang, 'repN', n: sel + 1),
                           style: _ts(ctx, 14, FontWeight.w700, th.primaryText)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '${_scoreStr(last.reps[sel].score)} · ${_labelFor(last.reps[sel].score)}'
-                          '${last.reps[sel].depth != null ? ' · Depth ${(last.reps[sel].depth! * 100).round()}%' : ''}',
+                          '${_scoreStr(last.reps[sel].score)} · ${_labelFor(lang, last.reps[sel].score)}'
+                          '${last.reps[sel].depth != null ? ' · ${_tr(lang, 'depthPct', n: (last.reps[sel].depth! * 100).round())}' : ''}',
                           style:
                               _ts(ctx, 13, FontWeight.w500, th.secondaryText),
                         ),
@@ -1044,12 +1389,13 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
                       runSpacing: 6,
                       children: [
                         for (final f in last.reps[sel].feedback)
-                          _chip(ctx, f, _kWarn.withOpacity(0.12), _kWarnText),
+                          _chip(ctx, localizeAnalysisText(f, lang),
+                              _kWarn.withOpacity(0.12), _kWarnText),
                       ],
                     ),
                   ] else ...[
                     const SizedBox(height: 6),
-                    Text('Perfect rep',
+                    Text(_tr(lang, 'perfectRep'),
                         style: _ts(ctx, 13, FontWeight.w600, th.primary)),
                   ],
                 ],
@@ -1087,7 +1433,8 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
               runSpacing: 6,
               children: [
                 for (final f in last.feedback)
-                  _chip(ctx, f, _kWarn.withOpacity(0.12), _kWarnText),
+                  _chip(ctx, localizeAnalysisText(f, lang),
+                      _kWarn.withOpacity(0.12), _kWarnText),
               ],
             ),
           ],
@@ -1100,7 +1447,7 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Open set analysis',
+                  Text(_tr(lang, 'openSet'),
                       style: _ts(ctx, 14, FontWeight.w600, th.primary)),
                   Icon(Icons.chevron_right_rounded,
                       size: 20, color: th.primary),
@@ -1118,12 +1465,16 @@ class _FormAnalysisFullPageState extends State<_FormAnalysisFullPage> {
     return Expanded(
       child: Column(
         children: [
-          Text(label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _ts(ctx, 12, FontWeight.w500, th.secondaryText)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label,
+                maxLines: 1,
+                style: _ts(ctx, 12, FontWeight.w500, th.secondaryText)),
+          ),
           const SizedBox(height: 2),
-          Text(value, style: _ts(ctx, 22, FontWeight.w800, th.primary)),
+          Text(value,
+              textDirection: ui.TextDirection.ltr,
+              style: _ts(ctx, 22, FontWeight.w800, th.primary)),
         ],
       ),
     );
@@ -1214,12 +1565,14 @@ class _ScoreChart extends StatelessWidget {
     required this.grid,
     required this.compact,
     this.labelColor,
+    this.excellentLabel,
     this.onPointTap,
   });
 
   final List<_Analysis> points;
   final Color accent, warn, grid;
   final Color? labelColor;
+  final String? excellentLabel;
   final bool compact;
   final void Function(_Analysis a)? onPointTap;
 
@@ -1233,6 +1586,7 @@ class _ScoreChart extends StatelessWidget {
         warn: warn,
         grid: grid,
         labelColor: labelColor,
+        excellentLabel: excellentLabel,
         compact: compact,
       );
       return GestureDetector(
@@ -1260,11 +1614,13 @@ class _ScoreChartPainter extends CustomPainter {
     required this.grid,
     required this.compact,
     this.labelColor,
+    this.excellentLabel,
   });
 
   final List<_Analysis> points;
   final Color accent, warn, grid;
   final Color? labelColor;
+  final String? excellentLabel;
   final bool compact;
 
   static const double _minY = 4.0, _maxY = 10.0;
@@ -1336,7 +1692,7 @@ class _ScoreChartPainter extends CustomPainter {
     if (!compact) {
       final tp = TextPainter(
         text: TextSpan(
-            text: 'EXCELLENT',
+            text: excellentLabel ?? 'EXCELLENT',
             style: TextStyle(
                 color: accent,
                 fontSize: 9,

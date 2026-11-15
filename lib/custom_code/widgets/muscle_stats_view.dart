@@ -591,7 +591,7 @@ class _Detail {
 
   final int muscleId;
   final int sets;
-  final double volume; // kg
+  final double volume; // in the unit shown (see _showKg)
   final double? changePct; // first vs last workout in range, null = n/a
   final List<double> sessionVolumes; // per workout, oldest first
   final DateTime? firstDate, lastDate;
@@ -599,8 +599,8 @@ class _Detail {
   final List<MapEntry<String, int>> subs; // sub-muscle (localized) -> count
 }
 
-_Detail _buildDetail(
-    String lang, int muscleId, List<Map<String, Object?>> rows) {
+_Detail _buildDetail(String lang, int muscleId, List<Map<String, Object?>> rows,
+    {bool showKg = true}) {
   final Set<String> seen = {};
   final Map<int, int> subCount = {}; // keyed by muscle_group.id
   final Map<int, String> subName = {};
@@ -630,9 +630,11 @@ _Detail _buildDetail(
     final double w = _mD(r['weight']);
     final bool isKg = _mI(r['is_kg'], 1) == 1;
     final bool assisted = _mI(r['is_assisted']) == 1;
-    final double vol = (assisted || w <= 0 || reps <= 0)
-        ? 0
-        : reps * (isKg ? w : w * 0.453592);
+    // In the unit on screen: a set logged in that unit counts as it is, any
+    // other set is converted.
+    final double wShown =
+        isKg == showKg ? w : (isKg ? w * 2.20462 : w * 0.453592);
+    final double vol = (assisted || w <= 0 || reps <= 0) ? 0 : reps * wShown;
     volume += vol;
 
     final String wid = (r['workout_log_id'] ?? '').toString();
@@ -700,6 +702,9 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
   int _musclesToken = 0;
   int _detailToken = 0;
   String _lang = 'en';
+
+  /// The unit the loaded volumes are in.
+  bool _showKg = true;
 
   @override
   void initState() {
@@ -827,7 +832,11 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         "ORDER BY datetime(replace(wl.created_at,' ','T')) ASC, "
         'sl.created_at ASC';
 
-    _Detail detail = _buildDetail(lang, muscleId, const []);
+    bool showKg = true;
+    try {
+      showKg = FFAppState().isKg;
+    } catch (_) {}
+    _Detail detail = _buildDetail(lang, muscleId, const [], showKg: showKg);
     try {
       List<Map<String, Object?>> rows = await SQLiteManager.instance.database
           .rawQuery(sql, [widget.userId, muscleId]);
@@ -839,11 +848,12 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
           return dt != null && !dt.isBefore(cutoff);
         }).toList();
       }
-      detail = _buildDetail(lang, muscleId, rows);
+      detail = _buildDetail(lang, muscleId, rows, showKg: showKg);
     } catch (_) {}
     if (!mounted || token != _detailToken) return;
     setState(() {
       _detail = detail;
+      _showKg = showKg;
       _loadingDetail = false;
     });
   }
@@ -1137,7 +1147,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
             children: [
               Expanded(
                 child: _tile(ctx, p, _tr(_lang, 'total'), _compact(d.volume),
-                    unit: 'kg'),
+                    unit: _showKg ? 'kg' : 'lbs'),
               ),
               const SizedBox(width: 8),
               Expanded(child: _tile(ctx, p, _tr(_lang, 'sets'), '${d.sets}')),
@@ -1309,8 +1319,15 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
                     : _tr(_lang, 'setsCountN', n: e.sets),
                 style: _ms(ctx, 13, FontWeight.w500, p.th.secondaryText)),
             const SizedBox(width: 4),
-            Icon(rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
-                size: 18, color: p.th.secondaryText),
+            Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Icon(
+                  rtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 18,
+                  color: p.th.secondaryText),
+            ),
           ],
         ),
       ),

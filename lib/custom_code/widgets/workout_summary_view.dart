@@ -736,7 +736,12 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           shape: BoxShape.circle,
           border: Border.all(color: th.alternate.withOpacity(0.6)),
         ),
-        child: Icon(icon, size: 24, color: th.primaryText),
+        // chevron icons flip themselves in a right-to-left context; forcing
+        // LTR means the icon the caller picked is the one that is drawn
+        child: Directionality(
+          textDirection: ui.TextDirection.ltr,
+          child: Icon(icon, size: 24, color: th.primaryText),
+        ),
       ),
     );
   }

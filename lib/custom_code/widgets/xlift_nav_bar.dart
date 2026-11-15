@@ -14,12 +14,137 @@ import 'package:flutter/material.dart' hide RepeatMode;
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui show TextDirection;
 import 'package:flutter/services.dart';
+
+// ---------------- Localization ----------------
+// Language comes from the app (FFLocalizations) - no parameter.
+// Tab labels are kept SHORT on purpose: each tab is a fifth of the screen.
+
+const Set<String> _kRtl = {'he', 'ar'};
+
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
+const Map<String, Map<String, String>> _kStrings = {
+  // tabs
+  "home": {
+    "en": "Home",
+    "es": "Inicio",
+    "he": "בית",
+    "de": "Start",
+    "fr": "Accueil"
+  },
+  "history": {
+    "en": "History",
+    "es": "Historial",
+    "he": "היסטוריה",
+    "de": "Verlauf",
+    "fr": "Historique"
+  },
+  "stats": {
+    "en": "Stats",
+    "es": "Stats",
+    "he": "נתונים",
+    "de": "Statistik",
+    "fr": "Stats"
+  },
+  "library": {
+    "en": "Library",
+    "es": "Biblioteca",
+    "he": "ספרייה",
+    "de": "Bibliothek",
+    "fr": "Biblio"
+  },
+  // analyzing page
+  "analyzing": {
+    "en": "Analyzing your set",
+    "es": "Analizando tu serie",
+    "he": "מנתחים את הסט",
+    "de": "Dein Satz wird analysiert",
+    "fr": "Analyse de ta série"
+  },
+  "stage0": {
+    "en": "Extracting frames…",
+    "es": "Extrayendo fotogramas…",
+    "he": "מחלצים פריימים…",
+    "de": "Bilder werden extrahiert…",
+    "fr": "Extraction des images…"
+  },
+  "stage1": {
+    "en": "Detecting your pose…",
+    "es": "Detectando tu postura…",
+    "he": "מזהים תנוחה…",
+    "de": "Haltung wird erkannt…",
+    "fr": "Détection de la posture…"
+  },
+  "stage2": {
+    "en": "Counting reps…",
+    "es": "Contando repeticiones…",
+    "he": "סופרים חזרות…",
+    "de": "Wiederholungen werden gezählt…",
+    "fr": "Comptage des répétitions…"
+  },
+  "stage3": {
+    "en": "Scoring technique…",
+    "es": "Puntuando la técnica…",
+    "he": "מדרגים טכניקה…",
+    "de": "Technik wird bewertet…",
+    "fr": "Notation de la technique…"
+  },
+  "stage4": {
+    "en": "Almost there…",
+    "es": "Ya casi…",
+    "he": "כמעט שם…",
+    "de": "Gleich fertig…",
+    "fr": "Presque fini…"
+  },
+  "keepOpen": {
+    "en": "Keep the app open — about 20–40 seconds",
+    "es": "Mantén la app abierta: unos 20–40 segundos",
+    "he": "השאירו את האפליקציה פתוחה · כ-20–40 שניות",
+    "de": "App geöffnet lassen – etwa 20–40 Sekunden",
+    "fr": "Garde l’app ouverte : environ 20–40 secondes"
+  },
+  "failTitle": {
+    "en": "Couldn’t analyze this video",
+    "es": "No se pudo analizar el vídeo",
+    "he": "לא הצלחנו לנתח את הסרטון",
+    "de": "Video konnte nicht analysiert werden",
+    "fr": "Impossible d’analyser cette vidéo"
+  },
+  "retry": {
+    "en": "Try again",
+    "es": "Reintentar",
+    "he": "נסו שוב",
+    "de": "Erneut versuchen",
+    "fr": "Réessayer"
+  },
+  "close": {
+    "en": "Close",
+    "es": "Cerrar",
+    "he": "סגירה",
+    "de": "Schließen",
+    "fr": "Fermer"
+  },
+};
+
+String _tr(String lang, String key) {
+  final m = _kStrings[key];
+  return m == null ? key : (m[lang] ?? m['en'] ?? key);
+}
 
 /// Xlift bottom nav bar with a raised center FAB for AI form analysis.
 ///
 /// Tab order: Home · History · [FAB] · Stats · Library. currentPage:
-/// 'history' | 'stats' | 'home' | 'library' (highlights that tab).
+/// 'history' | 'stats' | 'home' | 'library' (highlights that tab). Labels and
+/// the analyzing page follow the app language (en/es/he/de/fr), no parameter.
 /// showFabLock: small lock badge on the FAB (free quota exhausted). isDark:
 /// null = auto from theme.
 ///
@@ -199,6 +324,8 @@ class _XliftNavBarState extends State<XliftNavBar>
     final Color fabColor =
         dark ? const Color(0xFF2DD4BF) : const Color(0xFF14B8A6);
 
+    final String lang = _langOf(context);
+
     final double bottomInset = MediaQuery.of(context).padding.bottom;
     final double barHeight = 62 + bottomInset;
     final double fabOuter = _fabSize + _ringWidth * 2;
@@ -225,15 +352,15 @@ class _XliftNavBarState extends State<XliftNavBar>
             ),
             child: Row(
               children: [
-                _tab('home', Icons.home_rounded, 'Home', active, inactive, dark,
-                    widget.onHomeTap),
-                _tab('history', Icons.history_rounded, 'History', active,
-                    inactive, dark, widget.onHistoryTap),
+                _tab('home', Icons.home_rounded, _tr(lang, 'home'), active,
+                    inactive, dark, widget.onHomeTap),
+                _tab('history', Icons.history_rounded, _tr(lang, 'history'),
+                    active, inactive, dark, widget.onHistoryTap),
                 const Expanded(child: SizedBox()), // FAB slot
-                _tab('stats', Icons.query_stats_rounded, 'Stats', active,
-                    inactive, dark, widget.onStatsTap),
-                _tab('library', Icons.menu_book_rounded, 'Library', active,
-                    inactive, dark, widget.onLibraryTap),
+                _tab('stats', Icons.query_stats_rounded, _tr(lang, 'stats'),
+                    active, inactive, dark, widget.onStatsTap),
+                _tab('library', Icons.menu_book_rounded, _tr(lang, 'library'),
+                    active, inactive, dark, widget.onLibraryTap),
               ],
             ),
           ),
@@ -363,12 +490,23 @@ class _XliftNavBarState extends State<XliftNavBar>
               children: [
                 Icon(icon, size: 24, color: c),
                 const SizedBox(height: 2),
-                Text(label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: c,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    )),
+                // one line, always whole: a label that is too wide for its
+                // tab shrinks a little instead of being cut
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: c,
+                          fontWeight:
+                              selected ? FontWeight.w600 : FontWeight.w400,
+                        )),
+                  ),
+                ),
               ],
             ),
           ),
@@ -458,11 +596,11 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
   static const Color _teal = Color(0xFF14B8A6);
 
   static const List<String> _stages = [
-    'Extracting frames…',
-    'Detecting your pose…',
-    'Counting reps…',
-    'Scoring technique…',
-    'Almost there…',
+    'stage0',
+    'stage1',
+    'stage2',
+    'stage3',
+    'stage4',
   ];
 
   late final AnimationController _spin;
@@ -569,31 +707,36 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
   @override
   Widget build(BuildContext context) {
     final double top = MediaQuery.of(context).padding.top;
-    return Scaffold(
-      backgroundColor: _bg,
-      body: Stack(
-        children: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: _error == null ? _progress() : _failed(),
-            ),
-          ),
-          if (_error != null)
-            Positioned(
-              left: 12,
-              top: top + 8,
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded, color: Colors.white),
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    return Directionality(
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: _bg,
+        body: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: _error == null ? _progress(lang) : _failed(lang),
               ),
             ),
-        ],
+            if (_error != null)
+              PositionedDirectional(
+                start: 12,
+                top: top + 8,
+                child: IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _progress() {
+  Widget _progress(String lang) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -615,9 +758,10 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
           ),
         ),
         const SizedBox(height: 26),
-        const Text(
-          'Analyzing your set',
-          style: TextStyle(
+        Text(
+          _tr(lang, 'analyzing'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -628,7 +772,7 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child: Text(
-            '${widget.exerciseName} · ${_stages[_stage]}',
+            '${widget.exerciseName} · ${_tr(lang, _stages[_stage])}',
             key: ValueKey(_stage),
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -664,7 +808,8 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
             border: Border.all(color: Colors.white.withOpacity(0.12)),
           ),
           child: Text(
-            'Keep the app open — about 20–40 seconds',
+            _tr(lang, 'keepOpen'),
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white.withOpacity(0.55),
               fontSize: 12,
@@ -676,7 +821,7 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
     );
   }
 
-  Widget _failed() {
+  Widget _failed(String lang) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -691,10 +836,10 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
               color: Color(0xFFF59E0B), size: 36),
         ),
         const SizedBox(height: 22),
-        const Text(
-          "Couldn't analyze this video",
+        Text(
+          _tr(lang, 'failTitle'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 19,
             fontWeight: FontWeight.w700,
@@ -726,14 +871,19 @@ class _AnalyzingPageState extends State<_AnalyzingPage>
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: const Text('Try again',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(_tr(lang, 'retry'),
+                  maxLines: 1,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
           ),
         ),
         const SizedBox(height: 6),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Close',
+          child: Text(_tr(lang, 'close'),
               style: TextStyle(
                   color: Colors.white.withOpacity(0.65), fontSize: 14)),
         ),
@@ -906,8 +1056,5 @@ class _AiCameraGlyphPainter extends CustomPainter {
   bool shouldRepaint(covariant _AiCameraGlyphPainter old) =>
       old.t != t || old.shutter != shutter || old.fg != fg;
 }
-// Set your widget name, define your parameter, and then add the
-// boilerplate code using the `</>` button on the right!
-
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

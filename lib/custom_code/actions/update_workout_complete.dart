@@ -47,6 +47,9 @@ import 'xlift_log_add.dart';
 /// worker reads, otherwise the old rows survive in the cloud and the sets
 /// come back doubled.
 ///
+/// UNIT: the rebuilt sets keep the unit the workout was logged in (the
+/// is_kg of its stored sets) - editing a log never relabels its weights.
+///
 /// ALL arguments are NULLABLE on purpose: FlutterFlow silently skips
 /// launching a custom action when a required argument's binding resolves to
 /// null. Validation happens INSIDE, loudly.
@@ -353,7 +356,7 @@ Future<dynamic> updateWorkoutComplete(
       final List oldSets = await guarded(
           'load-old-set_logs',
           () => db.rawQuery(
-                'SELECT id FROM set_log WHERE workout_log_id = ?',
+                'SELECT id, is_kg FROM set_log WHERE workout_log_id = ?',
                 [logId],
               ));
       final List oldAnalyses = await guarded(
@@ -374,6 +377,30 @@ Future<dynamic> updateWorkoutComplete(
       }
       mark(
           'read-existing(sets=${oldSets.length}, analyses=${oldAnalyses.length})');
+
+      // ---- unit: the one this workout was logged in ----
+      // The edit screen loads the stored numbers untouched, so they are
+      // written back under the SAME unit, whatever the app is set to today.
+      // Only a log with no sets at all falls back to the app's current unit.
+      int isKgFlag = 1;
+      if (oldSets.isNotEmpty) {
+        int kg = 0, lbs = 0;
+        for (final r in oldSets) {
+          if (r is! Map) continue;
+          final dynamic v = r['is_kg'];
+          if (v == null || truthy(v)) {
+            kg++;
+          } else {
+            lbs++;
+          }
+        }
+        isKgFlag = lbs > kg ? 0 : 1;
+      } else {
+        try {
+          isKgFlag = FFAppState().isKg ? 1 : 0;
+        } catch (_) {}
+      }
+      mark('unit(isKg=$isKgFlag)');
 
       // ---- 4. regular sets (volume accumulated in-memory) ----
       // loggedSets is in ENTRY order, not display order - sort a copy by
@@ -443,7 +470,7 @@ Future<dynamic> updateWorkoutComplete(
                     reps,
                     weight,
                     durSetMs,
-                    1,
+                    isKgFlag,
                     0,
                     0,
                     uId,
@@ -460,7 +487,7 @@ Future<dynamic> updateWorkoutComplete(
                   'reps': reps,
                   'weight': weight,
                   'duration_seconds': durSetMs,
-                  'is_kg': 1,
+                  'is_kg': isKgFlag,
                   'is_dropset': 0,
                   'drop_number': null,
                 }));
@@ -511,7 +538,7 @@ Future<dynamic> updateWorkoutComplete(
                     reps,
                     weight,
                     null,
-                    1,
+                    isKgFlag,
                     1,
                     dropOrder,
                     uId,
@@ -528,7 +555,7 @@ Future<dynamic> updateWorkoutComplete(
                   'reps': reps,
                   'weight': weight,
                   'duration_seconds': null,
-                  'is_kg': 1,
+                  'is_kg': isKgFlag,
                   'is_dropset': 1,
                   'drop_number': dropOrder,
                 }));

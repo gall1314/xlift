@@ -859,7 +859,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                         child: custom_widgets.ExerciseAssetImage(
                                                                                           width: 40.0,
                                                                                           height: 40.0,
-                                                                                          exerciseName: functions.exerciseImageName(functions.localizedName(listViewGetExerciseMuscleListRow.muscleName, FFLocalizations.of(context).languageCode)),
+                                                                                          exerciseName: functions.exerciseImageName(functions.localizedName(listViewGetExerciseMuscleListRow.muscleName, 'en')),
                                                                                           borderRadius: 30.0,
                                                                                         ),
                                                                                       ),
@@ -1020,7 +1020,7 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                                 child: custom_widgets.ExerciseAssetImage(
                                                                                                   width: 26.0,
                                                                                                   height: 26.0,
-                                                                                                  exerciseName: functions.exerciseImageName(functions.localizedName(secondaryItem.muscleName, FFLocalizations.of(context).languageCode)),
+                                                                                                  exerciseName: functions.exerciseImageName(functions.localizedName(secondaryItem.muscleName, 'en')),
                                                                                                   borderRadius: 30.0,
                                                                                                 ),
                                                                                               ),

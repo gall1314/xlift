@@ -33,7 +33,7 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 /// - app language code (Global Properties → Current Language) initialTab - 0
 /// Workouts, 1 Templates, 2 Exercises canGenerate - false = Generate is shown
 /// locked and taps call onOpenPremium instead (null = true) onStartWorkout -
-/// (workoutId) onEditWorkout - (workoutId) onDeleteWorkout         -
+/// (workoutId) onEditWorkout - (workoutId, workoutName) onDeleteWorkout -
 /// (workoutId)  widget reloads afterwards onOpenTemplate          -
 /// (GetWorkoutTemplateRow, workoutId) onUseTemplate - (GetWorkoutTemplateRow,
 /// workoutId) widget reloads afterwards onOpenExercise          -
@@ -68,7 +68,7 @@ class LibraryView extends StatefulWidget {
   final int? initialTab;
   final bool? canGenerate;
   final Future Function(String workoutId)? onStartWorkout;
-  final Future Function(String workoutId)? onEditWorkout;
+  final Future Function(String workoutId, String workoutName)? onEditWorkout;
   final Future Function(String workoutId)? onDeleteWorkout;
   final Future Function(GetWorkoutTemplateRow template, String workoutId)?
       onOpenTemplate;
@@ -454,6 +454,7 @@ class _WorkoutItem {
   _WorkoutItem({
     required this.id,
     required this.name,
+    required this.rawName,
     required this.createdAt,
     required this.lastDoneAt,
     required this.exerciseCount,
@@ -464,7 +465,8 @@ class _WorkoutItem {
     required this.refs,
   });
   final String id;
-  final String name;
+  final String name; // as shown in the list (may be generated)
+  final String rawName; // exactly as stored - handed to onEditWorkout
   final DateTime? createdAt;
   final DateTime? lastDoneAt;
   final int exerciseCount;
@@ -893,6 +895,7 @@ class _LibraryViewState extends State<LibraryView> {
       final refs = primaryRefsOf(exIds);
       final sets = setCountByWorkout[id] ?? 0;
       var name = _str(r['name']);
+      final rawName = name;
       final groups = _topGroups(refs);
       if (name.isEmpty || name.toLowerCase().startsWith('unnamed workout')) {
         if (groups.isNotEmpty) name = groups.take(2).join(' & ');
@@ -900,6 +903,7 @@ class _LibraryViewState extends State<LibraryView> {
       workouts.add(_WorkoutItem(
         id: id,
         name: name.isEmpty ? _t('workout') : _cap(name),
+        rawName: rawName,
         createdAt: _parse(r['created_at']),
         lastDoneAt: lastDone[id],
         exerciseCount: exIds.toSet().length,
@@ -1139,7 +1143,7 @@ class _LibraryViewState extends State<LibraryView> {
     );
     if (!mounted || choice == null) return;
     if (choice == 'edit') {
-      await widget.onEditWorkout?.call(w.id);
+      await widget.onEditWorkout?.call(w.id, w.rawName);
     } else if (choice == 'delete') {
       await widget.onDeleteWorkout?.call(w.id);
       if (mounted) await _load();

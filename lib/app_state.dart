@@ -167,8 +167,8 @@ class FFAppState extends ChangeNotifier {
               _generationDates;
     });
     await _safeInitAsync(() async {
-      _dontShowGuidenc =
-          await secureStorage.getBool('ff_dontShowGuidenc') ?? _dontShowGuidenc;
+      _ShowGuidenc =
+          await secureStorage.getBool('ff_ShowGuidenc') ?? _ShowGuidenc;
     });
   }
 
@@ -1000,18 +1000,18 @@ class FFAppState extends ChangeNotifier {
     completedExercisesCreation.insert(index, value);
   }
 
-  bool _dontShowGuidenc = false;
-  bool get dontShowGuidenc => _dontShowGuidenc;
-  set dontShowGuidenc(bool value) {
-    _dontShowGuidenc = value;
-    secureStorage.setBool('ff_dontShowGuidenc', value);
+  bool _ShowGuidenc = false;
+  bool get ShowGuidenc => _ShowGuidenc;
+  set ShowGuidenc(bool value) {
+    _ShowGuidenc = value;
+    secureStorage.setBool('ff_ShowGuidenc', value);
   }
 
-  void deleteDontShowGuidenc({bool resetState = false}) {
+  void deleteShowGuidenc({bool resetState = false}) {
     if (resetState) {
-      _dontShowGuidenc = false;
+      _ShowGuidenc = false;
     }
-    secureStorage.delete(key: 'ff_dontShowGuidenc');
+    secureStorage.delete(key: 'ff_ShowGuidenc');
   }
 
   List<dynamic> _analysisStateCreation = [];

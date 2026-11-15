@@ -5836,8 +5836,28 @@ dynamic getSetAnalysisField(
   int exerciseId,
   int setNumber,
   String fieldKey,
+  String? languageCode,
 ) {
   {
+    // The analyzers and the database keep their texts in English. When a
+    // language is passed, a text field (label, tip) or a list of texts
+    // (feedback) is translated on the way out through localizeAnalysisText.
+    // Numbers, maps and anything it does not know come back untouched; with
+    // no language the function behaves exactly as before.
+    dynamic localized(dynamic value) {
+      final String lang = (languageCode ?? '').trim();
+      if (lang.isEmpty) return value;
+      try {
+        if (value is String) return localizeAnalysisText(value, lang);
+        if (value is List) {
+          return value
+              .map((e) => e is String ? localizeAnalysisText(e, lang) : e)
+              .toList();
+        }
+      } catch (_) {}
+      return value;
+    }
+
     try {
       for (final exercise in analysisList) {
         if (exercise is! Map) continue;
@@ -5857,7 +5877,7 @@ dynamic getSetAnalysisField(
           final data =
               analysis['result'] is Map ? analysis['result'] as Map : analysis;
 
-          return data[fieldKey];
+          return localized(data[fieldKey]);
         }
       }
     } catch (e) {
@@ -7750,4 +7770,632 @@ double setTableHeight(
     }
     return h;
   }
+}
+
+String localizeAnalysisText(
+  String? text,
+  String? languageCode,
+) {
+  // Shows an analyzer sentence (feedback, tip, score label) in the app
+  // language. The analyzers and the database stay in English - this only
+  // translates on the way to the screen.
+  //
+  //  - English, or a language without translations: returned unchanged.
+  //  - A sentence this table does not know: returned unchanged.
+  //  - Several sentences joined by line breaks: each line is translated.
+  //
+  // Matching ignores case, punctuation, dashes, emoji and spaces, so
+  // "Slow down - control the lift" and "Slow down — control the lift."
+  // are the same sentence. Columns: es, he, de, fr.
+  const Map<String, List<String>> table = {
+    "aimforthighparallelwiththefloor": [
+      "Busca que el muslo quede paralelo al suelo",
+      "לכוון לירך מקבילה לרצפה",
+      "Oberschenkel parallel zum Boden bringen",
+      "Vise la cuisse parallèle au sol"
+    ],
+    "almosttheregoabitlower": [
+      "Casi: baja un poco más",
+      "כמעט, לרדת עוד קצת",
+      "Fast – noch etwas tiefer",
+      "Presque : descends encore un peu"
+    ],
+    "avoidexcessivekneebend": [
+      "Evita doblar demasiado las rodillas",
+      "להימנע מכיפוף ברכיים מוגזם",
+      "Knie nicht zu stark beugen",
+      "Évite de trop plier les genoux"
+    ],
+    "avoidkneecollapse": [
+      "Evita que las rodillas se vayan hacia dentro",
+      "להימנע מקריסת ברכיים פנימה",
+      "Knie nicht nach innen fallen lassen",
+      "Évite que les genoux rentrent vers l’intérieur"
+    ],
+    "avoidusingmomentumkeeptorsostill": [
+      "Evita el impulso: mantén el torso quieto",
+      "בלי תנופה, לשמור על גו יציב",
+      "Kein Schwung – Oberkörper ruhig halten",
+      "Pas d’élan : garde le buste immobile"
+    ],
+    "bendyourkneesabitmore": [
+      "Dobla un poco más las rodillas",
+      "לכופף קצת יותר את הברכיים",
+      "Knie etwas mehr beugen",
+      "Plie un peu plus les genoux"
+    ],
+    "bestanglesideonatchestheightfullbodyinframe": [
+      "Mejor ángulo: de lado, a la altura del pecho, cuerpo entero en el encuadre",
+      "הזווית הטובה ביותר: מהצד, בגובה החזה, כל הגוף בפריים",
+      "Bester Winkel: seitlich auf Brusthöhe, ganzer Körper im Bild",
+      "Meilleur angle : de profil, à hauteur de poitrine, corps entier dans le cadre"
+    ],
+    "braceyourcoreandkeepchestup": [
+      "Activa el core y mantén el pecho arriba",
+      "לכווץ את הליבה ולהרים חזה",
+      "Rumpf anspannen, Brust raus",
+      "Gaine les abdos et garde la poitrine haute"
+    ],
+    "braceyourcoreandsqueezeyourglutesstaytightthroughout": [
+      "Activa el core y aprieta los glúteos: mantén la tensión todo el tiempo",
+      "לכווץ ליבה וישבן ולשמור על מתח לאורך כל התנועה",
+      "Rumpf und Gesäß anspannen – durchgehend fest bleiben",
+      "Gaine les abdos et serre les fessiers : reste gainé tout du long"
+    ],
+    "braceyourcorebeforethedescent": [
+      "Activa el core antes de bajar",
+      "לכווץ את הליבה לפני הירידה",
+      "Vor dem Absenken den Rumpf anspannen",
+      "Gaine les abdos avant la descente"
+    ],
+    "breathebracebeforeliftexhaleattop": [
+      "Respira: aprieta antes de levantar, exhala arriba",
+      "נשימה: לכווץ לפני ההרמה, לנשוף למעלה",
+      "Atmung: vor dem Heben anspannen, oben ausatmen",
+      "Respiration : gaine avant de soulever, expire en haut"
+    ],
+    "breatheinhaledownexhaleup": [
+      "Respira: inhala al bajar, exhala al subir",
+      "נשימה: לשאוף בירידה, לנשוף בעלייה",
+      "Atmung: runter einatmen, hoch ausatmen",
+      "Respiration : inspire en descendant, expire en montant"
+    ],
+    "controlthedescentlowerthebarover23seconds": [
+      "Controla la bajada: baja la barra en 2-3 segundos",
+      "לשלוט בירידה: להוריד את המוט במשך 2-3 שניות",
+      "Absenken kontrollieren – Stange in 2-3 Sekunden senken",
+      "Contrôle la descente : baisse la barre en 2-3 secondes"
+    ],
+    "controltheeccentricgodownabitslower": [
+      "Controla la fase excéntrica: baja un poco más lento",
+      "לשלוט בירידה, לרדת קצת יותר לאט",
+      "Exzentrik kontrollieren, etwas langsamer absenken",
+      "Contrôle l’excentrique : descends un peu plus lentement"
+    ],
+    "controlthelowering": [
+      "Controla la bajada",
+      "לשלוט בירידה",
+      "Absenken kontrollieren",
+      "Contrôle la descente"
+    ],
+    "detectedfromfrontviewfordetailedformfeedbackfilmfromtheside": [
+      "Detectado de frente: para un análisis detallado, graba de lado",
+      "זוהה צילום מלפנים. למשוב מפורט כדאי לצלם מהצד",
+      "Von vorne erkannt – für detailliertes Feedback von der Seite filmen",
+      "Vue de face détectée : pour une analyse détaillée, filme de profil"
+    ],
+    "dontflareyourelbowskeepthemforward": [
+      "No abras los codos: mantenlos hacia delante",
+      "לא לפתוח מרפקים, לשמור אותם קדימה",
+      "Ellbogen nicht ausstellen – nach vorne halten",
+      "N’écarte pas les coudes : garde-les vers l’avant"
+    ],
+    "driveeachreptofulllockoutfullyextendyourelbowsoverhead": [
+      "Termina cada rep con bloqueo completo: extiende del todo los codos arriba",
+      "לסיים כל חזרה בנעילה מלאה, ליישר מרפקים מעל הראש",
+      "Jede Wdh. bis zum Lockout – Ellbogen über Kopf ganz strecken",
+      "Verrouille chaque rep : tends complètement les coudes au-dessus de la tête"
+    ],
+    "drivethroughthefrontheelforpower": [
+      "Empuja con el talón delantero",
+      "לדחוף דרך העקב הקדמי",
+      "Über die vordere Ferse drücken",
+      "Pousse dans le talon avant"
+    ],
+    "engagecorethroughoutmovement": [
+      "Mantén el core activo durante todo el movimiento",
+      "לשמור על ליבה מכווצת לאורך כל התנועה",
+      "Rumpf während der ganzen Bewegung anspannen",
+      "Garde les abdos gainés pendant tout le mouvement"
+    ],
+    "focusonhiphingepushyourhipsbacktogetmorehorizontal": [
+      "Céntrate en la bisagra de cadera: lleva la cadera atrás para quedar más horizontal",
+      "להתמקד בציר הירך: לדחוף אגן אחורה כדי להגיע לגו אופקי יותר",
+      "Fokus auf Hüftbeuge – Hüfte nach hinten, Oberkörper waagerechter",
+      "Concentre-toi sur la charnière de hanche : recule les hanches pour être plus horizontal"
+    ],
+    "focusonhipmobilityandankleflexibilitytoachievebetterdepth": [
+      "Trabaja la movilidad de cadera y tobillo para ganar profundidad",
+      "לעבוד על מוביליות ירכיים וגמישות קרסוליים כדי להעמיק",
+      "An Hüftmobilität und Sprunggelenk-Beweglichkeit arbeiten für mehr Tiefe",
+      "Travaille la mobilité des hanches et des chevilles pour gagner en profondeur"
+    ],
+    "focusonpressingstraightupkeepthebarpathvertical": [
+      "Empuja recto hacia arriba: mantén la barra en vertical",
+      "לדחוף ישר למעלה ולשמור על מסלול מוט אנכי",
+      "Gerade nach oben drücken – Stangenweg senkrecht halten",
+      "Pousse bien droit : garde la trajectoire de la barre verticale"
+    ],
+    "focusonpushingyourhipsbackfurthertoreachfulldepth": [
+      "Lleva la cadera más atrás para llegar a la profundidad completa",
+      "לדחוף את האגן יותר אחורה כדי להגיע לעומק מלא",
+      "Hüfte weiter nach hinten schieben für volle Tiefe",
+      "Recule davantage les hanches pour atteindre la pleine amplitude"
+    ],
+    "frontshinshouldstayroughlyvertical": [
+      "La tibia delantera debe quedar casi vertical",
+      "השוק הקדמית צריכה להישאר כמעט אנכית",
+      "Vorderes Schienbein möglichst senkrecht halten",
+      "Le tibia avant doit rester à peu près vertical"
+    ],
+    "fullyextendarmsatbottom": [
+      "Extiende los brazos del todo abajo",
+      "ליישר ידיים עד הסוף למטה",
+      "Arme unten ganz strecken",
+      "Tends complètement les bras en bas"
+    ],
+    "fullylockoutarmsattop": [
+      "Bloquea los brazos arriba",
+      "לנעול ידיים למעלה",
+      "Arme oben ganz durchstrecken",
+      "Verrouille les bras en haut"
+    ],
+    "fullylockoutelbowsattop": [
+      "Bloquea los codos arriba",
+      "לנעול מרפקים למעלה",
+      "Ellbogen oben ganz durchstrecken",
+      "Verrouille les coudes en haut"
+    ],
+    "goabitdeeper": [
+      "Baja un poco más",
+      "לרדת קצת יותר עמוק",
+      "Etwas tiefer gehen",
+      "Descends un peu plus"
+    ],
+    "goabithigherchinoverbar": [
+      "Sube un poco más (barbilla sobre la barra)",
+      "לעלות קצת יותר (סנטר מעל המוט)",
+      "Etwas höher (Kinn über die Stange)",
+      "Monte un peu plus (menton au-dessus de la barre)"
+    ],
+    "godeeperchesttofloor": [
+      "Baja más (pecho al suelo)",
+      "לרדת עמוק יותר (חזה לרצפה)",
+      "Tiefer gehen (Brust zum Boden)",
+      "Descends plus (poitrine au sol)"
+    ],
+    "godeeperelbowsto90": [
+      "Baja más (codos a 90°)",
+      "לרדת עמוק יותר (מרפקים ל-90°)",
+      "Tiefer gehen (Ellbogen auf 90°)",
+      "Descends plus (coudes à 90°)"
+    ],
+    "godeeperhingemoreatthehips": [
+      "Baja más: flexiona más la cadera",
+      "לרדת עמוק יותר, יותר כיפוף מהירך",
+      "Tiefer – mehr aus der Hüfte beugen",
+      "Descends plus : fléchis davantage aux hanches"
+    ],
+    "godeeperintothehinge": [
+      "Profundiza más la bisagra",
+      "להעמיק את הכיפוף מהירך",
+      "Tiefer in die Hüftbeuge gehen",
+      "Va plus loin dans la charnière"
+    ],
+    "greatformkeepitup": [
+      "¡Gran técnica! Sigue así 💪",
+      "טכניקה מצוינת! להמשיך ככה 💪",
+      "Starke Technik! Weiter so 💪",
+      "Super technique ! Continue comme ça 💪"
+    ],
+    "greattechniquekeepbuildingthatposteriorchain": [
+      "¡Gran técnica! Sigue fortaleciendo la cadena posterior 💪",
+      "טכניקה מצוינת! להמשיך לחזק את השרשרת האחורית 💪",
+      "Starke Technik! Bau deine hintere Kette weiter auf 💪",
+      "Super technique ! Continue de renforcer ta chaîne postérieure 💪"
+    ],
+    "greatworkformoreaccurateanalysistryfilmingfromtheside": [
+      "¡Buen trabajo! Para un análisis más preciso, graba de lado 📐",
+      "עבודה טובה! לניתוח מדויק יותר כדאי לצלם מהצד 📐",
+      "Gute Arbeit! Für eine genauere Analyse von der Seite filmen 📐",
+      "Beau travail ! Pour une analyse plus précise, filme de profil 📐"
+    ],
+    "hingeabitdeeper": [
+      "Flexiona un poco más la cadera",
+      "להעמיק מעט את הכיפוף מהירך",
+      "Etwas tiefer beugen",
+      "Fléchis un peu plus aux hanches"
+    ],
+    "keepbarpathstraightandvertical": [
+      "Mantén la barra en línea recta y vertical",
+      "לשמור על מסלול מוט ישר ואנכי",
+      "Stangenweg gerade und senkrecht halten",
+      "Garde une trajectoire de barre droite et verticale"
+    ],
+    "keepelbowsat45notflared": [
+      "Codos a 45° (sin abrirlos)",
+      "מרפקים ב-45° (לא פתוחים לצדדים)",
+      "Ellbogen bei 45° (nicht ausgestellt)",
+      "Coudes à 45° (pas écartés)"
+    ],
+    "keephipsleveldontsagorpike": [
+      "Mantén la cadera alineada (sin hundirla ni levantarla)",
+      "לשמור על אגן ישר (לא לשקוע ולא להרים)",
+      "Hüfte gerade halten (nicht durchhängen, nicht hochdrücken)",
+      "Garde les hanches alignées (sans creuser ni lever)"
+    ],
+    "keephipssquareavoidrotation": [
+      "Mantén la cadera de frente: evita rotar",
+      "לשמור על אגן ישר קדימה, בלי סיבוב",
+      "Hüfte gerade halten – nicht verdrehen",
+      "Garde les hanches de face : évite la rotation"
+    ],
+    "keepkneeovertoe": [
+      "Mantén la rodilla sobre el pie",
+      "לשמור על הברך מעל כף הרגל",
+      "Knie über dem Fuß halten",
+      "Garde le genou au-dessus du pied"
+    ],
+    "keeptorsouprightavoidleaningback": [
+      "Mantén el torso erguido: no te inclines hacia atrás",
+      "לשמור על גו זקוף, בלי להישען אחורה",
+      "Oberkörper aufrecht – nicht nach hinten lehnen",
+      "Garde le buste droit : ne te penche pas en arrière"
+    ],
+    "keepyourbackstraight": [
+      "Mantén la espalda recta",
+      "לשמור על גב ישר",
+      "Rücken gerade halten",
+      "Garde le dos droit"
+    ],
+    "keepyourcoretightandchestup": [
+      "Mantén el core firme y el pecho arriba",
+      "לשמור על ליבה מכווצת וחזה מורם",
+      "Rumpf fest, Brust raus",
+      "Garde les abdos gainés et la poitrine haute"
+    ],
+    "keepyourfrontshinverticalatthebottom": [
+      "Mantén la tibia delantera vertical abajo",
+      "לשמור על שוק קדמית אנכית בתחתית",
+      "Vorderes Schienbein unten senkrecht halten",
+      "Garde le tibia avant vertical en bas"
+    ],
+    "keepyourkneesfixedpullwithyourbacknotyourlegs": [
+      "Rodillas fijas: tira con la espalda, no con las piernas",
+      "ברכיים קבועות: למשוך עם הגב, לא עם הרגליים",
+      "Knie fixiert – mit dem Rücken ziehen, nicht mit den Beinen",
+      "Genoux fixes : tire avec le dos, pas avec les jambes"
+    ],
+    "keepyourlegsstraighterthisisastifflegdeadlift": [
+      "Mantén las piernas más rectas: es un peso muerto con piernas rígidas",
+      "לשמור על רגליים ישרות יותר, זה דדליפט רגליים ישרות",
+      "Beine gestreckter halten – das ist gestrecktes Kreuzheben",
+      "Garde les jambes plus tendues : c’est un soulevé de terre jambes tendues"
+    ],
+    "lookinggoodjustabitmoredepth": [
+      "Va bien: solo un poco más de profundidad",
+      "נראה טוב, רק עוד קצת עומק",
+      "Sieht gut aus – nur etwas mehr Tiefe",
+      "C’est bien : juste un peu plus de profondeur"
+    ],
+    "lowerslowlyforbettercontrol": [
+      "Baja despacio para más control",
+      "לרדת לאט לשליטה טובה יותר",
+      "Langsam absenken für mehr Kontrolle",
+      "Descends lentement pour mieux contrôler"
+    ],
+    "lowerthebarslowlyaimfor23secondsonthewaydown": [
+      "Baja la barra despacio: unos 2–3 segundos",
+      "להוריד את המוט לאט, 2–3 שניות בירידה",
+      "Stange langsam senken – 2–3 Sekunden abwärts",
+      "Baisse la barre lentement : vise 2–3 secondes à la descente"
+    ],
+    "lowertoshoulderleveleachrep": [
+      "Baja hasta los hombros en cada rep",
+      "להוריד עד גובה הכתפיים בכל חזרה",
+      "Bei jeder Wdh. bis auf Schulterhöhe senken",
+      "Redescends au niveau des épaules à chaque rep"
+    ],
+    "loweryourtorsogetmorehorizontal": [
+      "Baja el torso: ponte más horizontal",
+      "להוריד את הגו, להיות אופקי יותר",
+      "Oberkörper tiefer – waagerechter werden",
+      "Baisse le buste : sois plus horizontal"
+    ],
+    "maintainasoftkneebendtokeepitahinge": [
+      "Mantén una ligera flexión de rodillas para que siga siendo una bisagra",
+      "לשמור על כיפוף ברכיים קל כדי שהתנועה תישאר מהירך",
+      "Knie leicht gebeugt halten, damit es eine Hüftbeuge bleibt",
+      "Garde les genoux légèrement fléchis pour rester sur une charnière"
+    ],
+    "minimizelegdrivekeepkneessteady": [
+      "Minimiza el impulso de piernas: rodillas estables",
+      "בלי עזרה מהרגליים, לשמור על ברכיים יציבות",
+      "Wenig Beineinsatz – Knie ruhig halten",
+      "Limite l’impulsion des jambes : genoux stables"
+    ],
+    "narrowyourgriptoshoulderwidth": [
+      "Estrecha el agarre al ancho de hombros",
+      "לצמצם אחיזה לרוחב הכתפיים",
+      "Griff auf Schulterbreite verengen",
+      "Resserre la prise à la largeur des épaules"
+    ],
+    "niceconsistencykeepbuildingposteriorchainstrength": [
+      "¡Buena constancia! Sigue fortaleciendo la cadena posterior",
+      "עקביות יפה! להמשיך לחזק את השרשרת האחורית",
+      "Schön gleichmäßig! Bau die hintere Kette weiter auf",
+      "Belle régularité ! Continue de renforcer la chaîne postérieure"
+    ],
+    "norepsdetected": [
+      "No se detectaron repeticiones",
+      "לא זוהו חזרות",
+      "Keine Wiederholungen erkannt",
+      "Aucune répétition détectée"
+    ],
+    "outstandingconsistencykeepchallengingyourselfwithprogressiveoverload": [
+      "¡Constancia sobresaliente! Sigue progresando con sobrecarga progresiva",
+      "עקביות יוצאת מן הכלל! להמשיך להתקדם עם עומס הדרגתי",
+      "Hervorragend gleichmäßig! Fordere dich weiter mit progressiver Belastung",
+      "Régularité remarquable ! Continue de progresser avec la surcharge progressive"
+    ],
+    "pause12satthebottomtobuildstability": [
+      "Pausa de 1–2 s abajo para ganar estabilidad",
+      "לעצור 1–2 שניות בתחתית לבניית יציבות",
+      "1–2 s unten halten für mehr Stabilität",
+      "Marque 1–2 s de pause en bas pour gagner en stabilité"
+    ],
+    "pausebrieflyatthebottom": [
+      "Haz una breve pausa abajo",
+      "לעצור רגע בתחתית",
+      "Unten kurz halten",
+      "Marque une courte pause en bas"
+    ],
+    "perfectform": [
+      "¡Técnica perfecta! 🔥",
+      "טכניקה מושלמת! 🔥",
+      "Perfekte Technik! 🔥",
+      "Technique parfaite ! 🔥"
+    ],
+    "practicethekneesoutcueandconsiderstrengtheningyourhipabductors": [
+      "Practica «rodillas hacia fuera» y fortalece los abductores de cadera",
+      "לתרגל ״ברכיים החוצה״ ולחזק את מרחיקי הירך",
+      "Übe „Knie nach außen“ und stärke die Hüftabduktoren",
+      "Travaille la consigne « genoux vers l’extérieur » et renforce les abducteurs de hanche"
+    ],
+    "presstofulllockoutoverhead": [
+      "Empuja hasta el bloqueo completo arriba",
+      "לדחוף עד נעילה מלאה מעל הראש",
+      "Bis zum vollen Lockout über Kopf drücken",
+      "Pousse jusqu’au verrouillage complet au-dessus de la tête"
+    ],
+    "pullhigherreachyourtorso": [
+      "Tira más alto: llega al torso",
+      "למשוך גבוה יותר, עד הגו",
+      "Höher ziehen – bis zum Oberkörper",
+      "Tire plus haut : jusqu’au buste"
+    ],
+    "pullthebarhighertowardyourchest": [
+      "Lleva la barra más arriba, hacia el pecho",
+      "למשוך את המוט גבוה יותר, לכיוון החזה",
+      "Stange höher zur Brust ziehen",
+      "Tire la barre plus haut, vers la poitrine"
+    ],
+    "pushthehipsfartherbacktoloadthehamstrings": [
+      "Lleva la cadera más atrás para cargar los isquios",
+      "לדחוף את האגן יותר אחורה כדי להעמיס על הירך האחורית",
+      "Hüfte weiter nach hinten, um die Beinbeuger zu belasten",
+      "Recule davantage les hanches pour charger les ischios"
+    ],
+    "pushyourheadthroughatthetop": [
+      "Pasa la cabeza hacia delante arriba",
+      "להעביר את הראש קדימה בסוף הדחיקה",
+      "Oben den Kopf durchschieben",
+      "Passe la tête en avant en haut"
+    ],
+    "reducebodyswingnokipping": [
+      "Reduce el balanceo (sin kipping)",
+      "להפחית נדנוד גוף (בלי קיפינג)",
+      "Weniger Schwung (kein Kipping)",
+      "Réduis le balancement (pas de kipping)"
+    ],
+    "reduceforwardleankeeptorsoupright": [
+      "Reduce la inclinación (torso erguido)",
+      "להפחית הטיה קדימה (גו זקוף)",
+      "Weniger Vorlage (Oberkörper aufrecht)",
+      "Réduis l’inclinaison (buste droit)"
+    ],
+    "romaniandeadliftsneedasoftkneebendthroughoutthemovement": [
+      "El peso muerto rumano requiere una ligera flexión de rodillas durante todo el movimiento",
+      "דדליפט רומני דורש כיפוף ברכיים קל לאורך כל התנועה",
+      "Rumänisches Kreuzheben braucht durchgehend leicht gebeugte Knie",
+      "Le soulevé de terre roumain demande des genoux légèrement fléchis tout du long"
+    ],
+    "slowdowntheloweringphasetomaximizehypertrophy": [
+      "Baja más despacio para maximizar la hipertrofia",
+      "להאט את שלב הירידה למקסום היפרטרופיה",
+      "Absenken verlangsamen für maximale Hypertrophie",
+      "Ralentis la descente pour maximiser l’hypertrophie"
+    ],
+    "slowdowncontrolthedescent": [
+      "Más despacio: controla la bajada",
+      "להאט ולשלוט בירידה",
+      "Langsamer – Absenken kontrollieren",
+      "Ralentis : contrôle la descente"
+    ],
+    "slowdowncontrolthelift": [
+      "Más despacio: controla el levantamiento",
+      "להאט ולשלוט בהרמה",
+      "Langsamer – das Heben kontrollieren",
+      "Ralentis : contrôle le soulevé"
+    ],
+    "standallthewayupatthetop": [
+      "Ponte totalmente erguido arriba",
+      "להזדקף עד הסוף למעלה",
+      "Oben ganz aufrichten",
+      "Redresse-toi complètement en haut"
+    ],
+    "stifflegdeadliftsholdanearlockedkneethroughoutminimizekneebendacrosstherep":
+        [
+      "En el peso muerto con piernas rígidas las rodillas van casi bloqueadas: minimiza la flexión",
+      "בדדליפט רגליים ישרות הברכיים כמעט נעולות לאורך כל החזרה, למזער כיפוף",
+      "Beim gestreckten Kreuzheben bleiben die Knie fast gestreckt – Kniebeugung minimieren",
+      "Au soulevé de terre jambes tendues, les genoux restent presque verrouillés : limite la flexion"
+    ],
+    "stopnearparallelgoingmuchdeeperisntnecessaryforhypertrophy": [
+      "Detente cerca del paralelo: bajar mucho más no es necesario para la hipertrofia",
+      "לעצור סמוך למקביל. ירידה עמוקה בהרבה לא נחוצה להיפרטרופיה",
+      "Nahe der Parallele stoppen – viel tiefer ist für Hypertrophie nicht nötig",
+      "Arrête-toi près de la parallèle : descendre beaucoup plus n’est pas nécessaire pour l’hypertrophie"
+    ],
+    "stopthedescentwhenyourtorsoisaboutparalleltothefloorgoinglowershiftstheloadontoyourlowerback":
+        [
+      "Detén la bajada con el torso casi paralelo al suelo: más abajo la carga pasa a la zona lumbar",
+      "לעצור את הירידה כשהגו כמעט מקביל לרצפה. ירידה נמוכה יותר מעבירה עומס לגב התחתון",
+      "Absenken stoppen, wenn der Oberkörper etwa parallel zum Boden ist – tiefer belastet den unteren Rücken",
+      "Arrête la descente quand le buste est à peu près parallèle au sol : plus bas, la charge passe sur les lombaires"
+    ],
+    "straightenyourarmsfullyatthebottomforafullrangeofmotion": [
+      "Extiende los brazos del todo abajo para un rango completo",
+      "ליישר ידיים עד הסוף למטה לטווח תנועה מלא",
+      "Arme unten ganz strecken für vollen Bewegungsumfang",
+      "Tends complètement les bras en bas pour une amplitude complète"
+    ],
+    "thinkelbowstoceilingdrivethemhighandback": [
+      "Piensa «codos al techo»: llévalos arriba y atrás",
+      "לחשוב ״מרפקים לתקרה״: להוביל אותם גבוה ואחורה",
+      "Denk „Ellbogen zur Decke“ – hoch und nach hinten ziehen",
+      "Pense « coudes au plafond » : amène-les haut et en arrière"
+    ],
+    "trackyourkneeoveryourtoes": [
+      "Mantén la rodilla en línea con los dedos del pie",
+      "לשמור על הברך בקו עם האצבעות",
+      "Knie in Linie mit den Zehen führen",
+      "Garde le genou dans l’axe des orteils"
+    ],
+    "try212tempodownpauseup": [
+      "Prueba un tempo 2-1-2 (bajar-pausa-subir)",
+      "לנסות קצב 2-1-2 (ירידה-עצירה-עלייה)",
+      "Tempo 2-1-2 probieren (runter-Pause-hoch)",
+      "Essaie un tempo 2-1-2 (descente-pause-montée)"
+    ],
+    "trya212tempodownpauseup": [
+      "Prueba un tempo 2-1-2 (bajar-pausa-subir)",
+      "לנסות קצב 2-1-2 (ירידה-עצירה-עלייה)",
+      "Tempo 2-1-2 probieren (runter-Pause-hoch)",
+      "Essaie un tempo 2-1-2 (descente-pause-montée)"
+    ],
+    "trya1secondpauseatthebottomofeachrep": [
+      "Prueba una pausa de 1 segundo abajo en cada rep",
+      "לנסות עצירה של שנייה בתחתית כל חזרה",
+      "1 Sekunde Pause unten bei jeder Wdh. probieren",
+      "Essaie 1 seconde de pause en bas à chaque rep"
+    ],
+    "tryslowingdowntheloweringphaseforbettercontrol": [
+      "Prueba a bajar más despacio para más control",
+      "לנסות להאט את הירידה לשליטה טובה יותר",
+      "Absenken verlangsamen für mehr Kontrolle",
+      "Essaie de ralentir la descente pour mieux contrôler"
+    ],
+    "trytocurlhigheraimtosqueezeatthetop": [
+      "Intenta subir más: aprieta arriba",
+      "לנסות לכופף גבוה יותר ולכווץ למעלה",
+      "Höher curlen – oben anspannen",
+      "Essaie de monter plus haut : contracte en haut"
+    ],
+    "trytokeepyourbackabitstraighter": [
+      "Intenta mantener la espalda un poco más recta",
+      "לנסות לשמור על גב קצת יותר ישר",
+      "Rücken etwas gerader halten",
+      "Essaie de garder le dos un peu plus droit"
+    ],
+    "trytosquatdeeper": [
+      "Intenta bajar más",
+      "לנסות לרדת עמוק יותר",
+      "Tiefer in die Kniebeuge gehen",
+      "Essaie de descendre plus bas"
+    ],
+    "useacontrolled23sloweringforbettertension": [
+      "Baja de forma controlada en 2–3 s para más tensión",
+      "ירידה מבוקרת של 2–3 שניות למתח טוב יותר",
+      "Kontrolliert in 2–3 s absenken für mehr Spannung",
+      "Descends de façon contrôlée en 2–3 s pour plus de tension"
+    ],
+    "workoncorestrengthandpracticemaintaininganeutralspine": [
+      "Trabaja la fuerza del core y practica mantener la columna neutra",
+      "לחזק את הליבה ולתרגל שמירה על עמוד שדרה ניטרלי",
+      "Rumpfkraft trainieren und neutrale Wirbelsäule üben",
+      "Renforce les abdos et entraîne-toi à garder la colonne neutre"
+    ],
+    "youregoingtoodeephingeabitless": [
+      "Bajas demasiado: flexiona un poco menos",
+      "הירידה עמוקה מדי, קצת פחות כיפוף מהירך",
+      "Zu tief – etwas weniger beugen",
+      "Tu descends trop : fléchis un peu moins"
+    ],
+    "excellent": ["Excelente", "מצוין", "Exzellent", "Excellent"],
+    "verygood": ["Muy bien", "טוב מאוד", "Sehr gut", "Très bien"],
+    "good": ["Bien", "טוב", "Gut", "Bien"],
+    "fair": ["Regular", "סביר", "Okay", "Correct"],
+    "needswork": ["A mejorar", "דורש שיפור", "Ausbaufähig", "À travailler"],
+  };
+
+  // "Couldn't analyze this video - make sure ... at least one <exercise>."
+  const List<String> notAnalyzedLong = [
+    "No se pudo analizar el vídeo: asegúrate de que se vea todo el cuerpo y de completar al menos una repetición.",
+    "לא הצלחנו לנתח את הסרטון. יש לוודא שכל הגוף נראה בפריים ושבוצעה לפחות חזרה מלאה אחת.",
+    "Video konnte nicht analysiert werden – achte darauf, dass dein ganzer Körper zu sehen ist und du mindestens eine Wiederholung machst.",
+    "Impossible d’analyser cette vidéo : vérifie que ton corps entier est visible et fais au moins une répétition complète.",
+  ];
+  // technical failures (no frames, empty upload ...) - one plain message
+  const List<String> notAnalyzedShort = [
+    "No se pudo analizar el vídeo",
+    "לא הצלחנו לנתח את הסרטון",
+    "Video konnte nicht analysiert werden",
+    "Impossible d’analyser cette vidéo",
+  ];
+  const List<String> pullTooSmall = [
+    "Tirón demasiado corto para detectarlo. Lleva la barra más arriba, hacia el pecho.",
+    "המשיכה קצרה מדי לזיהוי. למשוך את המוט גבוה יותר, לכיוון החזה.",
+    "Zugbewegung zu klein zum Erkennen. Stange höher zur Brust ziehen.",
+    "Tirage trop court pour être détecté. Tire la barre plus haut, vers la poitrine.",
+  ];
+
+  final String raw = text ?? '';
+  if (raw.trim().isEmpty) return raw;
+
+  const List<String> langs = ['es', 'he', 'de', 'fr'];
+  final String lang = (languageCode ?? 'en').trim().toLowerCase();
+  final int col = langs.indexOf(lang.length >= 2 ? lang.substring(0, 2) : lang);
+  if (col < 0) return raw; // English and anything else: as stored
+
+  String one(String line) {
+    final String key = line.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (key.isEmpty) return line;
+    final List<String>? hit = table[key];
+    if (hit != null) return hit[col];
+    if (key.startsWith('couldntanalyzethisvideo')) return notAnalyzedLong[col];
+    if (key.startsWith('pullmotiontoosmalltodetect')) return pullTooSmall[col];
+    if (key.startsWith('couldnotanalyze') ||
+        key.startsWith('couldnotextract') ||
+        key.startsWith('couldnotsaveupload') ||
+        key.startsWith('uploadedfilehasnobytes') ||
+        key.startsWith('noframes') ||
+        key == 'extractfailed') {
+      return notAnalyzedShort[col];
+    }
+    return line;
+  }
+
+  if (!raw.contains('\n')) return one(raw);
+  return raw.split('\n').map(one).join('\n');
 }

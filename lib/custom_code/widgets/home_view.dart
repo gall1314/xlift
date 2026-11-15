@@ -361,6 +361,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "kg Volumen",
     "fr": "kg volume",
   },
+  "lbsVolume": {
+    "en": "lbs volume",
+    "es": "lbs volumen",
+    "he": "lbs נפח",
+    "de": "lbs Volumen",
+    "fr": "lbs volume",
+  },
   "lastWorkout": {
     "en": "Last workout",
     "es": "Último entrenamiento",
@@ -827,8 +834,25 @@ class _HomeViewState extends State<HomeView> {
     // counts that order My workouts. One query, dates compared in Dart. ---
     final weekStart = _startOfWeekSunday(now);
     final recentStart = now.subtract(const Duration(days: _kRecentDays));
+    // Unit to SHOW. Every workout's volume is stored as it was logged, in
+    // the unit of its sets (log_kg); a value is converted only when that
+    // unit is not the one on screen - nothing stored is ever changed.
+    bool showKg = true;
+    try {
+      showKg = FFAppState().isKg;
+    } catch (_) {}
+    _showKg = showKg;
+    double shown(dynamic volume, dynamic logKg) {
+      final double v = _dbl(volume);
+      final bool loggedKg = logKg == null ? true : _int(logKg) != 0;
+      if (loggedKg == showKg) return v;
+      return loggedKg ? v * 2.20462 : v * 0.453592;
+    }
+
     final wkRows = await db.rawQuery('''
       SELECT wl.id, wl.workout_id, wl.created_at, wl.volume,
+             (SELECT s.is_kg FROM set_log s
+               WHERE s.workout_log_id = wl.id LIMIT 1) AS log_kg,
              (SELECT COUNT(*) FROM set_log s
                WHERE s.workout_log_id = wl.id AND s.is_dropset = 0) AS sets
       FROM workout_log wl WHERE wl.user_id = ?
@@ -850,7 +874,7 @@ class _HomeViewState extends State<HomeView> {
       if (at.isBefore(weekStart)) continue;
       wkWorkouts++;
       wkSets += _int(r['sets']);
-      wkVol += _dbl(r['volume']);
+      wkVol += shown(r['volume'], r['log_kg']);
       perDay[at.weekday % 7]++;
     }
 
@@ -922,6 +946,8 @@ class _HomeViewState extends State<HomeView> {
     final lRows = await db.rawQuery('''
       SELECT wl.id, wl.workout_id, wl.created_at, wl.duration_seconds, wl.volume,
              w.name,
+             (SELECT s.is_kg FROM set_log s
+               WHERE s.workout_log_id = wl.id LIMIT 1) AS log_kg,
              (SELECT COUNT(*) FROM set_log s
                WHERE s.workout_log_id = wl.id AND s.is_dropset = 0) AS sets
       FROM workout_log wl
@@ -945,12 +971,13 @@ class _HomeViewState extends State<HomeView> {
       ''', [logId]);
       final prRows = await db.rawQuery('''
         SELECT COUNT(*) AS prs FROM (
-          SELECT s.exercise_id, MAX(s.weight) AS mw
+          SELECT s.exercise_id,
+                 MAX(s.weight * CASE WHEN COALESCE(s.is_kg, 1) = 1 THEN 1.0 ELSE 0.453592 END) AS mw
           FROM set_log s WHERE s.workout_log_id = ? AND s.is_dropset = 0
           GROUP BY s.exercise_id
         ) cur
-        WHERE cur.mw > COALESCE((
-          SELECT MAX(p.weight) FROM set_log p
+        WHERE cur.mw > 0.05 + COALESCE((
+          SELECT MAX(p.weight * CASE WHEN COALESCE(p.is_kg, 1) = 1 THEN 1.0 ELSE 0.453592 END) FROM set_log p
           JOIN workout_log pl ON pl.id = p.workout_log_id
           WHERE p.exercise_id = cur.exercise_id AND p.user_id = ?
             AND pl.created_at < ?
@@ -965,7 +992,7 @@ class _HomeViewState extends State<HomeView> {
         name: (r['name'] ?? '').toString().trim(),
         at: at,
         durationSec: durSec,
-        volume: _dbl(r['volume']),
+        volume: shown(r['volume'], r['log_kg']),
         sets: _int(r['sets']),
         muscles: _topMuscles(mRows),
         prCount: prRows.isEmpty ? 0 : _int(prRows.first['prs']),
@@ -1059,17 +1086,26 @@ class _HomeViewState extends State<HomeView> {
   }
 
   /// One-letter weekday labels Sun..Sat in the current language.
+  ///
+  /// Uses the locale's own NARROW weekday form (pattern EEEEE) instead of
+  /// the first letter of the short name: in Hebrew every short name starts
+  /// with "יום", so the first letter was "י" seven times. The narrow form is
+  /// what calendars in each language print - א ב ג ד ה ו ש, S M T W T F S,
+  /// L M X J V S D, M D M D F S S ...
   List<String> _weekLetters() {
     try {
       final base = DateTime(2023, 1, 1); // a Sunday
-      return [
-        for (int i = 0; i < 7; i++)
-          intl.DateFormat.E(_lang)
-              .format(base.add(Duration(days: i)))
-              .characters
-              .first
-              .toUpperCase(),
-      ];
+      final fmt = intl.DateFormat('EEEEE', _lang);
+      final out = <String>[];
+      for (int i = 0; i < 7; i++) {
+        // drop the geresh / dot some locales add ("א׳" -> "א")
+        final String n = fmt
+            .format(base.add(Duration(days: i)))
+            .replaceAll(RegExp(r"[׳'.\s]"), '');
+        if (n.isEmpty) throw const FormatException('empty weekday');
+        out.add(n.characters.first.toUpperCase());
+      }
+      return out;
     } catch (_) {
       return const ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
     }
@@ -1080,6 +1116,9 @@ class _HomeViewState extends State<HomeView> {
     if (h == 0) return '${m}m';
     return '$h:${m.toString().padLeft(2, '0')}';
   }
+
+  /// The unit the volumes of the last load were brought to.
+  bool _showKg = true;
 
   static String _kg(double v) {
     final s = v.round().toString();
@@ -1704,7 +1743,7 @@ class _HomeViewState extends State<HomeView> {
             children: [
               _stat('${wk.workouts}', _t('workouts')),
               _stat('${wk.sets}', _t('sets')),
-              _stat(_kg(wk.volume), _t('kgVolume')),
+              _stat(_kg(wk.volume), _t(_showKg ? 'kgVolume' : 'lbsVolume')),
             ],
           ),
         ],
@@ -1797,7 +1836,7 @@ class _HomeViewState extends State<HomeView> {
                     children: [
                       TextSpan(
                           text:
-                              '${_duration(l.durationSec)} · ${_kg(l.volume)} kg · ${_t('setsCount', n: l.sets)}'),
+                              '${_duration(l.durationSec)} · ${_kg(l.volume)} ${_showKg ? 'kg' : 'lbs'} · ${_t('setsCount', n: l.sets)}'),
                       if (l.prCount > 0)
                         TextSpan(
                           text: ' · $prText',

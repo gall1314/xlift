@@ -7309,14 +7309,18 @@ Future<List<WorkoutBreakdownSetsRow>> performWorkoutBreakdownSets(
 -- duration_seconds is stored in MILLISECONDS.
 -- pct_change compares each exercise with the LAST TIME THAT EXERCISE was
 -- logged, in any workout - not only the previous log of the same workout.
-
+-- UNITS: weight and exercise_total come back exactly as stored, in the unit
+-- they were logged in (unit_label). Only the COMPARISONS (is_pr, pct_change)
+-- bring both sides to kilograms first, so 220 lbs is never a "record" over
+-- 100 kg.
+ 
 WITH
 cur AS (
   SELECT id, workout_id, created_at
   FROM workout_log
   WHERE TRIM(CAST(id AS TEXT)) = TRIM('${workoutLogId}')
 ),
-
+ 
 /* ---------- current sets ---------- */
 base AS (
   SELECT
@@ -7333,12 +7337,13 @@ base AS (
     COALESCE(s.reps, 0)               AS reps,
     COALESCE(s.weight, 0)             AS weight,
     COALESCE(s.duration_seconds, 0)   AS dur_ms,
-    COALESCE(s.is_kg, 1)              AS is_kg
+    COALESCE(s.is_kg, 1)              AS is_kg,
+    (COALESCE(s.weight, 0) * CASE WHEN COALESCE(s.is_kg, 1) = 1 THEN 1.0 ELSE 0.453592 END) AS w_kg
   FROM set_log s
   JOIN cur ON TRIM(CAST(s.workout_log_id AS TEXT)) = TRIM(CAST(cur.id AS TEXT))
   JOIN exercise e ON e.id = s.exercise_id
 ),
-
+ 
 /* per exercise: the most recent earlier workout log that contains it */
 prev AS (
   SELECT exercise_id, workout_log_id
@@ -7362,7 +7367,7 @@ prev AS (
   )
   WHERE rn = 1
 ),
-
+ 
 /* primary muscle per exercise */
 muscle AS (
   SELECT emg.exercise_id, MIN(mg.name) AS muscle
@@ -7371,24 +7376,24 @@ muscle AS (
   WHERE COALESCE(emg.is_primary, 0) = 1
   GROUP BY emg.exercise_id
 ),
-
+ 
 /* per-set form score */
 scores AS (
   SELECT set_log_id, score
   FROM set_analysis
   WHERE score IS NOT NULL
 ),
-
+ 
 /* historical best weight per exercise (excluding this workout) -> PR flag */
 hist AS (
-  SELECT s.exercise_id, MAX(COALESCE(s.weight, 0)) AS best
+  SELECT s.exercise_id, MAX((COALESCE(s.weight, 0) * CASE WHEN COALESCE(s.is_kg, 1) = 1 THEN 1.0 ELSE 0.453592 END)) AS best
   FROM set_log s, cur
   WHERE TRIM(CAST(s.user_id AS TEXT)) = TRIM('${userId}')
     AND TRIM(CAST(s.workout_log_id AS TEXT)) <> TRIM(CAST(cur.id AS TEXT))
     AND s.exercise_id IN (SELECT exercise_id FROM base)
   GROUP BY s.exercise_id
 ),
-
+ 
 /* ---------- exercise totals (current) ---------- */
 ex_agg AS (
   SELECT
@@ -7399,6 +7404,7 @@ ex_agg AS (
     CASE WHEN SUM(CASE WHEN weight > 0 THEN 1 END) > 0 THEN 1 ELSE 0 END AS has_weighted,
     SUM(reps) AS sum_reps,
     SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END) AS sum_vol,
+    SUM(CASE WHEN weight > 0 THEN reps * w_kg ELSE 0 END) AS sum_vol_kg,
     SUM(dur_ms) AS sum_dur_ms,
     CASE
       WHEN SUM(CASE WHEN is_dropset = 0 AND is_kg = 1 THEN 1 ELSE 0 END)
@@ -7422,12 +7428,12 @@ ex_vals AS (
       WHEN is_timed = 1       THEN CAST(sum_dur_ms / 1000 AS INTEGER)
       WHEN is_assisted = 1    THEN sum_reps
       WHEN has_weighted = 0   THEN sum_reps
-      ELSE CAST(sum_vol AS INTEGER)
+      ELSE sum_vol_kg
     END AS cur_numeric,
-    CAST(sum_vol AS REAL) AS cur_assist_vol
+    CAST(sum_vol_kg AS REAL) AS cur_assist_vol
   FROM ex_agg
 ),
-
+ 
 /* ---------- exercise totals (last time each exercise was done) ---------- */
 prev_base AS (
   SELECT
@@ -7435,7 +7441,7 @@ prev_base AS (
     COALESCE(e.is_time_based, 0)    AS is_timed,
     COALESCE(e.is_assisted, 0)      AS is_assisted,
     COALESCE(s.reps, 0)             AS reps,
-    COALESCE(s.weight, 0)           AS weight,
+    (COALESCE(s.weight, 0) * CASE WHEN COALESCE(s.is_kg, 1) = 1 THEN 1.0 ELSE 0.453592 END) AS weight,
     COALESCE(s.duration_seconds, 0) AS dur_ms
   FROM set_log s
   JOIN prev ON prev.exercise_id = s.exercise_id
@@ -7449,13 +7455,13 @@ prev_vals AS (
       WHEN MAX(is_timed) = 1     THEN CAST(SUM(dur_ms) / 1000 AS INTEGER)
       WHEN MAX(is_assisted) = 1  THEN SUM(reps)
       WHEN SUM(CASE WHEN weight > 0 THEN 1 ELSE 0 END) = 0 THEN SUM(reps)
-      ELSE CAST(SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END) AS INTEGER)
+      ELSE SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END)
     END AS prev_numeric,
     CAST(SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END) AS REAL) AS prev_assist_vol
   FROM prev_base
   GROUP BY exercise_id
 )
-
+ 
 /* ---------- output: one row per set ---------- */
 SELECT
   b.exercise_id,
@@ -7475,7 +7481,7 @@ SELECT
       CASE WHEN p.prev_numeric IS NULL OR p.prev_numeric = 0 THEN NULL
            ELSE CAST(((x.cur_numeric - p.prev_numeric) * 100.0 / p.prev_numeric) AS INTEGER) END
   END                                        AS pct_change,
-
+ 
   b.set_log_id,
   b.set_number,
   b.is_dropset,
@@ -7486,12 +7492,12 @@ SELECT
   sc.score                                   AS set_score,
   CASE
     WHEN b.is_assisted = 0 AND b.weight > 0
-     AND h.best IS NOT NULL AND h.best > 0 AND b.weight > h.best
+     AND h.best IS NOT NULL AND h.best > 0 AND b.w_kg > h.best + 0.05
     THEN 1 ELSE 0
   END                                        AS is_pr,
-
+ 
   MIN(b.rid) OVER (PARTITION BY b.exercise_id) AS ex_order
-
+ 
 FROM base b
 JOIN ex_vals x        ON x.exercise_id = b.exercise_id
 LEFT JOIN prev_vals p ON p.exercise_id = b.exercise_id

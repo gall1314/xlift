@@ -1285,13 +1285,21 @@ Future<dynamic> analyzeDeadliftVideoAction(
     }
   }
 
+  // A rep is "good" when it carries no form error - the same rule the
+  // feedback uses. With no session-level error every rep is good (the set
+  // scores 10 and says "Great form"); with the depth error, the shallow reps
+  // are the bad ones. Counting only reps whose own score is exactly 10 gave
+  // "10 / Excellent / 0 proper reps" on a clean set.
+  bool repIsGood(_RepInfo r) =>
+      sessionFormErrors.isEmpty || r.peakSig >= DEPTH_FAIR_PEAK;
+
   final List<Map<String, dynamic>> repReports = [];
   for (int i = 0; i < committedReps.length; i++) {
     final r = committedReps[i];
     repReports.add({
       'rep_index': i + 1,
       'score': r.score,
-      'good': r.score >= 10.0,
+      'good': repIsGood(r),
       'detailed_scores': {
         'depth': (r.peakSig * 10.0).clamp(0.0, 10.0),
         'lockout': 10.0,
@@ -1328,11 +1336,11 @@ Future<dynamic> analyzeDeadliftVideoAction(
     }
   }
 
-  // [PERFECT-ONLY] good_reps counts only perfect-10 reps.
+  // good_reps: reps with no form error (see repIsGood).
   int goodReps = 0;
   int badReps = 0;
   for (final r in committedReps) {
-    if (r.score >= 10.0) {
+    if (repIsGood(r)) {
       goodReps++;
     } else {
       badReps++;
