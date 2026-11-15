@@ -34,18 +34,19 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 /// is done on the English name so it is language independent. Hebrew renders
 /// RTL.
 ///
-/// Callbacks: [onWorkoutTap](workoutLogId) from a card tap and
-/// [onMenuTap](workoutLogId) from the card's options button. The list reloads
-/// when either action finishes.
+/// Callbacks: [onWorkoutTap](workoutLogId) from a card tap. The card's
+/// options button opens a small menu anchored to the button (Edit / Delete,
+/// translated here) and fires [onEdit](workoutLogId) or
+/// [onDelete](workoutLogId). The list reloads when any of them finishes.
 ///
 /// Compare mode ([compareMode] = true): a header with a back button (fires
 /// [onClose]) and a title is drawn under the status bar, then the same search
 /// / filters / cards. A card tap selects it (single selection, highlighted),
 /// the options button is hidden, and a "Compare" CTA floats at the bottom; it
 /// is enabled once a workout is selected and fires [onCompare](workoutLogId).
-/// [onWorkoutTap] / [onMenuTap] are not called in this mode. Pass the
-/// already-chosen workout as [excludeWorkoutLogId] so it is left out of the
-/// list.
+/// [onWorkoutTap] / [onEdit] / [onDelete] are not called in this mode. Pass
+/// the already-chosen workout as [excludeWorkoutLogId] so it is left out of
+/// the list.
 ///
 /// Optional: change [reloadToken] (any different int) to force a reload.
 /// Pull-to-refresh also reloads.
@@ -58,7 +59,8 @@ class HistoryView extends StatefulWidget {
     this.isPremium,
     this.reloadToken,
     this.onWorkoutTap,
-    this.onMenuTap,
+    this.onEdit,
+    this.onDelete,
     this.onLockedTap,
     this.compareMode,
     this.onCompare,
@@ -72,7 +74,12 @@ class HistoryView extends StatefulWidget {
   final bool? isPremium;
   final int? reloadToken;
   final Future Function(String workoutLogId)? onWorkoutTap;
-  final Future Function(String workoutLogId)? onMenuTap;
+
+  /// Options menu of a card: "Edit" was picked.
+  final Future Function(String workoutLogId)? onEdit;
+
+  /// Options menu of a card: "Delete" was picked.
+  final Future Function(String workoutLogId)? onDelete;
   final Future Function()? onLockedTap;
   final bool? compareMode;
   final Future Function(String workoutLogId)? onCompare;
@@ -136,14 +143,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "selectRange": {
     "en": "Select Time Range",
     "es": "Elige el periodo",
-    "he": "בחר טווח זמן",
+    "he": "בחירת טווח זמן",
     "de": "Zeitraum wählen",
     "fr": "Choisir la période",
   },
   "chooseMuscleGroup": {
     "en": "Choose Muscle group",
     "es": "Elige grupo muscular",
-    "he": "בחר קבוצת שרירים",
+    "he": "בחירת קבוצת שרירים",
     "de": "Muskelgruppe wählen",
     "fr": "Choisir un groupe musculaire",
   },
@@ -192,7 +199,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "finishToSee": {
     "en": "Finish a workout and it will show up here.",
     "es": "Termina un entrenamiento y aparecerá aquí.",
-    "he": "סיים אימון והוא יופיע כאן.",
+    "he": "סיימו אימון והוא יופיע כאן.",
     "de": "Beende ein Workout und es erscheint hier.",
     "fr": "Terminez un entraînement et il apparaîtra ici.",
   },
@@ -206,14 +213,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "tryDifferent": {
     "en": "Try a different time range or muscle group.",
     "es": "Prueba otro periodo o grupo muscular.",
-    "he": "נסה טווח זמן או קבוצת שרירים אחרת.",
+    "he": "נסו טווח זמן או קבוצת שרירים אחרת.",
     "de": "Versuche einen anderen Zeitraum oder eine andere Muskelgruppe.",
     "fr": "Essayez une autre période ou un autre groupe musculaire.",
   },
   "clearFilters": {
     "en": "Clear filters",
     "es": "Borrar filtros",
-    "he": "נקה סינון",
+    "he": "ניקוי סינון",
     "de": "Filter zurücksetzen",
     "fr": "Effacer les filtres",
   },
@@ -353,7 +360,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "tapToSelect": {
     "en": "Tap to select",
     "es": "Toca para seleccionar",
-    "he": "הקש לבחירה",
+    "he": "הקישו לבחירה",
     "de": "Zum Auswählen tippen",
     "fr": "Touchez pour sélectionner",
   },
@@ -367,14 +374,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "compare": {
     "en": "Compare",
     "es": "Comparar",
-    "he": "השווה",
+    "he": "השוואה",
     "de": "Vergleichen",
     "fr": "Comparer",
   },
   "compareTitle": {
     "en": "Choose a workout to compare",
     "es": "Elige un entrenamiento",
-    "he": "בחר אימון להשוואה",
+    "he": "בחירת אימון להשוואה",
     "de": "Workout zum Vergleich wählen",
     "fr": "Choisir un entraînement",
   },
@@ -384,6 +391,36 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "חזרה",
     "de": "Zurück",
     "fr": "Retour",
+  },
+  "edit": {
+    "en": "Edit",
+    "es": "Editar",
+    "he": "עריכה",
+    "de": "Bearbeiten",
+    "fr": "Modifier",
+  },
+  "delete": {
+    "en": "Delete",
+    "es": "Eliminar",
+    "he": "מחיקה",
+    "de": "Löschen",
+    "fr": "Supprimer",
+  },
+  // Weight units as shown. Hebrew gets Hebrew labels so the number and its
+  // unit stay together in an RTL line.
+  "kg": {
+    "en": "kg",
+    "es": "kg",
+    "he": "ק״ג",
+    "de": "kg",
+    "fr": "kg",
+  },
+  "lbs": {
+    "en": "lbs",
+    "es": "lbs",
+    "he": "ליב׳",
+    "de": "lbs",
+    "fr": "lbs",
   },
 };
 
@@ -747,9 +784,77 @@ class _HistoryViewState extends State<HistoryView> {
     if (mounted) _load();
   }
 
-  Future<void> _tapMenu(String id) async {
+  /// Options menu of one card, anchored to its "more" button (same look as
+  /// the workout menu in the Library): Edit / Delete, then the matching
+  /// callback, then a reload.
+  Future<void> _showWorkoutMenu(BuildContext anchor, String id) async {
     FocusScope.of(context).unfocus();
-    await widget.onMenuTap?.call(id);
+    final th = FlutterFlowTheme.of(context);
+    final String lang = _lang;
+    final ui.TextDirection dir =
+        _kRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr;
+    const Color danger = Color(0xFFD64545);
+
+    final box = anchor.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(anchor).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight =
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay);
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(topLeft, bottomRight),
+      Offset.zero & overlay.size,
+    );
+
+    final String? choice = await showMenu<String>(
+      context: anchor,
+      position: position,
+      color: th.secondaryBackground,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: th.alternate),
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'edit',
+          height: 44,
+          child: Directionality(
+            textDirection: dir,
+            child: Row(
+              children: [
+                Icon(Icons.edit_outlined, size: 18, color: th.primaryText),
+                const SizedBox(width: 10),
+                Text(_tr(lang, 'edit'),
+                    style: _hs(context, 14, FontWeight.w500, th.primaryText)),
+              ],
+            ),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'delete',
+          height: 44,
+          child: Directionality(
+            textDirection: dir,
+            child: Row(
+              children: [
+                const Icon(Icons.delete_outline_rounded,
+                    size: 18, color: danger),
+                const SizedBox(width: 10),
+                Text(_tr(lang, 'delete'),
+                    style: _hs(context, 14, FontWeight.w500, danger)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'edit') {
+      await widget.onEdit?.call(id);
+    } else if (choice == 'delete') {
+      await widget.onDelete?.call(id);
+    }
     if (mounted) _load();
   }
 
@@ -819,7 +924,7 @@ class _HistoryViewState extends State<HistoryView> {
               selectable: _compare,
               selected: _compare && id == _selectedId,
               onTap: () => _tapWorkout(id),
-              onMenuTap: () => _tapMenu(id),
+              onMenuTap: (anchor) => _showWorkoutMenu(anchor, id),
             );
           },
         ),
@@ -1029,7 +1134,9 @@ class _WorkoutCard extends StatefulWidget {
   final Map<String, dynamic> data;
   final String lang;
   final VoidCallback onTap;
-  final VoidCallback onMenuTap;
+
+  /// Options button tapped; [anchor] is the button, so the menu opens on it.
+  final void Function(BuildContext anchor) onMenuTap;
 
   /// Compare mode: no options button, footer shows the selection hint.
   final bool selectable;
@@ -1276,15 +1383,17 @@ class _WorkoutCardState extends State<_WorkoutCard> {
                   child: SizedBox(
                     width: 44,
                     height: 44,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      tooltip: _tr(lang, 'workoutOptions'),
-                      icon: Icon(Icons.more_vert_rounded,
-                          size: 20, color: th.secondaryText),
-                      onPressed: () {
-                        HapticFeedback.selectionClick();
-                        widget.onMenuTap();
-                      },
+                    child: Builder(
+                      builder: (btnCtx) => IconButton(
+                        padding: EdgeInsets.zero,
+                        tooltip: _tr(lang, 'workoutOptions'),
+                        icon: Icon(Icons.more_vert_rounded,
+                            size: 20, color: th.secondaryText),
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          widget.onMenuTap(btnCtx);
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -1306,7 +1415,7 @@ class _WorkoutCardState extends State<_WorkoutCard> {
                     Icons.fitness_center_rounded,
                     _tr(lang, 'volume'),
                     _formatThousands(volume),
-                    showKg ? 'kg' : 'lbs'),
+                    _tr(lang, showKg ? 'kg' : 'lbs')),
               ),
               const SizedBox(width: 8),
               Expanded(

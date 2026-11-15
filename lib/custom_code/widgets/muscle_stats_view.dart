@@ -180,7 +180,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "total": {
     "en": "Total",
     "es": "Total",
-    "he": 'סה"כ',
+    "he": "סה״כ",
     "de": "Gesamt",
     "fr": "Total",
   },
@@ -255,7 +255,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "logToSee": {
     "en": "Log an exercise that targets {m} and it will show up here.",
     "es": "Registra un ejercicio de {m} y aparecerá aquí.",
-    "he": "תעד תרגיל שעובד על {m} והוא יופיע כאן.",
+    "he": "תעדו תרגיל שעובד על {m} והוא יופיע כאן.",
     "de": "Trage eine Übung für {m} ein und sie erscheint hier.",
     "fr": "Enregistrez un exercice ciblant {m} et il apparaîtra ici.",
   },
@@ -276,7 +276,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "show": {
     "en": "Show {r}",
     "es": "Mostrar {r}",
-    "he": "הצג {r}",
+    "he": "הצגת {r}",
     "de": "{r} anzeigen",
     "fr": "Afficher {r}",
   },
@@ -307,6 +307,37 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "כל הזמן",
     "de": "gesamter Zeitraum",
     "fr": "toute la période",
+  },
+  "yesterday": {
+    "en": "yesterday",
+    "es": "ayer",
+    "he": "אתמול",
+    "de": "gestern",
+    "fr": "hier",
+  },
+  // Hours left, inside a recovery ring (very little room).
+  "hLeft": {
+    "en": "{n}h",
+    "es": "{n}h",
+    "he": "{n}ש׳",
+    "de": "{n}h",
+    "fr": "{n}h",
+  },
+  // Weight units as shown. Hebrew gets Hebrew labels so the number and its
+  // unit stay together in an RTL line.
+  "kg": {
+    "en": "kg",
+    "es": "kg",
+    "he": "ק״ג",
+    "de": "kg",
+    "fr": "kg",
+  },
+  "lbs": {
+    "en": "lbs",
+    "es": "lbs",
+    "he": "ליב׳",
+    "de": "lbs",
+    "fr": "lbs",
   },
 };
 
@@ -507,7 +538,7 @@ _Rec _recOf(String lang, int? minutes, bool dark) {
         text: dark ? red : const Color(0xFFB42318),
         label: _tr(lang, 'recovering'),
         frac: m / 2880,
-        center: '${hoursLeft}h',
+        center: _tr(lang, 'hLeft', n: hoursLeft),
         ready: false);
   }
   if (m < 2880) {
@@ -516,7 +547,7 @@ _Rec _recOf(String lang, int? minutes, bool dark) {
         text: dark ? orange : const Color(0xFF9A5206),
         label: _tr(lang, 'almostReady'),
         frac: m / 2880,
-        center: '${hoursLeft}h',
+        center: _tr(lang, 'hLeft', n: hoursLeft),
         ready: false);
   }
   if (m < 10080) {
@@ -543,10 +574,23 @@ String _lastTrainedText(String lang, int? minutes) {
   String ago;
   if (m < 60) {
     ago = _tr(lang, 'minAgo', n: m);
-  } else if (m < 1440) {
-    ago = _tr(lang, 'hoursAgo', n: m ~/ 60);
   } else {
-    ago = _tr(lang, 'daysAgo', n: m ~/ 1440);
+    // Calendar days, not 24h blocks: trained Thursday evening and opened
+    // Sunday noon is "3 days ago", not 2.
+    final DateTime now = DateTime.now();
+    final DateTime last = now.subtract(Duration(minutes: m));
+    final int days = (DateTime(now.year, now.month, now.day)
+                .difference(DateTime(last.year, last.month, last.day))
+                .inHours /
+            24)
+        .round();
+    if (days <= 0) {
+      ago = _tr(lang, 'hoursAgo', n: m ~/ 60);
+    } else if (days == 1) {
+      ago = _tr(lang, 'yesterday');
+    } else {
+      ago = _tr(lang, 'daysAgo', n: days);
+    }
   }
   if (m < 2880) {
     final int hoursLeft = ((2880 - m) / 60).ceil();
@@ -1132,6 +1176,10 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
       }
     }
     final bool hasChart = d.sessionVolumes.length >= 2 && d.volume > 0;
+    // The chart axis stays LTR, but each date label is read in the app's
+    // direction ("19 במאי", not "במאי 19").
+    final ui.TextDirection labelDir =
+        _kRtl.contains(_lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1147,7 +1195,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
             children: [
               Expanded(
                 child: _tile(ctx, p, _tr(_lang, 'total'), _compact(d.volume),
-                    unit: _showKg ? 'kg' : 'lbs'),
+                    unit: _tr(_lang, _showKg ? 'kg' : 'lbs')),
               ),
               const SizedBox(width: 8),
               Expanded(child: _tile(ctx, p, _tr(_lang, 'sets'), '${d.sets}')),
@@ -1188,9 +1236,11 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(_mShortDate(_lang, d.firstDate),
+                            textDirection: labelDir,
                             style: _ms(
                                 ctx, 11, FontWeight.w400, p.th.secondaryText)),
                         Text(_mShortDate(_lang, d.lastDate),
+                            textDirection: labelDir,
                             style: _ms(
                                 ctx, 11, FontWeight.w400, p.th.secondaryText)),
                       ],

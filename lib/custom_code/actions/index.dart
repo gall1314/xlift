@@ -181,3 +181,4 @@ export 'update_workout_template.dart' show updateWorkoutTemplate;
 export 'update_workout_complete.dart' show updateWorkoutComplete;
 export 'load_workout_analysis_state.dart' show loadWorkoutAnalysisState;
 export 'remove_analysis_from_state.dart' show removeAnalysisFromState;
+export 'delete_workout_complete.dart' show deleteWorkoutComplete;

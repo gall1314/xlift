@@ -92,7 +92,8 @@ class _CompareSelectWidgetState extends State<CompareSelectWidget> {
             compareMode: true,
             excludeWorkoutLogId: widget.workoutLogAId,
             onWorkoutTap: (workoutLogId) async {},
-            onMenuTap: (workoutLogId) async {},
+            onEdit: (workoutLogId) async {},
+            onDelete: (workoutLogId) async {},
             onLockedTap: () async {},
             onCompare: (workoutLogId) async {
               context.pushNamed(

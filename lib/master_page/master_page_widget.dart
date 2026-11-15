@@ -4,9 +4,9 @@ import '/components/analyze2_app_after_widget.dart';
 import '/components/bottom_sheet_no_free_left_widget.dart';
 import '/components/create_workout_bottom_widget.dart';
 import '/components/delete_alert_widget.dart';
+import '/components/delete_workout_log_widget.dart';
 import '/components/discard_and_start_new_widget.dart';
 import '/components/discard_workout_widget.dart';
-import '/components/edit_delte2_widget.dart';
 import '/components/line_graph_place_holder_widget.dart';
 import '/components/pie_graph_place_holder_widget.dart';
 import '/flutter_flow/flutter_flow_charts.dart';
@@ -20,7 +20,6 @@ import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
 import '/flutter_flow/revenue_cat_util.dart' as revenue_cat;
 import '/index.dart';
-import 'package:aligned_dialog/aligned_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -429,19 +428,29 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                     }.withoutNulls,
                                   );
                                 },
-                                onMenuTap: (workoutLogId) async {
-                                  await showAlignedDialog(
+                                onEdit: (workoutLogId) async {
+                                  context.pushNamed(
+                                    WorkoutLogEditV2Widget.routeName,
+                                    queryParameters: {
+                                      'workoutLogId': serializeParam(
+                                        workoutLogId,
+                                        ParamType.String,
+                                      ),
+                                    }.withoutNulls,
+                                  );
+                                },
+                                onDelete: (workoutLogId) async {
+                                  await showDialog(
                                     context: context,
-                                    isGlobal: false,
-                                    avoidOverflow: false,
-                                    targetAnchor: AlignmentDirectional(0.0, 0.0)
-                                        .resolve(Directionality.of(context)),
-                                    followerAnchor: AlignmentDirectional(
-                                            0.0, 0.0)
-                                        .resolve(Directionality.of(context)),
                                     builder: (dialogContext) {
-                                      return Material(
-                                        color: Colors.transparent,
+                                      return Dialog(
+                                        elevation: 0,
+                                        insetPadding: EdgeInsets.zero,
+                                        backgroundColor: Colors.transparent,
+                                        alignment:
+                                            AlignmentDirectional(0.0, 0.0)
+                                                .resolve(
+                                                    Directionality.of(context)),
                                         child: GestureDetector(
                                           onTap: () {
                                             FocusScope.of(dialogContext)
@@ -449,7 +458,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                             FocusManager.instance.primaryFocus
                                                 ?.unfocus();
                                           },
-                                          child: EditDelte2Widget(
+                                          child: DeleteWorkoutLogWidget(
                                             workoutLogId: workoutLogId,
                                           ),
                                         ),

@@ -31,10 +31,10 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 ///
 /// Parameters: userId                  - current user id (auth) languageCode
 /// - app language code (Global Properties → Current Language) initialTab - 0
-/// Workouts, 1 Templates, 2 Exercises canGenerate - false = Generate is shown
-/// locked and taps call onOpenPremium instead (null = true) onStartWorkout -
-/// (workoutId) onEditWorkout - (workoutId, workoutName) onDeleteWorkout -
-/// (workoutId)  widget reloads afterwards onOpenTemplate          -
+/// Workouts, 1 Templates, 2 Exercises canGenerate - no longer used: the
+/// header button opens the create sheet through onCreateWorkout
+/// onStartWorkout - (workoutId) onEditWorkout - (workoutId, workoutName)
+/// onDeleteWorkout - (workoutId)  widget reloads afterwards onOpenTemplate -
 /// (GetWorkoutTemplateRow, workoutId) onUseTemplate - (GetWorkoutTemplateRow,
 /// workoutId) widget reloads afterwards onOpenExercise          -
 /// (exerciseId, isPublic) onCreateWorkout         - the existing create
@@ -117,19 +117,29 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Bibliothek",
     "fr": "Bibliothèque",
   },
-  "custom": {
-    "en": "Custom",
-    "es": "Personalizado",
-    "he": "מותאם אישית",
-    "de": "Eigene",
-    "fr": "Personnalisé",
+  // Header button on the Exercises tab.
+  "createExercise": {
+    "en": "Create",
+    "es": "Crear",
+    "he": "יצירת תרגיל",
+    "de": "Erstellen",
+    "fr": "Créer",
   },
-  "generate": {
-    "en": "Generate",
-    "es": "Generar",
-    "he": "צור אימון",
-    "de": "Generieren",
-    "fr": "Générer",
+  // Section title above the user's own exercises.
+  "myExercises": {
+    "en": "My exercises",
+    "es": "Mis ejercicios",
+    "he": "התרגילים שלי",
+    "de": "Meine Übungen",
+    "fr": "Mes exercices",
+  },
+  // Header button on the Workouts / Templates tabs (opens the create sheet).
+  "createWorkout": {
+    "en": "Create",
+    "es": "Crear",
+    "he": "יצירת אימון",
+    "de": "Erstellen",
+    "fr": "Créer",
   },
   "workouts": {
     "en": "Workouts",
@@ -197,14 +207,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "chooseMuscleGroup": {
     "en": "Choose muscle group",
     "es": "Elige grupo muscular",
-    "he": "בחר קבוצת שרירים",
+    "he": "בחירת קבוצת שרירים",
     "de": "Muskelgruppe wählen",
     "fr": "Choisir un groupe musculaire",
   },
   "chooseMuscle": {
     "en": "Choose muscle",
     "es": "Elige músculo",
-    "he": "בחר שריר",
+    "he": "בחירת שריר",
     "de": "Muskel wählen",
     "fr": "Choisir un muscle",
   },
@@ -232,14 +242,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "start": {
     "en": "Start",
     "es": "Empezar",
-    "he": "התחל",
+    "he": "התחלה",
     "de": "Start",
     "fr": "Démarrer",
   },
   "use": {
     "en": "Use",
     "es": "Usar",
-    "he": "השתמש",
+    "he": "שימוש",
     "de": "Nutzen",
     "fr": "Utiliser",
   },
@@ -267,14 +277,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "createOneBelow": {
     "en": "Create one below, or start from a template.",
     "es": "Crea uno abajo o empieza desde una plantilla.",
-    "he": "צור אחד למטה, או התחל מתבנית.",
+    "he": "אפשר ליצור אחד למטה, או להתחיל מתבנית.",
     "de": "Erstelle eines unten oder starte mit einer Vorlage.",
     "fr": "Créez-en un ci-dessous ou partez d'un modèle.",
   },
   "tryAnother": {
     "en": "Try another muscle or clear the search.",
     "es": "Prueba otro músculo o borra la búsqueda.",
-    "he": "נסה שריר אחר או נקה את החיפוש.",
+    "he": "נסו שריר אחר או נקו את החיפוש.",
     "de": "Versuche einen anderen Muskel oder lösche die Suche.",
     "fr": "Essayez un autre muscle ou effacez la recherche.",
   },
@@ -396,6 +406,143 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "טעינת הספרייה נכשלה",
     "de": "Bibliothek konnte nicht geladen werden",
     "fr": "Échec du chargement de la bibliothèque",
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Equipment names. The catalog stores the English value; the key here is that
+// value in lower case. A value missing from the table is shown as stored.
+// ---------------------------------------------------------------------------
+const Map<String, Map<String, String>> _kEquipment = {
+  "bodyweight": {
+    "en": "Bodyweight",
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps",
+  },
+  "barbell": {
+    "en": "Barbell",
+    "es": "Barra",
+    "he": "מוט",
+    "de": "Langhantel",
+    "fr": "Barre",
+  },
+  "dumbbell": {
+    "en": "Dumbbell",
+    "es": "Mancuerna",
+    "he": "משקולת",
+    "de": "Kurzhantel",
+    "fr": "Haltère",
+  },
+  "machine": {
+    "en": "Machine",
+    "es": "Máquina",
+    "he": "מכונה",
+    "de": "Maschine",
+    "fr": "Machine",
+  },
+  "cable": {
+    "en": "Cable",
+    "es": "Polea",
+    "he": "כבל",
+    "de": "Kabelzug",
+    "fr": "Poulie",
+  },
+  "bench": {
+    "en": "Bench",
+    "es": "Banco",
+    "he": "ספסל",
+    "de": "Bank",
+    "fr": "Banc",
+  },
+  "plate": {
+    "en": "Plate",
+    "es": "Disco",
+    "he": "פלטה",
+    "de": "Scheibe",
+    "fr": "Disque",
+  },
+  "kettlebell": {
+    "en": "Kettlebell",
+    "es": "Kettlebell",
+    "he": "קטלבל",
+    "de": "Kettlebell",
+    "fr": "Kettlebell",
+  },
+  "trap bar": {
+    "en": "Trap Bar",
+    "es": "Barra hexagonal",
+    "he": "טראפ בר",
+    "de": "Trap Bar",
+    "fr": "Trap bar",
+  },
+  "smith machine": {
+    "en": "Smith Machine",
+    "es": "Máquina Smith",
+    "he": "מכונת סמית׳",
+    "de": "Smith-Maschine",
+    "fr": "Smith machine",
+  },
+  "resistance band": {
+    "en": "Resistance Band",
+    "es": "Banda elástica",
+    "he": "גומייה",
+    "de": "Widerstandsband",
+    "fr": "Élastique",
+  },
+  "sled": {
+    "en": "Sled",
+    "es": "Trineo",
+    "he": "מזחלת",
+    "de": "Schlitten",
+    "fr": "Traîneau",
+  },
+  "medicine ball": {
+    "en": "Medicine Ball",
+    "es": "Balón medicinal",
+    "he": "כדור כוח",
+    "de": "Medizinball",
+    "fr": "Médecine-ball",
+  },
+  "jump rope": {
+    "en": "Jump Rope",
+    "es": "Comba",
+    "he": "חבל קפיצה",
+    "de": "Springseil",
+    "fr": "Corde à sauter",
+  },
+  "battle ropes": {
+    "en": "Battle Ropes",
+    "es": "Cuerdas de batalla",
+    "he": "חבלי קרב",
+    "de": "Battle Ropes",
+    "fr": "Cordes ondulatoires",
+  },
+};
+
+// Template levels, keyed by the stored value in lower case.
+const Map<String, Map<String, String>> _kLevels = {
+  "beginner": {
+    "en": "Beginner",
+    "es": "Principiante",
+    "he": "מתחילים",
+    "de": "Anfänger",
+    "fr": "Débutant",
+  },
+  "intermediate": {
+    "en": "Intermediate",
+    "es": "Intermedio",
+    "he": "בינוניים",
+    "de": "Mittelstufe",
+    "fr": "Intermédiaire",
+  },
+  "advanced": {
+    "en": "Advanced",
+    "es": "Avanzado",
+    "he": "מתקדמים",
+    "de": "Fortgeschritten",
+    "fr": "Avancé",
   },
 };
 
@@ -672,15 +819,55 @@ class _LibraryViewState extends State<LibraryView> {
     }
   }
 
+  /// Whole calendar days between two local dates (rounded, so a DST shift
+  /// never drops a day).
+  static int _calendarDays(DateTime from, DateTime to) {
+    final a = DateTime(from.year, from.month, from.day);
+    final b = DateTime(to.year, to.month, to.day);
+    return (b.difference(a).inHours / 24).round();
+  }
+
   String _ago(DateTime? dt) {
     if (dt == null) return _t('neverDone');
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return _t('doneJustNow');
-    if (diff.inHours < 24) return _t('doneHoursAgo', n: diff.inHours);
-    if (diff.inDays == 1) return _t('doneYesterday');
-    if (diff.inDays < 7) return _t('doneDaysAgo', n: diff.inDays);
-    if (diff.inDays < 14) return _t('doneLastDay', d: _dayName(dt));
-    return _t('doneWeeksAgo', n: (diff.inDays / 7).floor());
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    // Calendar days, not 24h blocks: a workout on Friday evening is
+    // "2 days ago" on Sunday noon, not "yesterday".
+    final days = _calendarDays(dt, now);
+    if (days <= 0) {
+      if (diff.inMinutes < 60) return _t('doneJustNow');
+      return _t('doneHoursAgo', n: diff.inHours);
+    }
+    if (days == 1) return _t('doneYesterday');
+    if (days < 7) return _t('doneDaysAgo', n: days);
+    if (days < 14) {
+      // Hebrew short day names already start with "יום"; the phrase adds
+      // its own ("ביום ג׳ שעבר", not "ביום יום ג׳ שעבר").
+      var d = _dayName(dt);
+      if (_lang == 'he' && d.startsWith('יום ')) d = d.substring(4);
+      return _t('doneLastDay', d: d);
+    }
+    return _t('doneWeeksAgo', n: days ~/ 7);
+  }
+
+  /// Equipment as shown. The catalog stores English values ("Barbell",
+  /// "Smith Machine"); a comma-separated list is translated part by part and
+  /// an unknown value is shown as stored.
+  String _equipmentLabel(String raw) {
+    return raw
+        .split(',')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .map((p) {
+      final m = _kEquipment[p.toLowerCase()];
+      return m == null ? _cap(p) : (m[_lang] ?? m['en'] ?? _cap(p));
+    }).join(', ');
+  }
+
+  /// Template level as shown ("Beginner" -> "מתחילים").
+  String _levelLabel(String level) {
+    final m = _kLevels[level.trim().toLowerCase()];
+    return m == null ? level : (m[_lang] ?? m['en'] ?? level);
   }
 
   /// Top primary muscle groups by how many exercises hit them.
@@ -1008,7 +1195,8 @@ class _LibraryViewState extends State<LibraryView> {
     final d = _data;
     if (d == null) return const [];
     return d.templates
-        .where((t) => _textMatch([t.name, t.level, ...t.muscles]))
+        .where((t) =>
+            _textMatch([t.name, t.level, _levelLabel(t.level), ...t.muscles]))
         .where((t) => _muscleMatch(t.refs))
         .where((t) => !applyFc || !_fcOnly || t.fcCount > 0)
         .toList();
@@ -1023,6 +1211,7 @@ class _LibraryViewState extends State<LibraryView> {
               e.name,
               e.nameEn,
               e.equipment,
+              _equipmentLabel(e.equipment),
               for (final m in e.muscles) m.mgName
             ]))
         .where((e) => _muscleMatch(e.primary))
@@ -1456,28 +1645,23 @@ class _LibraryViewState extends State<LibraryView> {
     if (_tab == 2) {
       return _pillButton(
         icon: Icons.add_rounded,
-        label: _t('custom'),
+        label: _t('createExercise'),
         bg: _card,
         fg: _ink,
         onTap: () => widget.onCreateCustomExercise?.call(),
       );
     }
-    if (!(widget.canGenerate ?? true)) {
-      // Locked: quota used up on the free tier. Tap opens the paywall.
-      return _pillButton(
-        icon: Icons.lock_rounded,
-        label: _t('generate'),
-        bg: _cardSub,
-        fg: _inkMuted,
-        onTap: () => widget.onOpenPremium?.call(),
-      );
-    }
+    // Workouts / Templates: one "create" entry that opens the manual-or-AI
+    // bottom sheet, the same one Home opens. The sheet shows the AI quota
+    // itself, so there is no locked state here any more. canGenerate,
+    // onGenerateWorkout and onOpenPremium stay as parameters so the page
+    // wiring keeps compiling; this button no longer uses them.
     return _pillButton(
-      icon: Icons.auto_awesome_rounded,
-      label: _t('generate'),
+      icon: Icons.add_rounded,
+      label: _t('createWorkout'),
       bg: _accentTint,
       fg: _accentDeep,
-      onTap: () => widget.onGenerateWorkout?.call(),
+      onTap: () => widget.onCreateWorkout?.call(),
     );
   }
 
@@ -1827,7 +2011,7 @@ class _LibraryViewState extends State<LibraryView> {
     }
 
     final sections = <MapEntry<String, List<_ExerciseItem>>>[];
-    if (custom.isNotEmpty) sections.add(MapEntry(_t('custom'), custom));
+    if (custom.isNotEmpty) sections.add(MapEntry(_t('myExercises'), custom));
     for (final g in d.primaryGroups) {
       final items = byGroup[g.id];
       if (items != null && items.isNotEmpty)
@@ -1920,7 +2104,7 @@ class _LibraryViewState extends State<LibraryView> {
   Widget _templateRow(_TemplateItem t) {
     final busy = _busyTemplate == t.key;
     final meta = <String>[
-      if (t.level.isNotEmpty) t.level,
+      if (t.level.isNotEmpty) _levelLabel(t.level),
       _t('minutes', n: t.estMinutes),
       _t('exercisesCount', n: t.exerciseCount),
     ].join(' · ');
@@ -1968,7 +2152,7 @@ class _LibraryViewState extends State<LibraryView> {
   Widget _exerciseRow(_ExerciseItem e) {
     final prim = e.primary.map((m) => m.mgName).where((s) => s.isNotEmpty);
     final sub = <String>[
-      if (e.equipment.isNotEmpty) _cap(e.equipment),
+      if (e.equipment.isNotEmpty) _equipmentLabel(e.equipment),
       if (prim.isNotEmpty) prim.take(2).join(', '),
     ].join(' · ');
     return GestureDetector(

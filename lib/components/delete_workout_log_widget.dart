@@ -1,7 +1,7 @@
-import '/backend/sqlite/sqlite_manager.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
+import '/custom_code/actions/index.dart' as actions;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'delete_workout_log_model.dart';
@@ -181,11 +181,8 @@ class _DeleteWorkoutLogWidgetState extends State<DeleteWorkoutLogWidget> {
                     ),
                     FFButtonWidget(
                       onPressed: () async {
-                        await SQLiteManager.instance.deleteWorkoutLog(
-                          workoutLogId: widget.workoutLogId!,
-                        );
-                        await SQLiteManager.instance.deleteSetLogs(
-                          workoutLogId: widget.workoutLogId!,
+                        await actions.deleteWorkoutComplete(
+                          widget.workoutLogId!,
                         );
                         Navigator.pop(context);
                       },

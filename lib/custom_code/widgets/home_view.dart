@@ -164,7 +164,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "buildFirst": {
     "en": "Build your first\nworkout",
     "es": "Crea tu primer\nentrenamiento",
-    "he": "בנה את האימון\nהראשון שלך",
+    "he": "יצירת האימון\nהראשון שלך",
     "de": "Erstelle dein erstes\nWorkout",
     "fr": "Créez votre premier\nentraînement",
   },
@@ -173,7 +173,8 @@ const Map<String, Map<String, String>> _kStrings = {
         "Pick exercises yourself, let the AI build one, or start from a ready-made template.",
     "es":
         "Elige los ejercicios tú mismo, deja que la IA lo cree o empieza desde una plantilla.",
-    "he": "בחר תרגילים בעצמך, תן ל-AI לבנות אימון, או התחל מתבנית מוכנה.",
+    "he":
+        "אפשר לבחור תרגילים לבד, לתת ל-AI לבנות אימון, או להתחיל מתבנית מוכנה.",
     "de":
         "Wähle Übungen selbst, lass die KI eines erstellen oder starte mit einer Vorlage.",
     "fr":
@@ -182,7 +183,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "createWorkout": {
     "en": "Create workout",
     "es": "Crear entrenamiento",
-    "he": "צור אימון",
+    "he": "יצירת אימון",
     "de": "Workout erstellen",
     "fr": "Créer un entraînement",
   },
@@ -231,7 +232,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "startWorkout": {
     "en": "Start workout",
     "es": "Empezar entrenamiento",
-    "he": "התחל אימון",
+    "he": "התחלת אימון",
     "de": "Workout starten",
     "fr": "Démarrer l'entraînement",
   },
@@ -245,21 +246,21 @@ const Map<String, Map<String, String>> _kStrings = {
   "unlimitedFilm": {
     "en": "Unlimited · film a set with the camera below",
     "es": "Ilimitado · graba una serie con la cámara de abajo",
-    "he": "ללא הגבלה · צלם סט עם המצלמה למטה",
+    "he": "ללא הגבלה · צלמו סט עם המצלמה למטה",
     "de": "Unbegrenzt · filme einen Satz mit der Kamera unten",
     "fr": "Illimité · filmez une série avec la caméra ci-dessous",
   },
   "leftFilm": {
     "en": "{n} of {m} free this month · film a set below",
     "es": "{n} de {m} gratis este mes · graba una serie abajo",
-    "he": "{n} מתוך {m} חינם החודש · צלם סט למטה",
+    "he": "{n} מתוך {m} חינם החודש · צלמו סט למטה",
     "de": "{n} von {m} gratis diesen Monat · filme einen Satz unten",
     "fr": "{n} sur {m} gratuits ce mois-ci · filmez une série ci-dessous",
   },
   "unlimitedReview": {
     "en": "Unlimited · tap to review",
     "es": "Ilimitado · toca para revisar",
-    "he": "ללא הגבלה · הקש לצפייה",
+    "he": "ללא הגבלה · הקישו לצפייה",
     "de": "Unbegrenzt · zum Ansehen tippen",
     "fr": "Illimité · touchez pour revoir",
   },
@@ -301,7 +302,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "planDone": {
     "en": "Done for today · up next",
     "es": "Hecho por hoy · siguiente",
-    "he": "בוצע היום · הבא בתור",
+    "he": "התאמנת היום · הבא בתור",
     "de": "Heute erledigt · als Nächstes",
     "fr": "Fait pour aujourd'hui · à suivre",
   },
@@ -357,14 +358,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "kgVolume": {
     "en": "kg volume",
     "es": "kg volumen",
-    "he": 'ק"ג נפח',
+    "he": "ק״ג נפח",
     "de": "kg Volumen",
     "fr": "kg volume",
   },
   "lbsVolume": {
     "en": "lbs volume",
     "es": "lbs volumen",
-    "he": "lbs נפח",
+    "he": "ליב׳ נפח",
     "de": "lbs Volumen",
     "fr": "lbs volume",
   },
@@ -420,7 +421,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "startFromTemplate": {
     "en": "Start from a template",
     "es": "Empieza desde una plantilla",
-    "he": "התחל מתבנית",
+    "he": "התחלה מתבנית",
     "de": "Mit einer Vorlage starten",
     "fr": "Partir d'un modèle",
   },
@@ -434,7 +435,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "start": {
     "en": "Start",
     "es": "Empezar",
-    "he": "התחל",
+    "he": "התחלה",
     "de": "Start",
     "fr": "Démarrer",
   },
@@ -521,6 +522,44 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "טעינת מסך הבית נכשלה",
     "de": "Startseite konnte nicht geladen werden",
     "fr": "Échec du chargement de l'accueil",
+  },
+  // Short quota line for the half-width form-check tile.
+  "leftShort": {
+    "en": "{n}/{m} free this month",
+    "es": "{n}/{m} gratis este mes",
+    "he": "{n}/{m} חינם החודש",
+    "de": "{n}/{m} gratis im Monat",
+    "fr": "{n}/{m} gratuits ce mois",
+  },
+  "unlimited": {
+    "en": "Unlimited",
+    "es": "Ilimitado",
+    "he": "ללא הגבלה",
+    "de": "Unbegrenzt",
+    "fr": "Illimité",
+  },
+  // Weight units as shown. Hebrew gets Hebrew labels: a Latin "kg" inside
+  // an RTL line reorders the numbers around it.
+  "kg": {
+    "en": "kg",
+    "es": "kg",
+    "he": "ק״ג",
+    "de": "kg",
+    "fr": "kg",
+  },
+  "lbs": {
+    "en": "lbs",
+    "es": "lbs",
+    "he": "ליב׳",
+    "de": "lbs",
+    "fr": "lbs",
+  },
+  "minShort": {
+    "en": "{n}m",
+    "es": "{n} min",
+    "he": "{n} דק׳",
+    "de": "{n} Min.",
+    "fr": "{n} min",
   },
 };
 
@@ -1000,11 +1039,14 @@ class _HomeViewState extends State<HomeView> {
     }
 
     // --- last form score ---
+    // Joined to workout_log so an analysis left behind by a deleted workout
+    // is not shown (it has no workout to open).
     _LastScore? lastScore;
     final aRows = await db.rawQuery('''
       SELECT sa.set_log_id, sa.score, sa.analyzed_at, e.name
       FROM set_analysis sa
       JOIN set_log s        ON s.id = sa.set_log_id
+      JOIN workout_log wl   ON wl.id = s.workout_log_id
       LEFT JOIN exercise e  ON e.id = s.exercise_id
       WHERE s.user_id = ?
       ORDER BY sa.analyzed_at DESC LIMIT 1
@@ -1060,15 +1102,35 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
+  /// Whole calendar days between two local dates (rounded, so a DST shift
+  /// never drops a day).
+  static int _calendarDays(DateTime from, DateTime to) {
+    final a = DateTime(from.year, from.month, from.day);
+    final b = DateTime(to.year, to.month, to.day);
+    return (b.difference(a).inHours / 24).round();
+  }
+
   String _ago(DateTime? dt) {
     if (dt == null) return _t('neverDone');
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return _t('justNow');
-    if (diff.inHours < 24) return _t('hoursAgo', n: diff.inHours);
-    if (diff.inDays == 1) return _t('yesterday');
-    if (diff.inDays < 7) return _t('daysAgo', n: diff.inDays);
-    if (diff.inDays < 14) return _t('lastDay', d: _dayAbbrev(dt));
-    return _t('weeksAgo', n: (diff.inDays / 7).floor());
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    // Calendar days, not 24h blocks: a workout on Friday evening is
+    // "2 days ago" on Sunday noon, not "yesterday".
+    final days = _calendarDays(dt, now);
+    if (days <= 0) {
+      if (diff.inMinutes < 60) return _t('justNow');
+      return _t('hoursAgo', n: diff.inHours);
+    }
+    if (days == 1) return _t('yesterday');
+    if (days < 7) return _t('daysAgo', n: days);
+    if (days < 14) {
+      // Hebrew short day names already start with "יום"; the phrase adds
+      // its own ("ביום ג׳ שעבר", not "ביום יום ג׳ שעבר").
+      var d = _dayAbbrev(dt);
+      if (_lang == 'he' && d.startsWith('יום ')) d = d.substring(4);
+      return _t('lastDay', d: d);
+    }
+    return _t('weeksAgo', n: days ~/ 7);
   }
 
   String _dayShort(DateTime dt) {
@@ -1111,9 +1173,9 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  static String _duration(int sec) {
+  String _duration(int sec) {
     final h = sec ~/ 3600, m = (sec % 3600) ~/ 60;
-    if (h == 0) return '${m}m';
+    if (h == 0) return _t('minShort', n: m);
     return '$h:${m.toString().padLeft(2, '0')}';
   }
 
@@ -1492,7 +1554,15 @@ class _HomeViewState extends State<HomeView> {
               style: _body(13, color: tint, w: FontWeight.w600),
             ),
             const SizedBox(width: 2),
-            Icon(Icons.chevron_right_rounded, size: 18, color: tint),
+            Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Icon(
+                  _isRtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 18,
+                  color: tint),
+            ),
           ],
         ),
       ),
@@ -1611,11 +1681,11 @@ class _HomeViewState extends State<HomeView> {
   Widget _formTile(_HomeData d) {
     final left = _kFreeMonthlyLimit - _usedThisMonth;
     final ls = d.lastScore;
+    // One short line: the half-width tile has no room for the long wording
+    // (it was cut off with an ellipsis).
     final String quota = _premium
-        ? (ls == null ? _t('unlimitedFilm') : _t('unlimitedReview'))
-        : (ls == null
-            ? _t('leftFilm', n: left, m: _kFreeMonthlyLimit)
-            : _t('leftChecks', n: left, m: _kFreeMonthlyLimit));
+        ? _t('unlimited')
+        : _t('leftShort', n: left, m: _kFreeMonthlyLimit);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: ls == null ? null : () => _openLastAnalysis(ls.setLogId),
@@ -1836,7 +1906,7 @@ class _HomeViewState extends State<HomeView> {
                     children: [
                       TextSpan(
                           text:
-                              '${_duration(l.durationSec)} · ${_kg(l.volume)} ${_showKg ? 'kg' : 'lbs'} · ${_t('setsCount', n: l.sets)}'),
+                              '${_duration(l.durationSec)} · ${_kg(l.volume)} ${_t(_showKg ? 'kg' : 'lbs')} · ${_t('setsCount', n: l.sets)}'),
                       if (l.prCount > 0)
                         TextSpan(
                           text: ' · $prText',
@@ -2039,12 +2109,17 @@ class _HomeViewState extends State<HomeView> {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(
-                _isRtl
-                    ? Icons.chevron_left_rounded
-                    : Icons.chevron_right_rounded,
-                size: 22,
-                color: _inkMuted),
+            // Chevron icons mirror themselves in RTL; forcing LTR means the
+            // one chosen here is the one drawn.
+            Directionality(
+              textDirection: ui.TextDirection.ltr,
+              child: Icon(
+                  _isRtl
+                      ? Icons.chevron_left_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 22,
+                  color: _inkMuted),
+            ),
           ],
         ),
       ),
@@ -2087,12 +2162,15 @@ class _HomeViewState extends State<HomeView> {
             children: [
               Text(text,
                   style: _body(12, color: _inkMuted, w: FontWeight.w500)),
-              Icon(
-                  _isRtl
-                      ? Icons.chevron_left_rounded
-                      : Icons.chevron_right_rounded,
-                  size: 16,
-                  color: _inkMuted),
+              Directionality(
+                textDirection: ui.TextDirection.ltr,
+                child: Icon(
+                    _isRtl
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 16,
+                    color: _inkMuted),
+              ),
             ],
           ),
         ),

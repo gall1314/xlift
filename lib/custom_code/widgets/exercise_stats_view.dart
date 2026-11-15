@@ -226,7 +226,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "show": {
     "en": "Show {r}",
     "es": "Mostrar {r}",
-    "he": "הצג {r}",
+    "he": "הצגת {r}",
     "de": "{r} anzeigen",
     "fr": "Afficher {r}",
   },
@@ -240,7 +240,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "finishToSee": {
     "en": "Finish a workout and your progress will show up here.",
     "es": "Termina un entrenamiento y tu progreso aparecerá aquí.",
-    "he": "סיים אימון וההתקדמות שלך תופיע כאן.",
+    "he": "סיימו אימון וההתקדמות תופיע כאן.",
     "de": "Beende ein Workout und dein Fortschritt erscheint hier.",
     "fr": "Terminez un entraînement et vos progrès apparaîtront ici.",
   },
@@ -470,7 +470,10 @@ List<_ExStat> _aggregate(String lang, List<Map<String, Object?>> rows) {
     // 0 = weighted (est. 1RM), 1 = reps, 2 = timed
     final int kind = allTimed ? 2 : ((assisted || allNoWeight) ? 1 : 0);
     final bool useLbs = kind == 0 && lbsSets * 2 > weightedSets;
-    final String unit = useLbs ? 'lb' : 'kg';
+    // Hebrew gets Hebrew unit labels: a Latin "kg" inside an RTL line
+    // reorders the numbers around it ("kg × 10 303").
+    final String unit =
+        lang == 'he' ? (useLbs ? 'ליב׳' : 'ק״ג') : (useLbs ? 'lb' : 'kg');
 
     final List<String> sessionIds = [];
     final Map<String, double> sessionVal = {};
@@ -886,6 +889,10 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
     final Color deltaColor = p.delta(e.deltaPct);
     final String from = _shortDate(_lang, e.firstDate);
     final String to = e.sessions > 1 ? _shortDate(_lang, e.lastDate) : '';
+    // The chart axis stays LTR, but each date label is read in the app's
+    // direction ("21 במאי", not "במאי 21").
+    final ui.TextDirection labelDir =
+        _kRtl.contains(_lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr;
 
     final Widget content = Column(
       key: ValueKey<int>(e.id),
@@ -968,8 +975,12 @@ class _ExerciseStatsViewState extends State<ExerciseStatsView> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(from, style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
-                    Text(to, style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
+                    Text(from,
+                        textDirection: labelDir,
+                        style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
+                    Text(to,
+                        textDirection: labelDir,
+                        style: _xs(ctx, 11, FontWeight.w500, p.heroSub)),
                   ],
                 ),
               ),
