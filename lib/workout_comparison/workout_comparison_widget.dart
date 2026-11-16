@@ -436,8 +436,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                 valueOrDefault<String>(
                                                   containerWorkoutComparisonRowList
                                                       .firstOrNull
-                                                      ?.diffTotalSets
-                                                      .toString(),
+                                                      ?.diffTotalSetsDisplay,
                                                   '-',
                                                 ),
                                                 style:
@@ -626,8 +625,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                 valueOrDefault<String>(
                                                   containerWorkoutComparisonRowList
                                                       .firstOrNull
-                                                      ?.diffExerciseCount
-                                                      .toString(),
+                                                      ?.diffExerciseCountDisplay,
                                                   '-',
                                                 ),
                                                 style:
@@ -1010,12 +1008,12 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                             child: Padding(
                                               padding: EdgeInsets.all(8.0),
                                               child: Text(
-                                                '${functions.formatCompactNumber(valueOrDefault<double>(
+                                                valueOrDefault<String>(
                                                   containerWorkoutComparisonRowList
-                                                      .firstOrNull?.diffVolume
-                                                      ?.toDouble(),
-                                                  0.0,
-                                                ))}',
+                                                      .firstOrNull
+                                                      ?.diffVolumeDisplay,
+                                                  '-',
+                                                ),
                                                 style:
                                                     FlutterFlowTheme.of(context)
                                                         .labelSmall

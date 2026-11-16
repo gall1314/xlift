@@ -254,6 +254,83 @@ const Map<String, Map<String, String>> _kStrings = {
   },
 };
 
+/// Equipment names. The catalog stores the English value; the key here is
+/// that value in lower case (same names as the Library). A value missing
+/// from the table is shown as stored.
+const Map<String, Map<String, String>> _kEquipment = {
+  "bodyweight": {
+    "es": "Peso corporal",
+    "he": "משקל גוף",
+    "de": "Körpergewicht",
+    "fr": "Poids du corps"
+  },
+  "barbell": {"es": "Barra", "he": "מוט", "de": "Langhantel", "fr": "Barre"},
+  "dumbbell": {
+    "es": "Mancuerna",
+    "he": "משקולת",
+    "de": "Kurzhantel",
+    "fr": "Haltère"
+  },
+  "machine": {
+    "es": "Máquina",
+    "he": "מכונה",
+    "de": "Maschine",
+    "fr": "Machine"
+  },
+  "cable": {"es": "Polea", "he": "כבל", "de": "Kabelzug", "fr": "Poulie"},
+  "bench": {"es": "Banco", "he": "ספסל", "de": "Bank", "fr": "Banc"},
+  "plate": {"es": "Disco", "he": "פלטה", "de": "Scheibe", "fr": "Disque"},
+  "kettlebell": {
+    "es": "Kettlebell",
+    "he": "קטלבל",
+    "de": "Kettlebell",
+    "fr": "Kettlebell"
+  },
+  "trap bar": {
+    "es": "Barra hexagonal",
+    "he": "טראפ בר",
+    "de": "Trap Bar",
+    "fr": "Trap bar"
+  },
+  "smith machine": {
+    "es": "Máquina Smith",
+    "he": "מכונת סמית׳",
+    "de": "Smith-Maschine",
+    "fr": "Smith machine"
+  },
+  "resistance band": {
+    "es": "Banda elástica",
+    "he": "גומייה",
+    "de": "Widerstandsband",
+    "fr": "Élastique"
+  },
+  "sled": {"es": "Trineo", "he": "מזחלת", "de": "Schlitten", "fr": "Traîneau"},
+  "medicine ball": {
+    "es": "Balón medicinal",
+    "he": "כדור כוח",
+    "de": "Medizinball",
+    "fr": "Médecine-ball"
+  },
+  "jump rope": {
+    "es": "Comba",
+    "he": "חבל קפיצה",
+    "de": "Springseil",
+    "fr": "Corde à sauter"
+  },
+  "battle ropes": {
+    "es": "Cuerdas de batalla",
+    "he": "חבלי קרב",
+    "de": "Battle Ropes",
+    "fr": "Cordes ondulatoires"
+  },
+};
+
+String _equipLabel(String lang, String raw) {
+  final String r = raw.trim();
+  if (r.isEmpty || lang == 'en') return r;
+  return _kEquipment[r.toLowerCase()]?[lang] ?? r;
+}
+
 String _tr(String lang, String key) {
   final m = _kStrings[key];
   return m == null ? key : (m[lang] ?? m['en'] ?? key);
@@ -705,9 +782,16 @@ class _ExerciseCardState extends State<ExerciseCard> {
     final int nSets = (_myTemplate()?['sets'] is List)
         ? (_myTemplate()!['sets'] as List).length
         : 0;
+    // "Barbell · 4 sets" / "מוט · 4 סטים". The number is isolated so it stays
+    // next to its word in a right-to-left line; Hebrew says "סט 1" for one.
+    final String setsWord = _tr(lang, nSets == 1 ? 'setOne' : 'sets');
+    final String setsText = (rtl && nSets == 1)
+        ? setsWord + ' \u20661\u2069'
+        : '\u2066' + nSets.toString() + '\u2069 ' + setsWord;
+    final String equipText = _equipLabel(lang, _equipment);
     final String sub = [
-      if (_equipment.trim().isNotEmpty) _equipment.trim(),
-      if (nSets > 0) '$nSets ${_tr(lang, nSets == 1 ? 'setOne' : 'sets')}',
+      if (equipText.isNotEmpty) equipText,
+      if (nSets > 0) setsText,
     ].join(' · ');
 
     Widget item(
@@ -729,12 +813,18 @@ class _ExerciseCardState extends State<ExerciseCard> {
                       labelColor ?? theme.primaryText)),
             ),
             if (chevron)
-              Icon(
-                  rtl
-                      ? Icons.chevron_left_rounded
-                      : Icons.chevron_right_rounded,
-                  size: 22,
-                  color: theme.secondaryText),
+              // chevron icons mirror themselves in a right-to-left context,
+              // which flipped the one chosen here back again; forcing LTR
+              // means the icon picked below is the icon that is drawn
+              Directionality(
+                textDirection: ui.TextDirection.ltr,
+                child: Icon(
+                    rtl
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 22,
+                    color: theme.secondaryText),
+              ),
           ],
         ),
       );
@@ -908,7 +998,9 @@ class _ExerciseCardState extends State<ExerciseCard> {
   Future<void> _openWarmupGenerator(String lang) async {
     // loaded exercise → target weight; bodyweight → optional added weight.
     final bool bodyweight = _isBodyweight;
-    final bool withWeight = !_isTimed;
+    // A template keeps no weights: there the generator asks only how many
+    // warm-up sets (no target weight, no "added weight" switch).
+    final bool withWeight = !_isTimed && !widget.isTemplate;
     final double? suggested = withWeight ? await _suggestTarget() : null;
     if (!mounted) return;
     final res = await showModalBottomSheet<_WarmupChoice>(
@@ -923,7 +1015,9 @@ class _ExerciseCardState extends State<ExerciseCard> {
         isKg: FFAppState().isKg,
         equipKey: _equipKey(_equipment),
         title: localizedName(_nameRaw, lang),
-        subtitle: bodyweight ? _tr(lang, 'bodyweight') : _equipment.trim(),
+        subtitle: bodyweight
+            ? _tr(lang, 'bodyweight')
+            : _equipLabel(lang, _equipment),
         initialWeight: suggested,
         hasExisting: _warmupSets.any(
             (e) => e is Map && _asInt(e['exerciseId']) == widget.exerciseId),
@@ -939,9 +1033,13 @@ class _ExerciseCardState extends State<ExerciseCard> {
     }
     // One generator for everything; the mode travels in the equipment key:
     // 'timed' / 'bodyweight' / 'barbell' | 'smith' | 'machine' | 'dumbbell'.
+    // In a template there is no weight to build from, so every non-timed
+    // exercise uses the reps-only ('bodyweight') plan.
     final String mode = _isTimed
         ? 'timed'
-        : (bodyweight ? 'bodyweight' : _equipKey(_equipment));
+        : ((bodyweight || widget.isTemplate)
+            ? 'bodyweight'
+            : _equipKey(_equipment));
     List<dynamic> out;
     try {
       out = applyWarmupSimpleUnits(

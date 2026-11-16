@@ -182,3 +182,4 @@ export 'load_workout_analysis_state.dart' show loadWorkoutAnalysisState;
 export 'remove_analysis_from_state.dart' show removeAnalysisFromState;
 export 'delete_workout_complete.dart' show deleteWorkoutComplete;
 export 'save_template_as_workout.dart' show saveTemplateAsWorkout;
+export 'load_warmup_sets.dart' show loadWarmupSets;

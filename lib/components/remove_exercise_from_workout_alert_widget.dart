@@ -187,7 +187,6 @@ class _RemoveExerciseFromWorkoutAlertWidgetState
                       FFAppState().exercisesets =
                           _model.remove!.toList().cast<dynamic>();
                       safeSetState(() {});
-                      Navigator.pop(context);
                       await widget.closeBottom?.call();
 
                       safeSetState(() {});

@@ -1186,7 +1186,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           ]),
         );
     Widget dash() =>
-        Text('—', style: _t(ctx, 17, FontWeight.w700, th.secondaryText));
+        Text('-', style: _t(ctx, 17, FontWeight.w700, th.secondaryText));
 
     Widget mid, right;
     final bool hasW = (s.weight ?? 0) > 0;

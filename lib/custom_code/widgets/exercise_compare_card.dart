@@ -27,8 +27,12 @@ import 'package:google_fonts/google_fonts.dart';
 /// no visibility rules needed.
 ///
 /// Columns by kind of session, separated by thin divider lines: - Weighted:
-/// Sets · Volume · Reps · Weight/rep - Bodyweight only: Sets · Reps - Timed:
-/// Sets · Total time · Avg set
+/// Sets · Volume · Reps · Weight/rep - Bodyweight only: Sets · Total reps ·
+/// Avg set · Best set - Timed:           Sets · Total time · Avg set
+///
+/// Bodyweight: total reps IS the volume of the workout (did I do more work
+/// overall), reps per set shows what happened inside each set when the set
+/// count changed, and best set is the most reps in one set.
 ///
 /// Each column: label, value, change vs. the previous session (arrow +
 /// amount), a bar in the column's own color, and the change in %. The bar is
@@ -114,6 +118,20 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Ø Satz",
     "fr": "Moy./série",
   },
+  "totalReps": {
+    "en": "Total reps",
+    "es": "Reps totales",
+    "he": "סה״כ חזרות",
+    "de": "Wdh. gesamt",
+    "fr": "Reps totales",
+  },
+  "bestSet": {
+    "en": "Best set",
+    "es": "Mejor serie",
+    "he": "סט שיא",
+    "de": "Bester Satz",
+    "fr": "Meilleure série",
+  },
   "kg": {
     "en": "kg",
     "es": "kg",
@@ -157,6 +175,7 @@ class _Agg {
   int rows = 0;
   int sets = 0; // drop sets not counted
   int reps = 0; // drop sets counted
+  int maxReps = 0; // most reps in one set
   int timed = 0;
   int bodyweight = 0;
   int seconds = 0;
@@ -166,6 +185,7 @@ class _Agg {
   bool get isTimed => rows > 0 && timed == rows;
   bool get isBodyweight => assisted || (rows > 0 && bodyweight == rows);
   double? get avgWeight => (isBodyweight || reps <= 0) ? null : weighted / reps;
+  double get avgSetReps => sets > 0 ? reps / sets : 0;
   double get avgSetSeconds =>
       seconds / (sets > 0 ? sets : (rows > 0 ? rows : 1));
 }
@@ -319,6 +339,7 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
       a.rows++;
       if (!s.isDrop) a.sets++;
       a.reps += s.reps;
+      if (s.reps > a.maxReps) a.maxReps = s.reps;
       if (s.seconds > 0) {
         a.timed++;
         a.seconds += s.seconds;
@@ -419,7 +440,34 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
       color: _kRepsColor,
     );
 
-    if (c.isBodyweight) return [sets, reps];
+    if (c.isBodyweight) {
+      final bool cmp = p != null && !p.isTimed && p.sets > 0;
+      return [
+        sets,
+        // total reps = the volume of a bodyweight workout
+        _Tile(
+          label: _tr(lang, 'totalReps'),
+          value: '${c.reps}',
+          curr: c.reps.toDouble(),
+          prev: (p != null && !p.isTimed) ? p.reps.toDouble() : null,
+          color: _kVolumeColor,
+        ),
+        _Tile(
+          label: _tr(lang, 'avgSet'),
+          value: _num(c.avgSetReps),
+          curr: _round1(c.avgSetReps),
+          prev: cmp ? _round1(p.avgSetReps) : null,
+          color: _kRepsColor,
+        ),
+        _Tile(
+          label: _tr(lang, 'bestSet'),
+          value: '${c.maxReps}',
+          curr: c.maxReps.toDouble(),
+          prev: cmp ? p.maxReps.toDouble() : null,
+          color: _kWeightColor,
+        ),
+      ];
+    }
 
     final bool sameKind = p != null && !p.isTimed && !p.isBodyweight;
     final double avg = c.avgWeight ?? 0;
@@ -490,8 +538,8 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
 
     final double? prev = t.prev;
     int sign = 0;
-    String change = '–';
-    String percent = '–';
+    String change = '-';
+    String percent = '-';
     if (prev != null) {
       final double diff =
           t.isTime ? (t.curr - prev).roundToDouble() : _round1(t.curr - prev);

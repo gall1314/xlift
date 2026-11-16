@@ -73,14 +73,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "title": {
     "en": "Choose Superset Partner",
     "es": "Elige pareja de superserie",
-    "he": "בחר שותף לסופרסט",
+    "he": "בחירת שותף לסופרסט",
     "de": "Supersatz-Partner wählen",
     "fr": "Choisir le partenaire de superset"
   },
   "subtitle": {
     "en": "Pick one exercise from this workout",
     "es": "Elige un ejercicio de este entrenamiento",
-    "he": "בחר תרגיל אחד מהאימון הזה",
+    "he": "בחרו תרגיל אחד מהאימון הזה",
     "de": "Wähle eine Übung aus diesem Workout",
     "fr": "Choisissez un exercice de cette séance"
   },
@@ -108,7 +108,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "pair": {
     "en": "Pair",
     "es": "Emparejar",
-    "he": "צמד",
+    "he": "צימוד",
     "de": "Koppeln",
     "fr": "Associer"
   },

@@ -1,5 +1,4 @@
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/form_field_controller.dart';
 import '/flutter_flow/instant_timer.dart';
 import '/index.dart';
 import 'exercise_history_widget.dart' show ExerciseHistoryWidget;
@@ -45,19 +44,6 @@ class ExerciseHistoryModel extends FlutterFlowModel<ExerciseHistoryWidget> {
       tabBarController != null ? tabBarController!.index : 0;
   int get tabBarPreviousIndex =>
       tabBarController != null ? tabBarController!.previousIndex : 0;
-
-  // State field(s) for ChoiceChips widget.
-  FormFieldController<List<String>>? choiceChipsValueController;
-  String? get choiceChipsValue =>
-      choiceChipsValueController?.value?.firstOrNull;
-  set choiceChipsValue(String? val) =>
-      choiceChipsValueController?.value = val != null ? [val] : [];
-  // State field(s) for assistedChips widget.
-  FormFieldController<List<String>>? assistedChipsValueController;
-  String? get assistedChipsValue =>
-      assistedChipsValueController?.value?.firstOrNull;
-  set assistedChipsValue(String? val) =>
-      assistedChipsValueController?.value = val != null ? [val] : [];
 
   @override
   void initState(BuildContext context) {}

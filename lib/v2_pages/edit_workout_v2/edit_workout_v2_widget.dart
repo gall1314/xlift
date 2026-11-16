@@ -144,10 +144,10 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy2 = await actions.updateWorkoutTemplate(
-                  widget.workoutId!,
+                  widget.workoutId,
                   workoutName,
                   currentUserUid,
-                  widget.alreadySelceted!.toList(),
+                  widget.alreadySelceted?.toList(),
                   FFAppState().exerciseSetsCreation.toList(),
                   FFAppState().loggedSetsCreation.toList(),
                   FFAppState().dropSetsCreation.toList(),

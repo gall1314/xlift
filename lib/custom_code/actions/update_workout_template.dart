@@ -13,7 +13,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 
 import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'xlift_log_add.dart';
+import 'xlift_log_add.dart' as xlog;
 
 /// Updates an EXISTING workout template in one atomic pass. The workout row
 /// and its id survive; everything under it is wiped and rebuilt from the
@@ -40,7 +40,87 @@ import 'xlift_log_add.dart';
 /// says where the action stopped (stage / failed step), the error, and the
 /// size of every input list; on success what was saved. In FlutterFlow add a
 /// Show Snack Bar action after this one with the JSON path $.message.
+///
+/// ARMOR: every argument is nullable and the whole run sits inside a
+/// try/catch with a 25 second limit, so the Action Output is never empty:
+/// a null argument, an exception or a database call that never returns all
+/// come back as { success: false, message: ... }.
+/// In FlutterFlow tick "Nullable" on every argument of this action.
 Future<dynamic> updateWorkoutTemplate(
+  String? workoutId,
+  String? workoutName,
+  String? userId,
+  List<dynamic>? alreadySelected,
+  List<dynamic>? exerciseSets,
+  List<dynamic>? loggedSets,
+  List<dynamic>? dropSets,
+  List<dynamic>? warmupList,
+  dynamic restDurations,
+) async {
+  // What arrived, before anything can fail.
+  final String received = 'id=' +
+      (workoutId == null
+          ? 'NULL'
+          : (workoutId.trim().isEmpty ? 'EMPTY' : 'ok')) +
+      ' user=' +
+      (userId == null ? 'NULL' : (userId.trim().isEmpty ? 'EMPTY' : 'ok')) +
+      ' selected=' +
+      (alreadySelected == null ? 'NULL' : alreadySelected.length.toString()) +
+      ' exerciseSets=' +
+      (exerciseSets == null ? 'NULL' : exerciseSets.length.toString()) +
+      ' logged=' +
+      (loggedSets == null ? 'NULL' : loggedSets.length.toString()) +
+      ' drops=' +
+      (dropSets == null ? 'NULL' : dropSets.length.toString()) +
+      ' warmups=' +
+      (warmupList == null ? 'NULL' : warmupList.length.toString());
+
+  Map<String, dynamic> armorFail(String what) {
+    return {
+      'success': false,
+      'message': 'updateWorkoutTemplate FAILED | ' +
+          what +
+          ' | last step: ' +
+          _uwtLastStep +
+          ' | ' +
+          received,
+      'workoutId': workoutId ?? '',
+      'name': '',
+      'error': what,
+      'debug': {'lastStep': _uwtLastStep, 'received': received},
+    };
+  }
+
+  _uwtLastStep = 'start';
+  try {
+    final dynamic result = await _updateWorkoutTemplateRun(
+      (workoutId ?? '').trim(),
+      workoutName,
+      (userId ?? '').trim(),
+      alreadySelected ?? <dynamic>[],
+      exerciseSets ?? <dynamic>[],
+      loggedSets ?? <dynamic>[],
+      dropSets,
+      warmupList,
+      restDurations,
+    ).timeout(
+      const Duration(seconds: 25),
+      onTimeout: () => armorFail('TIMEOUT: no answer after 25 seconds'),
+    );
+    if (result is Map) return result;
+    return armorFail('unexpected result: ' + result.toString());
+  } catch (e) {
+    return armorFail(e.runtimeType.toString() + ': ' + e.toString());
+  }
+}
+
+void _uwtLog(String line) => xlog.xliftLogAdd(line);
+
+/// The last step the run reached - read by the armor above when the run
+/// itself cannot report.
+String _uwtLastStep = 'start';
+
+Future<dynamic> _updateWorkoutTemplateRun(
   String workoutId,
   String? workoutName,
   String userId,
@@ -52,6 +132,13 @@ Future<dynamic> updateWorkoutTemplate(
   dynamic restDurations,
 ) async {
   final sw = Stopwatch()..start();
+
+  // Logging must never be the thing that breaks the action.
+  void xliftLogAdd(String line) {
+    try {
+      _uwtLog(line);
+    } catch (_) {}
+  }
 
   String stage = 'init';
   String? failedAt;
@@ -135,6 +222,7 @@ Future<dynamic> updateWorkoutTemplate(
     const Duration dbTimeout = Duration(seconds: 8);
 
     void mark(String step) {
+      _uwtLastStep = step;
       stepsDone.add(step);
       timings[step] = sw.elapsedMilliseconds;
       xliftLogAdd('[TAG] ✓ $step @${sw.elapsedMilliseconds}ms');
@@ -142,6 +230,7 @@ Future<dynamic> updateWorkoutTemplate(
 
     Future<dynamic> guarded(String step, Future<dynamic> Function() fn) async {
       stage = step;
+      _uwtLastStep = step;
       try {
         return await fn().timeout(dbTimeout, onTimeout: () {
           hangSuspect = true;

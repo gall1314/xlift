@@ -52,6 +52,9 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
         _model.simp = await SQLiteManager.instance.getExercisesSimp(
           workoutId: widget.workoutId,
         );
+        _model.warmup = await actions.loadWarmupSets(
+          widget.workoutId,
+        );
         _model.sets = await SQLiteManager.instance.getExerciseSetsForWorkout(
           workoutId: widget.workoutId!,
         );
@@ -70,6 +73,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
         };
         FFAppState().workout = true;
         FFAppState().dropSets = _model.drops!.toList().cast<dynamic>();
+        FFAppState().warmupSets = _model.warmup!.toList().cast<dynamic>();
         safeSetState(() {});
         await actions.initLocalNotifications();
         _model.rest1 = await actions.initializeExerciseRestTimes(

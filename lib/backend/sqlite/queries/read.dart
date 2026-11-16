@@ -3931,7 +3931,27 @@ SELECT
 
   (a.total_sets     - b.total_sets)      AS diff_total_sets,
   (a.exercise_count - b.exercise_count)  AS diff_exercise_count,
-  (a.volume         - b.volume)          AS diff_volume
+  (a.volume         - b.volume)          AS diff_volume,
+
+  /* ----- Diffs as TEXT, ready to show -----
+     Same left-to-right isolate as the duration: in a right-to-left line the
+     minus stays in front of the number ("-13", not "13-").
+     Volume is shortened like the values beside it: 2300 -> "2.3K", 2000 -> "2K". */
+  char(8294) || (a.total_sets - b.total_sets) || char(8297)
+    AS diff_total_sets_display,
+  char(8294) || (a.exercise_count - b.exercise_count) || char(8297)
+    AS diff_exercise_count_display,
+  char(8294)
+    || CASE WHEN a.volume < b.volume THEN '-' ELSE '' END
+    || CASE
+         WHEN ABS(a.volume - b.volume) < 1000
+           THEN CAST(ABS(a.volume - b.volume) AS TEXT)
+         WHEN CAST(ROUND(ABS(a.volume - b.volume) / 100.0) AS INTEGER) % 10 = 0
+           THEN CAST(ROUND(ABS(a.volume - b.volume) / 1000.0) AS INTEGER) || 'K'
+         ELSE printf('%.1fK', ABS(a.volume - b.volume) / 1000.0)
+       END
+    || char(8297)
+    AS diff_volume_display
 FROM a, b, tr;
 ''';
   return _readQuery(database, query, (d) => WorkoutComparisonRow(d));
@@ -3961,6 +3981,10 @@ class WorkoutComparisonRow extends SqliteRow {
   String get diffDurationDisplay => data['diff_duration_display'] as String;
   int get aDurationMs => data['a_duration_ms'] as int;
   int get bDurationMs => data['b_duration_ms'] as int;
+  String get diffTotalSetsDisplay => data['diff_total_sets_display'] as String;
+  String get diffExerciseCountDisplay =>
+      data['diff_exercise_count_display'] as String;
+  String get diffVolumeDisplay => data['diff_volume_display'] as String;
 }
 
 /// END WORKOUTCOMPARISON

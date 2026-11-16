@@ -13,6 +13,8 @@ class WorkoutV2Model extends FlutterFlowModel<WorkoutV2Widget> {
 
   // Stores action output result for [Backend Call - SQLite (getExercisesSimp)] action in workoutV2 widget.
   List<GetExercisesSimpRow>? simp;
+  // Stores action output result for [Custom Action - loadWarmupSets] action in workoutV2 widget.
+  List<dynamic>? warmup;
   // Stores action output result for [Backend Call - SQLite (getExerciseSetsForWorkout)] action in workoutV2 widget.
   List<GetExerciseSetsForWorkoutRow>? sets;
   // Stores action output result for [Custom Action - initializeExerciseSetsFromSimpleQueryV2] action in workoutV2 widget.

@@ -2266,8 +2266,9 @@ class _SetTableState extends State<SetTable> {
     final planned = _plannedDrops(t.setNumber);
     final int order =
         planned.isEmpty ? 1 : _asInt(planned.last['dropOrder']) + 1;
-    final int? reps = (_asIntN(base?['reps']) ?? 0) > 0
-        ? _asIntN(base?['reps'])
+    final String repsKey = _tpl ? 'targetReps' : 'reps';
+    final int? reps = (_asIntN(base?[repsKey]) ?? 0) > 0
+        ? _asIntN(base?[repsKey])
         : _repsHint(t);
     double? from;
     if (planned.isNotEmpty) {
@@ -2306,20 +2307,22 @@ class _SetTableState extends State<SetTable> {
         d['dropOrder'] = _asInt(d['dropOrder']) - 1;
       }
     }
+    // typed rows are keyed dropNumber in a template, dropOrder in a workout
+    final String orderKey = _tpl ? 'dropNumber' : 'dropOrder';
     final logged = _copyLogged();
     logged.removeWhere((l) =>
         _isMine(l) &&
         _asInt(l['setNumber']) == t.setNumber &&
         _truthy(l['isDropSet']) &&
-        _asInt(l['dropOrder']) == order);
+        _asInt(l[orderKey]) == order);
     for (final l in logged) {
       if (_isMine(l) &&
           _asInt(l['setNumber']) == t.setNumber &&
           _truthy(l['isDropSet']) &&
-          _asInt(l['dropOrder']) > order) {
-        final n = _asInt(l['dropOrder']) - 1;
-        l['dropOrder'] = n;
-        l['dropLabel'] = 'Drop $n';
+          _asInt(l[orderKey]) > order) {
+        final n = _asInt(l[orderKey]) - 1;
+        l[orderKey] = n;
+        if (!_tpl) l['dropLabel'] = 'Drop $n';
       }
     }
     await widget.onDropSetsChanged?.call(List<dynamic>.from(drops));
@@ -3161,7 +3164,10 @@ class _SetTableState extends State<SetTable> {
     for (final d in planned) {
       final int order = _asInt(d['dropOrder']);
       final logged = _loggedDrop(t.setNumber, order);
-      final int? reps = _asIntN(logged?['reps']);
+      // A template keeps the typed value under targetReps. Reading 'reps'
+      // there showed the number only until the next rebuild (adding a drop,
+      // changing the rest time...) and then fell back to the hint.
+      final int? reps = _asIntN(logged?[_tpl ? 'targetReps' : 'reps']);
       final double? w = _asDoubleN(logged?['weight']);
       final int repsHint = _asInt(d['reps']);
       final double wHint = _asDoubleN(d['weight']) ?? 0;

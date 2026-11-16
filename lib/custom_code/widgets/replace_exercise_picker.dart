@@ -79,7 +79,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "create": {
     "en": "Create",
     "es": "Crear",
-    "he": "צור",
+    "he": "יצירה",
     "de": "Neu",
     "fr": "Créer"
   },
@@ -93,14 +93,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "tryAgain": {
     "en": "Try again",
     "es": "Reintentar",
-    "he": "נסה שוב",
+    "he": "ניסיון חוזר",
     "de": "Erneut versuchen",
     "fr": "Réessayer"
   },
   "replacing": {
     "en": "Replacing",
     "es": "Reemplazando",
-    "he": "מחליף את",
+    "he": "מחליפים את",
     "de": "Ersetzt",
     "fr": "Remplacement de"
   },
@@ -114,14 +114,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "warnSets1": {
     "en": "The 1 set you logged for {x} will be deleted.",
     "es": "La serie que registraste de {x} se eliminará.",
-    "he": "הסט שתיעדת ב{x} יימחק.",
+    "he": "הסט שתועד ב{x} יימחק.",
     "de": "Der eingetragene Satz für {x} wird gelöscht.",
     "fr": "La série enregistrée pour {x} sera supprimée."
   },
   "warnSetsN": {
     "en": "The {n} sets you logged for {x} will be deleted.",
     "es": "Las {n} series que registraste de {x} se eliminarán.",
-    "he": "{n} הסטים שתיעדת ב{x} יימחקו.",
+    "he": "{n} הסטים שתועדו ב{x} יימחקו.",
     "de": "Die {n} eingetragenen Sätze für {x} werden gelöscht.",
     "fr": "Les {n} séries enregistrées pour {x} seront supprimées."
   },
@@ -192,7 +192,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "updatePlan": {
     "en": "Also update my plan",
     "es": "Actualizar también mi plan",
-    "he": "עדכן גם את התוכנית",
+    "he": "לעדכן גם את התוכנית",
     "de": "Auch meinen Plan ändern",
     "fr": "Mettre aussi à jour mon plan"
   },
@@ -213,14 +213,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "pickExercise": {
     "en": "Pick an exercise",
     "es": "Elige un ejercicio",
-    "he": "בחר תרגיל",
+    "he": "בחירת תרגיל",
     "de": "Übung wählen",
     "fr": "Choisir un exercice"
   },
   "replaceWith": {
     "en": "Replace with {x}",
     "es": "Reemplazar por {x}",
-    "he": "החלף ב{x}",
+    "he": "החלפה ב{x}",
     "de": "Ersetzen durch {x}",
     "fr": "Remplacer par {x}"
   },
@@ -256,7 +256,7 @@ const Map<String, Map<String, String>> _kEquip = {
     "de": "Maschine",
     "fr": "Machine"
   },
-  "cable": {"es": "Polea", "he": "פולי", "de": "Kabelzug", "fr": "Poulie"},
+  "cable": {"es": "Polea", "he": "כבל", "de": "Kabelzug", "fr": "Poulie"},
   "bench": {"es": "Banco", "he": "ספסל", "de": "Bank", "fr": "Banc"},
   "plate": {"es": "Disco", "he": "פלטה", "de": "Scheibe", "fr": "Disque"},
   "kettlebell": {
@@ -267,13 +267,13 @@ const Map<String, Map<String, String>> _kEquip = {
   },
   "trap bar": {
     "es": "Barra hexagonal",
-    "he": "מוט טראפ",
+    "he": "טראפ בר",
     "de": "Trap Bar",
     "fr": "Trap bar"
   },
   "smith machine": {
     "es": "Máquina Smith",
-    "he": "סמית",
+    "he": "מכונת סמית׳",
     "de": "Multipresse",
     "fr": "Smith"
   },

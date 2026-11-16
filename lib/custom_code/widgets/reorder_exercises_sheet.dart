@@ -39,7 +39,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "hint": {
     "en": "Hold and drag to reorder",
     "es": "Mantén y arrastra para mover",
-    "he": "לחץ ארוך וגרור כדי לסדר",
+    "he": "לחיצה ארוכה וגרירה כדי לסדר",
     "de": "Halten und ziehen",
     "fr": "Maintenez et glissez"
   },
@@ -53,7 +53,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "save": {
     "en": "Save Order",
     "es": "Guardar orden",
-    "he": "שמור סידור",
+    "he": "שמירת הסידור",
     "de": "Speichern",
     "fr": "Enregistrer"
   },

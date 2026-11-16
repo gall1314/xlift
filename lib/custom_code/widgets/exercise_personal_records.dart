@@ -392,7 +392,7 @@ class _ExercisePersonalRecordsState extends State<ExercisePersonalRecords> {
 
   // ---------- records ----------
   List<_Record> _records(String lang) {
-    const String dash = '—';
+    const String dash = '-';
     final bool appKg = _appIsKg;
     final String unit = _tr(lang, appKg ? 'kg' : 'lbs');
     final String repsUnit = _tr(lang, 'reps');
@@ -496,7 +496,7 @@ class _ExercisePersonalRecordsState extends State<ExercisePersonalRecords> {
         _Record(
           _tr(lang, 'avgReps'),
           avg > 0 ? '${_num(avg, decimals: 1)} $repsUnit' : dash,
-          Icons.functions_rounded,
+          Icons.repeat_rounded,
         ),
       ];
     }

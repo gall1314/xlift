@@ -146,7 +146,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               height: MediaQuery.sizeOf(context).height * 1.0,
                               userId: currentUserUid,
-                              initialTab: widget.initialTab,
+                              initialTab: 1,
                               canGenerate: functions.canGenerateWorkout(
                                   FFAppState().isPremium,
                                   FFAppState().generationDates.toList()),
@@ -704,7 +704,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                         context)
                                                                     .width *
                                                                 1.0,
-                                                        height: 140.0,
+                                                        height: 120.0,
                                                         child: custom_widgets
                                                             .RecapBanner(
                                                           width:
@@ -712,7 +712,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                                                                           context)
                                                                       .width *
                                                                   1.0,
-                                                          height: 140.0,
+                                                          height: 120.0,
                                                           userId:
                                                               currentUserUid,
                                                           timeRange: _model
@@ -4373,7 +4373,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                         FFAppState().analysisCountMonth),
                     isDark: Theme.of(context).brightness == Brightness.dark,
                     userId: currentUserUid,
-                    showCameraGuidance: true,
+                    showCameraGuidance: FFAppState().ShowGuidenc,
                     onHistoryTap: () async {
                       _model.pageIndex = 1;
                       safeSetState(() {});
@@ -4410,7 +4410,10 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                         },
                       ).then((value) => safeSetState(() {}));
                     },
-                    onDontShowAgain: () async {},
+                    onDontShowAgain: () async {
+                      FFAppState().ShowGuidenc = false;
+                      safeSetState(() {});
+                    },
                     onAnalysisDone: (analysisResult) async {
                       context.pushNamed(
                         FullResultPageWidget.routeName,
@@ -4430,7 +4433,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                           'exerciseName': serializeParam(
                             getJsonField(
                               analysisResult,
-                              r'''$["exerciseName"]''',
+                              r'''$["exercise_name"]''',
                             ).toString(),
                             ParamType.String,
                           ),

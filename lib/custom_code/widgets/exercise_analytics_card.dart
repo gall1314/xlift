@@ -18,25 +18,22 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart' as intl;
 
-/// The whole "Exercise Analytics" card as one self-managed widget:
-/// title, choice chips, line chart and the three numbers under it.
+/// The whole "Exercise Analytics" card as one self-managed widget: title,
+/// choice chips, line chart and the three numbers under it.
 ///
 /// It reads the exercise and its logged sets itself (one point per workout)
-/// and picks the chips by the kind of exercise:
-/// - weighted:   Reps · Max weight · Volume
-/// - assisted:   Reps · Assistance · Volume (reps weighed by the assistance)
-/// - bodyweight: Reps · Best set
-/// - timed:      Total time · Longest set
+/// and picks the chips by the kind of exercise: - weighted:   Reps · Max
+/// weight · Volume - assisted:   Reps · Assistance · Volume (reps weighed by
+/// the assistance) - bodyweight: Reps · Best set - timed:      Total time ·
+/// Longest set
 ///
 /// Under the chart: last 7 days · best workout · improvement (first workout
 /// in the range against the last one). Drop sets count in reps and volume.
 /// With no data in the range the chart area shows a placeholder.
 ///
-/// Parameters:
-/// - exerciseId (int)
-/// - userId (String)
-/// - timeRange (String, optional): the stored range value. Any text with
-///   7 / 30 / 90 in it means that many days; anything else means all time.
+/// Parameters: - exerciseId (int) - userId (String) - timeRange (String,
+/// optional): the stored range value. Any text with 7 / 30 / 90 in it means
+/// that many days; anything else means all time.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 class ExerciseAnalyticsCard extends StatefulWidget {
@@ -537,12 +534,12 @@ class _ExerciseAnalyticsCardState extends State<ExerciseAnalyticsCard> {
       if (c > best) best = c;
     }
     String fmt(int v) {
-      if (v <= 0) return "–";
+      if (v <= 0) return "-";
       if (timed) return _ltr(_clock(v));
       return _ltr(v.toString()) + " " + t("repsUnit");
     }
 
-    String improve = "–";
+    String improve = "-";
     if (sessions.length >= 2) {
       double score(_Session s) {
         if (timed) return s.seconds.toDouble();

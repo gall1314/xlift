@@ -12,12 +12,15 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
+import 'dart:ui' as ui show TextDirection;
 import 'package:intl/intl.dart' as intl show NumberFormat;
 
 /// Entry card for the training recap, made for the top of the Statistics
 /// Overview tab: "Your recap · Last 7 days / 4 workouts · 5,820 kg" with a
-/// play button. Tapping it fires [onTap] (navigate to the Recap page and
-/// pass the same time range to RecapView).
+/// play button.
+///
+/// Tapping it fires [onTap] (navigate to the Recap page and pass the same
+/// time range to RecapView).
 ///
 /// Fully self-managed: counts the workouts and sums the volume itself, with
 /// the same rules as RecapView (saved workout volume, or the sets when a
@@ -27,13 +30,18 @@ import 'package:intl/intl.dart' as intl show NumberFormat;
 /// [timeRange]: 'Last 7 days' | 'Last 30 days' (default) | 'Last 90 days' |
 /// 'This month' | 'This year'; anything else ('All time') means no limit.
 ///
-/// With no workouts in the range the card stays in place, shows a short
-/// "no workouts yet" line, hides the play button and ignores taps.
+/// With no workouts in the range the card stays in place, shows a short "no
+/// workouts yet" line, hides the play button and ignores taps.
 ///
-/// Look: flat, no shadow, tinted with the theme primary (the same mint as
-/// the range selector). Recommended size: width infinity, height 76.
+/// Look: flat, no shadow, tinted with the theme primary (the same mint as the
+/// range selector). Recommended size: width infinity, height 76.
+///
+/// Units: the volume is shown in the app's unit (FFAppState().isKg) with the
+/// unit name in the app language. Each workout's saved volume is in the unit
+/// its sets were logged in, so it is converted only when that differs.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
+/// Hebrew renders RTL.
 class RecapBanner extends StatefulWidget {
   const RecapBanner({
     super.key,
@@ -107,7 +115,13 @@ const Map<String, List<String>> _rbS = {
   ],
   'This year': ['This year', 'Este año', 'השנה', 'Dieses Jahr', 'Cette année'],
   'All time': ['All time', 'Todo', 'כל הזמן', 'Gesamt', 'Depuis le début'],
+  'kg': ['kg', 'kg', 'ק״ג', 'kg', 'kg'],
+  'lbs': ['lbs', 'lb', 'ליב׳', 'lbs', 'lb'],
 };
+
+const Set<String> _rbRtl = {'he', 'ar'};
+
+const double _rbLbPerKg = 2.20462;
 
 String _rbTr(String lang, String key) {
   final List<String>? row = _rbS[key];
@@ -185,7 +199,7 @@ String _rbFmtInt(String lang, num v) {
 
 class _RecapBannerState extends State<RecapBanner> {
   int _workouts = 0;
-  double _volume = 0.0;
+  double _volume = 0.0; // always in kg; converted for display
   bool _loaded = false;
   int _req = 0;
 
@@ -222,13 +236,33 @@ class _RecapBannerState extends State<RecapBanner> {
         'SELECT id, created_at, volume FROM workout_log WHERE user_id = ?',
         [widget.userId],
       );
+      // The unit each workout was logged in (from its own sets): its saved
+      // volume is in that unit. No sets / no flag = kg.
+      final Map<String, bool> loggedKg = {};
+      try {
+        final uRows = await db.rawQuery(
+          'SELECT wl.id AS id, '
+          '(SELECT s.is_kg FROM set_log s WHERE s.workout_log_id = wl.id '
+          'LIMIT 1) AS log_kg '
+          'FROM workout_log wl WHERE wl.user_id = ?',
+          [widget.userId],
+        );
+        for (final r in uRows) {
+          final dynamic v = r['log_kg'];
+          loggedKg[(r['id'] ?? '').toString()] =
+              v == null ? true : _rbToD(v) != 0;
+        }
+      } catch (_) {}
+
       final Map<String, double> saved = {};
       for (final r in wRows) {
         final String id = (r['id'] ?? '').toString();
         final DateTime? dt = _rbParseDt(r['created_at']);
         if (id.isEmpty || dt == null) continue;
         if (from != null && dt.isBefore(from)) continue;
-        saved[id] = _rbToD(r['volume']);
+        // to kg, so every workout adds up in one unit
+        final double v = _rbToD(r['volume']);
+        saved[id] = (loggedKg[id] ?? true) ? v : v / _rbLbPerKg;
       }
       workouts = saved.length;
 
@@ -271,7 +305,16 @@ class _RecapBannerState extends State<RecapBanner> {
         ? _rbTr(lang, 'workout1')
         : _rbFmtInt(lang, _workouts) + ' ' + _rbTr(lang, 'workouts');
     if (_volume < 1) return w;
-    return w + ' · ' + _rbFmtInt(lang, _volume) + ' kg';
+    bool appKg = true;
+    try {
+      appKg = FFAppState().isKg;
+    } catch (_) {}
+    final double shown = appKg ? _volume : _volume * _rbLbPerKg;
+    return w +
+        ' · ' +
+        _rbFmtInt(lang, shown) +
+        ' ' +
+        _rbTr(lang, appKg ? 'kg' : 'lbs');
   }
 
   @override
@@ -306,73 +349,77 @@ class _RecapBannerState extends State<RecapBanner> {
 
     final BorderRadius radius = BorderRadius.circular(18.0);
 
-    return MediaQuery.withNoTextScaling(
-      child: SizedBox(
-        width: widget.width ?? double.infinity,
-        height: widget.height ?? 76.0,
-        child: Material(
-          color: bg,
-          shape: RoundedRectangleBorder(
-            borderRadius: radius,
-            side: BorderSide(color: border, width: 1.0),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: has
-                ? () {
-                    widget.onTap?.call();
-                  }
-                : null,
-            splashColor: primary.withAlpha(0x22),
-            highlightColor: primary.withAlpha(0x14),
-            child: Padding(
-              padding:
-                  const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 14.0, 0.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _rbTr(lang, 'recap') +
-                              ' · ' +
-                              _rbRangeLabel(lang, _range),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: eyebrow,
-                        ),
-                        const SizedBox(height: 4.0),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: AlignmentDirectional.centerStart,
-                          child: Text(
-                            _title(lang),
+    return Directionality(
+      textDirection:
+          _rbRtl.contains(lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: MediaQuery.withNoTextScaling(
+        child: SizedBox(
+          width: widget.width ?? double.infinity,
+          height: widget.height ?? 76.0,
+          child: Material(
+            color: bg,
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: BorderSide(color: border, width: 1.0),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: has
+                  ? () {
+                      widget.onTap?.call();
+                    }
+                  : null,
+              splashColor: primary.withAlpha(0x22),
+              highlightColor: primary.withAlpha(0x14),
+              child: Padding(
+                padding:
+                    const EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 14.0, 0.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _rbTr(lang, 'recap') +
+                                ' · ' +
+                                _rbRangeLabel(lang, _range),
                             maxLines: 1,
-                            style: title,
+                            overflow: TextOverflow.ellipsis,
+                            style: eyebrow,
                           ),
+                          const SizedBox(height: 4.0),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: AlignmentDirectional.centerStart,
+                            child: Text(
+                              _title(lang),
+                              maxLines: 1,
+                              style: title,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (has) ...[
+                      const SizedBox(width: 12.0),
+                      Container(
+                        width: 40.0,
+                        height: 40.0,
+                        decoration: BoxDecoration(
+                          color: primary,
+                          shape: BoxShape.circle,
                         ),
-                      ],
-                    ),
-                  ),
-                  if (has) ...[
-                    const SizedBox(width: 12.0),
-                    Container(
-                      width: 40.0,
-                      height: 40.0,
-                      decoration: BoxDecoration(
-                        color: primary,
-                        shape: BoxShape.circle,
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 26.0,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 26.0,
-                      ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
