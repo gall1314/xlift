@@ -600,23 +600,21 @@ class _ExerciseHistoryCustomWidgetState
                                                                                   ),
                                                                             ),
                                                                           ),
-                                                                        Container(
-                                                                          width:
-                                                                              MediaQuery.sizeOf(context).width * 1.0,
-                                                                          height:
-                                                                              120.0,
-                                                                          child:
-                                                                              custom_widgets.ExerciseCompareCard(
+                                                                        if (listViewIndex ==
+                                                                            0)
+                                                                          Container(
                                                                             width:
                                                                                 MediaQuery.sizeOf(context).width * 1.0,
                                                                             height:
                                                                                 120.0,
-                                                                            workoutLogId:
-                                                                                listViewExerciseSessionComparisomRow.workoutLogId,
-                                                                            exerciseId:
-                                                                                widget.exerciseId!,
+                                                                            child:
+                                                                                custom_widgets.ExerciseCompareCard(
+                                                                              width: MediaQuery.sizeOf(context).width * 1.0,
+                                                                              height: 120.0,
+                                                                              workoutLogId: listViewExerciseSessionComparisomRow.workoutLogId,
+                                                                              exerciseId: widget.exerciseId!,
+                                                                            ),
                                                                           ),
-                                                                        ),
                                                                         if (listViewIndex ==
                                                                             0)
                                                                           Container(
@@ -3975,6 +3973,23 @@ class _ExerciseHistoryCustomWidgetState
                                                   ),
                                                 ),
                                               ),
+                                            Container(
+                                              width: MediaQuery.sizeOf(context)
+                                                      .width *
+                                                  1.0,
+                                              height: 290.0,
+                                              child: custom_widgets
+                                                  .ExercisePersonalRecords(
+                                                width:
+                                                    MediaQuery.sizeOf(context)
+                                                            .width *
+                                                        1.0,
+                                                height: 290.0,
+                                                exerciseId: widget.exerciseId!,
+                                                userId: currentUserUid,
+                                                timeRange: _model.timeRange,
+                                              ),
+                                            ),
                                             if (exerciseHistoryCustomExercise2RowList
                                                     .firstOrNull?.isAssisted ==
                                                 1)

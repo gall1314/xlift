@@ -761,6 +761,9 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   // ---------- hero ----------
   Widget _hero(BuildContext ctx, _Summary s) {
     final bool rtl = _kRtl.contains(_lang);
+    // Dark mode: the bright gradient and its glow read as a lamp on a dark
+    // page, so the card turns into a deep teal surface with a hairline.
+    final bool dark = Theme.of(ctx).brightness == Brightness.dark;
     String vol;
     try {
       vol = formatCompactNumber(s.volume.toDouble());
@@ -772,18 +775,23 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: AlignmentDirectional.topStart,
           end: AlignmentDirectional.bottomEnd,
-          colors: [Color(0xFF14B8A6), Color(0xFF2DD4BF), Color(0xFF5EEAD4)],
+          colors: dark
+              ? const [Color(0xFF0E3A35), Color(0xFF0F4F48)]
+              : const [Color(0xFF14B8A6), Color(0xFF2DD4BF), Color(0xFF5EEAD4)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF14B8A6).withOpacity(0.30),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        border: dark ? Border.all(color: const Color(0xFF1B635B)) : null,
+        boxShadow: dark
+            ? null
+            : [
+                BoxShadow(
+                  color: const Color(0xFF14B8A6).withOpacity(0.30),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -796,8 +804,13 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(_tr(_lang, 'workoutCaps'),
-                        style: _t(ctx, 12, FontWeight.w700,
-                            Colors.white.withOpacity(0.85),
+                        style: _t(
+                            ctx,
+                            12,
+                            FontWeight.w700,
+                            dark
+                                ? const Color(0xFF5EEAD4)
+                                : Colors.white.withOpacity(0.85),
                             ls: 1.5)),
                     const SizedBox(height: 2),
                     Text(s.name,
@@ -816,12 +829,19 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: dark
+                        ? const Color(0xFF5EEAD4).withOpacity(0.14)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Text(_tr(_lang, 'compare'),
                       style: _t(
-                          ctx, 15, FontWeight.w600, const Color(0xFF0F766E))),
+                          ctx,
+                          15,
+                          FontWeight.w600,
+                          dark
+                              ? const Color(0xFF5EEAD4)
+                              : const Color(0xFF0F766E))),
                 ),
               ),
             ],
@@ -829,16 +849,17 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
           const SizedBox(height: 18),
           Row(
             children: [
-              _stat(ctx, '${s.totalSets}', _tr(_lang, 'sets')),
+              _stat(ctx, '${s.totalSets}', _tr(_lang, 'sets'), dark: dark),
               const SizedBox(width: 8),
-              _stat(ctx, '${s.exerciseCount}', _tr(_lang, 'exercises')),
+              _stat(ctx, '${s.exerciseCount}', _tr(_lang, 'exercises'),
+                  dark: dark),
               const SizedBox(width: 8),
               // In Hebrew the duration carries a Hebrew unit, so it follows
               // the page direction instead of being forced left-to-right.
               _stat(ctx, _durationLabel(s.durationMs), _tr(_lang, 'duration'),
-                  ltr: !rtl),
+                  ltr: !rtl, dark: dark),
               const SizedBox(width: 8),
-              _stat(ctx, vol, _tr(_lang, 'volume', u: volUnit)),
+              _stat(ctx, vol, _tr(_lang, 'volume', u: volUnit), dark: dark),
             ],
           ),
         ],
@@ -847,12 +868,12 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   }
 
   Widget _stat(BuildContext ctx, String value, String label,
-      {bool ltr = true}) {
+      {bool ltr = true, bool dark = false}) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.18),
+          color: Colors.white.withOpacity(dark ? 0.07 : 0.18),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -870,8 +891,8 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
               fit: BoxFit.scaleDown,
               child: Text(label,
                   maxLines: 1,
-                  style: _t(
-                      ctx, 11, FontWeight.w600, Colors.white.withOpacity(0.9))),
+                  style: _t(ctx, 11, FontWeight.w600,
+                      Colors.white.withOpacity(dark ? 0.7 : 0.9))),
             ),
           ],
         ),

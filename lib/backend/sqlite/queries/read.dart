@@ -3720,11 +3720,26 @@ Future<List<WorkoutComparisonRow>> performWorkoutComparison(
   Database database, {
   String? workoutLogIdA,
   String? workoutLogIdB,
+  String? languageCode,
 }) {
   final query = '''
--- params: ${workoutLogIdA}, ${workoutLogIdB}
+-- params: ${workoutLogIdA}, ${workoutLogIdB}, ${languageCode}
 
 WITH
+/* ====== WORDS, in the app language ======
+   Hebrew: "1:10 שע׳" / "45 דק׳" / "30 שנ׳" (same form as the History cards).
+   Other languages: "1h 10m" / "45m" / "30s". */
+tr AS (
+  SELECT
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 1 ELSE 0 END AS is_he,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN ' שע׳' ELSE 'h' END AS w_h,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN ' דק׳' ELSE 'm' END AS w_m,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN ' שנ׳' ELSE 's' END AS w_s
+),
 /* ====== RAW LOGS (ms ב-INTEGER) ====== */
 a_log AS (
   SELECT
@@ -3852,10 +3867,12 @@ SELECT
   CASE WHEN a.ms > 0 AND a.ms < 1000 THEN 1 ELSE CAST(ROUND(a.ms/1000.0) AS INTEGER) END AS a_duration_seconds,
   /* תצוגה קצרה h/m/s */
   CASE
+    WHEN a.ms >= 3600000 AND tr.is_he = 1
+      THEN char(8294) || CAST(a.ms/3600000 AS INTEGER) || ':' || printf('%02d', CAST((a.ms%3600000)/60000 AS INTEGER)) || char(8297) || tr.w_h
     WHEN a.ms >= 3600000 THEN CAST(a.ms/3600000 AS INTEGER) || 'h ' || CAST((a.ms%3600000)/60000 AS INTEGER) || 'm'
-    WHEN a.ms >= 60000   THEN CAST(a.ms/60000   AS INTEGER) || 'm'
-    WHEN a.ms > 0        THEN CAST(CASE WHEN a.ms < 1000 THEN 1 ELSE CAST(ROUND(a.ms/1000.0) AS INTEGER) END AS TEXT) || 's'
-    ELSE '0s'
+    WHEN a.ms >= 60000   THEN CAST(a.ms/60000   AS INTEGER) || tr.w_m
+    WHEN a.ms > 0        THEN CAST(CASE WHEN a.ms < 1000 THEN 1 ELSE CAST(ROUND(a.ms/1000.0) AS INTEGER) END AS TEXT) || tr.w_s
+    ELSE '0' || tr.w_s
   END AS a_duration_display,
   /* תצוגת HH:MM:SS */
   printf('%02d:%02d:%02d',
@@ -3873,10 +3890,12 @@ SELECT
   b.ms            AS b_duration_ms,
   CASE WHEN b.ms > 0 AND b.ms < 1000 THEN 1 ELSE CAST(ROUND(b.ms/1000.0) AS INTEGER) END AS b_duration_seconds,
   CASE
+    WHEN b.ms >= 3600000 AND tr.is_he = 1
+      THEN char(8294) || CAST(b.ms/3600000 AS INTEGER) || ':' || printf('%02d', CAST((b.ms%3600000)/60000 AS INTEGER)) || char(8297) || tr.w_h
     WHEN b.ms >= 3600000 THEN CAST(b.ms/3600000 AS INTEGER) || 'h ' || CAST((b.ms%3600000)/60000 AS INTEGER) || 'm'
-    WHEN b.ms >= 60000   THEN CAST(b.ms/60000   AS INTEGER) || 'm'
-    WHEN b.ms > 0        THEN CAST(CASE WHEN b.ms < 1000 THEN 1 ELSE CAST(ROUND(b.ms/1000.0) AS INTEGER) END AS TEXT) || 's'
-    ELSE '0s'
+    WHEN b.ms >= 60000   THEN CAST(b.ms/60000   AS INTEGER) || tr.w_m
+    WHEN b.ms > 0        THEN CAST(CASE WHEN b.ms < 1000 THEN 1 ELSE CAST(ROUND(b.ms/1000.0) AS INTEGER) END AS TEXT) || tr.w_s
+    ELSE '0' || tr.w_s
   END AS b_duration_display,
   printf('%02d:%02d:%02d',
          CAST(b.ms/3600000 AS INTEGER),
@@ -3890,18 +3909,30 @@ SELECT
   (a.ms - b.ms) AS diff_duration_ms,
   CAST(ROUND((a.ms - b.ms)/1000.0)  AS INTEGER) AS diff_duration_seconds,
   CAST(ROUND((a.ms - b.ms)/60000.0) AS INTEGER) AS diff_duration_minutes,
+  /* The sign and the number are wrapped in a left-to-right isolate
+     (char 8294 ... 8297), so in a right-to-left line the minus stays in
+     front of the number instead of jumping behind it. */
   CASE
-    WHEN ABS(a.ms - b.ms) >= 3600000 THEN CAST((a.ms - b.ms)/3600000 AS INTEGER) || 'h ' || CAST((ABS(a.ms - b.ms)%3600000)/60000 AS INTEGER) || 'm'
-    WHEN ABS(a.ms - b.ms) >= 60000   THEN CAST((a.ms - b.ms)/60000   AS INTEGER) || 'm'
-    WHEN ABS(a.ms - b.ms) >= 1000    THEN CAST((a.ms - b.ms)/1000    AS INTEGER) || 's'
-    ELSE '0s'
+    WHEN ABS(a.ms - b.ms) >= 3600000 AND tr.is_he = 1
+      THEN char(8294) || CASE WHEN a.ms < b.ms THEN '-' ELSE '' END
+           || CAST(ABS(a.ms - b.ms)/3600000 AS INTEGER) || ':'
+           || printf('%02d', CAST((ABS(a.ms - b.ms)%3600000)/60000 AS INTEGER))
+           || char(8297) || tr.w_h
+    WHEN ABS(a.ms - b.ms) >= 3600000
+      THEN char(8294) || CASE WHEN a.ms < b.ms THEN '-' ELSE '' END
+           || CAST(ABS(a.ms - b.ms)/3600000 AS INTEGER) || 'h '
+           || CAST((ABS(a.ms - b.ms)%3600000)/60000 AS INTEGER) || 'm' || char(8297)
+    WHEN ABS(a.ms - b.ms) >= 60000
+      THEN char(8294) || CAST((a.ms - b.ms)/60000 AS INTEGER) || char(8297) || tr.w_m
+    WHEN ABS(a.ms - b.ms) >= 1000
+      THEN char(8294) || CAST((a.ms - b.ms)/1000 AS INTEGER) || char(8297) || tr.w_s
+    ELSE '0' || tr.w_s
   END AS diff_duration_display,
 
   (a.total_sets     - b.total_sets)      AS diff_total_sets,
   (a.exercise_count - b.exercise_count)  AS diff_exercise_count,
   (a.volume         - b.volume)          AS diff_volume
-FROM a, b;
-
+FROM a, b, tr;
 ''';
   return _readQuery(database, query, (d) => WorkoutComparisonRow(d));
 }
@@ -4092,11 +4123,31 @@ Future<List<ExercisesComparisonRow>> performExercisesComparison(
   Database database, {
   String? workoutLogIdA,
   String? workoutLogIdB,
+  String? languageCode,
 }) {
   final query = '''
--- params: ${workoutLogIdA}, ${workoutLogIdB}
+-- params: ${workoutLogIdA}, ${workoutLogIdB}, ${languageCode}
 
 WITH
+/* ---------- words, in the app language ---------- */
+tr AS (
+  SELECT
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 'ק״ג' ELSE 'kg' END AS w_kg,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 'ליב׳' WHEN 'es' THEN 'lb' WHEN 'fr' THEN 'lb'
+      ELSE 'lbs' END AS w_lbs,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 'חזרות' WHEN 'de' THEN 'Wdh.' ELSE 'reps' END AS w_reps,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 'סט' WHEN 'es' THEN 'serie' WHEN 'de' THEN 'Satz'
+      WHEN 'fr' THEN 'série' ELSE 'set' END AS w_set,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 'סטים' WHEN 'es' THEN 'series' WHEN 'de' THEN 'Sätze'
+      WHEN 'fr' THEN 'séries' ELSE 'sets' END AS w_sets,
+    CASE LOWER(SUBSTR(TRIM('${languageCode}'), 1, 2))
+      WHEN 'he' THEN 1 ELSE 0 END AS word_first
+),
 /* ---------- A ---------- */
 base_a AS (
   SELECT
@@ -4128,8 +4179,8 @@ agg_a AS (
     SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END) AS sum_weighted_volume,
     SUM(dur_sec) AS sum_dur_sec,
     CASE
-      WHEN SUM(CASE WHEN is_dropset = 0 AND is_kg = 1 THEN 1 END)
-         >= SUM(CASE WHEN is_dropset = 0 AND is_kg = 0 THEN 1 END)
+      WHEN COALESCE(SUM(CASE WHEN is_dropset = 0 AND is_kg = 1 THEN 1 END), 0)
+         >= COALESCE(SUM(CASE WHEN is_dropset = 0 AND is_kg = 0 THEN 1 END), 0)
       THEN 'kg' ELSE 'lbs'
     END AS unit_label
   FROM base_a
@@ -4147,14 +4198,16 @@ fmt_a AS (
       WHEN is_time_based = 1
         THEN printf('%02d:%02d', CAST(sum_dur_sec AS INTEGER)/60, CAST(sum_dur_sec AS INTEGER)%60)
       WHEN is_assisted = 1
-        THEN CAST(sum_reps AS TEXT) || ' Reps'
+        THEN CAST(sum_reps AS TEXT) || ' ' || (SELECT w_reps FROM tr)
       WHEN is_bodyweight = 1 AND has_weighted = 0
-        THEN CAST(sum_reps AS TEXT) || ' Reps'
+        THEN CAST(sum_reps AS TEXT) || ' ' || (SELECT w_reps FROM tr)
       ELSE
         CASE
           WHEN sum_weighted_volume >= 1000
-            THEN printf('%.1fk %s', sum_weighted_volume/1000.0, unit_label)
-          ELSE printf('%d %s', CAST(sum_weighted_volume AS INTEGER), unit_label)
+            THEN printf('%.1fk %s', sum_weighted_volume/1000.0,
+                        CASE unit_label WHEN 'kg' THEN (SELECT w_kg FROM tr) ELSE (SELECT w_lbs FROM tr) END)
+          ELSE printf('%d %s', CAST(sum_weighted_volume AS INTEGER),
+                      CASE unit_label WHEN 'kg' THEN (SELECT w_kg FROM tr) ELSE (SELECT w_lbs FROM tr) END)
         END
     END AS total_str
   FROM agg_a
@@ -4197,8 +4250,8 @@ agg_b AS (
     SUM(CASE WHEN weight > 0 THEN reps * weight ELSE 0 END) AS sum_weighted_volume,
     SUM(dur_sec) AS sum_dur_sec,
     CASE
-      WHEN SUM(CASE WHEN is_dropset = 0 AND is_kg = 1 THEN 1 END)
-         >= SUM(CASE WHEN is_dropset = 0 AND is_kg = 0 THEN 1 END)
+      WHEN COALESCE(SUM(CASE WHEN is_dropset = 0 AND is_kg = 1 THEN 1 END), 0)
+         >= COALESCE(SUM(CASE WHEN is_dropset = 0 AND is_kg = 0 THEN 1 END), 0)
       THEN 'kg' ELSE 'lbs'
     END AS unit_label
   FROM base_b
@@ -4216,14 +4269,16 @@ fmt_b AS (
       WHEN is_time_based = 1
         THEN printf('%02d:%02d', CAST(sum_dur_sec AS INTEGER)/60, CAST(sum_dur_sec AS INTEGER)%60)
       WHEN is_assisted = 1
-        THEN CAST(sum_reps AS TEXT) || ' Reps'
+        THEN CAST(sum_reps AS TEXT) || ' ' || (SELECT w_reps FROM tr)
       WHEN is_bodyweight = 1 AND has_weighted = 0
-        THEN CAST(sum_reps AS TEXT) || ' Reps'
+        THEN CAST(sum_reps AS TEXT) || ' ' || (SELECT w_reps FROM tr)
       ELSE
         CASE
           WHEN sum_weighted_volume >= 1000
-            THEN printf('%.1fk %s', sum_weighted_volume/1000.0, unit_label)
-          ELSE printf('%d %s', CAST(sum_weighted_volume AS INTEGER), unit_label)
+            THEN printf('%.1fk %s', sum_weighted_volume/1000.0,
+                        CASE unit_label WHEN 'kg' THEN (SELECT w_kg FROM tr) ELSE (SELECT w_lbs FROM tr) END)
+          ELSE printf('%d %s', CAST(sum_weighted_volume AS INTEGER),
+                      CASE unit_label WHEN 'kg' THEN (SELECT w_kg FROM tr) ELSE (SELECT w_lbs FROM tr) END)
         END
     END AS total_str
   FROM agg_b
@@ -4258,7 +4313,14 @@ ordering AS (
 /* ---------- output ---------- */
 SELECT
   a.exercise_name AS name,
-  a.total_str || ' (' || a.sets_count || ' sets)' AS display,
+  a.total_str || ' · ' ||
+    CASE
+      WHEN a.sets_count = 1 AND (SELECT word_first FROM tr) = 1
+        THEN (SELECT w_set FROM tr) || ' 1'
+      WHEN a.sets_count = 1
+        THEN '1 ' || (SELECT w_set FROM tr)
+      ELSE a.sets_count || ' ' || (SELECT w_sets FROM tr)
+    END AS display,
   COALESCE(a.sets_count, 0) AS sets,
   1 AS is_workout_a,
   o.order_key
@@ -4269,7 +4331,14 @@ UNION ALL
 
 SELECT
   b.exercise_name AS name,
-  b.total_str || ' (' || b.sets_count || ' sets)' AS display,
+  b.total_str || ' · ' ||
+    CASE
+      WHEN b.sets_count = 1 AND (SELECT word_first FROM tr) = 1
+        THEN (SELECT w_set FROM tr) || ' 1'
+      WHEN b.sets_count = 1
+        THEN '1 ' || (SELECT w_set FROM tr)
+      ELSE b.sets_count || ' ' || (SELECT w_sets FROM tr)
+    END AS display,
   COALESCE(b.sets_count, 0) AS sets,
   0 AS is_workout_a,
   o.order_key
@@ -4277,7 +4346,6 @@ FROM fmt_b b
 JOIN ordering o ON o.name_key = b.name_key
 
 ORDER BY order_key ASC, is_workout_a DESC, name ASC;
-
 ''';
   return _readQuery(database, query, (d) => ExercisesComparisonRow(d));
 }

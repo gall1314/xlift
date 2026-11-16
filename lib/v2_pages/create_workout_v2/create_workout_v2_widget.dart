@@ -94,7 +94,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
             child: custom_widgets.WorkoutPage(
               width: MediaQuery.sizeOf(context).width * 1.0,
               height: MediaQuery.sizeOf(context).height * 1.0,
-              workoutName: widget.workoutName,
+              workoutName: _model.workoutName,
               showCameraGuidance: false,
               mode: 'template',
               onBack: () async {
@@ -138,6 +138,10 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                     'addUserEx': serializeParam(
                       false,
                       ParamType.bool,
+                    ),
+                    'workoutName': serializeParam(
+                      _model.workoutName,
+                      ParamType.String,
                     ),
                   }.withoutNulls,
                 );

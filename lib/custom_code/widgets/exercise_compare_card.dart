@@ -16,30 +16,30 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:google_fonts/google_fonts.dart';
 
-/// The "compared to previous" strip of ONE exercise inside ONE logged
-/// workout (the row of stat columns at the top of each card in the
-/// exercise History tab). Replaces the rowOffline component.
+/// The "compared to previous" strip of ONE exercise inside ONE logged workout
+/// (the row of stat columns at the top of each card in the exercise History
+/// tab).
+///
+/// Replaces the rowOffline component.
 ///
 /// Self-managed: reads set_log itself, finds the previous workout that
-/// contains the same exercise, and compares the two. No FlutterFlow query
-/// and no visibility rules needed.
+/// contains the same exercise, and compares the two. No FlutterFlow query and
+/// no visibility rules needed.
 ///
-/// Columns by kind of session, separated by thin divider lines:
-/// - Weighted:        Sets · Volume · Reps · Weight/rep
-/// - Bodyweight only: Sets · Reps
-/// - Timed:           Sets · Total time · Avg set
+/// Columns by kind of session, separated by thin divider lines: - Weighted:
+/// Sets · Volume · Reps · Weight/rep - Bodyweight only: Sets · Reps - Timed:
+/// Sets · Total time · Avg set
 ///
 /// Each column: label, value, change vs. the previous session (arrow +
-/// amount), a bar in the column's own color, and the change in %. The bar
-/// is this session against the previous one: it is full when this session
-/// is the higher of the two, and a small tick marks where the previous
-/// session was. A value that cannot be compared (no previous session, or a
-/// different kind of session) shows a dash.
+/// amount), a bar in the column's own color, and the change in %. The bar is
+/// this session against the previous one: it is full when this session is the
+/// same or higher, and partly filled when it is lower. A value that cannot be
+/// compared (no previous session, or a different kind of session) shows a
+/// dash.
 ///
-/// Rules:
-/// - A drop set is not counted as a set, but its reps and volume count.
-/// - Weights are stored as typed, each with its own unit (is_kg); a value
-///   is converted only when its unit is not the one the app shows.
+/// Rules: - A drop set is not counted as a set, but its reps and volume
+/// count. - Weights are stored as typed, each with its own unit (is_kg); a
+/// value is converted only when its unit is not the one the app shows.
 ///
 /// HEIGHT: fixed layout, give the widget a height of 120.
 ///
@@ -448,12 +448,10 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
   Widget _bar(BuildContext ctx, _Tile t) {
     final th = FlutterFlowTheme.of(ctx);
     double frac = 1;
-    double? tick;
     final double? prev = t.prev;
     if (prev != null) {
       final double top = math.max(t.curr, prev);
       frac = top <= 0 ? 0 : (t.curr / top).clamp(0.0, 1.0).toDouble();
-      if (t.curr > prev && prev > 0) tick = prev / top;
     }
     return SizedBox(
       height: 12,
@@ -480,11 +478,6 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
               ),
             ),
           ),
-          if (tick != null)
-            Align(
-              alignment: AlignmentDirectional(-1 + 2 * tick, 0),
-              child: Container(width: 2, height: 12, color: th.primaryText),
-            ),
         ],
       ),
     );

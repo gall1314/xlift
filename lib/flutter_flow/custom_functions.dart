@@ -8521,9 +8521,11 @@ String estimatedOneRmLabel(
   String? languageCode,
 ) {
 // Only the value and its unit: "90.5 kg" / "90.5 ק״ג". Empty when there
-  // is nothing to show.
+
+  // Only the value and its unit: "90.5 kg" / "90.5 ק״ג".
+  // Never empty: a dash when there is nothing to show.
   final double v = estimatedOneRm ?? 0;
-  if (v <= 0 || v.isNaN || v.isInfinite) return "";
+  if (v <= 0 || v.isNaN || v.isInfinite) return "-";
 
   String lang = (languageCode ?? "en").trim().toLowerCase();
   if (lang.length > 2) lang = lang.substring(0, 2);
@@ -8617,4 +8619,130 @@ String timeRangeLabel(
     default:
       return "Last " + n + " days";
   }
+}
+
+String equipmentLabel(
+  String? equipment,
+  String? languageCode,
+) {
+  // Display only: the catalog stores the English value ("Smith Machine");
+  // this returns its name in the app language. A value that is not in the
+  // table is returned as stored.
+  final String raw = (equipment ?? "").trim();
+  if (raw.isEmpty) return "";
+
+  String lang = (languageCode ?? "en").trim().toLowerCase();
+  if (lang.length > 2) lang = lang.substring(0, 2);
+
+  const Map<String, Map<String, String>> names = {
+    "bodyweight": {
+      "en": "Bodyweight",
+      "es": "Peso corporal",
+      "he": "משקל גוף",
+      "de": "Körpergewicht",
+      "fr": "Poids du corps",
+    },
+    "barbell": {
+      "en": "Barbell",
+      "es": "Barra",
+      "he": "מוט",
+      "de": "Langhantel",
+      "fr": "Barre",
+    },
+    "dumbbell": {
+      "en": "Dumbbell",
+      "es": "Mancuerna",
+      "he": "משקולת",
+      "de": "Kurzhantel",
+      "fr": "Haltère",
+    },
+    "machine": {
+      "en": "Machine",
+      "es": "Máquina",
+      "he": "מכונה",
+      "de": "Maschine",
+      "fr": "Machine",
+    },
+    "cable": {
+      "en": "Cable",
+      "es": "Polea",
+      "he": "כבל",
+      "de": "Kabelzug",
+      "fr": "Poulie",
+    },
+    "bench": {
+      "en": "Bench",
+      "es": "Banco",
+      "he": "ספסל",
+      "de": "Bank",
+      "fr": "Banc",
+    },
+    "plate": {
+      "en": "Plate",
+      "es": "Disco",
+      "he": "פלטה",
+      "de": "Scheibe",
+      "fr": "Disque",
+    },
+    "kettlebell": {
+      "en": "Kettlebell",
+      "es": "Kettlebell",
+      "he": "קטלבל",
+      "de": "Kettlebell",
+      "fr": "Kettlebell",
+    },
+    "trap bar": {
+      "en": "Trap Bar",
+      "es": "Barra hexagonal",
+      "he": "טראפ בר",
+      "de": "Trap Bar",
+      "fr": "Trap bar",
+    },
+    "smith machine": {
+      "en": "Smith Machine",
+      "es": "Máquina Smith",
+      "he": "מכונת סמית׳",
+      "de": "Smith-Maschine",
+      "fr": "Smith machine",
+    },
+    "resistance band": {
+      "en": "Resistance Band",
+      "es": "Banda elástica",
+      "he": "גומייה",
+      "de": "Widerstandsband",
+      "fr": "Élastique",
+    },
+    "sled": {
+      "en": "Sled",
+      "es": "Trineo",
+      "he": "מזחלת",
+      "de": "Schlitten",
+      "fr": "Traîneau",
+    },
+    "medicine ball": {
+      "en": "Medicine Ball",
+      "es": "Balón medicinal",
+      "he": "כדור כוח",
+      "de": "Medizinball",
+      "fr": "Médecine-ball",
+    },
+    "jump rope": {
+      "en": "Jump Rope",
+      "es": "Comba",
+      "he": "חבל קפיצה",
+      "de": "Springseil",
+      "fr": "Corde à sauter",
+    },
+    "battle ropes": {
+      "en": "Battle Ropes",
+      "es": "Cuerdas de batalla",
+      "he": "חבלי קרב",
+      "de": "Battle Ropes",
+      "fr": "Cordes ondulatoires",
+    },
+  };
+
+  final Map<String, String>? row = names[raw.toLowerCase()];
+  if (row == null) return raw;
+  return row[lang] ?? row["en"] ?? raw;
 }

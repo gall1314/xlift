@@ -33,7 +33,13 @@ import 'xlift_log_add.dart';
 ///
 /// GUARANTEE: ALWAYS returns a JSON map - never throws, never leaves the
 /// Action Output empty (inner/outer/last-resort shields).
-/// Returns JSON: { success, workoutId, name, exercises, sets, deleted, debug }.
+/// Returns JSON:
+/// { success, message, workoutId, name, exercises, sets, deleted, debug }.
+///
+/// DEBUG: `message` is one readable line made for a Snack Bar - on failure it
+/// says where the action stopped (stage / failed step), the error, and the
+/// size of every input list; on success what was saved. In FlutterFlow add a
+/// Show Snack Bar action after this one with the JSON path $.message.
 Future<dynamic> updateWorkoutTemplate(
   String workoutId,
   String? workoutName,
@@ -68,11 +74,55 @@ Future<dynamic> updateWorkoutTemplate(
     };
   }
 
+  // The sizes of what came in - most failures here are an empty or a wrong
+  // list bound in FlutterFlow, and this shows it at a glance.
+  String inputsLine() {
+    final int drops = dropSets == null ? 0 : dropSets.length;
+    final int warm = warmupList == null ? 0 : warmupList.length;
+    return 'id=' +
+        (workoutId.trim().isEmpty ? 'EMPTY' : 'ok') +
+        ' user=' +
+        (userId.isEmpty ? 'EMPTY' : 'ok') +
+        ' exerciseSets=' +
+        exerciseSets.length.toString() +
+        ' logged=' +
+        loggedSets.length.toString() +
+        ' drops=' +
+        drops.toString() +
+        ' warmups=' +
+        warm.toString() +
+        ' selected=' +
+        alreadySelected.length.toString() +
+        ' restIsMap=' +
+        (restDurations is Map).toString();
+  }
+
+  // One line for a Snack Bar.
+  String failMessage(String msg, String type) {
+    String e = msg;
+    if (e.length > 220) e = e.substring(0, 220) + '...';
+    final String where = failedAt ?? stage;
+    final String last = stepsDone.isEmpty ? '-' : stepsDone.last;
+    return 'updateWorkoutTemplate FAILED' +
+        (hangSuspect ? ' (TIMEOUT)' : '') +
+        ' | at: ' +
+        where +
+        ' | last ok: ' +
+        last +
+        ' | ' +
+        type +
+        ': ' +
+        e +
+        ' | ' +
+        inputsLine();
+  }
+
   Map<String, dynamic> failure(String msg, String type) {
     xliftLogAdd('[TAG] FATAL at stage=$stage failedAt=$failedAt '
         'hang=$hangSuspect type=$type: $msg');
     return {
       'success': false,
+      'message': failMessage(msg, type),
       'workoutId': workoutId,
       'name': '',
       'error': msg,
@@ -204,14 +254,35 @@ Future<dynamic> updateWorkoutTemplate(
       final List existing = await guarded(
           'load-workout',
           () => db.rawQuery(
+                // COALESCE: a row saved without is_deleted holds NULL there,
+                // and "NULL = 0" is never true - it looked like "not found"
                 'SELECT id, name FROM workout '
-                'WHERE id = ? AND user_id = ? AND is_deleted = 0 LIMIT 1',
+                'WHERE id = ? AND user_id = ? '
+                'AND COALESCE(is_deleted, 0) = 0 LIMIT 1',
                 [workoutId, userId],
               ));
       if (existing.isEmpty) {
         failedAt = 'load-workout';
+        // Why not? Look the id up without the filters and say what is there.
+        String why = 'no row with this id in the local workout table';
+        try {
+          final List any = await db.rawQuery(
+              'SELECT user_id, is_deleted FROM workout WHERE id = ? LIMIT 1',
+              [workoutId]);
+          if (any.isNotEmpty) {
+            final String rowUser = (any.first['user_id'] ?? 'NULL').toString();
+            final String rowDel =
+                (any.first['is_deleted'] ?? 'NULL').toString();
+            why = 'row exists: is_deleted=' +
+                rowDel +
+                ', same user=' +
+                (rowUser == userId).toString();
+          }
+        } catch (e) {
+          why = 'lookup failed: ' + e.toString();
+        }
         return failure(
-            'Workout $workoutId not found for this user', 'NotFound');
+            'Workout "' + workoutId + '" not usable - ' + why, 'NotFound');
       }
       final String storedName = (existing.first['name'] ?? '').toString();
       mark('load-workout');
@@ -604,6 +675,15 @@ Future<dynamic> updateWorkoutTemplate(
           'sets=$savedSets total=${sw.elapsedMilliseconds}ms');
       return {
         'success': true,
+        'message': 'Saved "' +
+            name +
+            '": ' +
+            savedExercises.toString() +
+            ' exercises, ' +
+            savedSets.toString() +
+            ' sets (replaced ' +
+            deleted.toString() +
+            ' old rows)',
         'workoutId': workoutId,
         'name': name,
         'exercises': savedExercises,
@@ -621,6 +701,10 @@ Future<dynamic> updateWorkoutTemplate(
     } catch (_) {
       return {
         'success': false,
+        'message': 'updateWorkoutTemplate FAILED | at: ' +
+            stage +
+            ' | Unrecoverable: ' +
+            e.toString(),
         'workoutId': workoutId,
         'name': '',
         'error': 'Unrecoverable: $e',

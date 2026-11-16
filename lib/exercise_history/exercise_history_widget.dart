@@ -1251,13 +1251,13 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                               ),
                                                         ),
                                                         Text(
-                                                          valueOrDefault<
-                                                              String>(
-                                                            exerciseHistoryExercise2RowList
-                                                                .firstOrNull
-                                                                ?.equipment,
-                                                            '=',
-                                                          ),
+                                                          functions.equipmentLabel(
+                                                              exerciseHistoryExercise2RowList
+                                                                  .firstOrNull
+                                                                  ?.equipment,
+                                                              FFLocalizations.of(
+                                                                      context)
+                                                                  .languageCode),
                                                           style: FlutterFlowTheme
                                                                   .of(context)
                                                               .bodySmall
@@ -1574,23 +1574,21 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                                   ),
                                                                             ),
                                                                           ),
-                                                                        Container(
-                                                                          width:
-                                                                              MediaQuery.sizeOf(context).width * 1.0,
-                                                                          height:
-                                                                              120.0,
-                                                                          child:
-                                                                              custom_widgets.ExerciseCompareCard(
+                                                                        if (listViewIndex ==
+                                                                            0)
+                                                                          Container(
                                                                             width:
                                                                                 MediaQuery.sizeOf(context).width * 1.0,
                                                                             height:
                                                                                 120.0,
-                                                                            workoutLogId:
-                                                                                listViewExerciseSessionComparisomRow.workoutLogId,
-                                                                            exerciseId:
-                                                                                widget.exerciseId!,
+                                                                            child:
+                                                                                custom_widgets.ExerciseCompareCard(
+                                                                              width: MediaQuery.sizeOf(context).width * 1.0,
+                                                                              height: 120.0,
+                                                                              workoutLogId: listViewExerciseSessionComparisomRow.workoutLogId,
+                                                                              exerciseId: widget.exerciseId!,
+                                                                            ),
                                                                           ),
-                                                                        ),
                                                                         if (listViewIndex ==
                                                                             0)
                                                                           Container(
@@ -3029,6 +3027,22 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                   );
                                                 },
                                               ),
+                                            Container(
+                                              width: MediaQuery.sizeOf(context)
+                                                      .width *
+                                                  1.0,
+                                              height: 440.0,
+                                              child: custom_widgets
+                                                  .ExerciseAnalyticsCard(
+                                                width:
+                                                    MediaQuery.sizeOf(context)
+                                                            .width *
+                                                        1.0,
+                                                height: 440.0,
+                                                exerciseId: widget.exerciseId!,
+                                                userId: currentUserUid,
+                                              ),
+                                            ),
                                             if (exerciseHistoryExercise2RowList
                                                     .firstOrNull?.isAssisted ==
                                                 1)

@@ -489,11 +489,13 @@ class SQLiteManager {
   Future<List<WorkoutComparisonRow>> workoutComparison({
     String? workoutLogIdA,
     String? workoutLogIdB,
+    String? languageCode,
   }) =>
       performWorkoutComparison(
         _database,
         workoutLogIdA: workoutLogIdA,
         workoutLogIdB: workoutLogIdB,
+        languageCode: languageCode,
       );
 
   Future<List<CompareMuscelsRow>> compareMuscels({
@@ -509,11 +511,13 @@ class SQLiteManager {
   Future<List<ExercisesComparisonRow>> exercisesComparison({
     String? workoutLogIdA,
     String? workoutLogIdB,
+    String? languageCode,
   }) =>
       performExercisesComparison(
         _database,
         workoutLogIdA: workoutLogIdA,
         workoutLogIdB: workoutLogIdB,
+        languageCode: languageCode,
       );
 
   Future<List<ExercisesForEditRow>> exercisesForEdit({

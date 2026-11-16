@@ -117,7 +117,7 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
             isLiveWorkout: false,
             workoutName: widget.workoutName,
             originalSelection: FFAppState().exerciseSetsCreation,
-            isPremium: false,
+            isPremium: FFAppState().isPremium,
             onConfirm: (selected) async {
               _model.updatedListCopy =
                   await actions.syncExerciseSetsWithSelectedIds(
@@ -198,7 +198,9 @@ class _AddExercisesForEditWidgetState extends State<AddExercisesForEditWidget> {
             onBack: () async {
               context.safePop();
             },
-            onLockedTap: () async {},
+            onLockedTap: () async {
+              context.pushNamed(PaywallFinalWidget.routeName);
+            },
           ),
         ),
       ),

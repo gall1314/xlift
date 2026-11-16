@@ -1044,6 +1044,52 @@ class _SetTableState extends State<SetTable> {
 
   // ---------- write back ----------
 
+  /// Reps typed into a working set. In a template the value also becomes
+  /// the target of the sets under it that were not typed yet (up to the next
+  /// typed one): they show it as their hint, and because it is written into
+  /// exerciseSets it is exactly what the save actions store for them - what
+  /// you see is what is saved.
+  Future<void> _commitReps(_TplSet t, int? v) async {
+    await _emit(_upsertBase(_copyLogged(), t, reps: v, clearReps: v == null));
+    if (!_tpl || v == null || v <= 0) return;
+
+    // sets of this exercise that already hold a typed target
+    final Set<int> typed = {};
+    for (final l in widget.loggedSets ?? const []) {
+      if (l is Map &&
+          _isMine(l) &&
+          !_truthy(l['isDropSet']) &&
+          (_asIntN(l['targetReps']) ?? 0) > 0) {
+        typed.add(_asInt(l['setNumber']));
+      }
+    }
+
+    final list = _copyList(widget.exerciseSets);
+    final int idx = list.indexWhere((e) => _isMine(e));
+    if (idx < 0 || list[idx]['sets'] is! List) return;
+    final sets = (list[idx]['sets'] as List)
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList()
+      ..sort(
+          (a, b) => _asInt(a['setNumber']).compareTo(_asInt(b['setNumber'])));
+
+    bool changed = false;
+    for (final s in sets) {
+      final int sn = _asInt(s['setNumber']);
+      if (sn < t.setNumber) continue;
+      // the next typed set has its own value, and the sets after it follow it
+      if (sn > t.setNumber && typed.contains(sn)) break;
+      if (_asInt(s['targetReps']) != v) {
+        s['targetReps'] = v;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    list[idx]['sets'] = sets;
+    await widget.onExerciseSetsChanged?.call(List<dynamic>.from(list));
+  }
+
   List<Map<String, dynamic>> _copyLogged() => (widget.loggedSets ?? const [])
       .whereType<Map>()
       .map((e) => Map<String, dynamic>.from(e))
@@ -1877,6 +1923,8 @@ class _SetTableState extends State<SetTable> {
   }
 
   /// One warm-up block: flame · "-" · reps · weight · (empty) + ✓ bar.
+  /// In a template it is laid out like a working set there: target reps
+  /// only - no weight column and nothing to tick.
   Widget _warmBlock(
       Map w,
       bool isLast,
@@ -1890,7 +1938,7 @@ class _SetTableState extends State<SetTable> {
       Color zebra,
       Color cellBg) {
     final int n = _asInt(w['setNumber']);
-    final bool done = _truthy(w['isDone']);
+    final bool done = !_tpl && _truthy(w['isDone']);
     final int? reps = _asIntN(w['reps']);
     final double? weight = _asDoubleN(w['weight']);
     final bool canWeight = !widget.isTimed &&
@@ -1943,7 +1991,7 @@ class _SetTableState extends State<SetTable> {
                       onCommit: (v) => _warmSetValue(n, reps: v ?? 0),
                     ),
             ),
-            if (!widget.isTimed) ...[
+            if (!widget.isTimed && !_tpl) ...[
               const SizedBox(width: _gap),
               SizedBox(
                 width: _colVal,
@@ -2817,7 +2865,7 @@ class _SetTableState extends State<SetTable> {
     for (int i = 0; i < warm; i++) {
       final w = warmSets[i];
       final int n = _asInt(w['setNumber']);
-      final bool done = _truthy(w['isDone']);
+      final bool done = !_tpl && _truthy(w['isDone']);
       h += _rowH;
       if (done) {
         h += 2;
@@ -2970,8 +3018,7 @@ class _SetTableState extends State<SetTable> {
                 textColor: text,
                 hintColor: muted.withOpacity(0.5),
                 focusColor: accent,
-                onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
-                    reps: v, clearReps: v == null)),
+                onCommit: (v) => _commitReps(t, v),
               ),
             ),
             if (!_tpl) ...[

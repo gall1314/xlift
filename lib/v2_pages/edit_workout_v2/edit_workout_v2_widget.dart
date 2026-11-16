@@ -65,6 +65,8 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
 
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
+      _model.workoutName = widget.workoutName;
+      safeSetState(() {});
       if (widget.shouldInit!) {
         _model.simp = await SQLiteManager.instance.getExercisesSimp(
           workoutId: widget.workoutId,
@@ -152,6 +154,21 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                   FFAppState().warmUpCreation.toList(),
                   FFAppState().restTimerCreation,
                 );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      getJsonField(
+                        _model.saveCopy2,
+                        r'''$["message"]''',
+                      ).toString(),
+                      style: TextStyle(
+                        color: FlutterFlowTheme.of(context).primaryText,
+                      ),
+                    ),
+                    duration: Duration(milliseconds: 4000),
+                    backgroundColor: FlutterFlowTheme.of(context).secondary,
+                  ),
+                );
                 FFAppState().warmUpCreation = [];
                 FFAppState().restTimerCreation = null;
                 FFAppState().dropSetsCreation = [];
@@ -170,7 +187,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                   AddExercisesForEditWidget.routeName,
                   queryParameters: {
                     'workoutName': serializeParam(
-                      '',
+                      _model.workoutName,
                       ParamType.String,
                     ),
                     'workoutId': serializeParam(

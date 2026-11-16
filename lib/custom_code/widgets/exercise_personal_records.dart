@@ -19,16 +19,15 @@ import 'package:google_fonts/google_fonts.dart';
 /// The "Personal Records" card of the exercise page (Analytics tab).
 ///
 /// Self-managed: reads the exercise's sets from SQLite itself and shows the
-/// three records that fit the kind of exercise:
-/// - weighted:   most reps in a set, heaviest weight, most volume in a workout
-/// - bodyweight: most reps in a set, most reps in a workout, average per set
-/// - timed:      longest set, average set time, most time in a workout
-/// - assisted:   most reps in a set, most reps in a workout, least assistance
+/// three records that fit the kind of exercise: - weighted:   most reps in a
+/// set, heaviest weight, most volume in a workout - bodyweight: most reps in
+/// a set, most reps in a workout, average per set - timed:      longest set,
+/// average set time, most time in a workout - assisted:   most reps in a set,
+/// most reps in a workout, least assistance
 ///
-/// Parameters:
-/// - exerciseId, userId
-/// - timeRange: the same value the page queries get ('Last 7 days',
-///   'Last 30 days', 'Last 90 days'; anything else = all time).
+/// Parameters: - exerciseId, userId - timeRange: the same value the page
+/// queries get ('Last 7 days', 'Last 30 days', 'Last 90 days'; anything else
+/// = all time).
 ///
 /// Units: every weight is stored as typed with its own unit (set_log.is_kg)
 /// and converted here to the app unit (FFAppState().isKg). A drop set is not
@@ -545,7 +544,22 @@ class _ExercisePersonalRecordsState extends State<ExercisePersonalRecords> {
     );
   }
 
-  Widget _row(_Record r) {
+  /// Icon colours, one per row, like the original card: teal, deep teal and
+  /// sky blue. Lighter shades on a dark background so all three stay visible.
+  Color _iconColor(int index) {
+    final th = FlutterFlowTheme.of(context);
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    switch (index % 3) {
+      case 1:
+        return dark ? const Color(0xFF5EEAD4) : const Color(0xFF0F766E);
+      case 2:
+        return dark ? const Color(0xFF7DD3FC) : const Color(0xFF4DD0E1);
+      default:
+        return th.primary;
+    }
+  }
+
+  Widget _row(_Record r, int index) {
     final th = FlutterFlowTheme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -572,7 +586,7 @@ class _ExercisePersonalRecordsState extends State<ExercisePersonalRecords> {
             ),
           ),
           const SizedBox(width: 12),
-          Icon(r.icon, size: 24, color: th.primary),
+          Icon(r.icon, size: 24, color: _iconColor(index)),
         ],
       ),
     );
@@ -621,7 +635,7 @@ class _ExercisePersonalRecordsState extends State<ExercisePersonalRecords> {
             const SizedBox(height: 6),
             for (int i = 0; i < records.length; i++) ...[
               if (i > 0) Container(height: 1, color: th.alternate),
-              _row(records[i]),
+              _row(records[i], i),
             ],
           ],
         ),
@@ -629,6 +643,5 @@ class _ExercisePersonalRecordsState extends State<ExercisePersonalRecords> {
     );
   }
 }
-
 // Set your widget name, define your parameter, and then add the
 // boilerplate code using the `</>` button on the right!

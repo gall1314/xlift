@@ -103,6 +103,7 @@ class _AddExercisesMidSeissionCopyWidgetState
             originalSelection: widget.alreadySelceted,
             isLiveWorkout: true,
             liveExerciseSets: FFAppState().exercisesets,
+            isPremium: FFAppState().isPremium,
             onConfirm: (selected) async {
               _model.added = await actions.addExercisesToExerciseSetsInWorkout(
                 FFAppState().exercisesets.toList(),
@@ -173,7 +174,9 @@ class _AddExercisesMidSeissionCopyWidgetState
             onBack: () async {
               context.safePop();
             },
-            onLockedTap: () async {},
+            onLockedTap: () async {
+              context.pushNamed(PaywallFinalWidget.routeName);
+            },
           ),
         ),
       ),

@@ -121,6 +121,7 @@ class _AddExercisesV3CopyWidgetState extends State<AddExercisesV3CopyWidget> {
             workoutName: widget.workoutName,
             originalSelection: widget.alreadySelceted,
             isLiveWorkout: false,
+            isPremium: FFAppState().isPremium,
             onConfirm: (selected) async {
               _model.add =
                   await actions.initializeWorkoutExerciseSetsFromSelection(
@@ -201,7 +202,9 @@ class _AddExercisesV3CopyWidgetState extends State<AddExercisesV3CopyWidget> {
             onBack: () async {
               context.safePop();
             },
-            onLockedTap: () async {},
+            onLockedTap: () async {
+              context.pushNamed(PaywallFinalWidget.routeName);
+            },
           ),
         ),
       ),

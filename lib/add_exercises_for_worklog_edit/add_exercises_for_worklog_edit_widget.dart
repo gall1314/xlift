@@ -86,7 +86,7 @@ class _AddExercisesForWorklogEditWidgetState
             isLiveWorkout: true,
             originalSelection: widget.alreadySelceted,
             liveExerciseSets: FFAppState().exerciseSetsCreation,
-            isPremium: false,
+            isPremium: FFAppState().isPremium,
             onConfirm: (selected) async {
               _model.addedCopy =
                   await actions.addExercisesToExerciseSetsInWorkout(
@@ -144,7 +144,9 @@ class _AddExercisesForWorklogEditWidgetState
             onBack: () async {
               context.safePop();
             },
-            onLockedTap: () async {},
+            onLockedTap: () async {
+              context.pushNamed(PaywallFinalWidget.routeName);
+            },
           ),
         ),
       ),

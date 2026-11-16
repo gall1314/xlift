@@ -108,6 +108,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                   future: SQLiteManager.instance.workoutComparison(
                     workoutLogIdA: widget.idA!,
                     workoutLogIdB: widget.idB!,
+                    languageCode: FFLocalizations.of(context).languageCode,
                   ),
                   builder: (context, snapshot) {
                     // Customize what your widget looks like when it's loading.
@@ -1607,6 +1608,7 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                     future: SQLiteManager.instance.exercisesComparison(
                       workoutLogIdA: widget.idA!,
                       workoutLogIdB: widget.idB!,
+                      languageCode: FFLocalizations.of(context).languageCode,
                     ),
                     builder: (context, snapshot) {
                       // Customize what your widget looks like when it's loading.
