@@ -207,11 +207,14 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                 child: Text(
                                                   functions.formatNiceDate(
                                                       valueOrDefault<String>(
-                                                    containerWorkoutComparisonRowList
-                                                        .firstOrNull
-                                                        ?.aCreatedAt,
-                                                    'name',
-                                                  )),
+                                                        containerWorkoutComparisonRowList
+                                                            .firstOrNull
+                                                            ?.aCreatedAt,
+                                                        'name',
+                                                      ),
+                                                      FFLocalizations.of(
+                                                              context)
+                                                          .languageCode),
                                                   style: FlutterFlowTheme.of(
                                                           context)
                                                       .labelMedium
@@ -317,11 +320,14 @@ class _WorkoutComparisonWidgetState extends State<WorkoutComparisonWidget> {
                                                 child: Text(
                                                   functions.formatNiceDate(
                                                       valueOrDefault<String>(
-                                                    containerWorkoutComparisonRowList
-                                                        .firstOrNull
-                                                        ?.bCreatedAt,
-                                                    'name',
-                                                  )),
+                                                        containerWorkoutComparisonRowList
+                                                            .firstOrNull
+                                                            ?.bCreatedAt,
+                                                        'name',
+                                                      ),
+                                                      FFLocalizations.of(
+                                                              context)
+                                                          .languageCode),
                                                   style: FlutterFlowTheme.of(
                                                           context)
                                                       .labelMedium

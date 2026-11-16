@@ -43,19 +43,20 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Keine Sätze erfasst",
     "fr": "Aucune série enregistrée"
   },
+  // {s} is the whole sets label ("3 SETS", "סט אחד"), see _setsLabel.
   "header": {
-    "en": "{e} EXERCISES · {s} SETS",
-    "es": "{e} EJERCICIOS · {s} SERIES",
-    "he": "{e} תרגילים · {s} סטים",
-    "de": "{e} ÜBUNGEN · {s} SÄTZE",
-    "fr": "{e} EXERCICES · {s} SÉRIES"
+    "en": "{e} EXERCISES · {s}",
+    "es": "{e} EJERCICIOS · {s}",
+    "he": "{e} תרגילים · {s}",
+    "de": "{e} ÜBUNGEN · {s}",
+    "fr": "{e} EXERCICES · {s}"
   },
   "header1": {
-    "en": "{e} EXERCISE · {s} SETS",
-    "es": "{e} EJERCICIO · {s} SERIES",
-    "he": "תרגיל {e} · {s} סטים",
-    "de": "{e} ÜBUNG · {s} SÄTZE",
-    "fr": "{e} EXERCICE · {s} SÉRIES"
+    "en": "{e} EXERCISE · {s}",
+    "es": "{e} EJERCICIO · {s}",
+    "he": "תרגיל אחד · {s}",
+    "de": "{e} ÜBUNG · {s}",
+    "fr": "{e} EXERCICE · {s}"
   },
   "expandAll": {
     "en": "Expand all",
@@ -71,7 +72,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Alle schließen",
     "fr": "Tout fermer"
   },
-  "set": {"en": "set", "es": "serie", "he": "סט", "de": "Satz", "fr": "série"},
+  "set1": {
+    "en": "1 set",
+    "es": "1 serie",
+    "he": "סט אחד",
+    "de": "1 Satz",
+    "fr": "1 série"
+  },
   "sets": {
     "en": "sets",
     "es": "series",
@@ -107,6 +114,9 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Hilfe",
     "fr": "assist."
   },
+  // Weight units as shown to the user.
+  "kg": {"en": "kg", "es": "kg", "he": "ק״ג", "de": "kg", "fr": "kg"},
+  "lbs": {"en": "lbs", "es": "lbs", "he": "ליב׳", "de": "lbs", "fr": "lbs"},
 };
 
 String _tr(String lang, String key, {Map<String, String>? p}) {
@@ -119,6 +129,19 @@ String _tr(String lang, String key, {Map<String, String>? p}) {
 /// Wraps numbers/units so they stay LTR inside RTL text.
 String _ltr(String s) => '\u2066$s\u2069';
 
+/// The stored unit label ("kg", "lbs", "lb") in the app language.
+String _unit(String lang, String raw) {
+  final String u = raw.trim().toLowerCase();
+  if (u.startsWith('lb')) return _tr(lang, 'lbs');
+  if (u == 'kg') return _tr(lang, 'kg');
+  return raw;
+}
+
+/// How many sets, in the app language: "1 set" / "3 sets" ("סט אחד" in
+/// Hebrew, where a number before a singular noun reads wrong).
+String _setsLabel(String lang, int n) =>
+    n == 1 ? _tr(lang, 'set1') : '${_ltr('$n')} ${_tr(lang, 'sets')}';
+
 /// Full "exercise breakdown" bottom sheet for the Workout Complete screen.
 ///
 /// Self-contained: sheet background + rounded top + grab handle + padding +
@@ -128,7 +151,8 @@ String _ltr(String s) => '\u2066$s\u2069';
 /// Runs the `workoutBreakdownSets` SQLite query itself and groups by
 /// exercise. Exercise / muscle names come raw from the DB (JSON) and are
 /// localized here via localizedName(); the English name is used for the
-/// thumbnail asset. Reads the app language from FFLocalizations — no param.
+/// thumbnail asset. Units (kg / lbs) are shown in the app language too. Reads
+/// the app language from FFLocalizations — no param.
 class WorkoutBreakdownSheet extends StatefulWidget {
   const WorkoutBreakdownSheet({
     super.key,
@@ -371,27 +395,37 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
   }
 
   /// "10 × 60 kg" | "10 reps · Bodyweight" | "10 reps · −20 kg assist" | "01:30"
+  /// Only the numbers are forced LTR; the unit is a word in the app language
+  /// and follows them (on the left in Hebrew).
   String _setLine(String lang, _Exercise ex, _SetRow s) {
     if (ex.isTimed) return _ltr(_time(s.durSec));
+    final String unit = _unit(lang, ex.unit);
     final String reps = '${_ltr('${s.reps}')} ${_tr(lang, 'reps')}';
     if (ex.isAssisted) {
       return s.weight > 0
-          ? '$reps · ${_ltr('−${_num(s.weight)} ${ex.unit}')} ${_tr(lang, 'assist')}'
+          ? '$reps · ${_ltr('−${_num(s.weight)}')} $unit ${_tr(lang, 'assist')}'
           : reps;
     }
     if (s.weight <= 0) return '$reps · ${_tr(lang, 'bodyweight')}';
-    return _ltr('${s.reps} × ${_num(s.weight)} ${ex.unit}');
+    return '${_ltr('${s.reps} × ${_num(s.weight)}')} $unit';
   }
 
   /// `exercise_total` comes from SQL in English ("1,200 kg", "45 reps",
-  /// "Bodyweight", "12:30"). Swap the known English words; numbers/units
-  /// stay as-is and LTR.
+  /// "Bodyweight", "12:30"). Swap the known English words (units included);
+  /// the number stays as-is and LTR, the word follows it.
   String _total(String lang, String raw) {
     if (raw.isEmpty) return '';
     var s = raw;
     s = s.replaceAll('Bodyweight', _tr(lang, 'bodyweight'));
     s = s.replaceAll(RegExp(r'\breps?\b'), _tr(lang, 'reps'));
-    return lang == 'en' ? s : _ltr(s);
+    s = s.replaceAll(RegExp(r'\bkg\b'), _tr(lang, 'kg'));
+    s = s.replaceAll(RegExp(r'\blbs?\b'), _tr(lang, 'lbs'));
+    if (lang == 'en') return s;
+    // Isolate the leading number ("1,200", "12:30", "−20") so it keeps its
+    // order inside right-to-left text.
+    final Match? m = RegExp(r'^[\d.,:+\-−]+').firstMatch(s);
+    if (m == null) return s;
+    return _ltr(m.group(0)!) + s.substring(m.end);
   }
 
   static String _score(double v) {
@@ -446,6 +480,10 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
     } else {
       final int totalSets = _exercises.fold(0, (n, e) => n + e.setsCount);
       final bool allOpen = _exercises.every((e) => _open.contains(e.id));
+      // The header is all caps in left-to-right languages.
+      final String setsLabel = rtl
+          ? _setsLabel(lang, totalSets)
+          : _setsLabel(lang, totalSets).toUpperCase();
 
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -458,7 +496,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
                 Expanded(
                   child: Text(
                     _tr(lang, _exercises.length == 1 ? 'header1' : 'header',
-                        p: {'e': '${_exercises.length}', 's': '$totalSets'}),
+                        p: {'e': '${_exercises.length}', 's': setsLabel}),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -607,7 +645,7 @@ class _WorkoutBreakdownSheetState extends State<WorkoutBreakdownSheet> {
 
     final String meta = [
       if (muscle.isNotEmpty) (rtl ? muscle : muscle.toUpperCase()),
-      '${_ltr('${ex.setsCount}')} ${_tr(lang, ex.setsCount == 1 ? 'set' : 'sets')}',
+      _setsLabel(lang, ex.setsCount),
       if (total.isNotEmpty) total,
     ].join(' · ');
 

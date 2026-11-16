@@ -77,6 +77,10 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
       }
 
       await actions.syncAllPending();
+      if (FFAppState().isPremium) {
+        _model.historyRangeSelect = 'All';
+        safeSetState(() {});
+      }
     });
 
     _model.tabBarController = TabController(

@@ -195,7 +195,7 @@ class _BottomSheetNoFreeLeftWidgetState
               ),
               FFButtonWidget(
                 onPressed: () async {
-                  context.pushNamed(PremiumPaywallPageWidget.routeName);
+                  context.pushNamed(PaywallFinalWidget.routeName);
                 },
                 text: FFLocalizations.of(context).getText(
                   'thmovivw' /* Go pro - unlimited checks */,

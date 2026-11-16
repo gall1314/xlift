@@ -79,3 +79,4 @@ export '/add_exercises_mid_seission_copy/add_exercises_mid_seission_copy_widget.
 export '/recap/recap_widget.dart' show RecapWidget;
 export '/weeklyplan/weeklyplan_widget.dart' show WeeklyplanWidget;
 export '/training_score/training_score_widget.dart' show TrainingScoreWidget;
+export '/paywall_final/paywall_final_widget.dart' show PaywallFinalWidget;

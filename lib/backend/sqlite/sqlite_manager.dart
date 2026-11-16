@@ -290,12 +290,14 @@ class SQLiteManager {
     int? exerciseId,
     String? userId,
     String? timeRange,
+    int? isKg,
   }) =>
       performExercisePrs(
         _database,
         exerciseId: exerciseId,
         userId: userId,
         timeRange: timeRange,
+        isKg: isKg,
       );
 
   Future<List<Rm1Row>> rm1({

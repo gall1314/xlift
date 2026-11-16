@@ -663,6 +663,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: TrainingScoreWidget.routeName,
           path: TrainingScoreWidget.routePath,
           builder: (context, params) => TrainingScoreWidget(),
+        ),
+        FFRoute(
+          name: PaywallFinalWidget.routeName,
+          path: PaywallFinalWidget.routePath,
+          builder: (context, params) => PaywallFinalWidget(),
         )
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

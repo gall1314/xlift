@@ -216,6 +216,9 @@ const Map<String, Map<String, String>> _kStrings = {
     "fr": "reps"
   },
   "min": {"en": "min", "es": "min", "he": "דק׳", "de": "Min.", "fr": "min"},
+  "hr": {"en": "h", "es": "h", "he": "שע׳", "de": "Std.", "fr": "h"},
+  "kg": {"en": "kg", "es": "kg", "he": "ק״ג", "de": "kg", "fr": "kg"},
+  "lbs": {"en": "lbs", "es": "lbs", "he": "ליב׳", "de": "lbs", "fr": "lbs"},
   "bw": {"en": "BW", "es": "PC", "he": "מ״ג", "de": "KG", "fr": "PDC"},
   "drop": {
     "en": "Drop",
@@ -577,12 +580,21 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
   }
 
   // ---------- formatting ----------
-  static String _durationLabel(int ms) {
+  /// Workout length for the hero tile. Hebrew: "1:10 שע׳" / "45 דק׳" (same
+  /// form as the History cards); other languages: "1h 10m" / "45m".
+  String _durationLabel(int ms) {
     final int totalMin = (ms / 60000).round();
-    if (totalMin < 60) return '${totalMin}m';
     final int h = totalMin ~/ 60, m = totalMin % 60;
+    if (_kRtl.contains(_lang)) {
+      if (totalMin < 60) return '$totalMin ${_tr(_lang, 'min')}';
+      return '$h:${m.toString().padLeft(2, '0')} ${_tr(_lang, 'hr')}';
+    }
+    if (totalMin < 60) return '${totalMin}m';
     return m == 0 ? '${h}h' : '${h}h ${m.toString().padLeft(2, '0')}m';
   }
+
+  /// Weight unit in the app language ("kg" / "ק״ג").
+  String _unit(bool isKg) => _tr(_lang, isKg ? 'kg' : 'lbs');
 
   static String _mmss(int ms) {
     final int s = (ms / 1000).round();
@@ -600,7 +612,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     final dt = DateTime.tryParse(raw.trim());
     if (dt == null) {
       try {
-        return formatNiceDate(raw);
+        return formatNiceDate(raw, _lang);
       } catch (_) {
         return raw;
       }
@@ -748,12 +760,14 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
 
   // ---------- hero ----------
   Widget _hero(BuildContext ctx, _Summary s) {
+    final bool rtl = _kRtl.contains(_lang);
     String vol;
     try {
       vol = formatCompactNumber(s.volume.toDouble());
     } catch (_) {
       vol = s.volume.toString();
     }
+    final String volUnit = _unit(s.unitLabel.trim().toLowerCase() != 'lbs');
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
@@ -819,10 +833,12 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
               const SizedBox(width: 8),
               _stat(ctx, '${s.exerciseCount}', _tr(_lang, 'exercises')),
               const SizedBox(width: 8),
-              _stat(ctx, _durationLabel(s.durationMs), _tr(_lang, 'duration')),
+              // In Hebrew the duration carries a Hebrew unit, so it follows
+              // the page direction instead of being forced left-to-right.
+              _stat(ctx, _durationLabel(s.durationMs), _tr(_lang, 'duration'),
+                  ltr: !rtl),
               const SizedBox(width: 8),
-              _stat(
-                  ctx, vol, _tr(_lang, 'volume', u: s.unitLabel.toLowerCase())),
+              _stat(ctx, vol, _tr(_lang, 'volume', u: volUnit)),
             ],
           ),
         ],
@@ -830,7 +846,8 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     );
   }
 
-  Widget _stat(BuildContext ctx, String value, String label) {
+  Widget _stat(BuildContext ctx, String value, String label,
+      {bool ltr = true}) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
@@ -843,7 +860,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(value,
-                  textDirection: ui.TextDirection.ltr,
+                  textDirection: ltr ? ui.TextDirection.ltr : null,
                   style: _t(ctx, 22, FontWeight.w800, Colors.white)),
             ),
             const SizedBox(height: 2),
@@ -1088,8 +1105,10 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
     final th = FlutterFlowTheme.of(ctx);
     final List<Widget> out = [];
 
+    // ltr: for a signed number ("+226%"), which a right-to-left line would
+    // otherwise draw with the sign on the wrong side.
     Widget chip(String text, Color bg, Color fg,
-        {FontWeight w = FontWeight.w600}) {
+        {FontWeight w = FontWeight.w600, bool ltr = false}) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration:
@@ -1097,6 +1116,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
         child: Text(text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textDirection: ltr ? ui.TextDirection.ltr : null,
             style: _t(ctx, 12, w, fg)),
       );
     }
@@ -1123,6 +1143,7 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
             .withOpacity(0.12),
         up ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
         w: FontWeight.w700,
+        ltr: true,
       ));
     }
     return out;
@@ -1152,11 +1173,11 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
       mid = s.durationMs == null
           ? dash()
           : big(_mmss(s.durationMs!), _tr(_lang, 'min'));
-      right = hasW ? big(_weightStr(s.weight!), s.isKg ? 'kg' : 'lbs') : dash();
+      right = hasW ? big(_weightStr(s.weight!), _unit(s.isKg)) : dash();
     } else {
       mid = s.reps == null ? dash() : big('${s.reps}', _tr(_lang, 'reps'));
       if (hasW) {
-        right = big(_weightStr(s.weight!), s.isKg ? 'kg' : 'lbs');
+        right = big(_weightStr(s.weight!), _unit(s.isKg));
       } else if (e.isBodyweight || !e.isWeighted) {
         right = Text(_tr(_lang, 'bw'),
             style: _t(ctx, 17, FontWeight.w700, th.primaryText));

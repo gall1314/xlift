@@ -623,20 +623,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'fr': 'PRÉFÉRENCES',
       'he': 'העדפות',
     },
-    'lw5la6gy': {
-      'en': 'Units Preferences',
-      'de': 'Maßeinheiten',
-      'es': 'Unidades de medida',
-      'fr': 'Unités de mesure',
-      'he': 'יחידות מידה',
-    },
-    'du4vwpii': {
-      'en': 'Appearance',
-      'de': 'Aussehen',
-      'es': 'Apariencia',
-      'fr': 'Apparence',
-      'he': 'מראה',
-    },
     '8nr4khy4': {
       'en': 'PAYMENTS',
       'de': 'ZAHLUNGEN',
@@ -3405,6 +3391,16 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'he': '',
     },
   },
+  // paywallFinal
+  {
+    'kx61rbyn': {
+      'en': 'Home',
+      'de': '',
+      'es': '',
+      'fr': '',
+      'he': '',
+    },
+  },
   // exerciseStatsPlaceHolder
   {
     'zekrnvm0': {
@@ -5469,42 +5465,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'he': 'הכל',
     },
   },
-  // upgradeAlert
-  {
-    'jxftyfaq': {
-      'en': 'Custom exercises are limited',
-      'de': 'Individuelle Übungen sind begrenzt',
-      'es': 'Los ejercicios personalizados son limitados.',
-      'fr': 'Les exercices personnalisés sont limités',
-      'he': 'תרגילים מותאמים אישית מוגבלים',
-    },
-    '1q7dwdh6': {
-      'en':
-          'Free users can create up to 3 custom exercises.\nUpgrade to Premium to create unlimited exercises and personalize your workouts.',
-      'de':
-          'Mit dem kostenlosen Tarif kannst du bis zu 3 individuelle Übungen erstellen. Mit Premium erstellst du unbegrenzt viele Übungen und personalisierst deine Trainings.',
-      'es':
-          'Los usuarios gratuitos pueden crear hasta 3 ejercicios personalizados.\n\nActualízate a Premium para crear ejercicios ilimitados y personalizar tus entrenamientos.',
-      'fr':
-          'Les utilisateurs de la version gratuite peuvent créer jusqu\'à 3 exercices personnalisés.\n\nPassez à la version Premium pour créer un nombre illimité d\'exercices et personnaliser vos entraînements.',
-      'he':
-          'בגרסה החינמית אפשר ליצור עד 3 תרגילים מותאמים אישית. שדרגו לפרימיום ליצירת תרגילים ללא הגבלה והתאמה אישית של האימונים.',
-    },
-    'mrqct4yj': {
-      'en': 'Upgrade to Premium',
-      'de': 'Upgrade auf Premium',
-      'es': 'Mejora a Premium',
-      'fr': 'Passez à la version Premium',
-      'he': 'שדרוג לפרימיום',
-    },
-    '2vf63o13': {
-      'en': 'Not now',
-      'de': 'Nicht jetzt',
-      'es': 'Ahora no',
-      'fr': 'Pas maintenant',
-      'he': 'לא עכשיו',
-    },
-  },
   // Delte2
   {
     '2ojjtj9j': {
@@ -5688,10 +5648,10 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
     },
     '5gu3t3uk': {
       'en': 'SMART',
-      'de': 'SCHLAU',
-      'es': 'ELEGANTE',
-      'fr': 'INTELLIGENT',
-      'he': 'לִכאוֹב',
+      'de': 'Smart',
+      'es': 'Inteligente',
+      'fr': 'Intelligent',
+      'he': 'חכם',
     },
     '8hb4tok4': {
       'en': 'A plan built for you',

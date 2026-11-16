@@ -2268,7 +2268,10 @@ List<dynamic> buildExerciseTableFromSets(List<dynamic> exerciseSets) {
   }
 }
 
-String formatNiceDate(String timeStamp) {
+String formatNiceDate(
+  String timeStamp,
+  String? languageCode,
+) {
   {
     DateTime? _parseToLocal(String? input) {
       if (input == null) return null;
@@ -2313,28 +2316,87 @@ String formatNiceDate(String timeStamp) {
     final dt = _parseToLocal(timeStamp);
     if (dt == null) return '';
 
+    String lang = (languageCode ?? 'en').trim().toLowerCase();
+    if (lang.length > 2) lang = lang.substring(0, 2);
+
+    const Map<String, Map<String, String>> strings = {
+      "moment": {
+        "en": "a moment ago",
+        "es": "hace un momento",
+        "he": "לפני רגע",
+        "de": "gerade eben",
+        "fr": "à l'instant",
+      },
+      "seconds": {
+        "en": "{n}s ago",
+        "es": "hace {n} s",
+        "he": "לפני {n} שנ׳",
+        "de": "vor {n} Sek.",
+        "fr": "il y a {n} s",
+      },
+      "minutes": {
+        "en": "{n}m ago",
+        "es": "hace {n} min",
+        "he": "לפני {n} דק׳",
+        "de": "vor {n} Min.",
+        "fr": "il y a {n} min",
+      },
+      "today": {
+        "en": "Today",
+        "es": "Hoy",
+        "he": "היום",
+        "de": "Heute",
+        "fr": "Aujourd'hui",
+      },
+      "yesterday": {
+        "en": "Yesterday",
+        "es": "Ayer",
+        "he": "אתמול",
+        "de": "Gestern",
+        "fr": "Hier",
+      },
+    };
+
+    String tr(String key, [int? n]) {
+      final m = strings[key];
+      var s = m == null ? key : (m[lang] ?? m["en"] ?? key);
+      if (n != null) s = s.replaceAll('{n}', '$n');
+      return s;
+    }
+
     final now = DateTime.now();
     final diff = now.difference(dt);
+    final String time = DateFormat('HH:mm').format(dt);
 
-    if (diff.inSeconds < 45) return 'a moment ago';
-    if (diff.inMinutes < 1) return '${diff.inSeconds}s ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inSeconds < 45) return tr('moment');
+    if (diff.inMinutes < 1) return tr('seconds', diff.inSeconds);
+    if (diff.inMinutes < 60) return tr('minutes', diff.inMinutes);
 
     final isSameDay =
         now.year == dt.year && now.month == dt.month && now.day == dt.day;
-    if (isSameDay) return 'Today ${DateFormat('HH:mm').format(dt)}';
+    if (isSameDay) return '${tr('today')} $time';
 
     final yest = now.subtract(const Duration(days: 1));
     final isYesterday =
         yest.year == dt.year && yest.month == dt.month && yest.day == dt.day;
-    if (isYesterday) return 'Yesterday ${DateFormat('HH:mm').format(dt)}';
+    if (isYesterday) return '${tr('yesterday')} $time';
 
     final sameYear = now.year == dt.year;
-    final pattern = sameYear ? 'EEE, MMM d • HH:mm' : 'EEE, MMM d, y • HH:mm';
     try {
-      return DateFormat(pattern).format(dt);
+      // Day and month in the app language ("Thu, Nov 12" / "יום ה׳, 12 בנוב׳").
+      final String date = sameYear
+          ? DateFormat.MMMEd(lang).format(dt)
+          : DateFormat.yMMMEd(lang).format(dt);
+      return '$date • $time';
     } catch (_) {
-      return dt.toLocal().toString();
+      // Locale data not loaded: fall back to the English format.
+      try {
+        final pattern =
+            sameYear ? 'EEE, MMM d • HH:mm' : 'EEE, MMM d, y • HH:mm';
+        return DateFormat(pattern).format(dt);
+      } catch (_) {
+        return dt.toLocal().toString();
+      }
     }
   }
 }
@@ -7000,7 +7062,10 @@ List<String> addGenerationDate(List<String> generationDates) {
   return kept;
 }
 
-String generationsLeftLabel(List<String> generationDates) {
+String generationsLeftLabel(
+  List<String> generationDates,
+  String? languageCode,
+) {
   const int limit = 3;
 
   final cutoff = DateTime.now().subtract(const Duration(days: 7));
@@ -7013,8 +7078,45 @@ String generationsLeftLabel(List<String> generationDates) {
 
   final int left = limit - used;
 
-  if (left == 0) return '3/3 used this week';
-  return '$left of $limit left this week';
+  String lang = (languageCode ?? 'en').trim().toLowerCase();
+  if (lang.length > 2) lang = lang.substring(0, 2);
+
+  // Quota used up.
+  if (left == 0) {
+    switch (lang) {
+      case 'he':
+        return 'נוצלו $limit/$limit השבוע';
+      case 'es':
+        return '$limit/$limit usados esta semana';
+      case 'de':
+        return '$limit/$limit diese Woche genutzt';
+      case 'fr':
+        return '$limit/$limit utilisés cette semaine';
+      default:
+        return '$limit/$limit used this week';
+    }
+  }
+
+  // Some left. Hebrew and Spanish start with a word, so the numbers keep
+  // their order in a right-to-left line too.
+  switch (lang) {
+    case 'he':
+      return left == 1
+          ? 'נותר 1 מתוך $limit השבוע'
+          : 'נותרו $left מתוך $limit השבוע';
+    case 'es':
+      return left == 1
+          ? 'Queda 1 de $limit esta semana'
+          : 'Quedan $left de $limit esta semana';
+    case 'de':
+      return 'Noch $left von $limit diese Woche';
+    case 'fr':
+      return left == 1
+          ? '1 sur $limit restant cette semaine'
+          : '$left sur $limit restants cette semaine';
+    default:
+      return '$left of $limit left this week';
+  }
 }
 
 int secondsToMs(int seconds) {
@@ -8398,4 +8500,92 @@ String localizeAnalysisText(
 
   if (!raw.contains('\n')) return one(raw);
   return raw.split('\n').map(one).join('\n');
+}
+
+double setListHeight(List<GetSetLogsRow> rows) {
+  {
+    if (rows.isEmpty) return 0;
+    int drops = 0;
+    for (final r in rows) {
+      final v = r.data['is_dropset'];
+      if (v == 1 || v == true || v?.toString() == '1') drops++;
+    }
+    final int sets = rows.length - drops;
+    return 24.0 + sets * 58.0 + drops * 50.0;
+  }
+}
+
+String estimatedOneRmLabel(
+  bool? isKg,
+  double? estimatedOneRm,
+  String? languageCode,
+) {
+  final double v = estimatedOneRm ?? 0;
+  if (v <= 0 || v.isNaN || v.isInfinite) return '';
+
+  String lang = (languageCode ?? 'en').trim().toLowerCase();
+  if (lang.length > 2) lang = lang.substring(0, 2);
+
+  // 126.666 -> "126.7", 120.0 -> "120".
+  String number = v.toStringAsFixed(1);
+  if (number.endsWith('.0')) {
+    number = number.substring(0, number.length - 2);
+  }
+
+  final bool kg = isKg ?? true;
+  String unit;
+  switch (lang) {
+    case 'he':
+      unit = kg ? 'ק״ג' : 'ליב׳';
+      break;
+    case 'es':
+    case 'fr':
+      unit = kg ? 'kg' : 'lb';
+      break;
+    default:
+      unit = kg ? 'kg' : 'lbs';
+  }
+
+  // Left-to-right isolates: keep "1RM", the number and "Epley" in their own
+  // order inside a right-to-left line.
+  String ltr(String s) => '\u2066$s\u2069';
+
+  switch (lang) {
+    case 'he':
+      return 'הערכת ${ltr('1RM')}: ${ltr(number)} $unit (${ltr('Epley')})';
+    case 'es':
+      return '1RM estimado: $number $unit (Epley)';
+    case 'de':
+      return 'Geschätztes 1RM: $number $unit (Epley)';
+    case 'fr':
+      return '1RM estimé : $number $unit (Epley)';
+    default:
+      return 'Estimated 1RM: $number $unit (Epley)';
+  }
+}
+
+String stepByStepLabel(
+  bool? isShown,
+  String? languageCode,
+) {
+  String lang = (languageCode ?? 'en').trim().toLowerCase();
+  if (lang.length > 2) lang = lang.substring(0, 2);
+
+  // Guide open -> the button hides it; guide closed -> the button shows it.
+  final bool shown = isShown ?? false;
+
+  switch (lang) {
+    case 'he':
+      return shown ? 'הסתרת המדריך שלב אחר שלב' : 'הצגת המדריך שלב אחר שלב';
+    case 'es':
+      return shown ? 'Ocultar guía paso a paso' : 'Ver guía paso a paso';
+    case 'de':
+      return shown ? 'Anleitung ausblenden' : 'Anleitung Schritt für Schritt';
+    case 'fr':
+      return shown
+          ? 'Masquer le guide pas à pas'
+          : 'Afficher le guide pas à pas';
+    default:
+      return shown ? 'Hide Step-by-Step Guide' : 'Show Step-by-Step Guide';
+  }
 }

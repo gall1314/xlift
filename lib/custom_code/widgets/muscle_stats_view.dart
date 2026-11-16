@@ -658,9 +658,12 @@ _Detail _buildDetail(String lang, int muscleId, List<Map<String, Object?>> rows,
   for (final r in rows) {
     // Every row counts for the sub-muscle split (an exercise can have two
     // primary sub-muscles in the same group).
+    // A drop set is part of its parent set: its reps and weight count
+    // toward volume, but it is not a set of its own in any set count.
+    final bool isDrop = _mI(r['is_dropset']) == 1;
     final int subId = _mI(r['sub_muscle_id'], -1);
     final String subRaw = (r['sub_muscle'] ?? '').toString().trim();
-    if (subId >= 0 && subRaw.isNotEmpty) {
+    if (!isDrop && subId >= 0 && subRaw.isNotEmpty) {
       subCount[subId] = (subCount[subId] ?? 0) + 1;
       subName[subId] ??= localizedName(subRaw, lang);
     }
@@ -668,7 +671,7 @@ _Detail _buildDetail(String lang, int muscleId, List<Map<String, Object?>> rows,
     // Everything else counts each set once.
     final String setId = (r['set_id'] ?? '').toString();
     if (!seen.add(setId)) continue;
-    sets++;
+    if (!isDrop) sets++;
 
     final int reps = _mI(r['reps']);
     final double w = _mD(r['weight']);
@@ -702,7 +705,7 @@ _Detail _buildDetail(String lang, int muscleId, List<Map<String, Object?>> rows,
         (ill.isEmpty || ill == 'null') ? null : ill,
       ),
     );
-    ex.sets++;
+    if (!isDrop) ex.sets++;
   }
 
   final List<double> series = [for (final w in sessionIds) sessionVol[w]!];
@@ -862,6 +865,7 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         'sl.reps AS reps, '
         'sl.weight AS weight, '
         'sl.is_kg AS is_kg, '
+        'COALESCE(sl.is_dropset, 0) AS is_dropset, '
         'mg.id AS sub_muscle_id, '
         'mg.name AS sub_muscle '
         'FROM set_log sl '
@@ -872,7 +876,6 @@ class _MuscleStatsViewState extends State<MuscleStatsView> {
         'JOIN muscle_group mg ON mg.id = emg.muscle_group_id '
         'WHERE wl.user_id = ? '
         'AND mg.primary_muscle_group_id = ? '
-        'AND COALESCE(sl.is_dropset, 0) = 0 '
         "ORDER BY datetime(replace(wl.created_at,' ','T')) ASC, "
         'sl.created_at ASC';
 

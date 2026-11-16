@@ -195,7 +195,7 @@ class _BottomSheetNoFreeTemplatesWidgetState
               ),
               FFButtonWidget(
                 onPressed: () async {
-                  context.pushNamed(PremiumPaywallPageWidget.routeName);
+                  context.pushNamed(PaywallFinalWidget.routeName);
                 },
                 text: FFLocalizations.of(context).getText(
                   'wqrggdhn' /* Go Pro — unlimited workouts */,

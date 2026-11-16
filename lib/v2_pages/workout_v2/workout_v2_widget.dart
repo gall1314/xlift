@@ -393,7 +393,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                 );
               },
               onLockTap: () async {
-                context.pushNamed(PremiumPaywallPageWidget.routeName);
+                context.pushNamed(PaywallFinalWidget.routeName);
               },
               onUnitChanged: (isKg) async {},
               onStartRest: (exerciseId, exerciseName, setNumber, restMs) async {

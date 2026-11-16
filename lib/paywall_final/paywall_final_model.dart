@@ -1,8 +1,8 @@
 import '/flutter_flow/flutter_flow_util.dart';
-import 'upgrade_alert_widget.dart' show UpgradeAlertWidget;
+import 'paywall_final_widget.dart' show PaywallFinalWidget;
 import 'package:flutter/material.dart';
 
-class UpgradeAlertModel extends FlutterFlowModel<UpgradeAlertWidget> {
+class PaywallFinalModel extends FlutterFlowModel<PaywallFinalWidget> {
   @override
   void initState(BuildContext context) {}
 

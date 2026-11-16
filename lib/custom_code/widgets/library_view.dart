@@ -35,8 +35,9 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 /// header button opens the create sheet through onCreateWorkout
 /// onStartWorkout - (workoutId) onEditWorkout - (workoutId, workoutName)
 /// onDeleteWorkout - (workoutId)  widget reloads afterwards onOpenTemplate -
-/// (GetWorkoutTemplateRow, workoutId) onUseTemplate - (GetWorkoutTemplateRow,
-/// workoutId) widget reloads afterwards onOpenExercise          -
+/// no longer used: a template opens TemplateDetailView from inside this
+/// widget onUseTemplate - no longer used: a template is saved with the
+/// saveTemplateAsWorkout action from inside this widget onOpenExercise -
 /// (exerciseId, isPublic) onCreateWorkout         - the existing create
 /// bottom sheet onGenerateWorkout       - AI generator onCreateCustomExercise
 /// - custom exercise flow onOpenPremium           - paywall bottom sheet
@@ -1259,25 +1260,99 @@ class _LibraryViewState extends State<LibraryView> {
 
   // ------------------------------ actions -----------------------------------
 
-  Future<void> _openTemplate(_TemplateItem t) async {
-    final cb = widget.onOpenTemplate;
-    if (cb == null) return;
+  /// Copies the template into the user's workouts with the
+  /// saveTemplateAsWorkout action (SQLite + Hive queues). Returns true when
+  /// it was saved; shows a message when it was not.
+  Future<bool> _saveTemplate(_TemplateItem t) async {
+    bool ok = false;
     try {
-      await cb(
-          GetWorkoutTemplateRow(Map<String, dynamic>.from(t.raw)), t.workoutId);
+      final dynamic res =
+          await saveTemplateAsWorkout(t.workoutId, widget.userId);
+      ok = res is Map && res['success'] == true;
     } catch (_) {}
+    if (ok) {
+      // Upload in the background: not awaited, so it never blocks the UI.
+      try {
+        syncAllPending();
+      } catch (_) {}
+      return true;
+    }
+    if (!mounted) return false;
+    const Map<String, String> msg = {
+      "en": "Couldn't save this template. Please try again.",
+      "es": "No se pudo guardar la plantilla. Inténtalo de nuevo.",
+      "he": "לא ניתן לשמור את התבנית. אפשר לנסות שוב.",
+      "de": "Vorlage konnte nicht gespeichert werden. Bitte erneut versuchen.",
+      "fr": "Impossible d'enregistrer le modèle. Réessayez.",
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg[_lang] ?? msg["en"]!)),
+    );
+    return false;
   }
 
+  /// Switches to the Workouts tab with the search and filters cleared, so
+  /// the workout that was just saved is visible at the top.
+  void _showMyWorkouts() {
+    if (!mounted) return;
+    _search.clear();
+    setState(() {
+      _tab = 0;
+      _fcOnly = false;
+      _query = '';
+      _pmgId = null;
+      _mgId = null;
+    });
+  }
+
+  /// Opens the template page (TemplateDetailView) on top of the Library.
+  /// Saving runs saveTemplateAsWorkout from here, closes the page and shows
+  /// the Workouts tab. An exercise tap goes through onOpenExercise.
+  Future<void> _openTemplate(_TemplateItem t) async {
+    final Color bg = _bg;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (routeCtx) => Scaffold(
+        backgroundColor: bg,
+        body: SafeArea(
+          bottom: false,
+          child: TemplateDetailView(
+            width: double.infinity,
+            height: double.infinity,
+            workoutId: t.workoutId,
+            name: t.name,
+            level: t.level,
+            minutes: t.estMinutes,
+            muscles: t.muscles.join(', '),
+            onBack: () async {
+              await Navigator.of(routeCtx).maybePop();
+            },
+            onSave: () async {
+              final bool ok = await _saveTemplate(t);
+              if (!ok) return;
+              if (routeCtx.mounted &&
+                  (ModalRoute.of(routeCtx)?.isCurrent ?? false)) {
+                Navigator.of(routeCtx).pop();
+              }
+              _showMyWorkouts();
+            },
+            onExerciseTap: (exerciseId, isPublic) async {
+              await widget.onOpenExercise?.call(exerciseId, isPublic);
+            },
+          ),
+        ),
+      ),
+    ));
+    if (mounted) await _load();
+  }
+
+  /// The "Use" button on a template card: same save, then the Workouts tab.
   Future<void> _useTemplate(_TemplateItem t) async {
-    final cb = widget.onUseTemplate;
-    if (cb == null || _busyTemplate != null) return;
+    if (_busyTemplate != null) return;
     setState(() => _busyTemplate = t.key);
-    try {
-      await cb(
-          GetWorkoutTemplateRow(Map<String, dynamic>.from(t.raw)), t.workoutId);
-    } catch (_) {}
+    final bool ok = await _saveTemplate(t);
     if (!mounted) return;
     setState(() => _busyTemplate = null);
+    if (ok) _showMyWorkouts();
     await _load();
   }
 

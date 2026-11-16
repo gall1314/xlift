@@ -28,6 +28,9 @@ import 'package:google_fonts/google_fonts.dart';
 /// unchanged. When [isPremium] is false, "Last 90 days" and "All time" are
 /// locked: tapping one closes the sheet and fires [onLockedTap].
 ///
+/// The pill itself shows a SHORT label ("30 days") so it never gets cut off
+/// in any language; the bottom sheet shows the full names.
+///
 /// [value] = current range key (optional; null/empty/"All" = default, which
 /// is "All time" for premium and "Last 30 days" otherwise). The widget keeps
 /// its own selection, so binding [value] to page state is not required.
@@ -80,7 +83,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "title": {
     "en": "Select Time Range",
     "es": "Elige el periodo",
-    "he": "בחר טווח זמן",
+    "he": "בחירת טווח זמן",
     "de": "Zeitraum wählen",
     "fr": "Choisir la période",
   },
@@ -114,9 +117,47 @@ const Map<String, Map<String, String>> _kStrings = {
   },
 };
 
+// Short labels for the pill itself. Same keys as the ranges.
+const Map<String, Map<String, String>> _kShort = {
+  "Last 7 days": {
+    "en": "7 days",
+    "es": "7 días",
+    "he": "7 ימים",
+    "de": "7 Tage",
+    "fr": "7 jours",
+  },
+  "Last 30 days": {
+    "en": "30 days",
+    "es": "30 días",
+    "he": "30 יום",
+    "de": "30 Tage",
+    "fr": "30 jours",
+  },
+  "Last 90 days": {
+    "en": "90 days",
+    "es": "90 días",
+    "he": "90 יום",
+    "de": "90 Tage",
+    "fr": "90 jours",
+  },
+  "All time": {
+    "en": "All time",
+    "es": "Todo",
+    "he": "הכול",
+    "de": "Gesamt",
+    "fr": "Tout",
+  },
+};
+
 String _tr(String lang, String key) {
   final m = _kStrings[key];
   return m == null ? key : (m[lang] ?? m['en'] ?? key);
+}
+
+/// Short label for the pill; falls back to the full name for unknown keys.
+String _short(String lang, String key) {
+  final m = _kShort[key];
+  return m == null ? _tr(lang, key) : (m[lang] ?? m['en'] ?? key);
 }
 
 TextStyle _ts(BuildContext ctx, double size, FontWeight w, Color c) {
@@ -274,7 +315,7 @@ class _TimeRangePillState extends State<TimeRangePill> {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    _tr(lang, _range),
+                    _short(lang, _range),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _ts(context, 14,

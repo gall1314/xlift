@@ -553,7 +553,9 @@ class _CreateWorkoutBottomWidgetState extends State<CreateWorkoutBottomWidget> {
                                             functions.generationsLeftLabel(
                                                 FFAppState()
                                                     .generationDates
-                                                    .toList()),
+                                                    .toList(),
+                                                FFLocalizations.of(context)
+                                                    .languageCode),
                                             style: FlutterFlowTheme.of(context)
                                                 .labelSmall
                                                 .override(

@@ -108,6 +108,9 @@ String _tr(String lang, String key) {
 
 /// Settings row "Language · English ›".
 ///
+/// Matches the other settings rows: 24 icon in secondary text color, 14 /
+/// regular label in primary text color, 14 value in secondary text color.
+///
 /// No outer padding — drop it in the same Container as the other preference
 /// rows. Tap opens a bottom sheet with "Device language" (only when the
 /// phone's language is one we ship) followed by every enabled language.
@@ -202,7 +205,8 @@ class _LanguageRowState extends State<LanguageRow> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.language_rounded, size: 24, color: theme.primaryText),
+              Icon(Icons.language_rounded,
+                  size: 24, color: theme.secondaryText),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
@@ -211,7 +215,9 @@ class _LanguageRowState extends State<LanguageRow> {
                   overflow: TextOverflow.ellipsis,
                   style: theme.bodyMedium.override(
                     fontFamily: theme.bodyMediumFamily,
-                    fontSize: 16,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: theme.primaryText,
                     useGoogleFonts:
                         GoogleFonts.asMap().containsKey(theme.bodyMediumFamily),
                   ),
@@ -222,7 +228,8 @@ class _LanguageRowState extends State<LanguageRow> {
                 current.nativeName,
                 style: theme.bodyMedium.override(
                   fontFamily: theme.bodyMediumFamily,
-                  fontSize: 16,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
                   color: theme.secondaryText,
                   useGoogleFonts:
                       GoogleFonts.asMap().containsKey(theme.bodyMediumFamily),

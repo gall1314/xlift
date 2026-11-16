@@ -1290,6 +1290,12 @@ class _SetTableState extends State<SetTable> {
     var s = p.text;
     if (lang == 'en') return s;
     s = s.replaceAll(RegExp(r'\breps\b'), _tr(lang, 'prevReps'));
+    // The unit too ("20 kg × 8" -> "20 ק״ג × 8"). It is isolated so a
+    // right-to-left unit does not reorder the numbers around it.
+    s = s.replaceAll(
+        RegExp(r'\bkg\b'), '\u2068${_tr(lang, 'kg').toLowerCase()}\u2069');
+    s = s.replaceAll(
+        RegExp(r'\blbs?\b'), '\u2068${_tr(lang, 'lbs').toLowerCase()}\u2069');
     return s;
   }
 
@@ -2971,98 +2977,110 @@ class _SetTableState extends State<SetTable> {
         pct = p > 0 ? '−$p%' : (p < 0 ? '+${-p}%' : '0%');
       }
 
-      out.add(Padding(
-        padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-        child: Container(
-          height: 42,
-          decoration: BoxDecoration(
-              color: rowBg, borderRadius: BorderRadius.circular(10)),
-          child: Row(
-            children: [
-              SizedBox(
-                width: _colNum,
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.subdirectory_arrow_right_rounded,
-                          size: 13, color: onDone),
-                      const SizedBox(width: 2),
-                      Text('D$order',
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: onDone)),
-                    ],
+      // On a done set the drop rows are part of the green block: tapping
+      // one reveals the unmark strip, exactly like tapping the set row.
+      out.add(GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: done
+            ? () => setState(() {
+                  if (!_unmarkOpen.remove(t.setNumber))
+                    _unmarkOpen.add(t.setNumber);
+                })
+            : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+          child: Container(
+            height: 42,
+            decoration: BoxDecoration(
+                color: rowBg, borderRadius: BorderRadius.circular(10)),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: _colNum,
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.subdirectory_arrow_right_rounded,
+                            size: 13, color: onDone),
+                        const SizedBox(width: 2),
+                        Text('D$order',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: onDone)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: _gap),
-              Expanded(
-                child: Center(
-                  child: Text(_ltr(pct),
-                      maxLines: 1,
-                      style: TextStyle(fontSize: 13, color: muted)),
+                const SizedBox(width: _gap),
+                Expanded(
+                  child: Center(
+                    child: Text(_ltr(pct),
+                        maxLines: 1,
+                        style: TextStyle(fontSize: 13, color: muted)),
+                  ),
                 ),
-              ),
-              const SizedBox(width: _gap),
-              SizedBox(
-                width: _colVal,
-                child: _RepsCell(
-                  value: reps,
-                  hint: repsHint,
-                  isDone: done,
-                  lang: lang,
-                  dark: dark,
-                  textColor: text,
-                  hintColor: muted.withOpacity(0.5),
-                  focusColor: accent,
-                  onCommit: (v) => _emit(_upsertDrop(
-                      _copyLogged(), t.setNumber, order,
-                      reps: v, keepWeight: true)),
+                const SizedBox(width: _gap),
+                SizedBox(
+                  width: _colVal,
+                  child: _RepsCell(
+                    value: reps,
+                    hint: repsHint,
+                    isDone: done,
+                    lang: lang,
+                    dark: dark,
+                    textColor: text,
+                    hintColor: muted.withOpacity(0.5),
+                    focusColor: accent,
+                    onCommit: (v) => _emit(_upsertDrop(
+                        _copyLogged(), t.setNumber, order,
+                        reps: v, keepWeight: true)),
+                  ),
                 ),
-              ),
-              const SizedBox(width: _gap),
-              SizedBox(
-                width: _colVal,
-                child: !_canWeight(t) || (done && _plusMode(t) && (w ?? 0) <= 0)
-                    ? Center(
-                        child: Text('-',
-                            style: TextStyle(fontSize: 16, color: muted)))
-                    : _WeightCell(
-                        value: w,
-                        hint: wHint,
-                        isDone: done,
-                        isKg: widget.isKg,
-                        plusMode: _plusMode(t),
-                        lang: lang,
-                        dark: dark,
-                        textColor: text,
-                        hintColor: muted.withOpacity(0.5),
-                        focusColor: accent,
-                        onCommit: (v) => _emit(_upsertDrop(
-                            _copyLogged(), t.setNumber, order,
-                            weight: v, keepReps: true)),
-                      ),
-              ),
-              const SizedBox(width: _gap),
-              SizedBox(
-                width: _aiCol ? _colAct : 44 + _tail - _gap,
-                child: done
-                    ? const SizedBox.shrink()
-                    : Center(
-                        child: _Pressable(
-                          onTap: () => _deleteDrop(t, order),
-                          child: SizedBox(
-                            width: 32,
-                            height: 32,
-                            child: Icon(Icons.delete_outline_rounded,
-                                size: 18, color: muted),
+                const SizedBox(width: _gap),
+                SizedBox(
+                  width: _colVal,
+                  child:
+                      !_canWeight(t) || (done && _plusMode(t) && (w ?? 0) <= 0)
+                          ? Center(
+                              child: Text('-',
+                                  style: TextStyle(fontSize: 16, color: muted)))
+                          : _WeightCell(
+                              value: w,
+                              hint: wHint,
+                              isDone: done,
+                              isKg: widget.isKg,
+                              plusMode: _plusMode(t),
+                              lang: lang,
+                              dark: dark,
+                              textColor: text,
+                              hintColor: muted.withOpacity(0.5),
+                              focusColor: accent,
+                              onCommit: (v) => _emit(_upsertDrop(
+                                  _copyLogged(), t.setNumber, order,
+                                  weight: v, keepReps: true)),
+                            ),
+                ),
+                const SizedBox(width: _gap),
+                SizedBox(
+                  width: _aiCol ? _colAct : 44 + _tail - _gap,
+                  child: done
+                      ? const SizedBox.shrink()
+                      : Center(
+                          child: _Pressable(
+                            onTap: () => _deleteDrop(t, order),
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Icon(Icons.delete_outline_rounded,
+                                  size: 18, color: muted),
+                            ),
                           ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ));
@@ -4676,7 +4694,10 @@ class _TimeSheet extends StatefulWidget {
 class _TimeSheetState extends State<_TimeSheet> {
   final GlobalKey _rootKey = GlobalKey();
   late _TimeMode _mode = widget.job.mode;
-  late String _digits = _digitsFromMs(widget.loggedMs); // manual entry, mmss
+  // Manual entry: four separate boxes (m m : s s). A box nobody typed in is
+  // null: it shows a dim 0 and counts as 0.
+  late List<int?> _d = _boxesFromMs(widget.loggedMs);
+  int _cursor = 1; // the box the next key goes to; starts on the minutes
   late int _logged = widget.loggedMs; // what is logged, as this sheet knows it
   String? _pressedKey;
 
@@ -4686,19 +4707,21 @@ class _TimeSheetState extends State<_TimeSheet> {
     _measureAfterFrame(_rootKey, widget.onMeasured);
   }
 
-  /// Digits are typed left → right: first key is the tens of minutes.
-  static String _digitsFromMs(int ms) {
-    if (ms <= 0) return '';
-    final s = (ms / 1000).round();
-    return '${(s ~/ 60).clamp(0, 99).toString().padLeft(2, '0')}${(s % 60).toString().padLeft(2, '0')}';
+  /// A logged time fills all four boxes; nothing logged leaves them empty.
+  static List<int?> _boxesFromMs(int ms) {
+    if (ms <= 0) return [null, null, null, null];
+    final int s = (ms / 1000).round();
+    final int m = math.min(s ~/ 60, 99);
+    final int sec = s % 60;
+    return [m ~/ 10, m % 10, sec ~/ 10, sec % 10];
   }
 
-  int get _msFromDigits {
-    final p = _digits.padRight(4, '0');
-    final m = int.parse(p.substring(0, 2));
-    final s = int.parse(p.substring(2, 4));
-    return (m * 60 + s) * 1000;
-  }
+  /// Empty boxes count as 0.
+  int get _msFromBoxes =>
+      (((_d[0] ?? 0) * 10 + (_d[1] ?? 0)) * 60 +
+          (_d[2] ?? 0) * 10 +
+          (_d[3] ?? 0)) *
+      1000;
 
   void _switch(_TimeMode m) {
     if (m == _mode) return;
@@ -4709,7 +4732,10 @@ class _TimeSheetState extends State<_TimeSheet> {
     j.mode = m;
     if (j.targetMs <= 0)
       j.targetMs = widget.targetMs > 0 ? widget.targetMs : 60000;
-    if (m == _TimeMode.manual) _digits = _digitsFromMs(_logged);
+    if (m == _TimeMode.manual) {
+      _d = _boxesFromMs(_logged);
+      _cursor = 1;
+    }
     widget.onModeChanged(m);
     setState(() => _mode = m);
     _measureAfterFrame(_rootKey, widget.onMeasured);
@@ -4717,69 +4743,94 @@ class _TimeSheetState extends State<_TimeSheet> {
 
   // ---- manual keys ----
 
+  /// The seconds' tens box takes 0-5 only.
+  bool _fits(String d) => !(_cursor == 2 && int.parse(d) > 5);
+
+  /// What backspace clears: the selected box, or - when it is already
+  /// empty - the last typed box before it. -1 = nothing to clear.
+  int get _backTarget {
+    if (_d[_cursor] != null) return _cursor;
+    for (int i = _cursor - 1; i >= 0; i--) {
+      if (_d[i] != null) return i;
+    }
+    return -1;
+  }
+
   void _down(String keyId) {
     if (keyId == 'back') {
-      if (_digits.isEmpty) return;
+      final int i = _backTarget;
+      if (i < 0) return;
       HapticFeedback.selectionClick();
       setState(() {
         _pressedKey = 'back';
-        _digits = _digits.substring(0, _digits.length - 1);
+        _d[i] = null;
+        _cursor = i;
       });
-      _logged = _msFromDigits;
+      _logged = _msFromBoxes;
       widget.onManualChanged(_logged);
       return;
     }
-    if (_digits.length >= 4) return;
-    // seconds' tens digit can't be 6-9
-    if (_digits.length == 2 && int.parse(keyId) > 5) return;
+    if (!_fits(keyId)) return;
     HapticFeedback.selectionClick();
+    // The key fills the selected box and moves on to the next one.
     setState(() {
       _pressedKey = keyId;
-      _digits += keyId;
+      _d[_cursor] = int.parse(keyId);
+      if (_cursor < 3) _cursor++;
     });
-    _logged = _msFromDigits;
+    _logged = _msFromBoxes;
     widget.onManualChanged(_logged);
   }
 
   void _up() => setState(() => _pressedKey = null);
 
+  /// Tapping a box selects it: the next key goes there.
+  void _pick(int i) {
+    if (i == _cursor) return;
+    HapticFeedback.selectionClick();
+    setState(() => _cursor = i);
+  }
+
   Widget _k(String d) => _numKey(widget.colors,
       shown: d,
-      enabled: d.isNotEmpty &&
-          _digits.length < 4 &&
-          !(_digits.length == 2 && int.parse(d) > 5),
+      enabled: d.isNotEmpty && _fits(d),
       pressed: _pressedKey == d,
       onDown: () => _down(d),
       onUp: _up);
 
-  Widget _digitBox(String d, bool active, {bool typed = true}) {
+  Widget _digitBox(int i) {
     final c = widget.colors;
-    return Container(
-      width: 40,
-      height: 48,
-      decoration: BoxDecoration(
-          color: c.keyBg, borderRadius: BorderRadius.circular(10)),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(d,
-              textDirection: ui.TextDirection.ltr,
-              style: TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: typed ? c.text : c.text.withOpacity(0.3))),
-          if (active)
-            Positioned(
-              left: 8,
-              right: 8,
-              bottom: 5,
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(
-                    color: c.accent, borderRadius: BorderRadius.circular(1)),
+    final int? v = _d[i];
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) => _pick(i),
+      child: Container(
+        width: 40,
+        height: 48,
+        decoration: BoxDecoration(
+            color: c.keyBg, borderRadius: BorderRadius.circular(10)),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text('${v ?? 0}',
+                textDirection: ui.TextDirection.ltr,
+                style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: v != null ? c.text : c.text.withOpacity(0.3))),
+            if (_cursor == i)
+              Positioned(
+                left: 8,
+                right: 8,
+                bottom: 5,
+                child: Container(
+                  height: 2,
+                  decoration: BoxDecoration(
+                      color: c.accent, borderRadius: BorderRadius.circular(1)),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -5017,8 +5068,6 @@ class _TimeSheetState extends State<_TimeSheet> {
 
   Widget _manualBody() {
     final c = widget.colors;
-    final p = _digits.padRight(4, '0');
-    final int cursor = _digits.length + 1; // next box to fill, from the left
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -5027,9 +5076,9 @@ class _TimeSheetState extends State<_TimeSheet> {
           textDirection: ui.TextDirection.ltr,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _digitBox(p[0], cursor == 1, typed: _digits.length > 0),
+            _digitBox(0),
             const SizedBox(width: 6),
-            _digitBox(p[1], cursor == 2, typed: _digits.length > 1),
+            _digitBox(1),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(':',
@@ -5038,9 +5087,9 @@ class _TimeSheetState extends State<_TimeSheet> {
                       fontWeight: FontWeight.w800,
                       color: c.text.withOpacity(0.4))),
             ),
-            _digitBox(p[2], cursor == 3, typed: _digits.length > 2),
+            _digitBox(2),
             const SizedBox(width: 6),
-            _digitBox(p[3], cursor == 4, typed: _digits.length > 3),
+            _digitBox(3),
           ],
         ),
         const SizedBox(height: 10),
@@ -5063,7 +5112,7 @@ class _TimeSheetState extends State<_TimeSheet> {
           _k('0'),
           _numKey(c,
               shown: '',
-              enabled: _digits.isNotEmpty,
+              enabled: _backTarget >= 0,
               pressed: _pressedKey == 'back',
               onDown: () => _down('back'),
               onUp: _up,

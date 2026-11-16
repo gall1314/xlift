@@ -49,6 +49,13 @@ class _SimpleLineChartState extends State<SimpleLineChart> {
 
   @override
   Widget build(BuildContext context) {
+    // App language, read from FFLocalizations (no parameter needed).
+    String lang = 'en';
+    try {
+      final c = FFLocalizations.of(context).languageCode.trim().toLowerCase();
+      if (c.isNotEmpty) lang = c;
+    } catch (_) {}
+
     return SizedBox(
       width: widget.width,
       height: widget.height,
@@ -62,6 +69,7 @@ class _SimpleLineChartState extends State<SimpleLineChart> {
           maxYTicks: widget.maxYTicks,
           forceZeroMin: widget.forceZeroMin,
           padding: padding,
+          lang: lang,
         ),
       ),
     );
@@ -77,6 +85,7 @@ class _ChartPainter extends CustomPainter {
     required this.maxYTicks,
     required this.forceZeroMin,
     required this.padding,
+    required this.lang,
     this.fillColor,
   });
 
@@ -88,6 +97,7 @@ class _ChartPainter extends CustomPainter {
   final int maxYTicks;
   final bool forceZeroMin;
   final EdgeInsets padding;
+  final String lang;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -271,6 +281,8 @@ class _ChartPainter extends CustomPainter {
     }
   }
 
+  /// Short date in the app language ("Nov 12" / "12 בנוב׳" / "12. Nov.").
+  /// The year is added only when it is not the current one.
   String _formatDateShort(String timeStamp) {
     try {
       DateTime dt;
@@ -281,10 +293,17 @@ class _ChartPainter extends CustomPainter {
         dt = DateTime.parse(timeStamp).toLocal();
       }
 
-      final now = DateTime.now();
-      return dt.year == now.year
-          ? DateFormat('MMM d').format(dt)
-          : DateFormat('MMM d, y').format(dt);
+      final bool sameYear = dt.year == DateTime.now().year;
+      try {
+        return sameYear
+            ? DateFormat.MMMd(lang).format(dt)
+            : DateFormat.yMMMd(lang).format(dt);
+      } catch (_) {
+        // Locale data not loaded: fall back to the English format.
+        return sameYear
+            ? DateFormat('MMM d').format(dt)
+            : DateFormat('MMM d, y').format(dt);
+      }
     } catch (_) {
       return '';
     }

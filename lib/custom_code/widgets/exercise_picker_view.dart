@@ -53,8 +53,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// isPremium          - false: custom exercises are capped at
 /// _kFreeCustomLimit (non-deleted). The Custom section shows "n/3"; once the
 /// cap is reached the Create button shows a lock and opens an "out of free
-/// exercises" sheet instead of the form. onLockedTap        - the sheet's
-/// "Go Pro" button (open the upgrade screen); "Maybe later" just closes it.
+/// exercises" sheet instead of the form. onLockedTap        - the sheet's "Go
+/// Pro" button (open the upgrade screen); "Maybe later" just closes it.
 class ExercisePickerView extends StatefulWidget {
   const ExercisePickerView({
     super.key,
@@ -1422,92 +1422,24 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
 
   // ------------------------- free-tier lock sheet ---------------------------
 
-  /// Create while capped: explain the limit, offer Pro. Same look as the
-  /// app's "out of free checks" sheet. "Go Pro" fires onLockedTap (the page
-  /// navigates to the paywall); "Maybe later" just closes.
+  /// Create while capped: the CustomExerciseLimitSheet widget (explains the
+  /// limit, offers Pro, mentions deleting an exercise). "Go Pro" closes it
+  /// and fires onLockedTap (the page navigates to the paywall); "Maybe
+  /// later" or a tap outside just closes it.
   Future<void> _showLockedSheet() async {
     if (_sheetOpen) return;
     _sheetOpen = true;
     FocusScope.of(context).unfocus();
     final bool? goPro = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: _card,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      builder: (ctx) => CustomExerciseLimitSheet(
+        limit: _kFreeCustomLimit,
+        onUpgrade: () async {
+          Navigator.of(ctx).pop(true);
+        },
       ),
-      builder: (ctx) {
-        final bottom = MediaQuery.of(ctx).padding.bottom;
-        return Directionality(
-          textDirection: _dir,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(24, 10, 24, 16 + bottom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _grabber(),
-                const SizedBox(height: 28),
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: _accent,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: const Icon(Icons.lock_rounded,
-                      size: 44, color: Colors.white),
-                ),
-                const SizedBox(height: 28),
-                Text(
-                  _t('lockTitle'),
-                  textAlign: TextAlign.center,
-                  style: _display(24, w: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _t('lockBody', n: _kFreeCustomLimit),
-                  textAlign: TextAlign.center,
-                  style: _ts(15, color: _inkMuted, height: 1.4),
-                ),
-                const SizedBox(height: 32),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    Navigator.of(ctx).pop(true);
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    height: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: _accent,
-                      borderRadius: BorderRadius.circular(_kRadius),
-                    ),
-                    child: Text(
-                      _t('lockCta'),
-                      style: _body(17, w: FontWeight.w700, color: Colors.white),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(ctx).pop(false),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 14),
-                    child: Text(
-                      _t('lockLater'),
-                      style: _body(16, color: _inkMuted),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
     _sheetOpen = false;
     if (goPro == true && mounted) await widget.onLockedTap?.call();
@@ -2298,7 +2230,7 @@ class _ExercisePickerViewState extends State<ExercisePickerView> {
     );
   }
 
-  // ------------------------------ primitives --------------------------------
+  // ------------------------------ primitiכves --------------------------------
 
   Widget _grabber() => Container(
         width: 36,

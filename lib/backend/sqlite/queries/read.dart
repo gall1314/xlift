@@ -407,11 +407,11 @@ SELECT
     WHEN TRIM(CAST(duration_seconds AS TEXT)) = '' THEN NULL
     ELSE CAST(duration_seconds AS INTEGER)
   END AS duration_seconds,           -- Nullable
-  CAST(COALESCE(NULLIF(CAST(is_kg AS TEXT), ''), 1) AS INTEGER) AS is_kg
+  CAST(COALESCE(NULLIF(CAST(is_kg AS TEXT), ''), 1) AS INTEGER) AS is_kg,
+  CAST(COALESCE(NULLIF(CAST(is_dropset AS TEXT), ''), 0) AS INTEGER) AS is_dropset
 FROM set_log
 WHERE workout_log_id = '${workoutLogId}'
   AND CAST(exercise_id AS INTEGER) = ${exerciseId}
-  AND CAST(COALESCE(NULLIF(CAST(is_dropset AS TEXT), ''), 0) AS INTEGER) = 0
 ORDER BY CAST(set_number AS INTEGER) ASC;
 ''';
   return _readQuery(database, query, (d) => GetSetLogsRow(d));
@@ -426,6 +426,7 @@ class GetSetLogsRow extends SqliteRow {
   int? get durationSeconds => data['duration_seconds'] as int?;
   int get isKg => data['is_kg'] as int;
   String get id => data['id'] as String;
+  int get isDropset => data['is_dropset'] as int;
 }
 
 /// END GETSETLOGS
@@ -1956,6 +1957,7 @@ Future<List<ExercisePrsRow>> performExercisePrs(
   int? exerciseId,
   String? userId,
   String? timeRange,
+  int? isKg,
 }) {
   final query = '''
 WITH bounds AS (
@@ -1972,6 +1974,11 @@ WITH bounds AS (
     END AS to_ts
 ),
 
+u AS (
+  -- יחידת התצוגה של האפליקציה: 1 = ק"ג, 0 = ליברות
+  SELECT ${isKg} AS app_kg
+),
+
 ex AS (
   -- האם התרגיל time-based
   SELECT IFNULL((
@@ -1982,15 +1989,18 @@ ex AS (
   ), 0) AS is_time_based
 ),
 
-majority AS (
-  -- האם רוב הסטים הם bodyweight
+sets AS (
+  -- כל הסטים בטווח, עם המשקל מומר ליחידת התצוגה
   SELECT
-    CASE
-      WHEN COUNT(*) = 0 THEN 0
-      WHEN 1.0 * SUM(CASE WHEN IFNULL(sl.weight,0) > 0 THEN 1 ELSE 0 END) / COUNT(*) >= 0.5
-        THEN 0
-      ELSE 1
-    END AS is_bodyweight
+    sl.workout_log_id,
+    IFNULL(sl.reps, 0) AS reps,
+    IFNULL(sl.duration_seconds, 0) AS duration_seconds,
+    CAST(IFNULL(sl.weight, 0) AS REAL) *
+      CASE
+        WHEN COALESCE(sl.is_kg, 1) = (SELECT app_kg FROM u) THEN 1.0
+        WHEN (SELECT app_kg FROM u) = 1 THEN 0.45359237
+        ELSE 2.2046226218
+      END AS weight
   FROM set_log sl
   JOIN workout_log wl ON wl.id = sl.workout_log_id
   JOIN bounds b
@@ -2000,61 +2010,46 @@ majority AS (
     AND datetime(replace(wl.created_at,' ','T')) <  b.to_ts
 ),
 
-sessions AS (
-  -- נפח פר סשן (מסונן זמן + משתמש)
+majority AS (
+  -- האם רוב הסטים הם bodyweight
   SELECT
-    sl.workout_log_id,
+    CASE
+      WHEN COUNT(*) = 0 THEN 0
+      WHEN 1.0 * SUM(CASE WHEN weight > 0 THEN 1 ELSE 0 END) / COUNT(*) >= 0.5
+        THEN 0
+      ELSE 1
+    END AS is_bodyweight
+  FROM sets
+),
+
+sessions AS (
+  -- נפח פר סשן
+  SELECT
+    workout_log_id,
     SUM(
       CASE
-        WHEN (SELECT is_time_based FROM ex) = 1
-          THEN IFNULL(sl.duration_seconds, 0)
-        WHEN (SELECT is_bodyweight FROM majority) = 1
-          THEN IFNULL(sl.reps, 0)
-        ELSE CAST(IFNULL(sl.reps, 0) AS REAL)
-           * CAST(IFNULL(sl.weight, 0) AS REAL)
+        WHEN (SELECT is_time_based FROM ex) = 1 THEN duration_seconds
+        WHEN (SELECT is_bodyweight FROM majority) = 1 THEN reps
+        ELSE CAST(reps AS REAL) * weight
       END
     ) AS session_volume
-  FROM set_log sl
-  JOIN workout_log wl ON wl.id = sl.workout_log_id
-  JOIN bounds b
-  WHERE sl.exercise_id = ${exerciseId}
-    AND wl.user_id = '${userId}'
-    AND datetime(replace(wl.created_at,' ','T')) >= b.from_ts
-    AND datetime(replace(wl.created_at,' ','T')) <  b.to_ts
-  GROUP BY sl.workout_log_id
+  FROM sets
+  GROUP BY workout_log_id
 )
 
 SELECT
   -- מקס חזרות
-  CAST(IFNULL((
-    SELECT MAX(IFNULL(sl.reps,0))
-    FROM set_log sl
-    JOIN workout_log wl ON wl.id = sl.workout_log_id
-    JOIN bounds b
-    WHERE sl.exercise_id = ${exerciseId}
-      AND wl.user_id = '${userId}'
-      AND datetime(replace(wl.created_at,' ','T')) >= b.from_ts
-      AND datetime(replace(wl.created_at,' ','T')) <  b.to_ts
-  ), 0) AS INTEGER) AS max_reps,
+  CAST(IFNULL((SELECT MAX(reps) FROM sets), 0) AS INTEGER) AS max_reps,
 
-  -- מקס משקל
+  -- מקס משקל (ביחידת התצוגה)
   CAST(IFNULL((
-    SELECT ROUND(MAX(NULLIF(CAST(sl.weight AS REAL), 0)), 0)
-    FROM set_log sl
-    JOIN workout_log wl ON wl.id = sl.workout_log_id
-    JOIN bounds b
-    WHERE sl.exercise_id = ${exerciseId}
-      AND wl.user_id = '${userId}'
-      AND datetime(replace(wl.created_at,' ','T')) >= b.from_ts
-      AND datetime(replace(wl.created_at,' ','T')) <  b.to_ts
+    SELECT ROUND(MAX(NULLIF(weight, 0)), 0) FROM sets
   ), 0) AS INTEGER) AS max_weight,
 
-  -- מקס ווליום לסשן
+  -- מקס ווליום לסשן (ביחידת התצוגה)
   CAST(IFNULL((
-    SELECT ROUND(MAX(session_volume), 0)
-    FROM sessions
+    SELECT ROUND(MAX(session_volume), 0) FROM sessions
   ), 0) AS INTEGER) AS max_volume;
-
 ''';
   return _readQuery(database, query, (d) => ExercisePrsRow(d));
 }
@@ -2187,9 +2182,16 @@ ex AS (
 sets AS (
   SELECT
     sl.workout_log_id,
-    COALESCE(sl.created_at, wl.created_at) AS set_created_at,
-    COALESCE(sl.reps, 0)                   AS reps,
-    COALESCE(sl.weight, 0)                 AS weight,
+    -- Normalized to 'YYYY-MM-DD HH:MM:SS', the same shape as the bounds.
+    -- Compared raw, a stored 'T' separator sorts after the space in
+    -- datetime('now'), so every set from today looked later than "now"
+    -- and dropped out of current_7d.
+    COALESCE(
+      datetime(replace(COALESCE(sl.created_at, wl.created_at), ' ', 'T')),
+      COALESCE(sl.created_at, wl.created_at)
+    )                                       AS set_created_at,
+    COALESCE(sl.reps, 0)                    AS reps,
+    COALESCE(sl.weight, 0)                  AS weight,
     COALESCE(sl.duration_seconds, 0) * 1000 AS duration_ms
   FROM set_log sl
   JOIN workout_log wl ON wl.id = sl.workout_log_id
@@ -2294,7 +2296,6 @@ SELECT
   CAST(COALESCE((SELECT current_week_value  FROM current_7d),   0) AS INTEGER) AS current_week_value,
   CAST(COALESCE((SELECT improvement_percent FROM improve),      0) AS INTEGER) AS improvement_percent,
   CAST(COALESCE((SELECT is_time_based       FROM ex),           0) AS INTEGER) AS is_time_based;
-
 ''';
   return _readQuery(database, query, (d) => ExerciseStatsRow(d));
 }

@@ -27,8 +27,8 @@ import 'xlift_log_add.dart';
 /// Name = workout_template.name (fallback: the source workout's name),
 /// de-duplicated against the user's workouts ("Legs" -> "Legs 2").
 /// All ids (workout, workout_exercise, exercise_sets, superset groups) are
-/// generated here. rest_seconds / notes / superset flags / set details are
-/// copied as stored.
+/// generated here. Exercise order, rest_seconds / notes / superset flags
+/// and every set detail are copied as stored.
 ///
 /// GUARANTEE: ALWAYS returns a JSON map - never throws.
 ///   $.success    -> true / false
@@ -347,7 +347,12 @@ Future<dynamic> saveTemplateAsWorkout(
                     [exerciseId],
                   ));
           if (eRows.isNotEmpty) {
-            exerciseName = str((eRows.first as Map)['name']);
+            // exercise.name is stored as JSON per language - keep the
+            // English name, not the raw JSON.
+            exerciseName = localizedName(
+              str((eRows.first as Map)['name']),
+              'en',
+            ).toString();
           }
         }
         if (exerciseName.isEmpty) exerciseName = 'Exercise $exerciseId';
