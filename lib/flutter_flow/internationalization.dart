@@ -557,27 +557,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'fr': 'Reps',
       'he': 'חזרות',
     },
-    'u5si91ad': {
-      'en': 'Current Week',
-      'de': 'Aktuelle Woche',
-      'es': 'Semana actual',
-      'fr': 'Semaine actuelle',
-      'he': 'השבוע הנוכחי',
-    },
-    '9qlq32ae': {
-      'en': 'Best Session',
-      'de': 'Beste Session',
-      'es': 'Mejor sesión',
-      'fr': 'Meilleure session',
-      'he': 'האימון הטוב ביותר',
-    },
-    'zhfjzh8q': {
-      'en': 'Improvement',
-      'de': 'Verbesserung',
-      'es': 'Mejora',
-      'fr': 'Amélioration',
-      'he': 'שיפור',
-    },
     'na9xnckt': {
       'en': 'Estimated 1RM',
       'de': 'Geschätztes 1RM',

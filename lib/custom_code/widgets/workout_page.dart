@@ -72,7 +72,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "addExercises": {
     "en": "Add Exercises",
     "es": "Añadir ejercicios",
-    "he": "הוסף תרגילים",
+    "he": "הוספת תרגילים",
     "de": "Übungen hinzufügen",
     "fr": "Ajouter des exercices"
   },
@@ -232,7 +232,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "save": {
     "en": "Save",
     "es": "Guardar",
-    "he": "שמור",
+    "he": "שמירה",
     "de": "Speichern",
     "fr": "Enregistrer"
   },
@@ -274,7 +274,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "create": {
     "en": "Create",
     "es": "Crear",
-    "he": "צור",
+    "he": "שמירה",
     "de": "Erstellen",
     "fr": "Créer"
   },
@@ -291,6 +291,13 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "שם האימון",
     "de": "Workout-Name",
     "fr": "Nom de la séance"
+  },
+  "workoutNameEg": {
+    "en": "e.g. Legs & Glutes",
+    "es": "p. ej.: Piernas y glúteos",
+    "he": "למשל: רגליים וישבן",
+    "de": "z. B. Beine & Po",
+    "fr": "ex. : Jambes et fessiers"
   },
   "setBtn": {
     "en": "Set",
@@ -517,13 +524,52 @@ class _WorkoutPageState extends State<WorkoutPage> {
   }
 
   /// True once the list has moved off its top - draws the hairline under
-  /// the header in the edit / template modes. A notifier, so scrolling never
-  /// rebuilds the page.
+  /// the header. A notifier, so scrolling never rebuilds the page.
   final ValueNotifier<bool> _scrolled = ValueNotifier<bool>(false);
 
+  /// Live workout: the header folded down to its controls and the progress
+  /// segments. Folds when the list is scrolled down, opens again at the top
+  /// of the list, and a tap on the clock toggles it at any time.
+  final ValueNotifier<bool> _compact = ValueNotifier<bool>(false);
+  double _lastOffset = 0;
+
+  /// Distance scrolled downwards since the header was last opened or the
+  /// direction last changed - a small nudge must not fold it.
+  double _travel = 0;
+
+  void _toggleCompact() {
+    HapticFeedback.selectionClick();
+    _travel = 0;
+    _compact.value = !_compact.value;
+  }
+
   void _onScroll() {
-    final bool s = _scroll.hasClients && _scroll.offset > 2;
+    if (!_scroll.hasClients) return;
+    final ScrollPosition pos = _scroll.position;
+    final double off = pos.pixels;
+
+    final bool s = off > 2;
     if (s != _scrolled.value) _scrolled.value = s;
+
+    final double delta = off - _lastOffset;
+    _lastOffset = off;
+    if (!_live) return;
+
+    // back at the top: always open
+    if (off <= 4) {
+      _travel = 0;
+      if (_compact.value) _compact.value = false;
+      return;
+    }
+    // the bounce past the end of the list is not the user scrolling
+    if (pos.outOfRange) return;
+
+    if (delta > 0) {
+      _travel += delta;
+      if (_travel > 12 && !_compact.value) _compact.value = true;
+    } else if (delta < 0) {
+      _travel = 0;
+    }
   }
 
   @override
@@ -548,6 +594,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _scrolled.dispose();
+    _compact.dispose();
     _nameCtrl.dispose();
     _nameFocus.dispose();
     super.dispose();
@@ -795,10 +842,16 @@ class _WorkoutPageState extends State<WorkoutPage> {
           shape: BoxShape.circle,
           border: Border.all(color: border),
         ),
-        child: Icon(
-            rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
-            size: 26,
-            color: theme.primaryText),
+        // Chevron icons mirror themselves in a right-to-left context, which
+        // flipped the one chosen here back again. Forcing LTR means the icon
+        // picked below is the icon that is drawn: ">" in Hebrew, "<" elsewhere.
+        child: Directionality(
+          textDirection: ui.TextDirection.ltr,
+          child: Icon(
+              rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded,
+              size: 26,
+              color: theme.primaryText),
+        ),
       ),
     );
 
@@ -862,42 +915,59 @@ class _WorkoutPageState extends State<WorkoutPage> {
       ],
     );
 
-    // Centre of the row. Live: the clock in a capsule, with a "running" dot.
+    // The live header can fold only when there is something under the clock.
+    final bool canFold = _live && ids.isNotEmpty;
+
+    // Centre of the row. Live: the clock in a capsule, with a "running" dot;
+    // tapping it folds / opens the header (the chevron shows which).
     // Elsewhere: the screen's title.
-    final Widget middle = _live
-        ? Container(
-            height: 44,
-            padding: const EdgeInsetsDirectional.only(start: 18, end: 18),
-            decoration: BoxDecoration(
-              color: surface,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: theme.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                          color: theme.primary.withOpacity(dark ? 0.28 : 0.18),
-                          spreadRadius: 4),
-                    ],
+    Widget middleFor(bool folded) => _live
+        ? _Tap(
+            onTap: canFold ? _toggleCompact : () {},
+            child: Container(
+              height: 44,
+              padding:
+                  EdgeInsetsDirectional.only(start: 18, end: canFold ? 10 : 18),
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: theme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                            color:
+                                theme.primary.withOpacity(dark ? 0.28 : 0.18),
+                            spreadRadius: 4),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _LiveClock(
-                  startedAt:
-                      FFAppState().activeWorkoutStartTime ?? _fallbackStart,
-                  style: _ts(theme, 17, FontWeight.w700, theme.primaryText),
-                ),
-              ],
-            ),
-          )
+                  const SizedBox(width: 12),
+                  _LiveClock(
+                    startedAt:
+                        FFAppState().activeWorkoutStartTime ?? _fallbackStart,
+                    style: _ts(theme, 17, FontWeight.w700, theme.primaryText),
+                  ),
+                  if (canFold) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                        folded
+                            ? Icons.expand_more_rounded
+                            : Icons.expand_less_rounded,
+                        size: 20,
+                        color: theme.secondaryText),
+                  ],
+                ],
+              ),
+            ))
         : Text(
             (widget.title ?? '').trim().isNotEmpty
                 ? widget.title!.trim()
@@ -917,133 +987,198 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final TextStyle capStrong =
         _ts(theme, 12, FontWeight.w700, theme.primaryText);
 
-    final Widget header = Container(
-      color: theme.primaryBackground,
-      padding: EdgeInsets.fromLTRB(16, topInset + 6, 16, _live ? 14 : 10),
-      child: Column(
+    final Widget segRow = !canFold
+        ? const SizedBox.shrink()
+        : Row(
+            children: [
+              for (int k = 0; k < segs.length; k++)
+                Expanded(
+                  child: Padding(
+                    padding:
+                        EdgeInsetsDirectional.only(start: k == 0 ? 0 : segGap),
+                    child: _Segment(
+                        value: segs[k], track: track, fill: theme.primary),
+                  ),
+                ),
+            ],
+          );
+
+    final Widget capRow = !canFold
+        ? const SizedBox.shrink()
+        : Row(
+            children: [
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '⁦${st.doneSets}', style: capStrong),
+                      TextSpan(
+                          text: ' / ${st.totalSets}⁩ '
+                              '${_tr(lang, st.totalSets == 1 ? 'set' : 'sets').toLowerCase()}'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: capStyle,
+                ),
+              ),
+              if (st.volume > 0)
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                          text: ltr(_fmtVolume(st.volume)), style: capStrong),
+                      TextSpan(text: ' $unit'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  style: capStyle,
+                ),
+            ],
+          );
+
+    // The header floats over the list, so folding it never moves the cards.
+    // Open (live): controls, segments, sets / volume. Folded: controls and
+    // segments only. A hairline appears under it once the list has moved.
+    const Duration foldTime = Duration(milliseconds: 180);
+    final double headerMaxH =
+        topInset + 6 + 44 + (canFold ? 60 : (_live ? 14 : 10)) + 1;
+
+    Widget buildHeader(bool compact, bool scrolled) {
+      final bool folded = canFold && compact;
+      return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 44,
-            // keeps the middle dead centre, and nudges it aside only when a
-            // long label on one side leaves no room
-            child: NavigationToolbar(
-              leading: backButton,
-              middle: FittedBox(fit: BoxFit.scaleDown, child: middle),
-              trailing: trailing,
-              centerMiddle: true,
-              middleSpacing: 10,
-            ),
-          ),
-          if (_live && segs.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Row(
+          Container(
+            color: theme.primaryBackground,
+            padding: EdgeInsets.fromLTRB(16, topInset + 6, 16, 0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (int k = 0; k < segs.length; k++)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsetsDirectional.only(
-                          start: k == 0 ? 0 : segGap),
-                      child: _Segment(
-                          value: segs[k], track: track, fill: theme.primary),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: '⁦${st.doneSets}', style: capStrong),
-                        TextSpan(
-                            text: ' / ${st.totalSets}⁩ '
-                                '${_tr(lang, st.totalSets == 1 ? 'set' : 'sets').toLowerCase()}'),
-                      ],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: capStyle,
+                SizedBox(
+                  height: 44,
+                  // keeps the middle dead centre, and nudges it aside only
+                  // when a long label on one side leaves no room
+                  child: NavigationToolbar(
+                    leading: backButton,
+                    middle: FittedBox(
+                        fit: BoxFit.scaleDown, child: middleFor(folded)),
+                    trailing: trailing,
+                    centerMiddle: true,
+                    middleSpacing: 10,
                   ),
                 ),
-                if (st.volume > 0)
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                            text: ltr(_fmtVolume(st.volume)), style: capStrong),
-                        TextSpan(text: ' $unit'),
-                      ],
-                    ),
-                    maxLines: 1,
-                    style: capStyle,
+                if (canFold) ...[
+                  AnimatedContainer(
+                    duration: foldTime,
+                    curve: Curves.easeOut,
+                    height: folded ? 10 : 16,
                   ),
+                  segRow,
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: foldTime,
+                      curve: Curves.easeOut,
+                      alignment: Alignment.topCenter,
+                      child: folded
+                          ? const SizedBox(width: double.infinity, height: 10)
+                          : Padding(
+                              padding:
+                                  const EdgeInsets.only(top: 8, bottom: 14),
+                              child: SizedBox(height: 18, child: capRow),
+                            ),
+                    ),
+                  ),
+                ] else
+                  SizedBox(height: _live ? 14 : 10),
               ],
             ),
-          ],
+          ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 160),
+            opacity: scrolled ? 1.0 : 0.0,
+            child: Container(height: 1, color: border),
+          ),
         ],
-      ),
-    );
+      );
+    }
 
     // ---- top of the list ------------------------------------------------
     TextStyle bigTitle(Color c, FontWeight w) => _ts(theme, 28, w, c)
         .copyWith(letterSpacing: rtl ? 0 : -0.5, height: 1.2);
 
-    // Template: the workout's name IS the page title - typed straight onto
-    // the page, with the size of the workout under it.
+    // Template: the workout's name in a card of its own - a small label, the
+    // field, and a pencil - with the size of the workout under it.
     final String countLine = ids.isEmpty
         ? ''
         : '${ltr(ids.length)} ${_tr(lang, ids.length == 1 ? 'exercise1' : 'exercises').toLowerCase()}'
             '  ·  ${ltr(st.totalSets)} ${_tr(lang, st.totalSets == 1 ? 'set' : 'sets').toLowerCase()}';
 
-    final Widget nameBlock = Padding(
-      padding: const EdgeInsetsDirectional.only(start: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _nameCtrl,
-                  focusNode: _nameFocus,
-                  maxLines: 1,
-                  textInputAction: TextInputAction.done,
-                  textCapitalization: TextCapitalization.sentences,
-                  cursorColor: theme.primary,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  style: bigTitle(theme.primaryText, FontWeight.w800),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    isDense: true,
-                    filled: false,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                    hintText: _tr(lang, 'workoutNameHint'),
-                    hintStyle: bigTitle(hint, FontWeight.w600),
-                  ),
+    final Widget nameBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _nameFocus.requestFocus(),
+          child: Container(
+            padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_tr(lang, 'workoutNameHint'),
+                    maxLines: 1,
+                    style:
+                        _ts(theme, 13, FontWeight.w500, theme.secondaryText)),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _nameCtrl,
+                        focusNode: _nameFocus,
+                        maxLines: 1,
+                        textInputAction: TextInputAction.done,
+                        textCapitalization: TextCapitalization.sentences,
+                        cursorColor: theme.primary,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                        style:
+                            _ts(theme, 18, FontWeight.w600, theme.primaryText),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          filled: false,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 4),
+                          hintText: _tr(lang, 'workoutNameEg'),
+                          hintStyle: _ts(theme, 18, FontWeight.w400, hint),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(Icons.edit_outlined, size: 18, color: hint),
+                  ],
                 ),
-              ),
-              _Tap(
-                onTap: () => _nameFocus.requestFocus(),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(Icons.edit_outlined, size: 20, color: hint),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          if (countLine.isNotEmpty)
-            Text(countLine,
+        ),
+        if (countLine.isNotEmpty)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4, top: 10),
+            child: Text(countLine,
                 maxLines: 1,
                 style: _ts(theme, 14, FontWeight.w500, theme.secondaryText)),
-        ],
-      ),
+          ),
+      ],
     );
 
     // Log-edit: the workout's name (when the page passes one) as a read-only
@@ -1135,7 +1270,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
         color: theme.primaryBackground,
         child: Column(
           children: [
-            header,
             Expanded(
               child: Stack(
                 children: [
@@ -1150,8 +1284,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverPadding(
-                        padding:
-                            EdgeInsets.fromLTRB(16, 4, 16, 28 + bottomInset),
+                        padding: EdgeInsets.fromLTRB(
+                            16, headerMaxH + 4, 16, 28 + bottomInset),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
                             (ctx, raw) {
@@ -1262,33 +1396,16 @@ class _WorkoutPageState extends State<WorkoutPage> {
                       ),
                     ],
                   ),
-                  // Scroll edge: once the list has moved, the cards fade out
-                  // under the header instead of being cut by a hard line.
+                  // The header, over the list. Only it listens: folding it
+                  // or drawing its hairline never rebuilds the list.
                   Positioned(
                     top: 0,
                     left: 0,
                     right: 0,
-                    height: 18,
-                    child: IgnorePointer(
-                      child: ValueListenableBuilder<bool>(
-                        valueListenable: _scrolled,
-                        builder: (_, scrolled, __) => AnimatedOpacity(
-                          duration: const Duration(milliseconds: 160),
-                          opacity: scrolled ? 1.0 : 0.0,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  theme.primaryBackground,
-                                  theme.primaryBackground.withOpacity(0),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([_compact, _scrolled]),
+                      builder: (_, __) =>
+                          buildHeader(_compact.value, _scrolled.value),
                     ),
                   ),
                 ],

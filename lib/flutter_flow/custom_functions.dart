@@ -8520,48 +8520,35 @@ String estimatedOneRmLabel(
   double? estimatedOneRm,
   String? languageCode,
 ) {
+// Only the value and its unit: "90.5 kg" / "90.5 ק״ג". Empty when there
+  // is nothing to show.
   final double v = estimatedOneRm ?? 0;
-  if (v <= 0 || v.isNaN || v.isInfinite) return '';
+  if (v <= 0 || v.isNaN || v.isInfinite) return "";
 
-  String lang = (languageCode ?? 'en').trim().toLowerCase();
+  String lang = (languageCode ?? "en").trim().toLowerCase();
   if (lang.length > 2) lang = lang.substring(0, 2);
 
-  // 126.666 -> "126.7", 120.0 -> "120".
+  // 126.666 -> "126.7", 120.0 -> "120"
   String number = v.toStringAsFixed(1);
-  if (number.endsWith('.0')) {
+  if (number.endsWith(".0")) {
     number = number.substring(0, number.length - 2);
   }
 
   final bool kg = isKg ?? true;
   String unit;
   switch (lang) {
-    case 'he':
-      unit = kg ? 'ק״ג' : 'ליב׳';
+    case "he":
+      unit = kg ? "ק״ג" : "ליב׳";
       break;
-    case 'es':
-    case 'fr':
-      unit = kg ? 'kg' : 'lb';
+    case "es":
+    case "fr":
+      unit = kg ? "kg" : "lb";
       break;
     default:
-      unit = kg ? 'kg' : 'lbs';
+      unit = kg ? "kg" : "lbs";
   }
 
-  // Left-to-right isolates: keep "1RM", the number and "Epley" in their own
-  // order inside a right-to-left line.
-  String ltr(String s) => '\u2066$s\u2069';
-
-  switch (lang) {
-    case 'he':
-      return 'הערכת ${ltr('1RM')}: ${ltr(number)} $unit (${ltr('Epley')})';
-    case 'es':
-      return '1RM estimado: $number $unit (Epley)';
-    case 'de':
-      return 'Geschätztes 1RM: $number $unit (Epley)';
-    case 'fr':
-      return '1RM estimé : $number $unit (Epley)';
-    default:
-      return 'Estimated 1RM: $number $unit (Epley)';
-  }
+  return number + " " + unit;
 }
 
 String stepByStepLabel(
@@ -8587,5 +8574,47 @@ String stepByStepLabel(
           : 'Afficher le guide pas à pas';
     default:
       return shown ? 'Hide Step-by-Step Guide' : 'Show Step-by-Step Guide';
+  }
+}
+
+String timeRangeLabel(
+  String? value,
+  String? languageCode,
+) {
+  // Display only: turns the stored English range ("Last 7 days",
+  // "Last 30 days", "Last 90 days", "All time") into the app language.
+  final String raw = (value ?? "").trim();
+  String lang = (languageCode ?? "en").trim().toLowerCase();
+  if (lang.length > 2) {
+    lang = lang.substring(0, 2);
+  }
+
+  final RegExpMatch? m = RegExp(r"\d+").firstMatch(raw);
+  final int days = m == null ? 0 : (int.tryParse(m.group(0) ?? "") ?? 0);
+
+  if (days <= 0) {
+    // "All time", empty, or anything without a number
+    const Map<String, String> all = {
+      "en": "All time",
+      "es": "Todo el periodo",
+      "he": "כל התקופה",
+      "de": "Gesamter Zeitraum",
+      "fr": "Toute la période",
+    };
+    return all[lang] ?? all["en"]!;
+  }
+
+  final String n = days.toString();
+  switch (lang) {
+    case "he":
+      return n + " הימים האחרונים";
+    case "es":
+      return "Últimos " + n + " días";
+    case "de":
+      return "Letzte " + n + " Tage";
+    case "fr":
+      return n + " derniers jours";
+    default:
+      return "Last " + n + " days";
   }
 }

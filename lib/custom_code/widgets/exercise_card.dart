@@ -77,7 +77,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "addSet": {
     "en": "Add set",
     "es": "Añadir serie",
-    "he": "הוסף סט",
+    "he": "הוספת סט",
     "de": "Satz hinzufügen",
     "fr": "Ajouter une série"
   },
@@ -91,7 +91,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "replace": {
     "en": "Replace Exercise",
     "es": "Reemplazar ejercicio",
-    "he": "החלף תרגיל",
+    "he": "החלפת תרגיל",
     "de": "Übung ersetzen",
     "fr": "Remplacer l’exercice"
   },
@@ -112,14 +112,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "reorder": {
     "en": "Reorder",
     "es": "Reordenar",
-    "he": "סדר מחדש",
+    "he": "סידור מחדש",
     "de": "Neu anordnen",
     "fr": "Réorganiser"
   },
   "remove": {
     "en": "Remove Exercise",
     "es": "Quitar ejercicio",
-    "he": "הסר תרגיל",
+    "he": "הסרת תרגיל",
     "de": "Übung entfernen",
     "fr": "Retirer l’exercice"
   },
@@ -134,7 +134,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "set": {
     "en": "Set",
     "es": "Fijar",
-    "he": "קבע",
+    "he": "אישור",
     "de": "Festlegen",
     "fr": "Valider"
   },
@@ -169,14 +169,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "generate": {
     "en": "Generate Warm-ups",
     "es": "Generar calentamiento",
-    "he": "צור חימום",
+    "he": "יצירת חימום",
     "de": "Aufwärmen erstellen",
     "fr": "Générer l’échauffement"
   },
   "removeWarmup": {
     "en": "Remove warm-up",
     "es": "Quitar calentamiento",
-    "he": "הסר חימום",
+    "he": "הסרת חימום",
     "de": "Aufwärmen entfernen",
     "fr": "Retirer l’échauffement"
   },
@@ -185,7 +185,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "cancelSuperset": {
     "en": "Cancel Superset",
     "es": "Cancelar superserie",
-    "he": "בטל סופרסט",
+    "he": "ביטול סופרסט",
     "de": "Supersatz aufheben",
     "fr": "Annuler le superset"
   },

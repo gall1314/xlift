@@ -53,14 +53,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "addDrop": {
     "en": "Add drop",
     "es": "Añadir drop",
-    "he": "הוסף דרופ",
+    "he": "הוספת דרופ",
     "de": "Drop hinzufügen",
     "fr": "Ajouter un drop"
   },
   "finishWarmup": {
     "en": "Finish Warmup",
     "es": "Terminar calentamiento",
-    "he": "סיים חימום",
+    "he": "סיום חימום",
     "de": "Aufwärmen beenden",
     "fr": "Terminer l’échauffement"
   },
@@ -81,70 +81,70 @@ const Map<String, Map<String, String>> _kStrings = {
   "skip": {
     "en": "Skip",
     "es": "Saltar",
-    "he": "דלג",
+    "he": "דילוג",
     "de": "Überspringen",
     "fr": "Passer"
   },
   "markCompleted": {
     "en": "Mark as Completed",
     "es": "Marcar como completada",
-    "he": "סמן כהושלם",
+    "he": "סימון כהושלם",
     "de": "Als erledigt markieren",
     "fr": "Marquer comme terminée"
   },
   "unmark": {
     "en": "Unmark Completed",
     "es": "Desmarcar",
-    "he": "בטל סימון",
+    "he": "ביטול סימון",
     "de": "Markierung aufheben",
     "fr": "Annuler la validation"
   },
   "enableDropset": {
     "en": "Enable Dropset",
     "es": "Activar dropset",
-    "he": "הפעל דרופסט",
+    "he": "הפעלת דרופסט",
     "de": "Dropsatz aktivieren",
     "fr": "Activer le dropset"
   },
   "resetSet": {
     "en": "Reset Set",
     "es": "Reiniciar serie",
-    "he": "אפס סט",
+    "he": "איפוס סט",
     "de": "Satz zurücksetzen",
     "fr": "Réinitialiser la série"
   },
   "deleteSet": {
     "en": "Delete Set",
     "es": "Eliminar serie",
-    "he": "מחק סט",
+    "he": "מחיקת סט",
     "de": "Satz löschen",
     "fr": "Supprimer la série"
   },
   "close": {
     "en": "Close",
     "es": "Cerrar",
-    "he": "סגור",
+    "he": "סגירה",
     "de": "Schließen",
     "fr": "Fermer"
   },
   "retry": {
     "en": "Retry",
     "es": "Reintentar",
-    "he": "נסה שוב",
+    "he": "ניסיון חוזר",
     "de": "Erneut",
     "fr": "Réessayer"
   },
   "retake": {
     "en": "Retake video",
     "es": "Grabar de nuevo",
-    "he": "צלם מחדש",
+    "he": "צילום מחדש",
     "de": "Neu aufnehmen",
     "fr": "Refilmer"
   },
   "analysisFailed": {
     "en": "The analysis failed. Try again or record a new video.",
     "es": "El análisis falló. Inténtalo de nuevo o graba otro video.",
-    "he": "הניתוח נכשל. נסה שוב או צלם סרטון חדש.",
+    "he": "הניתוח נכשל. אפשר לנסות שוב או לצלם סרטון חדש.",
     "de": "Analyse fehlgeschlagen. Erneut versuchen oder neu aufnehmen.",
     "fr": "L’analyse a échoué. Réessayez ou filmez une nouvelle vidéo."
   },
@@ -172,14 +172,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "start": {
     "en": "Start",
     "es": "Iniciar",
-    "he": "התחל",
+    "he": "התחלה",
     "de": "Start",
     "fr": "Démarrer"
   },
   "pause": {
     "en": "Pause",
     "es": "Pausa",
-    "he": "השהה",
+    "he": "השהיה",
     "de": "Pause",
     "fr": "Pause"
   },
@@ -806,6 +806,13 @@ class _Prev {
 /// stale after a workout is saved.
 final Map<String, _Prev> _kPrevCache = {};
 
+/// Previous drop sets, per "user|exercise|unit": "setNumber:dropNumber" ->
+/// value. Same idea as [_kPrevCache].
+final Map<String, Map<String, _Prev>> _kPrevDropCache = {};
+
+/// A number with its sign / decimals / colon ("62.5", "+5", "0:45").
+final RegExp _kNumToken = RegExp(r'[+\-\u2212]?\d[\d.,:]*');
+
 class _SetTableState extends State<SetTable> {
   final Map<int, _Prev> _prev = {};
   final Set<int> _prevLoading = {};
@@ -816,11 +823,27 @@ class _SetTableState extends State<SetTable> {
   String _prevKey(String uid, int exerciseId, int setNumber, bool isKg) =>
       '$uid|$exerciseId|$setNumber|${isKg ? 1 : 0}';
 
+  /// Previous drops of this exercise: "setNumber:dropNumber" -> value, taken
+  /// from the last workout in which that set was logged with drops.
+  final Map<String, _Prev> _prevDrops = {};
+  bool _prevDropsLoading = false;
+
+  /// The "user|exercise|unit" [_prevDrops] was last read for.
+  String _prevDropsFor = '';
+
+  String _prevDropKey(String uid, int exerciseId, bool isKg) =>
+      '$uid|$exerciseId|${isKg ? 1 : 0}';
+
   /// Fills [_prev] from the cache, synchronously - no setState, call it
   /// before a build.
   void _seedPrevious() {
     final uid = widget.userId ?? '';
     if (uid.isEmpty) return;
+    if (_prevDrops.isEmpty) {
+      final d =
+          _kPrevDropCache[_prevDropKey(uid, widget.exerciseId, widget.isKg)];
+      if (d != null) _prevDrops.addAll(d);
+    }
     for (final t in _template) {
       final n = t.setNumber;
       if (_prev.containsKey(n)) continue;
@@ -1163,7 +1186,10 @@ class _SetTableState extends State<SetTable> {
         job.clear();
     }
     _seedPrevious();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrevious());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPrevious();
+      _loadPreviousDrops();
+    });
   }
 
   @override
@@ -1175,9 +1201,12 @@ class _SetTableState extends State<SetTable> {
       _prev.clear();
       _prevLoading.clear();
       _prevStale.clear();
+      _prevDrops.clear();
+      _prevDropsFor = '';
     }
     _seedPrevious();
     _loadPrevious();
+    _loadPreviousDrops();
     _attachTimerCommits();
   }
 
@@ -1283,11 +1312,137 @@ class _SetTableState extends State<SetTable> {
     setState(() => _prev.addAll(fresh));
   }
 
+  /// Reads the previous drop sets of this exercise in one query. For every
+  /// set number it keeps the drops of the newest workout that has any, so
+  /// "D1" shows what drop 1 of that set was the last time it was done.
+  Future<void> _loadPreviousDrops() async {
+    final uid = widget.userId ?? '';
+    if (uid.isEmpty || widget.isTimed) return;
+    final int exerciseId = widget.exerciseId;
+    final bool isKg = widget.isKg;
+    final String key = _prevDropKey(uid, exerciseId, isKg);
+    if (_prevDropsLoading || _prevDropsFor == key) return;
+    _prevDropsLoading = true;
+
+    final Map<String, _Prev> fresh = {};
+    bool ok = true;
+    try {
+      final rows = await SQLiteManager.instance.database.rawQuery(
+        "SELECT workout_log_id, CAST(set_number AS INTEGER) AS sn, "
+        "CAST(drop_number AS INTEGER) AS dn, reps, weight, is_kg "
+        "FROM set_log "
+        "WHERE CAST(exercise_id AS INTEGER) = ? "
+        "AND CAST(user_id AS TEXT) = ? "
+        "AND COALESCE(CAST(is_dropset AS INTEGER), 0) = 1 "
+        "ORDER BY created_at DESC, rowid DESC LIMIT 300",
+        [exerciseId, uid],
+      );
+      final Map<int, String> logOf = {}; // set number -> its newest workout
+      for (final r in rows) {
+        final int sn = _asInt(r['sn']);
+        final int dn = _asInt(r['dn']);
+        if (sn <= 0 || dn <= 0) continue;
+        final String log = (r['workout_log_id'] ?? '').toString();
+        if (logOf.putIfAbsent(sn, () => log) != log) continue;
+        final String k = '$sn:$dn';
+        if (fresh.containsKey(k)) continue;
+
+        final int? reps = _asIntN(r['reps']);
+        double? weight = _asDoubleN(r['weight']);
+        // same unit rule as the set rows: convert what was logged in the
+        // other unit, to a round number
+        if (weight != null && weight > 0) {
+          final dynamic rawKg = r['is_kg'];
+          final bool loggedKg = rawKg == null ? true : _truthy(rawKg);
+          if (loggedKg && !isKg) {
+            weight = (weight * 2.20462).roundToDouble();
+          } else if (!loggedKg && isKg) {
+            weight = (weight / 2.20462 * 2).roundToDouble() / 2;
+          }
+        }
+        if ((reps ?? 0) <= 0 && (weight ?? 0) <= 0) continue;
+        String text;
+        try {
+          text = correctedFormatPreviousSet(reps, weight, null, isKg);
+        } catch (_) {
+          text = '';
+        }
+        fresh[k] = _Prev(text, reps, weight, null);
+      }
+    } catch (_) {
+      ok = false;
+    } finally {
+      _prevDropsLoading = false;
+    }
+    if (!ok) return;
+    _kPrevDropCache[key] = fresh;
+    if (!mounted) return;
+    // the table was pointed at another exercise / unit while this ran
+    if (widget.exerciseId != exerciseId ||
+        widget.isKg != isKg ||
+        (widget.userId ?? '') != uid) return;
+    _prevDropsFor = key;
+
+    bool changed = fresh.length != _prevDrops.length;
+    if (!changed) {
+      fresh.forEach((k, v) {
+        final old = _prevDrops[k];
+        if (old == null ||
+            old.text != v.text ||
+            old.reps != v.reps ||
+            old.weight != v.weight) changed = true;
+      });
+    }
+    if (!changed) return;
+    setState(() {
+      _prevDrops
+        ..clear()
+        ..addAll(fresh);
+    });
+  }
+
   /// The previous-set text in the app language.
   String _prevLabel(String lang, int setNumber) {
     final p = _prev[setNumber];
     if (p == null) return _prevLoading.contains(setNumber) ? '' : '-';
-    var s = p.text;
+    return _prevText(lang, p.text);
+  }
+
+  /// A "previous" text, ready to draw. In a right-to-left language it reads
+  /// from the right ("100 kg × 3" starts with the 100 on the right); every
+  /// number is isolated so its sign and decimals stay in place.
+  Widget _prevTextWidget(String label, String lang, Color color, double size) {
+    final bool rtl = _kRtl.contains(lang);
+    final String shown = rtl
+        ? label.replaceAllMapped(_kNumToken, (m) => _ltr(m.group(0)!))
+        : _ltr(label);
+    return Text(
+      shown,
+      maxLines: 1,
+      textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      style:
+          TextStyle(fontSize: size, color: color, fontWeight: FontWeight.w400),
+    );
+  }
+
+  /// Fills a drop with what it was the last time.
+  Future<void> _applyPreviousDrop(_TplSet t, int order) async {
+    final p = _prevDrops['${t.setNumber}:$order'];
+    if (p == null || _isDone(t.setNumber)) return;
+    final bool hasReps = (p.reps ?? 0) > 0;
+    final bool hasWeight = (p.weight ?? 0) > 0 && _canWeight(t);
+    if (!hasReps && !hasWeight) return;
+    HapticFeedback.selectionClick();
+    await _emit(_upsertDrop(_copyLogged(), t.setNumber, order,
+        reps: hasReps ? p.reps : null,
+        keepReps: !hasReps,
+        weight: hasWeight ? p.weight : null,
+        keepWeight: !hasWeight));
+  }
+
+  /// A previous text ("20 kg × 8") in the app language.
+  String _prevText(String lang, String text) {
+    var s = text;
     if (lang == 'en') return s;
     s = s.replaceAll(RegExp(r'\breps\b'), _tr(lang, 'prevReps'));
     // The unit too ("20 kg × 8" -> "20 ק״ג × 8"). It is isolated so a
@@ -2881,13 +3036,7 @@ class _SetTableState extends State<SetTable> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Text(
-          _ltr(label),
-          maxLines: 1,
-          textDirection: ui.TextDirection.ltr,
-          style: TextStyle(
-              fontSize: 16, color: muted, fontWeight: FontWeight.w400),
-        ),
+        child: _prevTextWidget(label, lang, muted, 16),
       ),
     );
     if (done || label == '-' || label.isEmpty) return Center(child: txt);
@@ -2959,7 +3108,6 @@ class _SetTableState extends State<SetTable> {
       Color text, Color muted, Color accent, Color cellBg, Color onDone) {
     final planned = _plannedDrops(t.setNumber);
     if (planned.isEmpty) return const [];
-    final double? baseW = _asDoubleN(_base(t.setNumber)?['weight']);
     final Color rowBg = done ? Colors.transparent : cellBg;
 
     final List<Widget> out = [];
@@ -2970,12 +3118,17 @@ class _SetTableState extends State<SetTable> {
       final double? w = _asDoubleN(logged?['weight']);
       final int repsHint = _asInt(d['reps']);
       final double wHint = _asDoubleN(d['weight']) ?? 0;
-      final double? shownW = (w ?? 0) > 0 ? w : (wHint > 0 ? wHint : null);
-      String pct = '';
-      if (baseW != null && baseW > 0 && shownW != null && shownW > 0) {
-        final p = ((1 - shownW / baseW) * 100).round();
-        pct = p > 0 ? '−$p%' : (p < 0 ? '+${-p}%' : '0%');
-      }
+      // What this drop was the last time; empty when it has no history.
+      final _Prev? prevDrop = _tpl ? null : _prevDrops['${t.setNumber}:$order'];
+      final String prevLabel =
+          prevDrop == null ? '' : _prevText(lang, prevDrop.text);
+      final Widget prevTxt = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: _prevTextWidget(prevLabel, lang, muted, 14),
+        ),
+      );
 
       // On a done set the drop rows are part of the green block: tapping
       // one reveals the unmark strip, exactly like tapping the set row.
@@ -3015,11 +3168,13 @@ class _SetTableState extends State<SetTable> {
                 ),
                 const SizedBox(width: _gap),
                 Expanded(
-                  child: Center(
-                    child: Text(_ltr(pct),
-                        maxLines: 1,
-                        style: TextStyle(fontSize: 13, color: muted)),
-                  ),
+                  child: prevLabel.isEmpty
+                      ? const SizedBox.shrink()
+                      : (done
+                          ? Center(child: prevTxt)
+                          : _Pressable(
+                              onTap: () => _applyPreviousDrop(t, order),
+                              child: Center(child: prevTxt))),
                 ),
                 const SizedBox(width: _gap),
                 SizedBox(
@@ -3088,12 +3243,12 @@ class _SetTableState extends State<SetTable> {
 
     if (!done) {
       out.add(Padding(
-        padding: const EdgeInsets.fromLTRB(60, 0, 6, 6),
+        padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
         child: SizedBox(
           height:
               30, // fixed so the table height is predictable (36 with padding)
           child: Align(
-            alignment: Alignment.centerLeft,
+            alignment: Alignment.center,
             child: _Pressable(
               onTap: () => _addDrop(t),
               child: Padding(

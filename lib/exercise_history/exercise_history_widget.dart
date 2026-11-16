@@ -1431,28 +1431,29 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                       MainAxisAlignment
                                                                           .start,
                                                                   children: [
-                                                                    Text(
-                                                                      functions.formatNiceDate(
-                                                                          listViewExerciseSessionComparisomRow
-                                                                              .createdAt,
-                                                                          FFLocalizations.of(context)
-                                                                              .languageCode),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
+                                                                    Padding(
+                                                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                                                          5.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                      child:
+                                                                          Text(
+                                                                        functions.formatNiceDate(
+                                                                            listViewExerciseSessionComparisomRow.createdAt,
+                                                                            FFLocalizations.of(context).languageCode),
+                                                                        style: FlutterFlowTheme.of(context)
+                                                                            .bodyMedium
+                                                                            .override(
+                                                                              font: GoogleFonts.inter(
+                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                              ),
+                                                                              letterSpacing: 0.0,
                                                                               fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                               fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                             ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                          ),
+                                                                      ),
                                                                     ),
                                                                     Icon(
                                                                       Icons
@@ -1832,7 +1833,11 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                     children: [
                                                       Expanded(
                                                         child: Text(
-                                                          _model.timeRange,
+                                                          functions.timeRangeLabel(
+                                                              _model.timeRange,
+                                                              FFLocalizations.of(
+                                                                      context)
+                                                                  .languageCode),
                                                           textAlign:
                                                               TextAlign.center,
                                                           maxLines: 1,
@@ -3512,10 +3517,12 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                             'jeq41t8a' /* Volume */,
                                                           ))
                                                         ],
-                                                        onChanged: (val) =>
-                                                            safeSetState(() => _model
-                                                                    .choiceChipsValue =
-                                                                val?.firstOrNull),
+                                                        onChanged: (val) async {
+                                                          safeSetState(() => _model
+                                                                  .choiceChipsValue =
+                                                              val?.firstOrNull);
+                                                          safeSetState(() {});
+                                                        },
                                                         selectedChipStyle:
                                                             ChipStyle(
                                                           backgroundColor:
@@ -4384,6 +4391,29 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                           ],
                                                         ),
                                                       ),
+                                                      Container(
+                                                        width:
+                                                            MediaQuery.sizeOf(
+                                                                        context)
+                                                                    .width *
+                                                                1.0,
+                                                        height: 56.0,
+                                                        child: custom_widgets
+                                                            .ExerciseAnalyticsSummary(
+                                                          width:
+                                                              MediaQuery.sizeOf(
+                                                                          context)
+                                                                      .width *
+                                                                  1.0,
+                                                          height: 56.0,
+                                                          exerciseId: widget
+                                                              .exerciseId!,
+                                                          userId:
+                                                              currentUserUid,
+                                                          timeRange:
+                                                              _model.timeRange,
+                                                        ),
+                                                      ),
                                                       FutureBuilder<
                                                           List<
                                                               TimeBasedExerciseAnalyticsRow>>(
@@ -4882,6 +4912,29 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                             ),
                                                           );
                                                         },
+                                                      ),
+                                                      Container(
+                                                        width:
+                                                            MediaQuery.sizeOf(
+                                                                        context)
+                                                                    .width *
+                                                                1.0,
+                                                        height: 56.0,
+                                                        child: custom_widgets
+                                                            .ExerciseAnalyticsSummary(
+                                                          width:
+                                                              MediaQuery.sizeOf(
+                                                                          context)
+                                                                      .width *
+                                                                  1.0,
+                                                          height: 56.0,
+                                                          exerciseId: widget
+                                                              .exerciseId!,
+                                                          userId:
+                                                              currentUserUid,
+                                                          timeRange:
+                                                              _model.timeRange,
+                                                        ),
                                                       ),
                                                       FutureBuilder<
                                                           List<
@@ -5490,258 +5543,28 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                           );
                                                         },
                                                       ),
-                                                      FutureBuilder<
-                                                          List<
-                                                              AssistedAnalyticsRow>>(
-                                                        future: SQLiteManager
-                                                            .instance
-                                                            .assistedAnalytics(
-                                                          userId:
-                                                              currentUserUid,
+                                                      Container(
+                                                        width:
+                                                            MediaQuery.sizeOf(
+                                                                        context)
+                                                                    .width *
+                                                                1.0,
+                                                        height: 56.0,
+                                                        child: custom_widgets
+                                                            .ExerciseAnalyticsSummary(
+                                                          width:
+                                                              MediaQuery.sizeOf(
+                                                                          context)
+                                                                      .width *
+                                                                  1.0,
+                                                          height: 56.0,
                                                           exerciseId: widget
                                                               .exerciseId!,
+                                                          userId:
+                                                              currentUserUid,
                                                           timeRange:
                                                               _model.timeRange,
                                                         ),
-                                                        builder: (context,
-                                                            snapshot) {
-                                                          // Customize what your widget looks like when it's loading.
-                                                          if (!snapshot
-                                                              .hasData) {
-                                                            return Center(
-                                                              child: SizedBox(
-                                                                width: 50.0,
-                                                                height: 50.0,
-                                                                child:
-                                                                    CircularProgressIndicator(
-                                                                  valueColor:
-                                                                      AlwaysStoppedAnimation<
-                                                                          Color>(
-                                                                    FlutterFlowTheme.of(
-                                                                            context)
-                                                                        .secondary,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }
-                                                          final containerAssistedAnalyticsRowList =
-                                                              snapshot.data!;
-
-                                                          return Container(
-                                                            decoration:
-                                                                BoxDecoration(),
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize
-                                                                      .max,
-                                                              mainAxisAlignment:
-                                                                  MainAxisAlignment
-                                                                      .spaceBetween,
-                                                              children: [
-                                                                Column(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .min,
-                                                                  crossAxisAlignment:
-                                                                      CrossAxisAlignment
-                                                                          .center,
-                                                                  children: [
-                                                                    Text(
-                                                                      FFLocalizations.of(
-                                                                              context)
-                                                                          .getText(
-                                                                        'u5si91ad' /* Current Week */,
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .labelMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                FlutterFlowTheme.of(context).secondaryText,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                    Text(
-                                                                      valueOrDefault<
-                                                                          String>(
-                                                                        containerAssistedAnalyticsRowList.firstOrNull?.currentWeekValue ==
-                                                                                0
-                                                                            ? '-'
-                                                                            : valueOrDefault<String>(
-                                                                                '${containerAssistedAnalyticsRowList.firstOrNull?.currentWeekValue?.toString()} Reps',
-                                                                                '- ',
-                                                                              ),
-                                                                        '-',
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.interTight(
-                                                                              fontWeight: FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                FlutterFlowTheme.of(context).success,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                Column(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .min,
-                                                                  crossAxisAlignment:
-                                                                      CrossAxisAlignment
-                                                                          .center,
-                                                                  children: [
-                                                                    Text(
-                                                                      FFLocalizations.of(
-                                                                              context)
-                                                                          .getText(
-                                                                        '9qlq32ae' /* Best Session */,
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .labelMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                FlutterFlowTheme.of(context).secondaryText,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                    Text(
-                                                                      valueOrDefault<
-                                                                          String>(
-                                                                        containerAssistedAnalyticsRowList.firstOrNull?.bestSessionValue ==
-                                                                                0
-                                                                            ? '-'
-                                                                            : valueOrDefault<String>(
-                                                                                '${containerAssistedAnalyticsRowList.firstOrNull?.bestSessionValue?.toString()} Reps',
-                                                                                '- ',
-                                                                              ),
-                                                                        '-',
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.interTight(
-                                                                              fontWeight: FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                FlutterFlowTheme.of(context).success,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                                Column(
-                                                                  mainAxisSize:
-                                                                      MainAxisSize
-                                                                          .min,
-                                                                  crossAxisAlignment:
-                                                                      CrossAxisAlignment
-                                                                          .center,
-                                                                  children: [
-                                                                    Text(
-                                                                      FFLocalizations.of(
-                                                                              context)
-                                                                          .getText(
-                                                                        'zhfjzh8q' /* Improvement */,
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .labelMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
-                                                                              fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                FlutterFlowTheme.of(context).secondaryText,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                    Text(
-                                                                      valueOrDefault<
-                                                                          String>(
-                                                                        containerAssistedAnalyticsRowList.firstOrNull?.improvementPercent ==
-                                                                                0
-                                                                            ? '-'
-                                                                            : valueOrDefault<String>(
-                                                                                '${containerAssistedAnalyticsRowList.firstOrNull?.improvementPercent?.toString()}%',
-                                                                                '- ',
-                                                                              ),
-                                                                        '-',
-                                                                      ),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .titleMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.interTight(
-                                                                              fontWeight: FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                                                                              fontStyle: FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                            ),
-                                                                            color:
-                                                                                FlutterFlowTheme.of(context).success,
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).titleMedium.fontStyle,
-                                                                          ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ].divide(SizedBox(
-                                                                  width: 16.0)),
-                                                            ),
-                                                          );
-                                                        },
                                                       ),
                                                     ].divide(
                                                         SizedBox(height: 20.0)),

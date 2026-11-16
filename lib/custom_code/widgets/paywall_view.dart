@@ -13,7 +13,6 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,28 +21,26 @@ import '/flutter_flow/revenue_cat_util.dart' as revenue_cat;
 
 /// The whole "upgrade to Premium" screen as one self-managed widget.
 ///
-/// What it does on its own:
-/// - Loads the current RevenueCat offering and shows the store's own
-///   localized prices (yearly + monthly). Savings % and the per-month price
-///   are computed from the real prices, never hard-coded.
-/// - Yearly is selected by default. The free-trial wording appears only when
-///   the selected product has a free intro period the user is eligible for.
-/// - Buys the selected package, restores purchases, and shows a short
-///   "Premium is active" screen afterwards.
-/// - States: prices loading, prices failed (with retry), purchase running.
-/// - Sets light status-bar icons (the screen is dark).
+/// What it does on its own: - Loads the current RevenueCat offering and shows
+/// the store's own localized prices (yearly + monthly). Savings % and the
+/// per-month price are computed from the real prices, never hard-coded. -
+/// Yearly is selected by default. The free-trial wording appears only when
+/// the selected product has a free intro period the user is eligible for. -
+/// Buys the selected package, restores purchases, and shows a short "Premium
+/// is active" screen afterwards. - States: prices loading, prices failed
+/// (with retry), purchase running. - Sets light status-bar icons (the screen
+/// is dark). - Nothing scrolls: on a short screen the title and benefits
+/// shrink to fit above the plans.
 ///
-/// Parameters:
-/// - source (optional String): where the user came from. One of
-///   'analysis', 'aiWorkout', 'customExercise', 'history', 'stats'.
-///   Shows a small line above the title ("5 of 5 analyses used this month").
-///   Leave empty for the generic screen.
+/// Parameters: - source (optional String): where the user came from. One of
+/// 'analysis', 'aiWorkout', 'customExercise', 'history', 'stats'. Shows a
+/// small line above the title ("5 of 5 analyses used this month"). Leave
+/// empty for the generic screen.
 ///
-/// Callbacks:
-/// - onPurchased: fired once, right after a successful purchase or restore.
-///   Update your premium state here.
-/// - onClose: the X button, and "Continue" on the success screen.
-/// - onOpenTerms / onOpenPrivacy: open the two links.
+/// Callbacks: - onPurchased: fired once, right after a successful purchase or
+/// restore. Update your premium state here. - onClose: the X button, and
+/// "Continue" on the success screen. - onOpenTerms / onOpenPrivacy: open the
+/// two links.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 class PaywallView extends StatefulWidget {
@@ -833,7 +830,7 @@ class _PaywallViewState extends State<PaywallView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(height: 18),
+            if (i > 0) const SizedBox(height: 14),
             _benefit(items[i][0], items[i][1]),
           ],
         ],
@@ -1102,29 +1099,49 @@ class _PaywallViewState extends State<PaywallView> {
     );
   }
 
+  /// One footer link. Only as wide as its text, so the three sit in a row.
   Widget _link(String label, Future Function()? action) {
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: _busy || action == null ? null : () => action(),
-      child: Container(
+      child: SizedBox(
         height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        alignment: Alignment.center,
-        child: Text(label, style: _st(12.5, FontWeight.w500, _cMuted)),
+        child: Center(
+          widthFactor: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              label,
+              maxLines: 1,
+              style: _st(12.5, FontWeight.w500, _cMuted),
+            ),
+          ),
+        ),
       ),
     );
   }
 
+  Widget _dot() => Text('·', style: _st(14, FontWeight.w700, _cRingOff));
+
+  /// Restore · Terms · Privacy in one row. Shrinks a little on a narrow
+  /// screen instead of wrapping.
   Widget _footer() {
     return Material(
       color: Colors.transparent,
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        children: [
-          _link(_t('restore'), _restore),
-          _link(_t('terms'), widget.onOpenTerms),
-          _link(_t('privacy'), widget.onOpenPrivacy),
-        ],
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _link(_t('restore'), _restore),
+              _dot(),
+              _link(_t('terms'), widget.onOpenTerms),
+              _dot(),
+              _link(_t('privacy'), widget.onOpenPrivacy),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1204,21 +1221,26 @@ class _PaywallViewState extends State<PaywallView> {
         Column(
           children: [
             Expanded(
-              child: LayoutBuilder(
-                builder: (ctx, box) => SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 16),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: math.max(0, box.maxHeight - 64),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _header(),
-                        const SizedBox(height: 32),
-                        _benefits(),
-                      ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 12),
+                child: LayoutBuilder(
+                  builder: (ctx, box) => Center(
+                    // No scrolling: on a short screen the block shrinks to
+                    // fit, instead of sliding under the plans.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: SizedBox(
+                        width: box.maxWidth,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _header(),
+                            const SizedBox(height: 28),
+                            _benefits(),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

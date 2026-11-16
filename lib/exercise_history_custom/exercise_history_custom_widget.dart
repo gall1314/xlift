@@ -457,28 +457,29 @@ class _ExerciseHistoryCustomWidgetState
                                                                       MainAxisAlignment
                                                                           .start,
                                                                   children: [
-                                                                    Text(
-                                                                      functions.formatNiceDate(
-                                                                          listViewExerciseSessionComparisomRow
-                                                                              .createdAt,
-                                                                          FFLocalizations.of(context)
-                                                                              .languageCode),
-                                                                      style: FlutterFlowTheme.of(
-                                                                              context)
-                                                                          .bodyMedium
-                                                                          .override(
-                                                                            font:
-                                                                                GoogleFonts.inter(
+                                                                    Padding(
+                                                                      padding: EdgeInsetsDirectional.fromSTEB(
+                                                                          5.0,
+                                                                          0.0,
+                                                                          0.0,
+                                                                          0.0),
+                                                                      child:
+                                                                          Text(
+                                                                        functions.formatNiceDate(
+                                                                            listViewExerciseSessionComparisomRow.createdAt,
+                                                                            FFLocalizations.of(context).languageCode),
+                                                                        style: FlutterFlowTheme.of(context)
+                                                                            .bodyMedium
+                                                                            .override(
+                                                                              font: GoogleFonts.inter(
+                                                                                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+                                                                              ),
+                                                                              letterSpacing: 0.0,
                                                                               fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
                                                                               fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
                                                                             ),
-                                                                            letterSpacing:
-                                                                                0.0,
-                                                                            fontWeight:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                                                                            fontStyle:
-                                                                                FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                          ),
+                                                                      ),
                                                                     ),
                                                                     Icon(
                                                                       Icons
@@ -745,7 +746,11 @@ class _ExerciseHistoryCustomWidgetState
                                                     children: [
                                                       Expanded(
                                                         child: Text(
-                                                          _model.timeRange,
+                                                          functions.timeRangeLabel(
+                                                              _model.timeRange,
+                                                              FFLocalizations.of(
+                                                                      context)
+                                                                  .languageCode),
                                                           textAlign:
                                                               TextAlign.center,
                                                           maxLines: 1,
