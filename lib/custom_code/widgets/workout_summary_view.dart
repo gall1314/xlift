@@ -32,6 +32,13 @@ import 'package:intl/intl.dart' as intl show DateFormat;
 /// for raw JSON names and plain ones). Strings are kept short on purpose —
 /// stat tiles and chips are narrow. Hebrew renders RTL.
 ///
+/// The "more" button in the header opens a small menu anchored to it (same
+/// look as the workout menu in History and in the Library): Edit / Delete,
+/// translated here. It fires [onEdit](workoutLogId) or
+/// [onDelete](workoutLogId). After an edit the page reloads; after a delete
+/// it does not (the workout is gone - the delete action is expected to leave
+/// the page).
+///
 /// Callbacks: [onExerciseTap](exerciseId, isPublic) from the ↗ button;
 /// [onAnalysisTap](setLogId, analysisId, analysis) from the AI score ring
 /// (AiScoreRing widget), where analysis is the raw GetSetAnalysisRow.
@@ -44,7 +51,8 @@ class WorkoutSummaryView extends StatefulWidget {
     required this.userId,
     this.onBack,
     this.onCompare,
-    this.onMore,
+    this.onEdit,
+    this.onDelete,
     this.onExerciseTap,
     this.onAnalysisTap,
   });
@@ -55,7 +63,8 @@ class WorkoutSummaryView extends StatefulWidget {
   final String userId;
   final Future Function()? onBack;
   final Future Function()? onCompare;
-  final Future Function()? onMore;
+  final Future Function(String workoutLogId)? onEdit;
+  final Future Function(String workoutLogId)? onDelete;
   final Future Function(int exerciseId, bool isPublic)? onExerciseTap;
   final Future Function(
           String setLogId, String analysisId, GetSetAnalysisRow analysis)?
@@ -233,6 +242,20 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "לא תועדו סטים",
     "de": "Keine Sätze",
     "fr": "Aucune série"
+  },
+  "edit": {
+    "en": "Edit",
+    "es": "Editar",
+    "he": "עריכה",
+    "de": "Bearbeiten",
+    "fr": "Modifier"
+  },
+  "delete": {
+    "en": "Delete",
+    "es": "Eliminar",
+    "he": "מחיקה",
+    "de": "Löschen",
+    "fr": "Supprimer"
   },
   "loadFailed": {
     "en": "Could not load workout",
@@ -730,10 +753,79 @@ class _WorkoutSummaryViewState extends State<WorkoutSummaryView> {
                 overflow: TextOverflow.ellipsis,
                 style: _t(ctx, 16, FontWeight.w500, th.secondaryText)),
           ),
-          _circleBtn(ctx, Icons.more_horiz_rounded, widget.onMore),
+          // Builder: the menu is anchored to this button's own box
+          Builder(
+            builder: (btnCtx) => _circleBtn(
+                ctx, Icons.more_horiz_rounded, () async => _showMenu(btnCtx)),
+          ),
         ],
       ),
     );
+  }
+
+  /// Edit / Delete menu under the "more" button.
+  Future<void> _showMenu(BuildContext anchor) async {
+    final th = FlutterFlowTheme.of(context);
+    final ui.TextDirection dir =
+        _kRtl.contains(_lang) ? ui.TextDirection.rtl : ui.TextDirection.ltr;
+    const Color danger = Color(0xFFD64545);
+
+    final box = anchor.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(anchor).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight =
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay);
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(topLeft, bottomRight),
+      Offset.zero & overlay.size,
+    );
+
+    PopupMenuItem<String> item(
+        String value, IconData icon, String label, Color color) {
+      return PopupMenuItem<String>(
+        value: value,
+        height: 44,
+        child: Directionality(
+          textDirection: dir,
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 10),
+              Text(label, style: _t(context, 14, FontWeight.w500, color)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final String? choice = await showMenu<String>(
+      context: anchor,
+      position: position,
+      color: th.secondaryBackground,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: th.alternate),
+      ),
+      items: [
+        item("edit", Icons.edit_outlined, _tr(_lang, "edit"), th.primaryText),
+        item("delete", Icons.delete_outline_rounded, _tr(_lang, "delete"),
+            danger),
+      ],
+    );
+    if (!mounted || choice == null) return;
+    if (choice == "edit") {
+      await widget.onEdit?.call(widget.workoutLogId);
+      // back from the edit page: show what was saved
+      if (mounted) {
+        setState(() {
+          _future = _load();
+        });
+      }
+    } else if (choice == "delete") {
+      await widget.onDelete?.call(widget.workoutLogId);
+    }
   }
 
   Widget _circleBtn(BuildContext ctx, IconData icon, Future Function()? cb) {

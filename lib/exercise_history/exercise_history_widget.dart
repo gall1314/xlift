@@ -2,7 +2,6 @@ import '/auth/supabase_auth/auth_util.dart';
 import '/backend/sqlite/sqlite_manager.dart';
 import '/components/analyze2_app_after_widget.dart';
 import '/components/exercise_history_place_holder_widget.dart';
-import '/components/row_offline_widget.dart';
 import '/components/time_range_shit_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -1599,12 +1598,6 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                           Container(
                                                                             decoration:
                                                                                 BoxDecoration(),
-                                                                            child:
-                                                                                RowOfflineWidget(
-                                                                              key: Key('Key8nc_${listViewIndex}_of_${listViewExerciseSessionComparisomRowList.length}'),
-                                                                              index: listViewIndex,
-                                                                              data: listViewExerciseSessionComparisomRow,
-                                                                            ),
                                                                           ),
                                                                         Container(
                                                                           width:
@@ -1622,119 +1615,6 @@ class _ExerciseHistoryWidgetState extends State<ExerciseHistoryWidget>
                                                                             exerciseId:
                                                                                 widget.exerciseId!,
                                                                           ),
-                                                                        ),
-                                                                        FutureBuilder<
-                                                                            List<GetSetLogsRow>>(
-                                                                          future: SQLiteManager
-                                                                              .instance
-                                                                              .getSetLogs(
-                                                                            workoutLogId:
-                                                                                listViewExerciseSessionComparisomRow.workoutLogId,
-                                                                            exerciseId:
-                                                                                widget.exerciseId!,
-                                                                          ),
-                                                                          builder:
-                                                                              (context, snapshot) {
-                                                                            // Customize what your widget looks like when it's loading.
-                                                                            if (!snapshot.hasData) {
-                                                                              return Center(
-                                                                                child: SizedBox(
-                                                                                  width: 50.0,
-                                                                                  height: 50.0,
-                                                                                  child: CircularProgressIndicator(
-                                                                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                                                                      FlutterFlowTheme.of(context).secondary,
-                                                                                    ),
-                                                                                  ),
-                                                                                ),
-                                                                              );
-                                                                            }
-                                                                            final listViewGetSetLogsRowList =
-                                                                                snapshot.data!;
-
-                                                                            return ListView.separated(
-                                                                              padding: EdgeInsets.zero,
-                                                                              primary: false,
-                                                                              shrinkWrap: true,
-                                                                              scrollDirection: Axis.vertical,
-                                                                              itemCount: listViewGetSetLogsRowList.length,
-                                                                              separatorBuilder: (_, __) => SizedBox(height: 12.0),
-                                                                              itemBuilder: (context, listViewIndex) {
-                                                                                final listViewGetSetLogsRow = listViewGetSetLogsRowList[listViewIndex];
-                                                                                return Container(
-                                                                                  width: double.infinity,
-                                                                                  height: 50.0,
-                                                                                  decoration: BoxDecoration(
-                                                                                    color: FlutterFlowTheme.of(context).primaryBackground,
-                                                                                    borderRadius: BorderRadius.circular(8.0),
-                                                                                    border: Border.all(
-                                                                                      color: FlutterFlowTheme.of(context).alternate,
-                                                                                      width: 1.0,
-                                                                                    ),
-                                                                                  ),
-                                                                                  child: Padding(
-                                                                                    padding: EdgeInsetsDirectional.fromSTEB(12.0, 12.0, 12.0, 12.0),
-                                                                                    child: Row(
-                                                                                      mainAxisSize: MainAxisSize.max,
-                                                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                                                                      children: [
-                                                                                        Text(
-                                                                                          'Set ${listViewGetSetLogsRow.setNumber.toString()}',
-                                                                                          style: FlutterFlowTheme.of(context).bodyMedium.override(
-                                                                                                font: GoogleFonts.inter(
-                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                                ),
-                                                                                                letterSpacing: 0.0,
-                                                                                                fontWeight: FontWeight.w600,
-                                                                                                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                                                                                              ),
-                                                                                        ),
-                                                                                        Row(
-                                                                                          mainAxisSize: MainAxisSize.max,
-                                                                                          children: [
-                                                                                            Text(
-                                                                                              valueOrDefault<String>(
-                                                                                                exerciseHistoryExercise2RowList.firstOrNull?.isTimeBased == 1 ? functions.formatDurationFromDouble(listViewGetSetLogsRow.durationSeconds!.toDouble()) : '${listViewGetSetLogsRow.reps?.toString()} Reps',
-                                                                                                '12 reps',
-                                                                                              ),
-                                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                    font: GoogleFonts.inter(
-                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                    ),
-                                                                                                    color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                                    letterSpacing: 0.0,
-                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                  ),
-                                                                                            ),
-                                                                                            Text(
-                                                                                              valueOrDefault<String>(
-                                                                                                listViewGetSetLogsRow.weight != null ? '${functions.formatDouble(listViewGetSetLogsRow.weight!)} ${listViewGetSetLogsRow.isKg == 1 ? 'Kg' : 'Lbs'}' : 'Bodyweight',
-                                                                                                '800 Kg',
-                                                                                              ),
-                                                                                              style: FlutterFlowTheme.of(context).bodySmall.override(
-                                                                                                    font: GoogleFonts.inter(
-                                                                                                      fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                      fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                    ),
-                                                                                                    color: FlutterFlowTheme.of(context).secondaryText,
-                                                                                                    letterSpacing: 0.0,
-                                                                                                    fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                                                                                                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                                                                                                  ),
-                                                                                            ),
-                                                                                          ].divide(SizedBox(width: 16.0)),
-                                                                                        ),
-                                                                                      ],
-                                                                                    ),
-                                                                                  ),
-                                                                                );
-                                                                              },
-                                                                            );
-                                                                          },
                                                                         ),
                                                                       ].divide(SizedBox(
                                                                               height: 15.0)),

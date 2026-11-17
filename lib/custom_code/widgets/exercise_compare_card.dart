@@ -30,6 +30,11 @@ import 'package:google_fonts/google_fonts.dart';
 /// Sets · Volume · Reps · Weight/rep - Bodyweight only: Sets · Total reps ·
 /// Avg set · Best set - Timed:           Sets · Total time · Avg set
 ///
+/// Assisted (exercise.is_assisted): Sets · Total reps · Assistance · Best
+/// set. The weight of an assisted set is help, not load: LESS of it is the
+/// improvement, so that column is green when it went down and its bar is full
+/// when the assistance is the same or lower.
+///
 /// Bodyweight: total reps IS the volume of the workout (did I do more work
 /// overall), reps per set shows what happened inside each set when the set
 /// count changed, and best set is the most reps in one set.
@@ -39,7 +44,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// this session against the previous one: it is full when this session is the
 /// same or higher, and partly filled when it is lower. A value that cannot be
 /// compared (no previous session, or a different kind of session) shows a
-/// dash.
+/// dash. A value that did not change says "No change" instead of a row of
+/// zeros.
 ///
 /// Rules: - A drop set is not counted as a set, but its reps and volume
 /// count. - Weights are stored as typed, each with its own unit (is_kg); a
@@ -132,6 +138,20 @@ const Map<String, Map<String, String>> _kStrings = {
     "de": "Bester Satz",
     "fr": "Meilleure série",
   },
+  "assist": {
+    "en": "Assistance",
+    "es": "Asistencia",
+    "he": "סיוע",
+    "de": "Unterstützung",
+    "fr": "Assistance",
+  },
+  "noChange": {
+    "en": "No change",
+    "es": "Sin cambios",
+    "he": "ללא שינוי",
+    "de": "Unverändert",
+    "fr": "Inchangé",
+  },
   "kg": {
     "en": "kg",
     "es": "kg",
@@ -185,6 +205,9 @@ class _Agg {
   bool get isTimed => rows > 0 && timed == rows;
   bool get isBodyweight => assisted || (rows > 0 && bodyweight == rows);
   double? get avgWeight => (isBodyweight || reps <= 0) ? null : weighted / reps;
+
+  /// Assisted: the help used, averaged over the reps.
+  double get avgAssist => reps > 0 ? weighted / reps : 0;
   double get avgSetReps => sets > 0 ? reps / sets : 0;
   double get avgSetSeconds =>
       seconds / (sets > 0 ? sets : (rows > 0 ? rows : 1));
@@ -199,6 +222,7 @@ class _Tile {
     required this.curr,
     this.prev,
     this.isTime = false,
+    this.lowerIsBetter = false,
     required this.color,
   });
 
@@ -208,6 +232,9 @@ class _Tile {
   final double curr;
   final double? prev;
   final bool isTime;
+
+  /// Assistance: a smaller number is the improvement.
+  final bool lowerIsBetter;
   final Color color;
 }
 
@@ -440,6 +467,36 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
       color: _kRepsColor,
     );
 
+    if (c.assisted) {
+      final bool cmp = p != null && !p.isTimed && p.sets > 0;
+      return [
+        sets,
+        _Tile(
+          label: _tr(lang, 'totalReps'),
+          value: '${c.reps}',
+          curr: c.reps.toDouble(),
+          prev: (p != null && !p.isTimed) ? p.reps.toDouble() : null,
+          color: _kVolumeColor,
+        ),
+        _Tile(
+          label: _tr(lang, 'assist'),
+          value: _num(c.avgAssist),
+          unit: unit,
+          curr: _round1(c.avgAssist),
+          prev: cmp ? _round1(p.avgAssist) : null,
+          lowerIsBetter: true,
+          color: _kRepsColor,
+        ),
+        _Tile(
+          label: _tr(lang, 'bestSet'),
+          value: '${c.maxReps}',
+          curr: c.maxReps.toDouble(),
+          prev: cmp ? p.maxReps.toDouble() : null,
+          color: _kWeightColor,
+        ),
+      ];
+    }
+
     if (c.isBodyweight) {
       final bool cmp = p != null && !p.isTimed && p.sets > 0;
       return [
@@ -498,8 +555,15 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
     double frac = 1;
     final double? prev = t.prev;
     if (prev != null) {
-      final double top = math.max(t.curr, prev);
-      frac = top <= 0 ? 0 : (t.curr / top).clamp(0.0, 1.0).toDouble();
+      if (t.lowerIsBetter) {
+        // full when the same or lower, partly filled when more help was used
+        frac = t.curr <= prev || t.curr <= 0
+            ? 1.0
+            : (prev / t.curr).clamp(0.0, 1.0).toDouble();
+      } else {
+        final double top = math.max(t.curr, prev);
+        frac = top <= 0 ? 0 : (t.curr / top).clamp(0.0, 1.0).toDouble();
+      }
     }
     return SizedBox(
       height: 12,
@@ -531,7 +595,7 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
     );
   }
 
-  Widget _tile(BuildContext ctx, _Tile t) {
+  Widget _tile(BuildContext ctx, _Tile t, String lang) {
     final th = FlutterFlowTheme.of(ctx);
     final bool dark = Theme.of(ctx).brightness == Brightness.dark;
     final Color up = dark ? th.primary : const Color(0xFF007A5E);
@@ -549,7 +613,12 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
         percent = '${_signed((t.curr - prev) / prev * 100)}%';
       }
     }
-    final Color tone = sign > 0 ? up : th.secondaryText;
+    // green = better: more of everything, less of the assistance
+    final bool better = t.lowerIsBetter ? sign < 0 : sign > 0;
+    final Color tone = better ? up : th.secondaryText;
+    // same as last time: one "No change" line instead of "0" and "0%"
+    final bool same = prev != null && sign == 0;
+    if (same) percent = '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -613,8 +682,10 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
                         color: tone,
                       ),
                     Text(
-                      change,
-                      style: _st(ctx, 12.5, FontWeight.w600, tone),
+                      same ? _tr(lang, 'noChange') : change,
+                      style: same
+                          ? _st(ctx, 11, FontWeight.w500, th.secondaryText)
+                          : _st(ctx, 12.5, FontWeight.w600, tone),
                     ),
                   ],
                 ),
@@ -675,7 +746,7 @@ class _ExerciseCompareCardState extends State<ExerciseCompareCard> {
                   borderRadius: BorderRadius.circular(1),
                 ),
               ),
-            Expanded(child: _tile(context, tiles[i])),
+            Expanded(child: _tile(context, tiles[i], lang)),
           ],
         ],
       );

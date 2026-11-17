@@ -48,13 +48,21 @@ bool _syncAllRunning = false;
 /// - workout_log 23503 on workout_id (template missing) -> re-send with
 /// workout_id = null. - anything else -> stop that queue, retry next sync.
 ///
+/// DELETES: after the uploads, the Hive box `pendingWorkoutLogDeletes`
+/// (filled by deleteWorkoutComplete) is sent - set_analysis -> set_log ->
+/// workout_log per deleted workout. An entry leaves the box only after
+/// Supabase accepted all three deletes; on a failure the rest stays queued
+/// for the next sync. They run last, so a workout uploaded earlier in the
+/// same run is still removed.
+///
 /// Returns JSON: { success, exercises, exerciseMuscleGroups, workouts,
 /// workoutExercises, exerciseSets, workoutLogs, setLogs, analyses, usage,
-/// errors, pending, debug_string }
+/// workoutDeletes, errors, pending, debug_string }
 Future<dynamic> syncAllPending() async {
   final sw = Stopwatch()..start();
   const Duration callTimeout = Duration(seconds: 20);
   const int batchSize = 50;
+  const String deletesBox = 'pendingWorkoutLogDeletes';
 
   // FK-safe order: parents before children.
   const List<List<String>> queues = [
@@ -81,6 +89,7 @@ Future<dynamic> syncAllPending() async {
         'setLogs': 0,
         'analyses': 0,
         'usage': 0,
+        'workoutDeletes': 0,
         'errors': msg,
         'pending': pending,
         'debug_string': '$msg | ${sw.elapsedMilliseconds}ms',
@@ -93,6 +102,9 @@ Future<dynamic> syncAllPending() async {
         p[q[1]] = (await Hive.openBox(q[0])).length;
       } catch (_) {}
     }
+    try {
+      p['workout_log_deletes'] = (await Hive.openBox(deletesBox)).length;
+    } catch (_) {}
     return p;
   }
 
@@ -317,6 +329,62 @@ Future<dynamic> syncAllPending() async {
       syncedByTable[q[1]] = await syncBox(q[0], q[1]);
     }
 
+    // ---------- Queued workout deletes ----------
+    // Children before parents. Deleting rows that are not in the cloud is a
+    // no-op, so a workout that was never uploaded just leaves the queue.
+    int deletesSent = 0;
+    try {
+      final box = await Hive.openBox(deletesBox);
+      String? failMsg;
+      for (final key in box.keys.toList()) {
+        final raw = box.get(key);
+        if (raw is! Map) {
+          await box.delete(key);
+          continue;
+        }
+        final String wid = (raw['workout_log_id'] ?? key).toString();
+        final List<String> sids = [
+          for (final x in (raw['set_log_ids'] as List? ?? const []))
+            x.toString(),
+        ];
+        try {
+          if (sids.isNotEmpty) {
+            final String inList = '(${sids.map((x) => '"$x"').join(',')})';
+            await SupaFlow.client
+                .from('set_analysis')
+                .delete()
+                .filter('set_log_id', 'in', inList)
+                .timeout(callTimeout);
+          }
+          await SupaFlow.client
+              .from('set_log')
+              .delete()
+              .eq('workout_log_id', wid)
+              .timeout(callTimeout);
+          await SupaFlow.client
+              .from('workout_log')
+              .delete()
+              .eq('id', wid)
+              .timeout(callTimeout);
+          await box.delete(key);
+          deletesSent++;
+        } catch (e) {
+          failMsg = e.toString();
+          xliftLogAdd('[syncAll] workout delete failed ($wid): $failMsg');
+          errors.add('workout_log delete: $failMsg');
+          break; // keep the rest queued, retry next sync
+        }
+      }
+      pendingAfter['workout_log_deletes'] = box.length;
+      if (deletesSent > 0 || box.isNotEmpty) {
+        dbgLines.add('workout deletes: sent $deletesSent, left ${box.length}'
+            '${failMsg != null ? ' FAIL [$failMsg]' : ''}');
+      }
+    } catch (e) {
+      xliftLogAdd('[syncAll] $deletesBox box error: $e');
+      errors.add('$deletesBox: $e');
+    }
+
     final String debugString =
         'uid=${userId.substring(0, 8)} | ${dbgLines.join(' | ')} | '
         '${sw.elapsedMilliseconds}ms';
@@ -333,6 +401,7 @@ Future<dynamic> syncAllPending() async {
       'setLogs': syncedByTable['set_log'] ?? 0,
       'analyses': syncedByTable['set_analysis'] ?? 0,
       'usage': syncedByTable['analysis_usage'] ?? 0,
+      'workoutDeletes': deletesSent,
       'errors': errors.join(' | '),
       'pending': pendingAfter,
       'debug_string': debugString,

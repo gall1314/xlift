@@ -88,28 +88,28 @@ const Map<String, Map<String, String>> _kStrings = {
   "hintRec": {
     "en": "Finish your set, then tap stop",
     "es": "Termina la serie y pulsa stop",
-    "he": "סיים את הסט ולחץ עצור",
+    "he": "סיימו את הסט ולחצו על עצירה",
     "de": "Satz beenden, dann Stopp",
     "fr": "Finissez la série, puis stop"
   },
   "hintIdle": {
     "en": "Keep your whole body in view",
     "es": "Mantén todo el cuerpo a la vista",
-    "he": "שמור על כל הגוף בפריים",
+    "he": "כל הגוף צריך להיות בפריים",
     "de": "Ganzen Körper im Bild halten",
     "fr": "Gardez tout le corps dans le cadre"
   },
   "angleSide": {
     "en": "Film from the side",
     "es": "Graba desde el lado",
-    "he": "צלם מהצד",
+    "he": "צילום מהצד",
     "de": "Von der Seite filmen",
     "fr": "Filmez de côté"
   },
   "angleSideFront": {
     "en": "Film from the side or front",
     "es": "Graba de lado o de frente",
-    "he": "צלם מהצד או מלפנים",
+    "he": "צילום מהצד או מלפנים",
     "de": "Von der Seite oder vorne",
     "fr": "De côté ou de face"
   },
@@ -158,14 +158,14 @@ const Map<String, Map<String, String>> _kStrings = {
   "distSub": {
     "en": "Prop it up. No room? Switch to .5x.",
     "es": "Apóyalo. ¿Poco espacio? Usa .5x.",
-    "he": "השען אותו. אין מקום? עבור ל-.5x.",
+    "he": "השעינו אותו. אין מקום? עברו ל-.5x.",
     "de": "Abstellen. Zu eng? Auf .5x wechseln.",
     "fr": "Posez-le. Pas de place ? Passez en .5x."
   },
   "lightTitle": {
     "en": "Only you, well lit",
     "es": "Solo tú, bien iluminado",
-    "he": "רק אתה, בתאורה טובה",
+    "he": "רק אתם, בתאורה טובה",
     "de": "Nur du, gut beleuchtet",
     "fr": "Vous seul, bien éclairé"
   },
@@ -193,7 +193,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "permSub": {
     "en": "To record and analyze your form, allow camera access in Settings.",
     "es": "Para grabar y analizar tu técnica, permite la cámara en Ajustes.",
-    "he": "כדי לצלם ולנתח את הטכניקה, אפשר גישה למצלמה בהגדרות.",
+    "he": "כדי לצלם ולנתח את הטכניקה, יש לאפשר גישה למצלמה בהגדרות.",
     "de":
         "Erlaube den Kamerazugriff in den Einstellungen, um deine Technik zu analysieren.",
     "fr":
@@ -202,7 +202,7 @@ const Map<String, Map<String, String>> _kStrings = {
   "openSettings": {
     "en": "Open Settings",
     "es": "Abrir Ajustes",
-    "he": "פתח הגדרות",
+    "he": "פתיחת ההגדרות",
     "de": "Einstellungen öffnen",
     "fr": "Ouvrir Réglages"
   },
@@ -223,35 +223,35 @@ const Map<String, Map<String, String>> _kStrings = {
   "semClose": {
     "en": "Close camera",
     "es": "Cerrar cámara",
-    "he": "סגור מצלמה",
+    "he": "סגירת המצלמה",
     "de": "Kamera schließen",
     "fr": "Fermer la caméra"
   },
   "semTips": {
     "en": "Show filming tips",
     "es": "Ver consejos",
-    "he": "הצג טיפים לצילום",
+    "he": "הצגת טיפים לצילום",
     "de": "Tipps anzeigen",
     "fr": "Voir les conseils"
   },
   "semGallery": {
     "en": "Pick a video from your library",
     "es": "Elegir vídeo de la galería",
-    "he": "בחר וידאו מהגלריה",
+    "he": "בחירת וידאו מהגלריה",
     "de": "Video aus Mediathek wählen",
     "fr": "Choisir une vidéo"
   },
   "semStart": {
     "en": "Start recording",
     "es": "Empezar a grabar",
-    "he": "התחל הקלטה",
+    "he": "התחלת הקלטה",
     "de": "Aufnahme starten",
     "fr": "Démarrer"
   },
   "semStop": {
     "en": "Stop recording",
     "es": "Detener grabación",
-    "he": "עצור הקלטה",
+    "he": "עצירת הקלטה",
     "de": "Aufnahme stoppen",
     "fr": "Arrêter"
   },

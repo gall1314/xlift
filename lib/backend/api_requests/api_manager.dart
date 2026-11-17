@@ -470,9 +470,34 @@ class ApiManager {
         !headers.keys.any((h) => h.toLowerCase() == 'content-type')) {
       headers['Content-Type'] = contentType;
     }
-    return encodeBodyUtf8 && postBody is String
-        ? utf8.encode(postBody)
-        : postBody;
+    final encodedBody =
+        encodeBodyUtf8 && postBody is String ? utf8.encode(postBody) : postBody;
+    // Multipart requests set their own content type, and bytes are sent as is.
+    if (bodyType != BodyType.MULTIPART &&
+        (encodedBody is String || encodedBody is Map)) {
+      _keepContentTypeCharset(headers);
+    }
+    return encodedBody;
+  }
+
+  /// package:http 1.6 only adds a charset to text and XML content types.
+  /// Earlier versions added it to every String and form body, so keep sending
+  /// it for servers that decode JSON or form bodies by the declared charset.
+  static void _keepContentTypeCharset(Map<String, dynamic> headers) {
+    final key =
+        headers.keys.firstWhereOrNull((h) => h.toLowerCase() == 'content-type');
+    if (key == null) {
+      return;
+    }
+    try {
+      final mediaType = MediaType.parse(headers[key].toString());
+      if (!mediaType.parameters.containsKey('charset')) {
+        headers[key] =
+            mediaType.change(parameters: {'charset': 'utf-8'}).toString();
+      }
+    } on FormatException {
+      // Leave an unparsable header for package:http to report.
+    }
   }
 
   Future<ApiCallResponse> call(

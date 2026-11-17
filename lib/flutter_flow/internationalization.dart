@@ -2658,7 +2658,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // trainingScore
   {
-    'hl9ylree': {
+    'qhd471w7': {
       'en': 'Home',
       'de': '',
       'es': '',
@@ -2668,7 +2668,7 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // paywallFinal
   {
-    'kx61rbyn': {
+    'p26i2l30': {
       'en': 'Home',
       'de': '',
       'es': '',

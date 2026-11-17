@@ -243,10 +243,13 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                           ),
                                         ),
                                         Text(
-                                          getJsonField(
-                                            widget.analysis,
-                                            r'''$["technique_label"]''',
-                                          ).toString(),
+                                          functions.localizeAnalysisText(
+                                              getJsonField(
+                                                widget.analysis,
+                                                r'''$["technique_label"]''',
+                                              ).toString(),
+                                              FFLocalizations.of(context)
+                                                  .languageCode),
                                           style: FlutterFlowTheme.of(context)
                                               .titleMedium
                                               .override(
@@ -535,10 +538,13 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                               alignment: AlignmentDirectional(
                                                   -1.0, 0.0),
                                               child: Text(
-                                                getJsonField(
-                                                  widget.analysis,
-                                                  r'''$["form_tip"]''',
-                                                ).toString(),
+                                                functions.localizeAnalysisText(
+                                                    getJsonField(
+                                                      widget.analysis,
+                                                      r'''$["form_tip"]''',
+                                                    ).toString(),
+                                                    FFLocalizations.of(context)
+                                                        .languageCode),
                                                 maxLines: 1,
                                                 style: FlutterFlowTheme.of(
                                                         context)
@@ -779,7 +785,13 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
                                                       CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      feedbackItem.toString(),
+                                                      functions
+                                                          .localizeAnalysisText(
+                                                              feedbackItem
+                                                                  .toString(),
+                                                              FFLocalizations.of(
+                                                                      context)
+                                                                  .languageCode),
                                                       style:
                                                           FlutterFlowTheme.of(
                                                                   context)

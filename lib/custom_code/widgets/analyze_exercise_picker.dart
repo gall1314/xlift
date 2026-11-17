@@ -26,9 +26,10 @@ import 'package:path_provider/path_provider.dart';
 /// otherwise a small AI badge. Everything is loaded from SQLite by the widget
 /// itself.
 ///
-/// Localization: `languageCode` drives UI strings, exercise / muscle names
-/// (via localizedName) and text direction (RTL for 'he'). Image lookups use
-/// the English exercise name.
+/// Localization: the app language is read from FFLocalizations (no
+/// parameter). It drives UI strings, exercise / muscle names (via
+/// localizedName) and text direction (RTL for 'he'). Image lookups use the
+/// English exercise name.
 ///
 /// [onPick](exerciseId, exerciseName) fires on tap — exerciseName is the
 /// ENGLISH name (stable key for analyzers). [onClose] fires from the X.
@@ -40,7 +41,6 @@ class AnalyzeExercisePicker extends StatefulWidget {
     this.width,
     this.height,
     required this.userId,
-    this.languageCode,
     this.onPick,
     this.onClose,
   });
@@ -48,7 +48,6 @@ class AnalyzeExercisePicker extends StatefulWidget {
   final double? width;
   final double? height;
   final String userId;
-  final String? languageCode;
   final Future Function(int exerciseId, String exerciseName)? onPick;
   final Future Function()? onClose;
 
@@ -62,11 +61,20 @@ class AnalyzeExercisePicker extends StatefulWidget {
 
 const Set<String> _kRtl = {'he', 'ar'};
 
+String _langOf(BuildContext ctx) {
+  try {
+    final l = FFLocalizations.of(ctx).languageCode.trim().toLowerCase();
+    return l.isEmpty ? 'en' : l;
+  } catch (_) {
+    return 'en';
+  }
+}
+
 const Map<String, Map<String, String>> _kStrings = {
   "title": {
     "en": "Pick an exercise to analyze",
     "es": "Elige un ejercicio para analizar",
-    "he": "בחר תרגיל לניתוח",
+    "he": "בחירת תרגיל לניתוח",
     "de": "Übung zur Analyse wählen",
     "fr": "Choisir un exercice à analyser",
   },
@@ -193,10 +201,10 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
   String? _docsDir;
   final TextEditingController _search = TextEditingController();
 
-  String get _lang {
-    final l = (widget.languageCode ?? 'en').trim().toLowerCase();
-    return l.isEmpty ? 'en' : l;
-  }
+  /// App language. Set in didChangeDependencies: FFLocalizations cannot be
+  /// read in initState.
+  String _lang = 'en';
+  bool _started = false;
 
   bool get _isRtl => _kRtl.contains(_lang);
 
@@ -209,18 +217,20 @@ class _AnalyzeExercisePickerState extends State<AnalyzeExercisePicker> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _load();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final String l = _langOf(context);
+    if (!_started || l != _lang) {
+      _started = true;
+      _lang = l;
+      _load();
+    }
   }
 
   @override
   void didUpdateWidget(covariant AnalyzeExercisePicker old) {
     super.didUpdateWidget(old);
-    if (old.userId != widget.userId ||
-        old.languageCode != widget.languageCode) {
-      _load();
-    }
+    if (old.userId != widget.userId) _load();
   }
 
   @override

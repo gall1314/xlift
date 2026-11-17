@@ -1,11 +1,10 @@
 import '/auth/supabase_auth/auth_util.dart';
 import '/components/analyze2_app_after_widget.dart';
-import '/components/edit_delte2_widget.dart';
+import '/components/delete_workout_log_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/index.dart';
-import 'package:aligned_dialog/aligned_dialog.dart';
 import 'package:flutter/material.dart';
 import 'workout_summary_view_model.dart';
 export 'workout_summary_view_model.dart';
@@ -79,25 +78,34 @@ class _WorkoutSummaryViewWidgetState extends State<WorkoutSummaryViewWidget> {
                     }.withoutNulls,
                   );
                 },
-                onMore: () async {
-                  await showAlignedDialog(
+                onEdit: (workoutLogId) async {
+                  context.pushNamed(
+                    WorkoutLogEditV2Widget.routeName,
+                    queryParameters: {
+                      'workoutLogId': serializeParam(
+                        workoutLogId,
+                        ParamType.String,
+                      ),
+                    }.withoutNulls,
+                  );
+                },
+                onDelete: (workoutLogId) async {
+                  await showDialog(
                     context: context,
-                    isGlobal: false,
-                    avoidOverflow: true,
-                    targetAnchor: AlignmentDirectional(0.0, 0.0)
-                        .resolve(Directionality.of(context)),
-                    followerAnchor: AlignmentDirectional(0.0, 0.0)
-                        .resolve(Directionality.of(context)),
                     builder: (dialogContext) {
-                      return Material(
-                        color: Colors.transparent,
+                      return Dialog(
+                        elevation: 0,
+                        insetPadding: EdgeInsets.zero,
+                        backgroundColor: Colors.transparent,
+                        alignment: AlignmentDirectional(0.0, 0.0)
+                            .resolve(Directionality.of(context)),
                         child: GestureDetector(
                           onTap: () {
                             FocusScope.of(dialogContext).unfocus();
                             FocusManager.instance.primaryFocus?.unfocus();
                           },
-                          child: EditDelte2Widget(
-                            workoutLogId: widget.workoutLogId!,
+                          child: DeleteWorkoutLogWidget(
+                            workoutLogId: workoutLogId,
                           ),
                         ),
                       );

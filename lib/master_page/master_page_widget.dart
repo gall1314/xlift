@@ -146,7 +146,7 @@ class _MasterPageWidgetState extends State<MasterPageWidget>
                               width: MediaQuery.sizeOf(context).width * 1.0,
                               height: MediaQuery.sizeOf(context).height * 1.0,
                               userId: currentUserUid,
-                              initialTab: 1,
+                              initialTab: 0,
                               canGenerate: functions.canGenerateWorkout(
                                   FFAppState().isPremium,
                                   FFAppState().generationDates.toList()),

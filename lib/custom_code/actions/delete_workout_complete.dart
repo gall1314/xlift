@@ -15,25 +15,21 @@ import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'xlift_log_add.dart';
 
-/// Deletes ONE logged workout everywhere, children before parents:
-/// set_analysis -> set_log -> workout_log.
+/// Deletes ONE logged workout, children before parents: set_analysis ->
+/// set_log -> workout_log.
 ///
-/// 1. Local SQLite, in one transaction (all three or nothing).
-/// 2. Hive upload queues (pendingSetLogs / pendingSetAnalyses /
-///    pendingWorkoutLogs): rows of this workout that were still waiting to
-///    be uploaded are removed, so syncAllPending never re-uploads a deleted
-///    workout.
-/// 3. Supabase: the delete is first written to the Hive box
-///    `pendingWorkoutLogDeletes`, then sent. It leaves the box only after
-///    Supabase accepted it, so an offline delete is retried the next time
-///    this action runs. Deletes left over from earlier runs are sent too.
+/// 1. Local SQLite, in one transaction (all three or nothing). 2. Hive upload
+/// queues (pendingSetLogs / pendingSetAnalyses / pendingWorkoutLogs): rows of
+/// this workout that were still waiting to be uploaded are removed, so
+/// syncAllPending never re-uploads a deleted workout. 3. The cloud delete is
+/// only QUEUED here, in the Hive box `pendingWorkoutLogDeletes`. This action
+/// never talks to Supabase, so it returns at once; syncAllPending sends the
+/// queue (and is started here in the background, not awaited).
 ///
-/// NEVER throws. Returns JSON:
-/// { success, hiveRemoved, cloud: 'deleted' | 'queued', pendingDeletes, errors }
-///   success - the local delete went through.
+/// NEVER throws. Returns JSON: { success, hiveRemoved, cloud: 'queued',
+/// pendingDeletes, errors } success - the local delete went through.
 Future<dynamic> deleteWorkoutComplete(String workoutLogId) async {
   const String deletesBox = 'pendingWorkoutLogDeletes';
-  const Duration cloudTimeout = Duration(seconds: 10);
 
   final String id = workoutLogId.trim();
   final errors = <String>[];
@@ -138,62 +134,26 @@ Future<dynamic> deleteWorkoutComplete(String workoutLogId) async {
   );
   await purge('pendingWorkoutLogs', (r) => str(r['id']) == id);
 
-  // ---------- 3. Supabase ----------
-  // Queue first, send second: if the app dies or the network is down, the
-  // delete is still on disk.
+  // ---------- 3. Queue the cloud delete ----------
+  // On disk first; syncAllPending sends it and removes it once Supabase
+  // accepted it.
   int pendingDeletes = 0;
-  String cloud = 'queued';
+  const String cloud = 'queued';
   try {
     final box = await Hive.openBox(deletesBox);
     await box.put(id, {
       'workout_log_id': id,
       'set_log_ids': setIds.toList(),
     });
-
-    if (SupaFlow.client.auth.currentUser != null) {
-      for (final key in box.keys.toList()) {
-        final raw = box.get(key);
-        if (raw is! Map) {
-          await box.delete(key);
-          continue;
-        }
-        final String wid = str(raw['workout_log_id'] ?? key);
-        final List<String> sids = [
-          for (final x in (raw['set_log_ids'] as List? ?? const [])) str(x),
-        ];
-        try {
-          if (sids.isNotEmpty) {
-            final String inList = '(${sids.map((x) => '"$x"').join(',')})';
-            await SupaFlow.client
-                .from('set_analysis')
-                .delete()
-                .filter('set_log_id', 'in', inList)
-                .timeout(cloudTimeout);
-          }
-          await SupaFlow.client
-              .from('set_log')
-              .delete()
-              .eq('workout_log_id', wid)
-              .timeout(cloudTimeout);
-          await SupaFlow.client
-              .from('workout_log')
-              .delete()
-              .eq('id', wid)
-              .timeout(cloudTimeout);
-          await box.delete(key);
-        } catch (e) {
-          errors.add('cloud: $e');
-          xliftLogAdd('[deleteWorkout] cloud delete failed ($wid): $e');
-          // Offline or rejected: keep the rest queued, retry next time.
-          break;
-        }
-      }
-    }
     pendingDeletes = box.length;
-    cloud = box.containsKey(id) ? 'queued' : 'deleted';
   } catch (e) {
     errors.add('$deletesBox: $e');
   }
+
+  // Start the upload in the background: not awaited, never blocks the screen.
+  try {
+    unawaited(syncAllPending());
+  } catch (_) {}
 
   xliftLogAdd('[deleteWorkout] DONE hiveRemoved=$hiveRemoved cloud=$cloud '
       'pendingDeletes=$pendingDeletes errors=${errors.length}');
