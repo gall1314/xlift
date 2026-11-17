@@ -114,7 +114,7 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
               showCameraGuidance: FFAppState().ShowGuidenc,
               mode: 'live',
               onBack: () async {
-                context.pushNamed(MasterPageWidget.routeName);
+                context.goNamed(MasterPageWidget.routeName);
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy = await actions.saveWorkoutComplete(

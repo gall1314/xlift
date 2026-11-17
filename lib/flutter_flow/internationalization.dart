@@ -967,13 +967,6 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'fr': 'Poids',
       'he': 'משקל',
     },
-    '4i1gf33a': {
-      'en': 'Change',
-      'de': 'Ändern',
-      'es': 'Cambiar',
-      'fr': 'Modifier',
-      'he': 'שינוי',
-    },
     '1wwala0i': {
       'en': 'Save',
       'de': 'Speichern',

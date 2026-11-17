@@ -81,3 +81,4 @@ export 'theme_row.dart' show ThemeRow;
 export 'exercise_personal_records.dart' show ExercisePersonalRecords;
 export 'exercise_analytics_summary.dart' show ExerciseAnalyticsSummary;
 export 'exercise_analytics_card.dart' show ExerciseAnalyticsCard;
+export 'profile_edit_view.dart' show ProfileEditView;

@@ -31,6 +31,11 @@ import 'package:google_fonts/google_fonts.dart';
 /// - [onWorkoutWeightChanged](isKg), [onHeightChanged](isCm),
 /// [onBodyWeightChanged](isKg): fired with the new value.
 ///
+/// [editProfileMode] (default false) changes only how the row itself looks -
+/// the sheet and the callbacks are the same. When true the row is the small
+/// line used on the Edit Profile page: the current body-weight and height
+/// units in secondary text ("Units: kg · cm") and a "Change" link at the end.
+///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 /// Hebrew renders RTL.
 class UnitsRow extends StatefulWidget {
@@ -41,6 +46,7 @@ class UnitsRow extends StatefulWidget {
     this.workoutIsKg,
     this.heightIsCm,
     this.bodyIsKg,
+    this.editProfileMode,
     this.onWorkoutWeightChanged,
     this.onHeightChanged,
     this.onBodyWeightChanged,
@@ -51,6 +57,10 @@ class UnitsRow extends StatefulWidget {
   final bool? workoutIsKg;
   final bool? heightIsCm;
   final bool? bodyIsKg;
+
+  /// true = the compact "Units: kg · cm   Change" line of the Edit Profile
+  /// page. Empty / false = the regular settings row.
+  final bool? editProfileMode;
   final Future Function(bool isKg)? onWorkoutWeightChanged;
   final Future Function(bool isCm)? onHeightChanged;
   final Future Function(bool isKg)? onBodyWeightChanged;
@@ -77,6 +87,20 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "יחידות מידה",
     "de": "Einheiten",
     "fr": "Unités"
+  },
+  "unitsShort": {
+    "en": "Units",
+    "es": "Unidades",
+    "he": "יחידות",
+    "de": "Einheiten",
+    "fr": "Unités"
+  },
+  "change": {
+    "en": "Change",
+    "es": "Cambiar",
+    "he": "שינוי",
+    "de": "Ändern",
+    "fr": "Modifier"
   },
   "workout": {
     "en": "Workout weight",
@@ -141,6 +165,60 @@ class _UnitsRowState extends State<UnitsRow> {
     final theme = FlutterFlowTheme.of(context);
     final String lang = _langOf(context);
     final bool rtl = _kRtl.contains(lang);
+
+    // Edit Profile look: "Units: kg · cm" and a "Change" link. Same tap,
+    // same sheet. The page shows body weight and height, so those two units.
+    if (widget.editProfileMode ?? false) {
+      final bool useGoogle =
+          GoogleFonts.asMap().containsKey(theme.bodyMediumFamily);
+      final String current = _tr(lang, 'unitsShort') +
+          ': ' +
+          _tr(lang, (widget.bodyIsKg ?? true) ? 'kg' : 'lbs') +
+          ' · ' +
+          _tr(lang, (widget.heightIsCm ?? true) ? 'cm' : 'inch');
+      return Directionality(
+        textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _openSheet,
+          child: SizedBox(
+            width: widget.width,
+            height: widget.height,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    current,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.bodyMedium.override(
+                      fontFamily: theme.bodyMediumFamily,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: theme.secondaryText,
+                      useGoogleFonts: useGoogle,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _tr(lang, 'change'),
+                  maxLines: 1,
+                  style: theme.bodyMedium.override(
+                    fontFamily: theme.bodyMediumFamily,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.primary,
+                    useGoogleFonts: useGoogle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Directionality(
       textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,

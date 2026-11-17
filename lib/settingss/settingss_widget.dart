@@ -238,11 +238,8 @@ class _SettingssWidgetState extends State<SettingssWidget> {
                                                         fit: BoxFit.cover,
                                                       ),
                                                     ),
-                                                  if (getJsonField(
-                                                        FFAppState().user,
-                                                        r'''$["profile"]''',
-                                                      ) !=
-                                                      null)
+                                                  if (FFAppState().profile !=
+                                                          '')
                                                     Align(
                                                       alignment:
                                                           AlignmentDirectional(

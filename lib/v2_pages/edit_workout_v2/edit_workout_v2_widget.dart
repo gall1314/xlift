@@ -132,7 +132,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                 FFAppState().restTimerCreation = null;
                 safeSetState(() {});
 
-                context.pushNamed(
+                context.goNamed(
                   MasterPageWidget.routeName,
                   queryParameters: {
                     'initialTab': serializeParam(

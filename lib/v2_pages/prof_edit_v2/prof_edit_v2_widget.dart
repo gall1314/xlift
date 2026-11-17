@@ -4,7 +4,6 @@ import '/backend/supabase/supabase.dart';
 import '/components/birthday_cupertino_widget.dart';
 import '/components/height_cupertino_widget.dart';
 import '/components/sex_bottomshit_widget.dart';
-import '/components/update_units_widget.dart';
 import '/components/weight_cupertino_widget.dart';
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
@@ -417,27 +416,110 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                       ),
                     ].divide(SizedBox(height: 16.0)),
                   ),
-                  Text(
-                    valueOrDefault<String>(
-                      _model.sex,
-                      '-',
+                  Container(
+                    width: MediaQuery.sizeOf(context).width * 1.0,
+                    height: 850.0,
+                    child: custom_widgets.ProfileEditView(
+                      width: MediaQuery.sizeOf(context).width * 1.0,
+                      height: 850.0,
+                      username: _model.user?.firstOrNull?.username,
+                      sex: profEditV2UserRowList.firstOrNull?.sex,
+                      dateOfBirth:
+                          profEditV2UserRowList.firstOrNull?.dateOfBirth,
+                      bodyHeight: profEditV2UserRowList.firstOrNull?.height,
+                      heightIsCm: _model.isHeightCm,
+                      weight: profEditV2UserRowList.firstOrNull?.weight,
+                      weightIsKg: FFAppState().bodyWeightIsKg,
+                      photoFileName: FFAppState().profile,
+                      onBack: () async {
+                        context.safePop();
+                      },
+                      onSave: (profile) async {
+                        _model.inernetCopy = await actions.checkInternet();
+                        if (_model.inernetCopy!) {
+                          await UsersTable().update(
+                            data: {
+                              'username': getJsonField(
+                                profile,
+                                r'''$["photo "]''',
+                              ).toString(),
+                              'date_of_birth': supaSerialize<DateTime>(
+                                  functions.isoStringToDateTime(getJsonField(
+                                profile,
+                                r'''$["date_of_birth "]''',
+                              ).toString())),
+                              'sex': getJsonField(
+                                profile,
+                                r'''$["sex"]''',
+                              ).toString(),
+                              'weight': getJsonField(
+                                profile,
+                                r'''$["weight "]''',
+                              ),
+                              'height': getJsonField(
+                                profile,
+                                r'''$["height"]''',
+                              ),
+                              'height_is_cm': FFAppState().heightIsCm ? 1 : 0,
+                              'body_weight_is_kg':
+                                  FFAppState().bodyWeightIsKg ? 1 : 0,
+                              'profile_image_url': _model.prof,
+                            },
+                            matchingRows: (rows) => rows.eqOrNull(
+                              'id',
+                              currentUserUid,
+                            ),
+                          );
+                          await SQLiteManager.instance.updateUsersMeasurs(
+                            userId: currentUserUid,
+                            height: _model.height,
+                            weight: _model.weight,
+                            heightIsCm: _model.isHeightCm ? 1 : 0,
+                            bodyWeightIsKg: _model.isBodyweightKg ? 1 : 0,
+                            sex: _model.sex,
+                            dateOfBirth: _model.birthday,
+                          );
+                          if (_model.tempProf != null &&
+                              _model.tempProf != '') {
+                            FFAppState().profile = _model.tempProf!;
+                            safeSetState(() {});
+                          }
+                          context.safePop();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'no inernet',
+                                style: TextStyle(
+                                  color:
+                                      FlutterFlowTheme.of(context).primaryText,
+                                ),
+                              ),
+                              duration: Duration(milliseconds: 4000),
+                              backgroundColor:
+                                  FlutterFlowTheme.of(context).secondary,
+                            ),
+                          );
+                        }
+
+                        safeSetState(() {});
+                      },
+                      onUnitsChanged: (units) async {
+                        FFAppState().isKg = getJsonField(
+                          units,
+                          r'''$["workout_is_kg"]''',
+                        );
+                        FFAppState().heightIsCm = getJsonField(
+                          units,
+                          r'''$["height_is_cm"]''',
+                        );
+                        FFAppState().bodyWeightIsKg = getJsonField(
+                          units,
+                          r'''$["weight_is_kg"]''',
+                        );
+                        safeSetState(() {});
+                      },
                     ),
-                    style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          font: GoogleFonts.inter(
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                          ),
-                          letterSpacing: 0.0,
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
                   ),
                   Container(
                     decoration: BoxDecoration(),
@@ -1313,99 +1395,28 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding:
-                        EdgeInsetsDirectional.fromSTEB(24.0, 0.0, 24.0, 20.0),
-                    child: InkWell(
-                      splashColor: Colors.transparent,
-                      focusColor: Colors.transparent,
-                      hoverColor: Colors.transparent,
-                      highlightColor: Colors.transparent,
-                      onTap: () async {
-                        await showModalBottomSheet(
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          enableDrag: false,
-                          context: context,
-                          builder: (context) {
-                            return GestureDetector(
-                              onTap: () {
-                                FocusScope.of(context).unfocus();
-                                FocusManager.instance.primaryFocus?.unfocus();
-                              },
-                              child: Padding(
-                                padding: MediaQuery.viewInsetsOf(context),
-                                child: UpdateUnitsWidget(
-                                  change: () async {},
-                                ),
-                              ),
-                            );
-                          },
-                        ).then((value) => safeSetState(() {}));
+                  Container(
+                    width: MediaQuery.sizeOf(context).width * 1.0,
+                    height: 45.0,
+                    child: custom_widgets.UnitsRow(
+                      width: MediaQuery.sizeOf(context).width * 1.0,
+                      height: 45.0,
+                      workoutIsKg: FFAppState().isKg,
+                      heightIsCm: FFAppState().heightIsCm,
+                      bodyIsKg: _model.isBodyweightKg,
+                      editProfileMode: true,
+                      onWorkoutWeightChanged: (isKg) async {
+                        FFAppState().isKg = isKg;
+                        safeSetState(() {});
                       },
-                      child: Container(
-                        decoration: BoxDecoration(),
-                        child: Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(
-                              12.0, 16.0, 12.0, 16.0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Units: ${FFAppState().bodyWeightIsKg ? 'kg' : 'lbs'}  · ${FFAppState().heightIsCm ? 'cm' : 'in'}',
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondaryText,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                              Text(
-                                FFLocalizations.of(context).getText(
-                                  '4i1gf33a' /* Change */,
-                                ),
-                                style: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .override(
-                                      font: GoogleFonts.inter(
-                                        fontWeight: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontWeight,
-                                        fontStyle: FlutterFlowTheme.of(context)
-                                            .bodyMedium
-                                            .fontStyle,
-                                      ),
-                                      color: FlutterFlowTheme.of(context)
-                                          .secondary,
-                                      letterSpacing: 0.0,
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodyMedium
-                                          .fontStyle,
-                                    ),
-                              ),
-                            ].divide(SizedBox(width: 8.0)),
-                          ),
-                        ),
-                      ),
+                      onHeightChanged: (isCm) async {
+                        FFAppState().heightIsCm = isCm;
+                        safeSetState(() {});
+                      },
+                      onBodyWeightChanged: (isKg) async {
+                        FFAppState().bodyWeightIsKg = isKg;
+                        safeSetState(() {});
+                      },
                     ),
                   ),
                 ]

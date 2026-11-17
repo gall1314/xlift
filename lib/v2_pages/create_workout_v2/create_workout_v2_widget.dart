@@ -105,7 +105,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                 FFAppState().restTimerCreation = null;
                 safeSetState(() {});
 
-                context.pushNamed(MasterPageWidget.routeName);
+                context.goNamed(MasterPageWidget.routeName);
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy2 = await actions.saveWorkoutTemplate(
