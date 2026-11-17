@@ -54,6 +54,8 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
         );
         _model.warmup = await actions.loadWarmupSets(
           widget.workoutId,
+          currentUserUid,
+          FFAppState().isKg,
         );
         _model.sets = await SQLiteManager.instance.getExerciseSetsForWorkout(
           workoutId: widget.workoutId!,
@@ -364,7 +366,6 @@ class _WorkoutV2WidgetState extends State<WorkoutV2Widget> {
                   FFAppState().exercisesets =
                       _model.remove!.toList().cast<dynamic>();
                   safeSetState(() {});
-                  Navigator.pop(context);
                 }
 
                 safeSetState(() {});

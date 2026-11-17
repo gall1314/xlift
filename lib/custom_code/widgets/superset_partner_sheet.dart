@@ -144,6 +144,45 @@ class _SupersetPartnerSheetState extends State<SupersetPartnerSheet> {
       final id = _exerciseIdOf(it);
       return id != null && !excluded.contains(id);
     }).toList();
+    _loadNames(_candidates);
+  }
+
+  /// Names by exercise id, read from the exercise table. The list items can
+  /// carry a plain English name (a workout loaded from the database) or the
+  /// translated one (an exercise added just now); the table always has the
+  /// translations, so it wins and the item's own name is the fallback.
+  final Map<int, String> _dbNames = {};
+
+  Future<void> _loadNames(List<dynamic> items) async {
+    final List<int> ids = [];
+    for (final it in items) {
+      final int? id = _nameIdOf(it);
+      if (id != null && !ids.contains(id)) ids.add(id);
+    }
+    if (ids.isEmpty) return;
+    try {
+      final rows = await SQLiteManager.instance.database.rawQuery(
+          "SELECT id, name FROM exercise WHERE id IN (" +
+              ids.map((_) => "?").join(",") +
+              ")",
+          ids);
+      final Map<int, String> found = {};
+      for (final r in rows) {
+        final int? id = int.tryParse((r["id"] ?? "").toString());
+        final String name = (r["name"] ?? "").toString().trim();
+        if (id != null && name.isNotEmpty) found[id] = name;
+      }
+      if (!mounted || found.isEmpty) return;
+      setState(() => _dbNames.addAll(found));
+    } catch (_) {}
+  }
+
+  static int? _nameIdOf(dynamic item) {
+    if (item is! Map) return null;
+    final dynamic v = item["exerciseId"] ?? item["exercise_id"] ?? item["id"];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse((v ?? "").toString().trim());
   }
 
   /// Raw name as stored in the item (JSON or plain), '' if none.
@@ -272,7 +311,8 @@ class _SupersetPartnerSheetState extends State<SupersetPartnerSheet> {
                         itemCount: _candidates.length,
                         itemBuilder: (context, index) {
                           final item = _candidates[index];
-                          final raw = _rawNameOf(item);
+                          final raw =
+                              _dbNames[_nameIdOf(item)] ?? _rawNameOf(item);
                           final String name = raw.isEmpty
                               ? _tr(lang, 'exercise')
                               : localizedName(raw, lang);

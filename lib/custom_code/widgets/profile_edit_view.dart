@@ -30,36 +30,35 @@ import 'package:path_provider/path_provider.dart';
 
 /// The whole "Edit Profile" page as one self-managed widget: header (back,
 /// title, Save), profile photo, user name, sex, date of birth, height, weight
-/// and the units line. Every picker (photo source, sex, date, height, weight)
-/// is built in - no other bottom sheets or format functions are needed.
+/// and the units line.
+///
+/// Every picker (photo source, sex, date, height, weight) is built in - no
+/// other bottom sheets or format functions are needed.
 ///
 /// It does NOT read or write the database. It shows the values it is given,
 /// keeps the edits to itself, and hands everything back in ONE callback when
 /// Save is tapped.
 ///
-/// Values in (all optional - bind them to the user row):
-/// - username, sex, dateOfBirth (any text DateTime can parse, or epoch ms)
-/// - height + heightIsCm  (height is cm, or TOTAL inches when heightIsCm is
-///   false)
-/// - weight + weightIsKg  (weight is kg, or lb when weightIsKg is false)
-/// - photoFileName        (bare file name inside the app Documents folder)
+/// Values in (all optional - bind them to the user row): - username, sex,
+/// dateOfBirth (any text DateTime can parse, or epoch ms) - height +
+/// heightIsCm  (height is cm, or TOTAL inches when heightIsCm is false) -
+/// weight + weightIsKg  (weight is kg, or lb when weightIsKg is false) -
+/// photoFileName        (bare file name inside the app Documents folder)
 /// Values that arrive after the first build (a query on page load) are picked
 /// up as long as the user has not started editing.
 ///
-/// Callbacks:
-/// - onBack()
-/// - onSave(profile): JSON with
-///     username (String), sex (String: "Male" / "Female" / "Prefer not to
-///     say" / ""), date_of_birth (String "yyyy-MM-dd" or ""), height (double
-///     or null), height_is_cm (bool), weight (double or null), weight_is_kg
-///     (bool), workout_is_kg (bool), photo (String file name or "").
-///   Read them with JSON paths: $.username, $.sex, $.date_of_birth ...
-///   A picked photo (downscaled to 512px) only changes what the page shows;
-///   its file name comes back in `photo` on save. Photo files that are not
-///   the saved one are removed the next time the page opens.
-/// - onUnitsChanged(units): a unit was switched in the units sheet. JSON with
-///   workout_is_kg, height_is_cm, body_is_kg - for saving the preference
-///   right away. The workout unit is also written to App State `isKg` here.
+/// Callbacks: - onBack() - onSave(username, sex, dateOfBirth, height,
+/// heightIsCm, weight, weightIsKg, workoutIsKg, photo) - nine separate
+/// values, in this order: username (String), sex (String: "Male" / "Female" /
+/// "Prefer not to say" / ""), dateOfBirth (String "yyyy-MM-dd" or ""), height
+/// (double, 0 when empty), heightIsCm (bool), weight (double, 0 when empty),
+/// weightIsKg (bool), workoutIsKg (bool), photo (String file name or ""). A
+/// picked photo (downscaled to 512px) only changes what the page shows; its
+/// file name comes back in `photo` on save. Photo files that are not the
+/// saved one are removed the next time the page opens. -
+/// onUnitsChanged(units): a unit was switched in the units sheet. JSON with
+/// workout_is_kg, height_is_cm, body_is_kg - for saving the preference right
+/// away. The workout unit is also written to App State `isKg` here.
 ///
 /// Switching a unit converts the number on screen (175 cm -> 69 in).
 ///
@@ -98,7 +97,17 @@ class ProfileEditView extends StatefulWidget {
   final String? photoFileName;
 
   final Future Function()? onBack;
-  final Future Function(dynamic profile)? onSave;
+  final Future Function(
+    String username,
+    String sex,
+    String dateOfBirth,
+    double height,
+    bool heightIsCm,
+    double weight,
+    bool weightIsKg,
+    bool workoutIsKg,
+    String photo,
+  )? onSave;
   final Future Function(dynamic units)? onUnitsChanged;
 
   @override
@@ -875,17 +884,17 @@ class _ProfileEditViewState extends State<ProfileEditView> {
             "-" +
             d.day.toString().padLeft(2, "0");
     try {
-      await widget.onSave?.call({
-        "username": _nameCtrl.text.trim(),
-        "sex": _sex,
-        "date_of_birth": dob,
-        "height": _height,
-        "height_is_cm": _heightCm,
-        "weight": _weight,
-        "weight_is_kg": _weightKg,
-        "workout_is_kg": _workoutKg,
-        "photo": _photo,
-      });
+      await widget.onSave?.call(
+        _nameCtrl.text.trim(),
+        _sex,
+        dob,
+        _height ?? 0,
+        _heightCm,
+        _weight ?? 0,
+        _weightKg,
+        _workoutKg,
+        _photo,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }

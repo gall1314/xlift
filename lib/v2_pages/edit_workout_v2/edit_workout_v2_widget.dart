@@ -191,7 +191,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                       ParamType.String,
                     ),
                     'workoutId': serializeParam(
-                      '',
+                      widget.workoutId,
                       ParamType.String,
                     ),
                   }.withoutNulls,

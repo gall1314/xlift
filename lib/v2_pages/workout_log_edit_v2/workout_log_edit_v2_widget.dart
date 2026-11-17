@@ -372,7 +372,6 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                       FFAppState().exerciseSetsCreation =
                           _model.remove!.toList().cast<dynamic>();
                       safeSetState(() {});
-                      Navigator.pop(context);
                     }
 
                     safeSetState(() {});

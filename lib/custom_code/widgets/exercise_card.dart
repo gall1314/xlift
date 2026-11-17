@@ -794,14 +794,39 @@ class _ExerciseCardState extends State<ExerciseCard> {
       if (nSets > 0) setsText,
     ].join(' · ');
 
+    // The sheet's own route and its navigator, taken up front: by the time
+    // "Remove" has run, this card (and its context) no longer exists.
+    final NavigatorState rootNav = Navigator.of(context, rootNavigator: true);
+    ModalRoute<dynamic>? sheetRoute;
+    void closeSheet() {
+      final r = sheetRoute;
+      if (r == null || !r.isActive) return; // already closed
+      if (r.isCurrent) {
+        rootNav.pop();
+      } else {
+        rootNav.removeRoute(r);
+      }
+    }
+
+    // closeAfter: run the action while the sheet is still open and close it
+    // afterwards. Used for "Remove": if the page's action also goes "back" /
+    // dismisses, that closes this sheet - not the workout page under it.
     Widget item(
         IconData icon, Color color, String label, Future<void> Function() onTap,
-        {Color? labelColor, bool chevron = true}) {
+        {Color? labelColor, bool chevron = true, bool closeAfter = false}) {
       return _MenuRow(
         pressedColor: theme.primaryText.withOpacity(0.06),
         onTap: () async {
-          Navigator.of(context, rootNavigator: true).pop();
-          await onTap();
+          if (closeAfter) {
+            try {
+              await onTap();
+            } finally {
+              closeSheet();
+            }
+          } else {
+            closeSheet();
+            await onTap();
+          }
         },
         child: Row(
           children: [
@@ -846,6 +871,11 @@ class _ExerciseCardState extends State<ExerciseCard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // remembers which route this sheet is (see closeSheet)
+              Builder(builder: (c) {
+                sheetRoute ??= ModalRoute.of(c);
+                return const SizedBox.shrink();
+              }),
               Container(
                 width: 40,
                 height: 5,
@@ -859,16 +889,7 @@ class _ExerciseCardState extends State<ExerciseCard> {
                 padding: const EdgeInsets.fromLTRB(28, 0, 28, 12),
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          color: theme.primaryBackground,
-                          borderRadius: BorderRadius.circular(10)),
-                      child: Icon(Icons.fitness_center_rounded,
-                          size: 22, color: theme.primaryText),
-                    ),
+                    _menuThumb(theme),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -930,7 +951,8 @@ class _ExerciseCardState extends State<ExerciseCard> {
                   _tr(lang, 'remove'),
                   () async => widget.onRemoveExercise?.call(),
                   labelColor: const Color(0xFFEF4444),
-                  chevron: false),
+                  chevron: false,
+                  closeAfter: true),
             ],
           ),
         ),
@@ -993,6 +1015,37 @@ class _ExerciseCardState extends State<ExerciseCard> {
       }
     } catch (_) {}
     return null;
+  }
+
+  /// The exercise picture in the menu header. The asset file is named after
+  /// the ENGLISH exercise name in every language (same mapping as the
+  /// exerciseImageName function); a custom exercise may carry a URL instead.
+  Widget _menuThumb(FlutterFlowTheme theme) {
+    final Widget fallback = Container(
+      color: theme.primaryBackground,
+      alignment: Alignment.center,
+      child: Icon(Icons.fitness_center_rounded,
+          size: 22, color: theme.primaryText),
+    );
+    final String ill = (_illustration ?? "").trim();
+    final String nameEn = localizedName(_nameRaw, "en").trim();
+    Widget image;
+    if (ill.startsWith("http")) {
+      image = Image.network(ill,
+          fit: BoxFit.contain, errorBuilder: (_, __, ___) => fallback);
+    } else if (nameEn.isEmpty) {
+      image = fallback;
+    } else {
+      image = Image.asset(
+          "assets/images/" + nameEn.replaceAll(" ", "_") + ".jpg",
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => fallback);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child:
+          Container(width: 40, height: 40, color: Colors.white, child: image),
+    );
   }
 
   Future<void> _openWarmupGenerator(String lang) async {

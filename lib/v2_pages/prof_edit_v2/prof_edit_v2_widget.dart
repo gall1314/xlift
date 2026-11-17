@@ -434,36 +434,22 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                       onBack: () async {
                         context.safePop();
                       },
-                      onSave: (profile) async {
+                      onSave: (username, sex, dateOfBirth, height, heightIsCm,
+                          weight, weightIsKg, workoutIsKg, photo) async {
                         _model.inernetCopy = await actions.checkInternet();
                         if (_model.inernetCopy!) {
                           await UsersTable().update(
                             data: {
-                              'username': getJsonField(
-                                profile,
-                                r'''$["photo "]''',
-                              ).toString(),
+                              'username': username,
                               'date_of_birth': supaSerialize<DateTime>(
-                                  functions.isoStringToDateTime(getJsonField(
-                                profile,
-                                r'''$["date_of_birth "]''',
-                              ).toString())),
-                              'sex': getJsonField(
-                                profile,
-                                r'''$["sex"]''',
-                              ).toString(),
-                              'weight': getJsonField(
-                                profile,
-                                r'''$["weight "]''',
-                              ),
-                              'height': getJsonField(
-                                profile,
-                                r'''$["height"]''',
-                              ),
+                                  functions.isoStringToDateTime(dateOfBirth)),
+                              'sex': sex,
+                              'weight': weight,
+                              'height': height,
                               'height_is_cm': FFAppState().heightIsCm ? 1 : 0,
                               'body_weight_is_kg':
                                   FFAppState().bodyWeightIsKg ? 1 : 0,
-                              'profile_image_url': _model.prof,
+                              'profile_image_url': photo,
                             },
                             matchingRows: (rows) => rows.eqOrNull(
                               'id',
@@ -472,16 +458,16 @@ class _ProfEditV2WidgetState extends State<ProfEditV2Widget> {
                           );
                           await SQLiteManager.instance.updateUsersMeasurs(
                             userId: currentUserUid,
-                            height: _model.height,
-                            weight: _model.weight,
+                            height: height,
+                            weight: weight,
                             heightIsCm: _model.isHeightCm ? 1 : 0,
                             bodyWeightIsKg: _model.isBodyweightKg ? 1 : 0,
                             sex: _model.sex,
-                            dateOfBirth: _model.birthday,
+                            dateOfBirth: dateOfBirth,
                           );
                           if (_model.tempProf != null &&
                               _model.tempProf != '') {
-                            FFAppState().profile = _model.tempProf!;
+                            FFAppState().profile = photo;
                             safeSetState(() {});
                           }
                           context.safePop();

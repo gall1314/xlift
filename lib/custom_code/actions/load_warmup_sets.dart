@@ -11,90 +11,181 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom action code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
-/// Reads the warm-up sets saved with a workout (exercise_sets rows with
-/// is_warmup = 1) and returns them in the shape App State `warmupSets` uses:
+/// Warm-up sets of a workout, in the shape App State `warmupSets` uses.
 ///
-/// [
-///   {
-///     "exerciseId": 12, "hidden": false, "completed": false,
-///     "sets": [
-///       { "setNumber": 1, "reps": 10, "repsText": "10", "targetReps": 10,
-///         "weight": "0", "durationSec": 0, "restSec": 0, "isDone": false }
-///     ]
-///   }
-/// ]
-///
-/// One entry per exercise, in the workout's exercise order; sets in set
-/// order. Exercises without warm-up sets get no entry.
-///
-/// A template keeps no weight and no rest for a warm-up set, so weight is
-/// "0" and restSec is 0.
-///
-/// Never throws: returns an empty list when there is nothing or on an error.
-Future<List<dynamic>> loadWarmupSets(String? workoutId) async {
+/// The template only says HOW MANY warm-up sets an exercise has. The weights
+/// and the rest between them are built here, when the workout starts, by the
+/// same generator the live workout uses (applyWarmupSimpleUnits), from the
+/// weight of working set 1 the last time this exercise was done.
+/// No history yet -> reps-only warm-up with the template's reps.
+Future<List<dynamic>> loadWarmupSets(
+  String? workoutId,
+  String? userId,
+  bool? isKg,
+) async {
   final List<dynamic> out = [];
-  final String id = (workoutId ?? "").trim();
-  if (id.isEmpty) return out;
+  final String wid = (workoutId ?? "").trim();
+  if (wid.isEmpty) return out;
+  final String uid = (userId ?? "").trim();
+  final bool kg = isKg ?? true;
 
   int asInt(dynamic v) {
-    if (v == null) return 0;
     if (v is int) return v;
     if (v is num) return v.toInt();
-    return double.tryParse(v.toString().trim())?.toInt() ?? 0;
+    return int.tryParse((v ?? "").toString()) ?? 0;
+  }
+
+  double asDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return double.tryParse((v ?? "").toString()) ?? 0;
+  }
+
+  bool truthy(dynamic v) {
+    final String s = (v ?? "").toString().toLowerCase();
+    return s == "1" || s == "true";
+  }
+
+  String equipKey(dynamic equipment) {
+    final String e = (equipment ?? "").toString().trim().toLowerCase();
+    if (e.contains("dumbbell") || e.contains("kettlebell")) return "dumbbell";
+    if (e.contains("smith")) return "smith";
+    if (e.contains("barbell") || e.contains("trap bar")) return "barbell";
+    return "machine";
   }
 
   try {
     final db = SQLiteManager.instance.database;
     final rows = await db.rawQuery(
-      "SELECT CAST(we.exercise_id AS INTEGER) AS exercise_id, "
-      "CAST(es.set_number AS INTEGER) AS set_number, "
-      "es.target_reps AS target_reps, "
-      "es.duration_seconds AS duration_seconds "
-      "FROM exercise_sets es "
-      "JOIN workout_exercise we ON we.id = es.workout_exercise_id "
-      "WHERE we.workout_id = ? "
-      "AND COALESCE(CAST(es.is_warmup AS INTEGER), 0) = 1 "
-      "AND COALESCE(CAST(es.is_dropset AS INTEGER), 0) = 0 "
-      "ORDER BY we.\"order\" ASC, es.set_number ASC",
-      [id],
+      'SELECT we.exercise_id AS exercise_id, es.set_number AS set_number, '
+      'es.target_reps AS target_reps, '
+      'es.duration_seconds AS duration_seconds, '
+      'e.equipment AS equipment, e.is_time_based AS is_time_based, '
+      'e.is_bodyweight AS is_bodyweight '
+      'FROM exercise_sets es '
+      'JOIN workout_exercise we ON we.id = es.workout_exercise_id '
+      'LEFT JOIN exercise e ON e.id = we.exercise_id '
+      'WHERE we.workout_id = ? AND COALESCE(es.is_warmup, 0) = 1 '
+      'AND COALESCE(es.is_dropset, 0) = 0 '
+      'ORDER BY we."order", es.set_number',
+      [wid],
     );
 
-    // exercise id -> its entry, kept in the order the rows arrive
-    final Map<int, Map<String, dynamic>> byExercise = {};
+    // group by exercise, keeping the workout order
+    final List<int> order = [];
+    final Map<int, List<Map<String, dynamic>>> byEx = {};
     for (final r in rows) {
-      final int exerciseId = asInt(r["exercise_id"]);
-      final int setNumber = asInt(r["set_number"]);
-      if (exerciseId <= 0 || setNumber <= 0) continue;
+      final int exId = asInt(r["exercise_id"]);
+      if (exId <= 0) continue;
+      if (!byEx.containsKey(exId)) {
+        byEx[exId] = [];
+        order.add(exId);
+      }
+      byEx[exId]!.add(Map<String, dynamic>.from(r));
+    }
 
-      Map<String, dynamic>? entry = byExercise[exerciseId];
-      if (entry == null) {
-        entry = {
-          "exerciseId": exerciseId,
-          "hidden": false,
-          "completed": false,
-          "sets": <dynamic>[],
-        };
-        byExercise[exerciseId] = entry;
-        out.add(entry);
+    for (final int exId in order) {
+      final List<Map<String, dynamic>> tpl = byEx[exId]!;
+      final int n = tpl.length;
+      final bool timed = truthy(tpl.first["is_time_based"]);
+      final bool bodyweight = truthy(tpl.first["is_bodyweight"]);
+
+      // weight of working set 1 the last time, in the app's unit
+      double? target;
+      if (!timed && !bodyweight) {
+        try {
+          final List<Object?> args = [exId];
+          String sql = 'SELECT weight, is_kg FROM set_log '
+              'WHERE exercise_id = ? AND COALESCE(is_dropset, 0) = 0 '
+              'AND CAST(set_number AS INTEGER) = 1 AND weight > 0';
+          if (uid.isNotEmpty) {
+            sql = sql + ' AND user_id = ?';
+            args.add(uid);
+          }
+          sql = sql + ' ORDER BY created_at DESC LIMIT 1';
+          final last = await db.rawQuery(sql, args);
+          if (last.isNotEmpty) {
+            double w = asDouble(last.first["weight"]);
+            final dynamic rawKg = last.first["is_kg"];
+            final bool logKg = rawKg == null ? kg : truthy(rawKg);
+            if (logKg && !kg) w = w * 2.20462;
+            if (!logKg && kg) w = w / 2.20462;
+            w = (w * 100).round() / 100;
+            if (w > 0) target = w;
+          }
+        } catch (_) {}
       }
 
-      final int reps = asInt(r["target_reps"]);
-      final int seconds = asInt(r["duration_seconds"]);
-      (entry["sets"] as List<dynamic>).add({
-        "setNumber": setNumber,
-        "reps": reps,
-        "repsText": reps.toString(),
-        "targetReps": reps,
-        "weight": "0",
-        "durationSec": seconds,
-        "restSec": 0,
-        "isDone": false,
+      final bool withWeight = target != null;
+      final String mode = timed
+          ? "timed"
+          : (withWeight ? equipKey(tpl.first["equipment"]) : "bodyweight");
+
+      // the smart generator: weights by equipment + rest between the sets
+      Map<String, dynamic>? entry;
+      try {
+        final dynamic gen = applyWarmupSimpleUnits(
+          <dynamic>[],
+          exId,
+          mode,
+          kg,
+          target,
+          n,
+        );
+        if (gen is List) {
+          for (final g in gen) {
+            if (g is Map && asInt(g["exerciseId"]) == exId) {
+              entry = Map<String, dynamic>.from(g);
+              break;
+            }
+          }
+        }
+      } catch (_) {}
+
+      List<Map<String, dynamic>> sets = [];
+      if (entry != null && entry["sets"] is List) {
+        sets = (entry["sets"] as List)
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+      }
+
+      if (sets.isEmpty) {
+        // generator unavailable: plain rows from the template
+        for (int i = 0; i < n; i++) {
+          sets.add({
+            "setNumber": i + 1,
+            "weight": "0",
+            "restSec": 0,
+          });
+        }
+      }
+
+      // Weighted plan: the generator's reps belong to its weights, keep them.
+      // Everything else keeps what was typed in the template.
+      for (int i = 0; i < sets.length; i++) {
+        final Map<String, dynamic> s = sets[i];
+        final Map<String, dynamic>? t = i < n ? tpl[i] : null;
+        final int tReps = t == null ? 0 : asInt(t["target_reps"]);
+        final int tDur = t == null ? 0 : asInt(t["duration_seconds"]);
+        if (!withWeight && !timed && tReps > 0) {
+          s["reps"] = tReps;
+          s["repsText"] = tReps.toString();
+          s["targetReps"] = tReps;
+        }
+        if (timed && tDur > 0) s["durationSec"] = tDur;
+        if (s["weight"] == null) s["weight"] = "0";
+        if (s["restSec"] == null) s["restSec"] = 0;
+        s["isDone"] = false;
+      }
+
+      out.add({
+        "exerciseId": exId,
+        "hidden": false,
+        "completed": false,
+        "sets": sets,
       });
     }
-  } catch (_) {
-    return <dynamic>[];
-  }
-
+  } catch (_) {}
   return out;
 }
 // Set your action name, define your arguments and return parameter,

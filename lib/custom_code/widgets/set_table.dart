@@ -1049,6 +1049,34 @@ class _SetTableState extends State<SetTable> {
   /// typed one): they show it as their hint, and because it is written into
   /// exerciseSets it is exactly what the save actions store for them - what
   /// you see is what is saved.
+  /// Weight typed on a set row. On a bodyweight exercise "no weight" (the pad
+  /// button, an emptied field or 0) really removes it: the set goes back to
+  /// the "+" state, so nothing is carried into it when it is ticked.
+  Future<void> _commitWeight(_TplSet t, double? v) async {
+    final bool bw = widget.isBodyweight || widget.allowsBodyweight;
+    final bool none = v == null || (bw && v <= 0);
+    await _emit(_upsertBase(_copyLogged(), t,
+        weight: none ? null : v, clearWeight: none));
+    if (!none || !bw || !t.weighted) return;
+
+    final list = _copyList(widget.exerciseSets);
+    final int idx = list.indexWhere((e) => _isMine(e));
+    if (idx < 0 || list[idx]['sets'] is! List) return;
+    final sets = (list[idx]['sets'] as List)
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+    bool changed = false;
+    for (final s in sets) {
+      if (_asInt(s['setNumber']) != t.setNumber) continue;
+      s['weighted'] = 0;
+      changed = true;
+    }
+    if (!changed) return;
+    list[idx]['sets'] = sets;
+    await widget.onExerciseSetsChanged?.call(List<dynamic>.from(list));
+  }
+
   Future<void> _commitReps(_TplSet t, int? v) async {
     await _emit(_upsertBase(_copyLogged(), t, reps: v, clearReps: v == null));
     if (!_tpl || v == null || v <= 0) return;
@@ -1646,7 +1674,9 @@ class _SetTableState extends State<SetTable> {
       final double wh = _weightHint(t);
       list = _upsertBase(list, t,
           reps: reps > 0 ? reps : _repsHint(t),
-          weight: w > 0 ? w : (wh > 0 ? wh : null),
+          // a bodyweight set left on "+" was done without added weight
+          weight: w > 0 ? w : (!_plusMode(t) && wh > 0 ? wh : null),
+          clearWeight: w <= 0 && _plusMode(t),
           isDone: true,
           isSkipped: false);
       for (final d in _plannedDrops(t.setNumber)) {
@@ -3039,13 +3069,14 @@ class _SetTableState extends State<SetTable> {
                         isDone: done,
                         isKg: widget.isKg,
                         plusMode: _plusMode(t),
+                        canClear:
+                            widget.isBodyweight || widget.allowsBodyweight,
                         lang: lang,
                         dark: dark,
                         textColor: text,
                         hintColor: muted.withOpacity(0.5),
                         focusColor: accent,
-                        onCommit: (v) => _emit(_upsertBase(_copyLogged(), t,
-                            weight: v, clearWeight: v == null)),
+                        onCommit: (v) => _commitWeight(t, v),
                       ),
               ),
             ],
@@ -3159,6 +3190,10 @@ class _SetTableState extends State<SetTable> {
     final planned = _plannedDrops(t.setNumber);
     if (planned.isEmpty) return const [];
     final Color rowBg = done ? Colors.transparent : cellBg;
+    // A drop is secondary to its set: narrower fields and a smaller number
+    // leave the "previous" text enough room to be read.
+    final double dropVal = _aiCol ? 50 : 56;
+    final double dropAct = _aiCol ? _colAct : 40;
 
     final List<Widget> out = [];
     for (final d in planned) {
@@ -3179,7 +3214,7 @@ class _SetTableState extends State<SetTable> {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: _prevTextWidget(prevLabel, lang, muted, 14),
+          child: _prevTextWidget(prevLabel, lang, muted, 13),
         ),
       );
 
@@ -3231,8 +3266,9 @@ class _SetTableState extends State<SetTable> {
                 ),
                 const SizedBox(width: _gap),
                 SizedBox(
-                  width: _colVal,
+                  width: dropVal,
                   child: _RepsCell(
+                    small: true,
                     value: reps,
                     hint: repsHint,
                     isDone: done,
@@ -3248,13 +3284,14 @@ class _SetTableState extends State<SetTable> {
                 ),
                 const SizedBox(width: _gap),
                 SizedBox(
-                  width: _colVal,
+                  width: dropVal,
                   child:
                       !_canWeight(t) || (done && _plusMode(t) && (w ?? 0) <= 0)
                           ? Center(
                               child: Text('-',
-                                  style: TextStyle(fontSize: 16, color: muted)))
+                                  style: TextStyle(fontSize: 15, color: muted)))
                           : _WeightCell(
+                              small: true,
                               value: w,
                               hint: wHint,
                               isDone: done,
@@ -3272,7 +3309,7 @@ class _SetTableState extends State<SetTable> {
                 ),
                 const SizedBox(width: _gap),
                 SizedBox(
-                  width: _aiCol ? _colAct : 44 + _tail - _gap,
+                  width: dropAct,
                   child: done
                       ? const SizedBox.shrink()
                       : Center(
@@ -4064,7 +4101,11 @@ class _RepsCell extends StatefulWidget {
     required this.hintColor,
     required this.focusColor,
     required this.onCommit,
+    this.small = false,
   });
+
+  /// Drop rows: a smaller number than the main set row.
+  final bool small;
   final int? value;
   final int hint;
   final bool isDone;
@@ -4159,14 +4200,15 @@ class _RepsCellState extends State<_RepsCell>
                     textDirection: ui.TextDirection.ltr,
                     maxLines: 1,
                     style: TextStyle(
-                        fontSize: 17,
+                        fontSize: widget.small ? 15 : 17,
                         fontWeight: FontWeight.w600,
                         height: 1.0,
                         color: color)),
               if (editing)
                 Padding(
                   padding: EdgeInsets.only(left: display.isNotEmpty ? 1.5 : 0),
-                  child: _Caret(color: widget.focusColor, height: 18),
+                  child: _Caret(
+                      color: widget.focusColor, height: widget.small ? 16 : 18),
                 ),
             ],
           ),
@@ -4336,7 +4378,16 @@ class _WeightCell extends StatefulWidget {
     required this.hintColor,
     required this.focusColor,
     required this.onCommit,
+    this.small = false,
+    this.canClear = false,
   });
+
+  /// Drop rows: a smaller number than the main set row.
+  final bool small;
+
+  /// Bodyweight exercise: the pad offers "no added weight" even when the set
+  /// already holds a weight.
+  final bool canClear;
   final double? value;
   final double hint;
   final bool isDone;
@@ -4403,7 +4454,7 @@ class _WeightCellState extends State<_WeightCell>
           unitLabel: _tr(widget.lang, widget.isKg ? 'kg' : 'lbs'),
           noWeightLabel: _tr(widget.lang, 'noWeight'),
           step: widget.isKg ? 2.5 : 5.0,
-          bodyweightMode: widget.plusMode,
+          bodyweightMode: widget.plusMode || widget.canClear,
           onChanged: _commit,
           onClearWeight: _clear,
           onMeasured: onPadMeasured,
@@ -4466,14 +4517,15 @@ class _WeightCellState extends State<_WeightCell>
                     textDirection: ui.TextDirection.ltr,
                     maxLines: 1,
                     style: TextStyle(
-                        fontSize: 17,
+                        fontSize: widget.small ? 15 : 17,
                         fontWeight: FontWeight.w600,
                         height: 1.0,
                         color: color)),
               if (editing)
                 Padding(
                   padding: EdgeInsets.only(left: display.isNotEmpty ? 1.5 : 0),
-                  child: _Caret(color: widget.focusColor, height: 18),
+                  child: _Caret(
+                      color: widget.focusColor, height: widget.small ? 16 : 18),
                 ),
             ],
           ),

@@ -274,7 +274,7 @@ const Map<String, Map<String, String>> _kEquip = {
     "de": "Maschine",
     "fr": "Machine"
   },
-  "cable": {"es": "Polea", "he": "פולי", "de": "Kabelzug", "fr": "Poulie"},
+  "cable": {"es": "Polea", "he": "כבל", "de": "Kabelzug", "fr": "Poulie"},
   "bench": {"es": "Banco", "he": "ספסל", "de": "Bank", "fr": "Banc"},
   "plate": {"es": "Disco", "he": "פלטה", "de": "Scheibe", "fr": "Disque"},
   "kettlebell": {
@@ -285,13 +285,13 @@ const Map<String, Map<String, String>> _kEquip = {
   },
   "trap bar": {
     "es": "Barra hexagonal",
-    "he": "מוט טראפ",
+    "he": "טראפ בר",
     "de": "Trap Bar",
     "fr": "Trap bar"
   },
   "smith machine": {
     "es": "Máquina Smith",
-    "he": "סמית",
+    "he": "מכונת סמית׳",
     "de": "Multipresse",
     "fr": "Smith"
   },
