@@ -13,6 +13,7 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'package:flutter/services.dart'; // for HapticFeedback
+import 'package:flutter/scheduler.dart'; // [v19] Ticker for the overlay clock
 import 'package:audioplayers/audioplayers.dart';
 
 import 'dart:io';
@@ -21,6 +22,28 @@ import 'dart:ui' as ui show TextDirection;
 import 'package:video_player/video_player.dart';
 
 /// Custom widget: plays the analyzed exercise video and draws an overlay.
+///
+/// v20 — "Why is there no skeleton" notice, written for users. When the
+/// skeleton has been missing for a moment, a small card over the video says
+/// why and what to do (body not detected / body partly hidden / no tracking
+/// data), in the app language (en / es / he / de / fr, read from
+/// FFLocalizations — no parameter). It fades in only after the skeleton has
+/// been gone for 1s, and short gaps at the very start / end of the clip
+/// (placing and picking up the phone) are ignored. Replaces the v19 debug
+/// label; the painter is back to its v18 code.
+///
+/// v19 — Smooth, stable skeleton (drawing only; telemetry contract
+/// unchanged): 1. OVERLAY CLOCK: video_player only reports `value.position`
+/// every 100-500ms, so the skeleton used to move 2-10 times a second in steps
+/// while the video ran at 30fps. The overlay is now repainted from a Ticker
+/// (~30fps) at an estimated position = last reported position + wall-clock
+/// time since that report. Sound / haptics still key off the reported
+/// position, exactly as before. 2. HIP-JUMP GUARD NO LONGER LATCHES: the
+/// guard compared every frame to the last hip position it had drawn and never
+/// recovered once the lifter was legitimately somewhere else (walked to the
+/// bar, seek, replay). From that moment interpolation was bypassed for the
+/// rest of the clip and the skeleton stepped at the analysis fps. The
+/// reference now expires after 0.5s of video time.
 ///
 /// v18 — Added barbell bounding-box rendering. When per-frame telemetry
 /// contains a `barbell_bbox` field (emitted by the test deadlift analyzer
@@ -76,7 +99,8 @@ class SquatAnalyzedVideoPlayer extends StatefulWidget {
       _SquatAnalyzedVideoPlayerState();
 }
 
-class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
+class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer>
+    with SingleTickerProviderStateMixin {
   VideoPlayerController? _controller;
   String? _errorMessage;
   bool _isReady = false;
@@ -88,10 +112,151 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
   double _lastTickProcessedT = -1.0;
   final Set<int> _audioFiredFor = {};
   DateTime _lastPaintAt = DateTime.fromMillisecondsSinceEpoch(0);
-  static const int _PAINT_MIN_GAP_MS = 50;
+  // [v19] 50 -> 30: the overlay is now repainted from a Ticker, so this gap
+  // is what caps it at ~30fps (the video's own frame rate).
+  static const int _PAINT_MIN_GAP_MS = 30;
   DateTime _lastHapticAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool? _wasPlaying;
   Offset? _lastRenderedHipCentroid;
+  // [v19] Video time at which _lastRenderedHipCentroid was recorded. The
+  // hip-jump guard only trusts a reference younger than
+  // _HIP_GUARD_MAX_AGE_SEC, so it can no longer latch for the whole clip.
+  double _lastRenderedHipT = -1.0;
+  static const double _HIP_GUARD_MAX_AGE_SEC = 0.5;
+
+  // ---------------- [v19] OVERLAY CLOCK ----------------
+  // video_player reports value.position only every 100ms (>= 2.9.4) or
+  // 500ms (older). Between reports the video keeps playing, so we estimate
+  // the current position as "last reported position + wall-clock time since
+  // it was reported" and repaint the overlay from a Ticker.
+  Ticker? _ticker;
+  final Stopwatch _overlayClock = Stopwatch()..start();
+  double _anchorPosSec = 0.0; // last position reported by video_player
+  double _anchorClockSec = 0.0; // _overlayClock time of that report
+  int _anchorPosMs = -1;
+  bool _anchorWasPlaying = false;
+  // Never run further than this past the last report (stall / buffering).
+  static const double _MAX_EXTRAPOLATE_SEC = 0.6;
+
+  /// Re-anchor the overlay clock whenever video_player reports a new
+  /// position or a play/pause change.
+  void _syncOverlayClock(VideoPlayerController controller) {
+    final v = controller.value;
+    final int posMs = v.position.inMilliseconds;
+    if (posMs == _anchorPosMs && v.isPlaying == _anchorWasPlaying) return;
+    _anchorPosMs = posMs;
+    _anchorWasPlaying = v.isPlaying;
+    _anchorPosSec = posMs / 1000.0;
+    _anchorClockSec = _overlayClock.elapsedMicroseconds / 1e6;
+  }
+
+  /// Estimated playback position right now, in seconds.
+  double _smoothPositionSec(VideoPlayerController controller) {
+    final v = controller.value;
+    final double reported = v.position.inMilliseconds / 1000.0;
+    if (!v.isPlaying || _anchorPosMs < 0) return reported;
+    final double sinceAnchor =
+        (_overlayClock.elapsedMicroseconds / 1e6 - _anchorClockSec) *
+            v.playbackSpeed;
+    final double est =
+        _anchorPosSec + sinceAnchor.clamp(0.0, _MAX_EXTRAPOLATE_SEC);
+    final double durSec = v.duration.inMilliseconds / 1000.0;
+    return durSec > 0 ? math.min(est, durSec) : est;
+  }
+
+  /// Display-refresh tick: repaint the overlay while the video is playing.
+  void _onDisplayTick(Duration _) {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (!controller.value.isPlaying) return;
+    _scheduleRepaint();
+  }
+
+  // ---------------- [v20] "NO SKELETON" NOTICE ----------------
+  // Per telemetry frame: why the skeleton is missing there (null = it is
+  // visible, or the gap is one we deliberately stay quiet about), and the
+  // video time at which that gap started. Built once in _init.
+  List<_SkeletonGap?> _gapKind = const [];
+  List<double> _gapStartT = const [];
+  // The notice appears only after the skeleton has been gone this long.
+  static const double _NOTICE_AFTER_SEC = 1.0;
+  // A gap within _EDGE_WINDOW_SEC of the clip's start / end is usually the
+  // user placing or picking up the phone. Stay quiet about it unless it
+  // lasts at least _EDGE_GAP_IGNORE_SEC.
+  static const double _EDGE_WINDOW_SEC = 3.0;
+  static const double _EDGE_GAP_IGNORE_SEC = 4.0;
+  // Fewer drawable body points than this = no skeleton to speak of.
+  static const int _MIN_VISIBLE_POINTS = 4;
+  // Same 16 points the painter draws dots for.
+  static const List<int> _BODY_POINT_INDICES = [
+    11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, //
+  ];
+
+  _SkeletonGap? _gapKindOfFrame(_FrameData f) {
+    if (f.landmarks.length < 33) return _SkeletonGap.noPose;
+    int visible = 0;
+    for (final i in _BODY_POINT_INDICES) {
+      final lm = f.landmarks[i];
+      if (lm.length >= 3 && lm[2] >= _DRAW_VIS_THRESHOLD) visible += 1;
+    }
+    return visible < _MIN_VISIBLE_POINTS ? _SkeletonGap.lowVisibility : null;
+  }
+
+  /// Find every run of frames without a skeleton and decide, per run,
+  /// whether the user should be told about it.
+  void _indexSkeletonGaps() {
+    final int n = _telemetry.length;
+    final List<_SkeletonGap?> kind = List<_SkeletonGap?>.filled(n, null);
+    final List<double> startT = List<double>.filled(n, 0.0);
+    int i = 0;
+    while (i < n) {
+      if (_gapKindOfFrame(_telemetry[i]) == null) {
+        i += 1;
+        continue;
+      }
+      int j = i;
+      while (j + 1 < n && _gapKindOfFrame(_telemetry[j + 1]) != null) {
+        j += 1;
+      }
+      final double dur = _telemetry[j].t - _telemetry[i].t;
+      final bool wholeClip = i == 0 && j == n - 1;
+      final bool atEdge =
+          (_telemetry[i].t - _telemetry[0].t) <= _EDGE_WINDOW_SEC ||
+              (_telemetry[n - 1].t - _telemetry[j].t) <= _EDGE_WINDOW_SEC;
+      final bool notify = dur >= _NOTICE_AFTER_SEC &&
+          (wholeClip || !atEdge || dur >= _EDGE_GAP_IGNORE_SEC);
+      if (notify) {
+        for (int q = i; q <= j; q++) {
+          kind[q] = _gapKindOfFrame(_telemetry[q]);
+          startT[q] = _telemetry[i].t;
+        }
+      }
+      i = j + 1;
+    }
+    _gapKind = kind;
+    _gapStartT = startT;
+  }
+
+  /// What to tell the user at video time [tSec], or null for nothing.
+  _SkeletonGap? _skeletonGapAt(double tSec) {
+    if (!widget.showSkeleton) return null;
+    if (_telemetry.isEmpty) return _SkeletonGap.noTelemetry;
+    if (_gapKind.length != _telemetry.length) return null;
+    int lo = 0, hi = _telemetry.length;
+    while (lo < hi) {
+      final int mid = (lo + hi) >> 1;
+      if (_telemetry[mid].t <= tSec) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    final int idx = lo > 0 ? lo - 1 : 0;
+    final _SkeletonGap? kind = _gapKind[idx];
+    if (kind == null) return null;
+    if (tSec - _gapStartT[idx] < _NOTICE_AFTER_SEC) return null;
+    return kind;
+  }
 
   void _scheduleRepaint({bool force = false}) {
     if (!mounted) return;
@@ -182,6 +347,7 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
       final List<dynamic> raw =
           (result['_frame_telemetry'] as List?) ?? const [];
       _telemetry = raw.map((r) => _FrameData.fromMap(r as Map)).toList();
+      _indexSkeletonGaps(); // [v20]
 
       String path = uri;
       if (path.startsWith('file://')) {
@@ -205,7 +371,11 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
 
       _preloadAudio();
 
-      if (mounted) setState(() => _isReady = true);
+      if (mounted) {
+        // [v19] Drive overlay repaints from the display refresh.
+        _ticker = createTicker(_onDisplayTick)..start();
+        setState(() => _isReady = true);
+      }
       await controller.play();
     } catch (e) {
       if (mounted) {
@@ -220,6 +390,9 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
       _scheduleRepaint();
       return;
     }
+
+    // [v19] Keep the overlay clock anchored to the reported position.
+    _syncOverlayClock(controller);
 
     final double tSec = controller.value.position.inMilliseconds / 1000.0;
 
@@ -418,6 +591,7 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
 
   @override
   void dispose() {
+    _ticker?.dispose(); // [v19] must happen before super.dispose()
     _controller?.removeListener(_onVideoTick);
     _controller?.dispose();
     _goodRepPlayer.dispose();
@@ -584,11 +758,27 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
     final controller = _controller!;
     final double videoAspect = controller.value.aspectRatio;
 
-    final double tSec = controller.value.position.inMilliseconds / 1000.0;
+    // [v19] Estimated position (see OVERLAY CLOCK) instead of the coarse
+    // reported one, so the skeleton moves every repaint, not every report.
+    final double tSec = _smoothPositionSec(controller);
     final _FrameData? frame = _frameAtTime(tSec);
     final bool isPlaying = controller.value.isPlaying;
+    // [v20] Non-null when the user should be told why there is no skeleton.
+    final _SkeletonGap? skeletonGap = _skeletonGapAt(tSec);
 
     List<List<double>> currentLandmarks = _interpolatedLandmarksAt(tSec);
+
+    // [v19] The hip-jump guard below exists to swallow a brief jump to a
+    // bystander. Its reference must not outlive that purpose: if the last
+    // drawn hip is older than _HIP_GUARD_MAX_AGE_SEC of video time (the
+    // lifter walked somewhere while frames were rejected, the user seeked
+    // or replayed, or a "jump" simply persisted), forget it and accept the
+    // current position. Without this the guard latched until the end of the
+    // clip and interpolation was bypassed from then on.
+    if (_lastRenderedHipCentroid != null &&
+        (tSec - _lastRenderedHipT).abs() > _HIP_GUARD_MAX_AGE_SEC) {
+      _lastRenderedHipCentroid = null;
+    }
 
     if (currentLandmarks.length >= 25) {
       final hipX = (currentLandmarks[23][0] + currentLandmarks[24][0]) / 2;
@@ -603,9 +793,11 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
             currentLandmarks = const [];
           } else {
             _lastRenderedHipCentroid = Offset(hipX, hipY);
+            _lastRenderedHipT = tSec;
           }
         } else {
           _lastRenderedHipCentroid = Offset(hipX, hipY);
+          _lastRenderedHipT = tSec;
         }
       }
     }
@@ -696,6 +888,24 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
                           smoothedLandmarks: currentLandmarks,
                         ),
                       ),
+                    // [v20] Tells the user why no skeleton is drawn. Sits
+                    // just below the counter / depth ring, fades in and out,
+                    // and never swallows taps (the tap still toggles the
+                    // controls).
+                    IgnorePointer(
+                      child: Align(
+                        alignment: const Alignment(0, -0.55),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: skeletonGap == null
+                              ? const SizedBox.shrink(key: ValueKey('none'))
+                              : _SkeletonNotice(
+                                  key: ValueKey(skeletonGap),
+                                  gap: skeletonGap,
+                                ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -782,6 +992,132 @@ class _SquatAnalyzedVideoPlayerState extends State<SquatAnalyzedVideoPlayer> {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+}
+
+// ---------------- [v20] "No skeleton" notice ----------------
+
+/// Why no skeleton is drawn at a given moment.
+enum _SkeletonGap {
+  /// The analyzer result reached the widget without any frame telemetry.
+  noTelemetry,
+
+  /// The analyzer found no usable pose in these frames (nobody detected,
+  /// tracking lost, or the frame was rejected as unreliable).
+  noPose,
+
+  /// A pose was found but almost every point is below the draw threshold
+  /// (body hidden behind something / cut off by the frame).
+  lowVisibility,
+}
+
+/// [title, hint] per language, in the order of [_SkeletonGap.values].
+/// Keep both short: the card is narrow and the hint wraps to 2 lines at most.
+/// Hebrew is gender-neutral (plural imperative); de / fr / es are informal.
+const Map<String, List<List<String>>> _SKELETON_NOTICE_TEXT = {
+  'en': [
+    ['No tracking data', 'Try analyzing the video again'],
+    ['Body not detected here', 'Keep your whole body in the frame'],
+    ['Body partly hidden', 'Nothing should block the camera'],
+  ],
+  'es': [
+    ['Sin datos de seguimiento', 'Analiza el vídeo de nuevo'],
+    ['Cuerpo no detectado aquí', 'Mantén todo el cuerpo en el encuadre'],
+    ['Cuerpo parcialmente oculto', 'Que nada tape la cámara'],
+  ],
+  'he': [
+    ['אין נתוני מעקב לסרטון', 'נסו לנתח את הסרטון שוב'],
+    ['הגוף לא זוהה כאן', 'ודאו שכל הגוף נמצא בפריים'],
+    ['הגוף מוסתר חלקית', 'ודאו ששום דבר לא מסתיר את המצלמה'],
+  ],
+  'de': [
+    ['Keine Tracking-Daten', 'Analysiere das Video noch einmal'],
+    ['Körper hier nicht erkannt', 'Halte den ganzen Körper im Bild'],
+    ['Körper teilweise verdeckt', 'Nichts darf die Kamera verdecken'],
+  ],
+  'fr': [
+    ['Pas de données de suivi', 'Analyse la vidéo à nouveau'],
+    ['Corps non détecté ici', 'Garde tout le corps dans le cadre'],
+    ['Corps en partie caché', 'Rien ne doit cacher la caméra'],
+  ],
+};
+
+/// Small flat card (no shadow, theme primary accent) shown over the video.
+/// Reads the app language itself; follows the app's text direction, so in
+/// Hebrew the icon sits on the right and the text is right-aligned.
+class _SkeletonNotice extends StatelessWidget {
+  const _SkeletonNotice({Key? key, required this.gap}) : super(key: key);
+
+  final _SkeletonGap gap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FlutterFlowTheme.of(context);
+    final String lang = FFLocalizations.of(context).languageCode;
+    final List<List<String>> table =
+        _SKELETON_NOTICE_TEXT[lang] ?? _SKELETON_NOTICE_TEXT['en']!;
+    final List<String> text = table[gap.index];
+
+    final IconData icon = gap == _SkeletonGap.noTelemetry
+        ? Icons.info_outline_rounded
+        : (gap == _SkeletonGap.noPose
+            ? Icons.accessibility_new_rounded
+            : Icons.visibility_off_rounded);
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 320),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsetsDirectional.fromSTEB(10, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.62),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: theme.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.white, size: 19),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  text[0],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.titleSmall.copyWith(
+                    color: Colors.white,
+                    fontSize: 14,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  text[1],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.bodySmall.copyWith(
+                    color: Colors.white.withOpacity(0.78),
+                    fontSize: 12,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

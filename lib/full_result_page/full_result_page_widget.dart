@@ -126,7 +126,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
               size: 30.0,
             ),
             onPressed: () async {
-              context.pushNamed(MasterPageWidget.routeName);
+              context.goNamed(MasterPageWidget.routeName);
             },
           ),
           title: Text(

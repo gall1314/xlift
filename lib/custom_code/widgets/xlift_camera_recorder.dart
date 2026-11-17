@@ -680,6 +680,10 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
   XFile? _pendingClip;
   bool _delivering = false;
 
+  /// The gallery was tapped and the system picker (or the export of the
+  /// picked clip) is still on its way: the button shows a spinner.
+  bool _picking = false;
+
   List<CameraDescription> _backCams = [];
   CameraDescription? _mainCam;
   CameraDescription? _ultraWideCam;
@@ -1026,20 +1030,37 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
 
   Future<void> _pickFromGallery() async {
     if (_isRecording || _busy) return;
-    setState(() => _busy = true);
+    // The system picker takes a moment to appear and nothing in the app can
+    // speed that up - so the tap is answered at once (haptic + spinner).
+    HapticFeedback.selectionClick();
+    setState(() {
+      _busy = true;
+      _picking = true;
+    });
     try {
       final XFile? file = await _picker.pickVideo(source: ImageSource.gallery);
       if (file == null) {
-        if (mounted) setState(() => _busy = false);
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _picking = false;
+          });
+        }
         return;
       }
       await _deliverFile(file, picked: true);
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _picking = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
           _error = 'Failed to pick video: $e';
           _busy = false;
+          _picking = false;
         });
       }
     }
@@ -1436,8 +1457,17 @@ class _XliftCameraRecorderState extends State<XliftCameraRecorder>
                             color: Colors.white.withOpacity(0.16),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(Icons.photo_library_outlined,
-                              color: Colors.white, size: 22),
+                          child: _picking
+                              ? const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2),
+                                  ),
+                                )
+                              : const Icon(Icons.photo_library_outlined,
+                                  color: Colors.white, size: 22),
                         ),
                       ),
                     ),

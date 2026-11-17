@@ -197,6 +197,16 @@ class TuningParams {
   static const double UNRACK_FIRST_REP_DEPTH_PEER_FRACTION = 0.70;
   static const double UNRACK_FIRST_REP_ABSOLUTE_MAX = 0.85;
   static const double UNRACK_ABSOLUTE_CHECK_MIN_PEER_DEPTH = 0.90;
+
+  // [v23] A bar pickup is followed by a walk-out; a real-but-shallower first
+  // rep is done on the same spot as rep 2. So rep 1 is only called an unrack
+  // if, on top of the depth conditions above, the feet (mid-ankle point)
+  // moved more than this fraction of the shoulder->ankle span between the
+  // start of rep 1 and the start of rep 2.
+  // Measured: real unracks 0.21-0.40, consecutive real reps <= 0.09.
+  // Fixes a real (just shallower) first rep being deleted on short sets.
+  // Set to 0 to disable (= v22 behavior).
+  static const double UNRACK_REQUIRE_FEET_SHIFT_FRAC = 0.15;
 }
 // ============================================================================
 
@@ -840,6 +850,36 @@ class _BackViewParams {
   // by any of this — only WHEN the already-captured rep is emitted.
   static const double TOP_RISE_EPS_PER_FRAME = 0.004;
   static const double TOP_MAX_WAIT_SEC = 1.0;
+
+  // ---------------------- [v23] ONE STANCE = ONE STANDING REFERENCE ----------------------
+  // The signal compares the torso against a "standing" reference learned on
+  // the fly. That reference is only valid while the lifter stays on the same
+  // spot: torso compression is NOT distance-invariant, so walking away from
+  // the camera shrinks the torso on screen exactly like a squat does. Clips
+  // that start with the lifter placing the phone and walking to the bar
+  // produced 1-3 phantom "good" reps before the set (reference learned from
+  // the close-up, then read as 60-70% "compressed" once he reached the bar,
+  // decaying back through SIGNAL_FINISH = a rep). Three rules keep the
+  // reference honest:
+  //
+  //  1. A frame is only usable if BOTH ankles are seen (VIS_FLOOR). The math
+  //     reads ankle coordinates; in a close-up they are out of frame.
+  //  2. FEET_MOVED_FRAC: if the mid-ankle point gets further than this
+  //     fraction of the standing shoulder->ankle span from the stance anchor,
+  //     the lifter relocated -> new stance. The anchor follows the feet
+  //     slowly (STANCE_FOLLOW_SEC) so landmark drift never accumulates.
+  //     Measured: real reps move the ankles <= 0.03, walking 0.7-1.4.
+  //  3. STANCE_LOST_RESET_SEC: no usable frame for longer than this -> the
+  //     reference is stale -> new stance.
+  //
+  // "New stance" = drop the standing references and abort a descent in
+  // progress (a rep whose down AND up were already seen is still emitted).
+  // On a clip where the lifter is in position from the first frame none of
+  // this triggers. Set FEET_MOVED_FRAC / STANCE_LOST_RESET_SEC to 0 to
+  // disable rule 2 / rule 3.
+  static const double FEET_MOVED_FRAC = 0.15;
+  static const double STANCE_FOLLOW_SEC = 2.5;
+  static const double STANCE_LOST_RESET_SEC = 0.5;
 }
 
 /// Returns the fraction (0..1) of usable frames that look front/back-facing.
@@ -935,6 +975,18 @@ Map<String, dynamic> detectBackViewReps(
   double? stdShoulderHipSpan;
   double? hipBaselineY;
 
+  // [v23] Stance tracking (see _BackViewParams "ONE STANCE = ONE STANDING
+  // REFERENCE"). stanceReset[i] marks frames where a new stance began.
+  double? stanceAnchorX;
+  double? stanceAnchorY;
+  double stanceSpan = 0.0;
+  int lastUsableIdx = -1;
+  final List<bool> stanceReset = List<bool>.filled(n, false);
+  final double stanceFollowAlpha = math.min(
+      1.0, 1.0 / math.max(1.0, _BackViewParams.STANCE_FOLLOW_SEC * fps));
+  final int stanceLostFrames =
+      math.max(2, (_BackViewParams.STANCE_LOST_RESET_SEC * fps).round());
+
   for (int i = 0; i < n; i++) {
     if (frameRejected[i] || frames[i].isEmpty || frames[i].length < 29) {
       continue;
@@ -956,6 +1008,11 @@ Map<String, dynamic> detectBackViewReps(
             rh[2] < _BackViewParams.VIS_FLOOR) ||
         (ls[2] < _BackViewParams.VIS_FLOOR &&
             rs[2] < _BackViewParams.VIS_FLOOR)) continue;
+    // [v23] Rule 1: both ankles must actually be seen. bodySpan and the
+    // stance anchor below are built from ankle coordinates, which are
+    // meaningless while the legs are out of frame (phone-placement close-up).
+    if (la[2] < _BackViewParams.VIS_FLOOR || ra[2] < _BackViewParams.VIS_FLOOR)
+      continue;
 
     final double midHipY = (lh[1] + rh[1]) / 2.0;
     final double midShoulderY = (ls[1] + rs[1]) / 2.0;
@@ -965,6 +1022,55 @@ Map<String, dynamic> detectBackViewReps(
     if (bodySpan < 1e-4) continue;
 
     final double shoulderHipSpan = (midHipY - midShoulderY).abs();
+
+    // [v23] Rule 3: the lifter was not usable for too long -> whatever the
+    // standing references describe is stale. Start a new stance.
+    if (_BackViewParams.STANCE_LOST_RESET_SEC > 0 &&
+        lastUsableIdx >= 0 &&
+        (i - lastUsableIdx) > stanceLostFrames) {
+      stanceAnchorX = null;
+      stanceAnchorY = null;
+      stdShoulderHipSpan = null;
+      hipBaselineY = null;
+      stanceReset[i] = true;
+    }
+    lastUsableIdx = i;
+
+    // [v23] Rule 2: feet relocated -> new stance.
+    if (_BackViewParams.FEET_MOVED_FRAC > 0) {
+      final double midAnkleX = (la[0] + ra[0]) / 2.0;
+      final double midAnkleY = botY;
+      final double? anchorX = stanceAnchorX;
+      final double? anchorY = stanceAnchorY;
+      if (anchorX == null || anchorY == null) {
+        stanceAnchorX = midAnkleX;
+        stanceAnchorY = midAnkleY;
+        stanceSpan = bodySpan;
+      } else {
+        // Normalize by the STANDING span: the momentary span shrinks ~35% at
+        // the bottom of a squat and would inflate the ratio mid-rep.
+        final double scale = math.max(bodySpan, stanceSpan);
+        final double dxAnkle = midAnkleX - anchorX;
+        final double dyAnkle = midAnkleY - anchorY;
+        final double moved =
+            math.sqrt(dxAnkle * dxAnkle + dyAnkle * dyAnkle) / scale;
+        if (moved > _BackViewParams.FEET_MOVED_FRAC) {
+          stanceAnchorX = midAnkleX;
+          stanceAnchorY = midAnkleY;
+          stanceSpan = bodySpan;
+          stdShoulderHipSpan = null;
+          hipBaselineY = null;
+          stanceReset[i] = true;
+        } else {
+          stanceAnchorX =
+              (1 - stanceFollowAlpha) * anchorX + stanceFollowAlpha * midAnkleX;
+          stanceAnchorY =
+              (1 - stanceFollowAlpha) * anchorY + stanceFollowAlpha * midAnkleY;
+          stanceSpan = (1 - stanceFollowAlpha) * stanceSpan +
+              stanceFollowAlpha * bodySpan;
+        }
+      }
+    }
 
     // --- Update standing references ---
     // Torso span: ratchet UP instantly (taller torso = better standing
@@ -1159,6 +1265,22 @@ Map<String, dynamic> detectBackViewReps(
     if (d == null) continue;
     final int frameNo = i + 1;
 
+    // [v23] New stance began on this frame. A rep whose bottom AND return
+    // were already seen with planted feet is complete -> emit it. Anything
+    // still on the way down was not a squat (walking / setting up) -> drop.
+    if (stanceReset[i]) {
+      if (pendingRep != null) {
+        commitRep(pendingRep!, frameNo);
+        pendingRep = null;
+      }
+      state = 'standing';
+      repMaxSig = 0.0;
+      framesDescending = 0;
+      framesReturning = 0;
+      framesAtTop = 0;
+      framesSinceFinish = 0;
+    }
+
     if (state == 'standing') {
       if (d >= _BackViewParams.SIGNAL_START) {
         framesDescending += 1;
@@ -1271,6 +1393,9 @@ Map<String, dynamic> detectBackViewReps(
         .toList(),
     'signal_max':
         signal.fold<double>(0.0, (m, v) => (v != null && v > m) ? v : m),
+    // [v23] How many times a new stance was started (lifter relocated or
+    // was lost). 0 when the lifter is in position for the whole clip.
+    'stance_resets': stanceReset.where((e) => e).length,
   };
 }
 
@@ -1346,6 +1471,20 @@ Map<String, dynamic> detectBackViewReps(
 ///    the lifter was standing still). No counting, depth, scoring or
 ///    telemetry logic changed; clips where the pose is never lost are
 ///    unaffected. New debug key: _tracker_resets.
+///
+/// v23 changes (this file) — two counting fixes, side detection untouched:
+///  - FRONT/BACK VIEW PHANTOM REPS DURING SETUP: the back-view detector's
+///    standing reference is now only valid for one stance. Frames without
+///    both ankles in view are ignored, and the reference is dropped (and a
+///    descent in progress aborted) when the feet relocate or the lifter was
+///    not usable for 0.5s. Removes the 1-3 phantom "good" reps counted while
+///    the lifter places the phone and walks to the bar. See _BackViewParams
+///    "ONE STANCE = ONE STANDING REFERENCE". New debug key:
+///    _backview_debug.stance_resets.
+///  - UNRACK CHECK NO LONGER DELETES A REAL FIRST REP: rep 1 is only removed
+///    as a bar pickup if the feet also moved between rep 1 and rep 2 (the
+///    walk-out). A first rep that is merely shallower than the next ones,
+///    done on the same spot, is kept. See UNRACK_REQUIRE_FEET_SHIFT_FRAC.
 Future<dynamic> analyzeSquatVideoAction(
   FFUploadedFile videoFile,
   double? targetFps,
@@ -1802,6 +1941,9 @@ Future<dynamic> analyzeSquatVideoAction(
 
   double? repStartHipX;
   double? repStartAnkleX;
+  // [v23] Stance at rep start, for the unrack feet-shift check.
+  double? repStartAnkleY;
+  double repStartBodySpan = 0.0;
   double repMaxHorizontalMovement = 0.0;
   double repMaxAsymmetry = 0.0;
 
@@ -1985,6 +2127,8 @@ Future<dynamic> analyzeSquatVideoAction(
       repStartFrame = frameIdx1Based;
       repStartHipX = midHip[0];
       repStartAnkleX = midAnkle[0];
+      repStartAnkleY = midAnkle[1];
+      repStartBodySpan = (midAnkle[1] - midShoulder[1]).abs();
       repMaxHorizontalMovement = 0.0;
       repMaxAsymmetry = 0.0;
       repRejectedFrameCount = 0;
@@ -2147,6 +2291,11 @@ Future<dynamic> analyzeSquatVideoAction(
         'depth_pct': depthPct,
         'top_bad_frames': repTopBadFrames,
         'bottom_bad_frames': repBottomBadFrames,
+        // [v23] Where the feet were when this rep started (normalized) and
+        // the shoulder->ankle span there. Used by the unrack check.
+        'start_ankle_x': repStartAnkleX,
+        'start_ankle_y': repStartAnkleY,
+        'start_body_span': repStartBodySpan,
       });
 
       repFeedbackByCat.forEach((cat, fb) {
@@ -2270,7 +2419,30 @@ Future<dynamic> analyzeSquatVideoAction(
       final bool failedAbsolute =
           firstRepDepth < TuningParams.UNRACK_FIRST_REP_ABSOLUTE_MAX &&
               peerMedian >= TuningParams.UNRACK_ABSOLUTE_CHECK_MIN_PEER_DEPTH;
-      if (failedRatio || failedAbsolute) {
+
+      // [v23] A bar pickup is followed by a walk-out, so the feet are in a
+      // different place when rep 2 starts. A real first rep that is merely
+      // shallower than its peers is done on the same spot -> keep it.
+      bool feetShifted = true;
+      if (TuningParams.UNRACK_REQUIRE_FEET_SHIFT_FRAC > 0) {
+        final double? x1 = (repReports[0]['start_ankle_x'] as num?)?.toDouble();
+        final double? y1 = (repReports[0]['start_ankle_y'] as num?)?.toDouble();
+        final double? x2 = (repReports[1]['start_ankle_x'] as num?)?.toDouble();
+        final double? y2 = (repReports[1]['start_ankle_y'] as num?)?.toDouble();
+        final double s1 =
+            (repReports[0]['start_body_span'] as num?)?.toDouble() ?? 0.0;
+        final double s2 =
+            (repReports[1]['start_body_span'] as num?)?.toDouble() ?? 0.0;
+        if (x1 != null && y1 != null && x2 != null && y2 != null) {
+          final double scale = math.max(math.max(s1, s2), 1e-6);
+          final double dxFeet = x1 - x2;
+          final double dyFeet = y1 - y2;
+          feetShifted = math.sqrt(dxFeet * dxFeet + dyFeet * dyFeet) / scale >
+              TuningParams.UNRACK_REQUIRE_FEET_SHIFT_FRAC;
+        }
+      }
+
+      if ((failedRatio || failedAbsolute) && feetShifted) {
         // Rep 1 is the unrack — remove it cleanly.
         //
         // Things to fix:
@@ -2413,6 +2585,7 @@ Future<dynamic> analyzeSquatVideoAction(
         'view_score': double.parse(viewScore.toStringAsFixed(3)),
         'back_count': bvCount,
         'signal_max': bv['signal_max'],
+        'stance_resets': bv['stance_resets'],
         'adopted': false,
         'signal_trace': bv['signal_trace'],
       };

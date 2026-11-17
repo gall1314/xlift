@@ -45,10 +45,17 @@ import 'package:hive_flutter/hive_flutter.dart';
 /// queues the row in the Hive box pendingTrainingPlans, which syncAllPending
 /// sends to the Supabase table training_plan.
 ///
-/// Opens on step 3 when a plan exists (edit), on step 1 otherwise. After a
-/// save or a delete it calls [onClose]; [onClose] also adds the back and
-/// close buttons. [compact], [onStart] and [onOpen] are no longer used and
-/// are only kept so existing parameter lists keep working.
+/// Two modes. With a saved plan it opens on that plan: the week board, where
+/// a workout can still be moved by hand, a "Create a new plan" button and the
+/// delete link; back leaves the page ([onClose]). "Create a new plan" - and a
+/// user with no plan yet - gets the three steps; there back goes one step
+/// back, and from step 1 it returns to the saved plan (or leaves the page
+/// when there is none). After a save or a delete it calls [onClose].
+/// [compact], [onStart] and [onOpen] are no longer used and are only kept so
+/// existing parameter lists keep working.
+///
+/// The data read for the Home screen ([snapshot]) is kept in memory, so the
+/// page opens with content instead of an empty screen and refreshes itself.
 ///
 /// Localization: reads the app language from FFLocalizations (no parameter).
 class WeekPlanner extends StatefulWidget {
@@ -364,6 +371,13 @@ const Map<String, List<String>> _kS = {
     'צריך להציב אימון אחד לפחות',
     'Platziere mindestens ein Workout',
     'Place au moins une séance'
+  ],
+  'newPlan': [
+    'Create a new plan',
+    'Crear un plan nuevo',
+    'יצירת תוכנית חדשה',
+    'Neuen Plan erstellen',
+    'Créer un nouveau plan'
   ],
   'delete': [
     'Delete plan',
@@ -992,6 +1006,10 @@ List<List<String>> _jsonSlots(dynamic raw) {
   return out;
 }
 
+/// The last data read per user. Home reads it for its plan row, so the
+/// planner can draw at once when it opens and then refresh.
+final Map<String, _Data> _kDataCache = {};
+
 Future<_Data> _loadData(String userId) async {
   final db = SQLiteManager.instance.database;
   try {
@@ -1080,8 +1098,10 @@ Future<_Data> _loadData(String userId) async {
     if (day < from) continue;
     logs.add(_Log(day, dt.millisecondsSinceEpoch, wid));
   }
-  return _Data(
+  final _Data data = _Data(
       workouts, exGroups, logs, pRows.isEmpty ? null : pRows.first, lastDone);
+  _kDataCache[userId] = data;
+  return data;
 }
 
 /// Workouts where at least half of the exercises hit an area on hold.
@@ -1299,6 +1319,12 @@ class _WeekPlannerState extends State<WeekPlanner> {
   // A week arranged by hand: weekday -> workout id. null = automatic.
   Map<int, String>? _manual;
   int _step = 1;
+  // true = showing the saved plan; false = building one step by step.
+  bool _view = false;
+  // The saved plan can be shown (a plan exists and still has workouts).
+  bool _hasSaved = false;
+  // The board was changed by hand since it was opened.
+  bool _dirty = false;
   // What is picked up by a tap: 's<slot index>' or 'd<weekday>'.
   String? _arm;
   String _query = '';
@@ -1312,6 +1338,13 @@ class _WeekPlannerState extends State<WeekPlanner> {
   @override
   void initState() {
     super.initState();
+    // Draw at once from what Home already read, then refresh.
+    final _Data? cached = _kDataCache[widget.userId];
+    if (cached != null) {
+      _data = cached;
+      _ready = true;
+      _startFrom(cached);
+    }
     _load();
   }
 
@@ -1341,8 +1374,16 @@ class _WeekPlannerState extends State<WeekPlanner> {
     }
     if (!mounted || token != _token) return;
     setState(() {
+      // The plan itself changed since the copy that was drawn first (saved or
+      // deleted elsewhere): show the real one, unless the user already
+      // started working on this screen.
+      final _Data? old = _data;
+      final bool rowChanged = old != null &&
+          ((old.row == null) != (d.row == null) ||
+              (old.row?['updated_at'] ?? '').toString() !=
+                  (d.row?['updated_at'] ?? '').toString());
       _data = d;
-      if (!_ready) {
+      if (!_ready || (rowChanged && _view && !_dirty)) {
         _ready = true;
         _startFrom(d);
       }
@@ -1411,6 +1452,31 @@ class _WeekPlannerState extends State<WeekPlanner> {
     _saved = false;
     _sure = false;
     _step = editing ? 3 : 1;
+    _view = editing;
+    _hasSaved = editing;
+    _dirty = false;
+  }
+
+  /// "Create a new plan": the three steps, starting from the current
+  /// settings. Nothing is stored until the last step is saved.
+  void _startNew() {
+    _tap();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _view = false;
+      _step = 1;
+      _arm = null;
+      _sure = false;
+      _saved = false;
+    });
+  }
+
+  /// Back from step 1 of a new plan: drop the draft, show the saved plan.
+  void _backToSaved() {
+    final _Data? d = _data;
+    if (d == null) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _startFrom(d));
   }
 
   Map<String, List<int>> _exMap() {
@@ -1572,6 +1638,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
       _arm = null;
       _saved = false;
       _sure = false;
+      _dirty = true;
     });
   }
 
@@ -1667,6 +1734,8 @@ class _WeekPlannerState extends State<WeekPlanner> {
       await SQLiteManager.instance.database
           .rawDelete('DELETE FROM training_plan WHERE id = ?', [widget.userId]);
     } catch (_) {}
+    // The copy kept in memory still holds the deleted plan.
+    _kDataCache.remove(widget.userId);
     // The cloud queue only upserts, so a deleted plan goes up as an empty
     // one (no workouts); restoreAllFromCloud skips empty plans.
     await _queuePlan(widget.userId, <String, dynamic>{
@@ -1869,31 +1938,53 @@ class _WeekPlannerState extends State<WeekPlanner> {
 
   Widget _header(BuildContext context, _Pal p) {
     final bool canClose = widget.onClose != null;
+    // The saved plan: back leaves the page. No steps here.
+    if (_view) {
+      return SizedBox(
+        height: 40,
+        child: Row(
+          children: [
+            if (canClose)
+              _circle(p, Icons.arrow_back_ios_new_rounded, () {
+                _tap();
+                widget.onClose?.call();
+              }),
+            const Spacer(),
+          ],
+        ),
+      );
+    }
+    // Building a plan: back goes one step back; from step 1 it returns to
+    // the saved plan, or leaves the page when there is none.
+    final bool loading = _data == null;
     return SizedBox(
       height: 40,
       child: Row(
         children: [
-          if (_step > 1 || canClose)
+          if (_step > 1 || _hasSaved || canClose)
             _circle(p, Icons.arrow_back_ios_new_rounded, () {
               _tap();
               if (_step > 1) {
                 _go(_step - 1);
+              } else if (_hasSaved) {
+                _backToSaved();
               } else {
                 widget.onClose?.call();
               }
             }),
           const Spacer(),
-          for (int i = 1; i <= 3; i++)
-            Container(
-              width: 22,
-              height: 4,
-              margin: EdgeInsetsDirectional.only(start: i == 1 ? 0 : 5),
-              decoration: BoxDecoration(
-                color: i <= _step ? p.primary : p.line,
-                borderRadius: BorderRadius.circular(2),
+          if (!loading)
+            for (int i = 1; i <= 3; i++)
+              Container(
+                width: 22,
+                height: 4,
+                margin: EdgeInsetsDirectional.only(start: i == 1 ? 0 : 5),
+                decoration: BoxDecoration(
+                  color: i <= _step ? p.primary : p.line,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-          if (canClose && _step > 1) ...[
+          if (canClose && (_step > 1 || _hasSaved)) ...[
             const SizedBox(width: 14),
             _circle(p, Icons.close_rounded, () {
               _tap();
@@ -2626,6 +2717,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
                   _manual = null;
                   _arm = null;
                   _saved = false;
+                  _dirty = true;
                 });
               },
               behavior: HitTestBehavior.opaque,
@@ -2641,6 +2733,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
                   _cfg.layout++;
                   _arm = null;
                   _saved = false;
+                  _dirty = true;
                 });
               },
               behavior: HitTestBehavior.opaque,
@@ -2680,13 +2773,19 @@ class _WeekPlannerState extends State<WeekPlanner> {
         ...rows,
       ]),
       const SizedBox(height: 14),
-      _pill(
-        context,
-        p,
-        _tr(lang, _saved ? 'saved' : (cnt > 0 ? 'save' : 'place1')),
-        (cnt > 0 && !_saved) ? () => _save(first) : null,
-      ),
-      if (hasRow)
+      // The saved plan: "Save" appears only after the board was changed.
+      if (!_view || _dirty || _saved)
+        _pill(
+          context,
+          p,
+          _tr(lang, _saved ? 'saved' : (cnt > 0 ? 'save' : 'place1')),
+          (cnt > 0 && !_saved) ? () => _save(first) : null,
+        ),
+      if (_view) ...[
+        if (_dirty || _saved) const SizedBox(height: 10),
+        _pill(context, p, _tr(lang, 'newPlan'), _startNew, filled: false),
+      ],
+      if (hasRow && _view)
         Center(
           child: GestureDetector(
             onTap: () {
@@ -2717,6 +2816,19 @@ class _WeekPlannerState extends State<WeekPlanner> {
     final _Pal p = _Pal(FlutterFlowTheme.of(context));
     final _Data? d = _data;
     final List<Widget> kids = [_header(context, p)];
+    if (d == null) {
+      // First open before anything was read: a loader, not an empty screen.
+      kids.add(Padding(
+        padding: const EdgeInsets.only(top: 120),
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(color: p.primary, strokeWidth: 2),
+          ),
+        ),
+      ));
+    }
     if (d != null) {
       if (d.workouts.isEmpty) {
         kids.add(const SizedBox(height: 14));
@@ -2744,7 +2856,7 @@ class _WeekPlannerState extends State<WeekPlanner> {
             );
           },
           child: Column(
-            key: ValueKey<int>(_step),
+            key: ValueKey<String>((_view ? 'v' : 's') + _step.toString()),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: body,
