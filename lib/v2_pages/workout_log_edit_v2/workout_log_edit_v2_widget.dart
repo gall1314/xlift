@@ -157,6 +157,7 @@ class _WorkoutLogEditV2WidgetState extends State<WorkoutLogEditV2Widget> {
                     FFAppState().loggedSetsCreation = [];
                     FFAppState().dropSetsCreation = [];
                     FFAppState().restTimerCreation = null;
+                    FFAppState().warmUpCreation = [];
                     safeSetState(() {});
                     context.safePop();
                   },

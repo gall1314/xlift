@@ -95,7 +95,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
               width: MediaQuery.sizeOf(context).width * 1.0,
               height: MediaQuery.sizeOf(context).height * 1.0,
               workoutName: _model.workoutName,
-              showCameraGuidance: false,
+              showCameraGuidance: FFAppState().ShowGuidenc,
               mode: 'template',
               onBack: () async {
                 FFAppState().completedExercisesCreation = [];
@@ -103,6 +103,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                 FFAppState().loggedSetsCreation = [];
                 FFAppState().dropSetsCreation = [];
                 FFAppState().restTimerCreation = null;
+                FFAppState().warmUpCreation = [];
                 safeSetState(() {});
 
                 context.goNamed(MasterPageWidget.routeName);
@@ -142,6 +143,11 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                     'workoutName': serializeParam(
                       _model.workoutName,
                       ParamType.String,
+                    ),
+                    'alreadySelceted': serializeParam(
+                      FFAppState().exerciseSetsCreation,
+                      ParamType.JSON,
+                      isList: true,
                     ),
                   }.withoutNulls,
                 );
@@ -333,7 +339,10 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
               onUnitChanged: (isKg) async {},
               onStartRest:
                   (exerciseId, exerciseName, setNumber, restMs) async {},
-              onDontShowAgain: () async {},
+              onDontShowAgain: () async {
+                FFAppState().ShowGuidenc = false;
+                safeSetState(() {});
+              },
             ),
           ),
         ),

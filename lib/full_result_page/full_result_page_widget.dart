@@ -130,7 +130,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
             },
           ),
           title: Text(
-            '${widget.exerciseName} Analysis Completed',
+            '${functions.localizedName(widget.exerciseName, '')} Analysis Completed',
             style: FlutterFlowTheme.of(context).titleMedium.override(
                   font: GoogleFonts.interTight(
                     fontWeight:
@@ -874,7 +874,7 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
               child: Builder(
                 builder: (context) => Padding(
                   padding:
-                      EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 16.0),
+                      EdgeInsetsDirectional.fromSTEB(16.0, 0.0, 16.0, 24.0),
                   child: FFButtonWidget(
                     onPressed: () async {
                       if (FFAppState().workout) {

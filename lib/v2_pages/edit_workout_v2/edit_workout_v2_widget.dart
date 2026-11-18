@@ -130,6 +130,7 @@ class _EditWorkoutV2WidgetState extends State<EditWorkoutV2Widget> {
                 FFAppState().loggedSetsCreation = [];
                 FFAppState().dropSetsCreation = [];
                 FFAppState().restTimerCreation = null;
+                FFAppState().warmUpCreation = [];
                 safeSetState(() {});
 
                 context.goNamed(

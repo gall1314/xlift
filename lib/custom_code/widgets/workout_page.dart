@@ -39,6 +39,8 @@ import '/auth/supabase_auth/auth_util.dart';
 //
 // Callbacks (navigation only):
 //   onBack(), onFinish(workoutName, workoutDate, durationMs), onAddExercises()
+//   (create / edit: with unsaved changes the page asks first, and onBack runs
+//    only after "leave without saving")
 //   onHeaderTap(exerciseId), onCustomHeaderTap(exerciseId), onReplaceExercise(exerciseId),
 //   onSupersetTap(exerciseId), onViewHistory(exerciseId),
 //   onReorder(), onRemoveExercise(exerciseId)
@@ -305,6 +307,35 @@ const Map<String, Map<String, String>> _kStrings = {
     "he": "אישור",
     "de": "Übernehmen",
     "fr": "Valider"
+  },
+  // Leaving create / edit with unsaved changes
+  "discardTitle": {
+    "en": "Leave without saving?",
+    "es": "¿Salir sin guardar?",
+    "he": "לצאת בלי לשמור?",
+    "de": "Ohne Speichern verlassen?",
+    "fr": "Quitter sans enregistrer ?"
+  },
+  "discardBody": {
+    "en": "The changes made here will be lost.",
+    "es": "Los cambios hechos aquí se perderán.",
+    "he": "השינויים שנעשו כאן לא יישמרו.",
+    "de": "Die Änderungen hier gehen verloren.",
+    "fr": "Les modifications faites ici seront perdues."
+  },
+  "discardYes": {
+    "en": "Leave without saving",
+    "es": "Salir sin guardar",
+    "he": "יציאה בלי שמירה",
+    "de": "Ohne Speichern verlassen",
+    "fr": "Quitter sans enregistrer"
+  },
+  "discardNo": {
+    "en": "Keep editing",
+    "es": "Seguir editando",
+    "he": "המשך עריכה",
+    "de": "Weiter bearbeiten",
+    "fr": "Continuer"
   },
 };
 
@@ -728,6 +759,123 @@ class _WorkoutPageState extends State<WorkoutPage> {
     if (mounted) setState(() {});
   }
 
+  // ---------- leaving create / edit: confirm when there are changes ----------
+
+  /// False until the first touch on the page. Until then every App State
+  /// change is the page loading its data, so the baseline follows it.
+  bool _touched = false;
+  String _baseline = '';
+  bool _leaving = false;
+
+  /// Everything the page can change, as one comparable string.
+  String _signature() {
+    final s = FFAppState();
+    return [
+      s.exerciseSetsCreation.toString(),
+      s.loggedSetsCreation.toString(),
+      s.dropSetsCreation.toString(),
+      s.warmUpCreation.toString(),
+      s.restTimerCreation.toString(),
+      s.completedExercisesCreation.toString(),
+      _nameCtrl.text.trim(),
+      _date == null ? '' : _date!.toIso8601String(),
+      _minutes == null ? '' : _minutes.toString(),
+    ].join('|#|');
+  }
+
+  bool get _dirty {
+    if (_live) return false;
+    // a new workout: anything in it is unsaved work
+    if (_tpl && !_tplEdit) {
+      return _ids.isNotEmpty || _nameCtrl.text.trim().isNotEmpty;
+    }
+    return _touched && _signature() != _baseline;
+  }
+
+  /// The back button. Live workout: straight to onBack. Create / edit:
+  /// asks first when something changed, and calls onBack only on "leave".
+  Future<void> _handleBack() async {
+    if (_leaving) return;
+    if (_dirty) {
+      FocusScope.of(context).unfocus();
+      final bool leave = await _confirmDiscard();
+      if (!leave || !mounted) return;
+    }
+    _leaving = true;
+    try {
+      await widget.onBack?.call();
+    } finally {
+      _leaving = false;
+    }
+  }
+
+  Future<bool> _confirmDiscard() async {
+    final String lang = _langOf(context);
+    final bool rtl = _kRtl.contains(lang);
+    final bool? res = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      barrierColor: Colors.black.withOpacity(0.55),
+      builder: (dctx) {
+        final th = FlutterFlowTheme.of(dctx);
+        return Directionality(
+          textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+          child: Dialog(
+            elevation: 0,
+            backgroundColor: th.secondaryBackground,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_tr(lang, 'discardTitle'),
+                      textAlign: TextAlign.center,
+                      style: _ts(th, 19, FontWeight.w700, th.primaryText)),
+                  const SizedBox(height: 8),
+                  Text(_tr(lang, 'discardBody'),
+                      textAlign: TextAlign.center,
+                      style: _ts(th, 15, FontWeight.w400, th.secondaryText)),
+                  const SizedBox(height: 22),
+                  _Tap(
+                    onTap: () => Navigator.of(dctx).pop(false),
+                    child: Container(
+                      height: 52,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: th.primary,
+                          borderRadius: BorderRadius.circular(16)),
+                      child: Text(_tr(lang, 'discardNo'),
+                          style: _ts(th, 16, FontWeight.w700, Colors.white)),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _Tap(
+                    onTap: () => Navigator.of(dctx).pop(true),
+                    child: Container(
+                      height: 52,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                          color: th.primaryBackground,
+                          borderRadius: BorderRadius.circular(16)),
+                      child: Text(_tr(lang, 'discardYes'),
+                          style: _ts(th, 16, FontWeight.w600, th.error)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    return res == true;
+  }
+
   // ---------- log-edit: date + duration ----------
 
   DateTime? _date;
@@ -808,6 +956,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final ids = _ids;
     _warm(ids); // exercises added since the last build
+    // still loading (nobody touched the page yet): this is the saved state
+    if (!_live && !_touched) _baseline = _signature();
     final double progress = _progress;
     final bool canFinish = progress > 0;
     final Color border =
@@ -832,7 +982,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     String ltr(Object v) => '⁦$v⁩';
 
     final Widget backButton = _Tap(
-      onTap: () => widget.onBack?.call(),
+      onTap: () => _handleBack(),
       child: Container(
         width: 44,
         height: 44,
@@ -1264,162 +1414,168 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
     return Directionality(
       textDirection: rtl ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-      child: Container(
-        width: widget.width,
-        height: widget.height,
-        color: theme.primaryBackground,
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  CustomScrollView(
-                    controller: _scroll,
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    // cards are tall and their height depends on their content:
-                    // keeping a screenful alive on either side stops the list
-                    // from re-measuring (and shifting) when you scroll back
-                    cacheExtent: 1400,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverPadding(
-                        padding: EdgeInsets.fromLTRB(
-                            16, headerMaxH + 4, 16, 28 + bottomInset),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (ctx, raw) {
-                              if ((_edit || _tpl) && raw == 0) {
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _touched = true,
+        child: Container(
+          width: widget.width,
+          height: widget.height,
+          color: theme.primaryBackground,
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    CustomScrollView(
+                      controller: _scroll,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      // cards are tall and their height depends on their content:
+                      // keeping a screenful alive on either side stops the list
+                      // from re-measuring (and shifting) when you scroll back
+                      cacheExtent: 1400,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                              16, headerMaxH + 4, 16, 28 + bottomInset),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (ctx, raw) {
+                                if ((_edit || _tpl) && raw == 0) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: _edit ? detailsBlock : nameBlock,
+                                  );
+                                }
+                                final int i = (_edit || _tpl) ? raw - 1 : raw;
+                                if (i == ids.length) {
+                                  // Nothing added yet: only the placeholder lives in the
+                                  // list - the button is pinned to the bottom of the page.
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                        top: ids.isEmpty
+                                            ? mq.size.height * 0.10
+                                            : 8),
+                                    child: Column(
+                                      children: [
+                                        if (ids.isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.fromLTRB(
+                                                24, 24, 24, 28),
+                                            child: Column(
+                                              children: [
+                                                Container(
+                                                  width: 88,
+                                                  height: 88,
+                                                  alignment: Alignment.center,
+                                                  decoration: BoxDecoration(
+                                                    color: theme.primary
+                                                        .withOpacity(0.10),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Icon(
+                                                      Icons
+                                                          .fitness_center_rounded,
+                                                      size: 38,
+                                                      color: theme.primary),
+                                                ),
+                                                const SizedBox(height: 18),
+                                                Text(_tr(lang, 'empty'),
+                                                    textAlign: TextAlign.center,
+                                                    style: _ts(
+                                                        theme,
+                                                        19,
+                                                        FontWeight.w700,
+                                                        theme.primaryText)),
+                                                const SizedBox(height: 6),
+                                                Text(_tr(lang, 'emptySub'),
+                                                    textAlign: TextAlign.center,
+                                                    style: _ts(
+                                                        theme,
+                                                        15,
+                                                        FontWeight.w400,
+                                                        theme.secondaryText)),
+                                              ],
+                                            ),
+                                          ),
+                                        if (ids.isNotEmpty) addButton,
+                                      ],
+                                    ),
+                                  );
+                                }
+                                final int id = ids[i];
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 16),
-                                  child: _edit ? detailsBlock : nameBlock,
-                                );
-                              }
-                              final int i = (_edit || _tpl) ? raw - 1 : raw;
-                              if (i == ids.length) {
-                                // Nothing added yet: only the placeholder lives in the
-                                // list - the button is pinned to the bottom of the page.
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                      top: ids.isEmpty
-                                          ? mq.size.height * 0.10
-                                          : 8),
-                                  child: Column(
-                                    children: [
-                                      if (ids.isEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                              24, 24, 24, 28),
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                width: 88,
-                                                height: 88,
-                                                alignment: Alignment.center,
-                                                decoration: BoxDecoration(
-                                                  color: theme.primary
-                                                      .withOpacity(0.10),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                    Icons
-                                                        .fitness_center_rounded,
-                                                    size: 38,
-                                                    color: theme.primary),
-                                              ),
-                                              const SizedBox(height: 18),
-                                              Text(_tr(lang, 'empty'),
-                                                  textAlign: TextAlign.center,
-                                                  style: _ts(
-                                                      theme,
-                                                      19,
-                                                      FontWeight.w700,
-                                                      theme.primaryText)),
-                                              const SizedBox(height: 6),
-                                              Text(_tr(lang, 'emptySub'),
-                                                  textAlign: TextAlign.center,
-                                                  style: _ts(
-                                                      theme,
-                                                      15,
-                                                      FontWeight.w400,
-                                                      theme.secondaryText)),
-                                            ],
-                                          ),
-                                        ),
-                                      if (ids.isNotEmpty) addButton,
-                                    ],
+                                  child: ExerciseCard(
+                                    key: ValueKey('exercise_$id'),
+                                    exerciseId: id,
+                                    isLiveWorkout: _live,
+                                    isLogEdit: _edit,
+                                    isTemplate: _tpl,
+                                    exerciseCount: ids.length,
+                                    showCameraGuidance:
+                                        widget.showCameraGuidance,
+                                    onHeaderTap: () async =>
+                                        widget.onHeaderTap?.call(id),
+                                    onCustomHeaderTap: () async =>
+                                        widget.onCustomHeaderTap?.call(id),
+                                    onReplaceExercise: () async =>
+                                        widget.onReplaceExercise?.call(id),
+                                    onSupersetTap: () async =>
+                                        widget.onSupersetTap?.call(id),
+                                    onViewHistory: () async =>
+                                        widget.onViewHistory?.call(id),
+                                    onCustomViewHistory: () async =>
+                                        widget.onCustomViewHistory?.call(id),
+                                    onReorder: () async =>
+                                        widget.onReorder?.call(),
+                                    onRemoveExercise: () async =>
+                                        widget.onRemoveExercise?.call(id),
+                                    onResultTap: (name, setNumber, video,
+                                            setLogId) async =>
+                                        widget.onResultTap?.call(id, name,
+                                            setNumber, video, setLogId),
+                                    onLockTap: () async =>
+                                        widget.onLockTap?.call(),
+                                    onUnitChanged: widget.onUnitChanged,
+                                    onStartRest: widget.onStartRest,
+                                    onDontShowAgain: widget.onDontShowAgain,
                                   ),
                                 );
-                              }
-                              final int id = ids[i];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 16),
-                                child: ExerciseCard(
-                                  key: ValueKey('exercise_$id'),
-                                  exerciseId: id,
-                                  isLiveWorkout: _live,
-                                  isLogEdit: _edit,
-                                  isTemplate: _tpl,
-                                  exerciseCount: ids.length,
-                                  showCameraGuidance: widget.showCameraGuidance,
-                                  onHeaderTap: () async =>
-                                      widget.onHeaderTap?.call(id),
-                                  onCustomHeaderTap: () async =>
-                                      widget.onCustomHeaderTap?.call(id),
-                                  onReplaceExercise: () async =>
-                                      widget.onReplaceExercise?.call(id),
-                                  onSupersetTap: () async =>
-                                      widget.onSupersetTap?.call(id),
-                                  onViewHistory: () async =>
-                                      widget.onViewHistory?.call(id),
-                                  onCustomViewHistory: () async =>
-                                      widget.onCustomViewHistory?.call(id),
-                                  onReorder: () async =>
-                                      widget.onReorder?.call(),
-                                  onRemoveExercise: () async =>
-                                      widget.onRemoveExercise?.call(id),
-                                  onResultTap: (name, setNumber, video,
-                                          setLogId) async =>
-                                      widget.onResultTap?.call(
-                                          id, name, setNumber, video, setLogId),
-                                  onLockTap: () async =>
-                                      widget.onLockTap?.call(),
-                                  onUnitChanged: widget.onUnitChanged,
-                                  onStartRest: widget.onStartRest,
-                                  onDontShowAgain: widget.onDontShowAgain,
-                                ),
-                              );
-                            },
-                            childCount: ids.length + ((_edit || _tpl) ? 2 : 1),
+                              },
+                              childCount:
+                                  ids.length + ((_edit || _tpl) ? 2 : 1),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  // The header, over the list. Only it listens: folding it
-                  // or drawing its hairline never rebuilds the list.
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: AnimatedBuilder(
-                      animation: Listenable.merge([_compact, _scrolled]),
-                      builder: (_, __) =>
-                          buildHeader(_compact.value, _scrolled.value),
+                      ],
                     ),
-                  ),
-                ],
+                    // The header, over the list. Only it listens: folding it
+                    // or drawing its hairline never rebuilds the list.
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: AnimatedBuilder(
+                        animation: Listenable.merge([_compact, _scrolled]),
+                        builder: (_, __) =>
+                            buildHeader(_compact.value, _scrolled.value),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            // Empty workout: "Add Exercises" sits where a floating button
-            // would, so the page reads as full. It steps aside for the
-            // keyboard (typing the workout's name).
-            if (ids.isEmpty && keyboard == 0)
-              Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, safeBottom + 12),
-                child: addButton,
-              ),
-          ],
+              // Empty workout: "Add Exercises" sits where a floating button
+              // would, so the page reads as full. It steps aside for the
+              // keyboard (typing the workout's name).
+              if (ids.isEmpty && keyboard == 0)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, safeBottom + 12),
+                  child: addButton,
+                ),
+            ],
+          ),
         ),
       ),
     );
