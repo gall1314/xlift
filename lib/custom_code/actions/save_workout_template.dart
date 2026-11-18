@@ -29,7 +29,11 @@ import 'xlift_log_add.dart';
 ///
 /// GUARANTEE: ALWAYS returns a JSON map - never throws, never leaves
 /// the Action Output empty (inner/outer/last-resort shields).
-/// Returns JSON: { success, workoutId, name, exercises, sets, debug }.
+/// Returns JSON:
+/// { success, message, workoutId, name, exercises, sets, warmups, drops,
+///   debug }. `message` is one readable line for a Snack Bar ($.message);
+/// `warmups` / `drops` say how many of the saved sets were warm-up / drop
+/// sets.
 Future<dynamic> saveWorkoutTemplate(
   String? workoutName,
   String userId,
@@ -70,6 +74,12 @@ Future<dynamic> saveWorkoutTemplate(
         'hang=$hangSuspect type=$type: $msg');
     return {
       'success': false,
+      'message': 'saveWorkoutTemplate FAILED | at: ' +
+          (failedAt ?? stage) +
+          ' | ' +
+          type +
+          ': ' +
+          msg,
       'workoutId': workoutId,
       'name': '',
       'error': msg,
@@ -412,7 +422,12 @@ Future<dynamic> saveWorkoutTemplate(
             'isDropSet': 0,
             'dropNumber': null,
             'targetReps': toInt(s['targetReps']),
-            'weighted': toFlag(s['weighted']),
+            // a warm-up set made in the builder carries no flag: it follows
+            // the exercise, so it is saved as weighted (same default as the
+            // set table uses for a missing flag)
+            'weighted': (rowIsWarmup == 1 || s['weighted'] == null)
+                ? 1
+                : toFlag(s['weighted']),
             'isWarmup': rowIsWarmup,
             'durationSeconds': toInt(s['durationSeconds']),
           };
@@ -495,6 +510,8 @@ Future<dynamic> saveWorkoutTemplate(
 
       // ---- exercise_sets ----
       int savedSets = 0;
+      int savedWarmups = 0;
+      int savedDrops = 0;
       for (final row in merged) {
         final String setId = uuid();
         final String tag = 'ex=${row['exerciseId']} n=${row['setNumber']} '
@@ -536,6 +553,8 @@ Future<dynamic> saveWorkoutTemplate(
                   'duration_seconds': row['durationSeconds'],
                 }));
         savedSets++;
+        if (row['isWarmup'] == 1) savedWarmups++;
+        if (row['isDropSet'] == 1) savedDrops++;
       }
       mark('exercise_sets($savedSets)');
 
@@ -544,10 +563,24 @@ Future<dynamic> saveWorkoutTemplate(
           'sets=$savedSets total=${sw.elapsedMilliseconds}ms');
       return {
         'success': true,
+        'message': 'Saved "' +
+            name +
+            '": ' +
+            savedExercises.toString() +
+            ' exercises, ' +
+            savedSets.toString() +
+            ' sets (warm-ups ' +
+            savedWarmups.toString() +
+            ', drops ' +
+            savedDrops.toString() +
+            ') | warm-up entries received: ' +
+            (warmupList == null ? 'null' : warmupList.length.toString()),
         'workoutId': workoutId,
         'name': name,
         'exercises': savedExercises,
         'sets': savedSets,
+        'warmups': savedWarmups,
+        'drops': savedDrops,
         'ms': sw.elapsedMilliseconds,
         'debug': debugBlock(null, null),
       };

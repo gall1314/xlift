@@ -632,7 +632,12 @@ Future<dynamic> _updateWorkoutTemplateRun(
             'isDropSet': 0,
             'dropNumber': null,
             'targetReps': toInt(s['targetReps']),
-            'weighted': toFlag(s['weighted']),
+            // a warm-up set made in the builder carries no flag: it follows
+            // the exercise, so it is saved as weighted (same default as the
+            // set table uses for a missing flag)
+            'weighted': (rowIsWarmup == 1 || s['weighted'] == null)
+                ? 1
+                : toFlag(s['weighted']),
             'isWarmup': rowIsWarmup,
             'durationSeconds': toInt(s['durationSeconds']),
           };

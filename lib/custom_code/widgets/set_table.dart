@@ -1971,10 +1971,14 @@ class _SetTableState extends State<SetTable> {
     final bool done = !_tpl && _truthy(w['isDone']);
     final int? reps = _asIntN(w['reps']);
     final double? weight = _asDoubleN(w['weight']);
+    // Locked only when the whole exercise is set to "no weight". One
+    // unweighted row (a warm-up row that reached the list) must not lock it.
+    final List<_TplSet> tplSets = _template;
     final bool canWeight = !widget.isTimed &&
         (widget.isBodyweight ||
             widget.allowsBodyweight ||
-            !_template.any((t) => !t.weighted));
+            tplSets.isEmpty ||
+            tplSets.any((t) => t.weighted));
     final Color flame = const Color(0xFF38BDF8);
 
     final Widget row = SizedBox(

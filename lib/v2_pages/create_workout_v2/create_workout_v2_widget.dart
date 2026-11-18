@@ -110,7 +110,7 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
               },
               onFinish: (workoutName, workoutDate, durationMs) async {
                 _model.saveCopy2 = await actions.saveWorkoutTemplate(
-                  _model.workoutName,
+                  workoutName,
                   currentUserUid,
                   _model.selected.toList(),
                   FFAppState().exerciseSetsCreation.toList(),
@@ -126,7 +126,15 @@ class _CreateWorkoutV2WidgetState extends State<CreateWorkoutV2Widget> {
                 FFAppState().exerciseSetsCreation = [];
                 safeSetState(() {});
 
-                context.pushNamed(MasterPageWidget.routeName);
+                context.pushNamed(
+                  MasterPageWidget.routeName,
+                  queryParameters: {
+                    'initialTab': serializeParam(
+                      4,
+                      ParamType.int,
+                    ),
+                  }.withoutNulls,
+                );
 
                 await actions.syncAllPending();
 
