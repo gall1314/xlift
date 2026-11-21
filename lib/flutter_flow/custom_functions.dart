@@ -8778,3 +8778,50 @@ dynamic getSetAnalysis(
   }
   return null;
 }
+
+String analysisPageTitle(
+  String exerciseName,
+  String languageCode,
+) {
+  // Title of the analysis page, e.g. "Barbell Back Squat Analysis Completed".
+  // exerciseName may be the raw name from the exercise table (the JSON with
+  // all languages) or plain text; localizedName picks the right language.
+  final String lang = (languageCode ?? '').trim().toLowerCase();
+  String name = (exerciseName ?? '').trim();
+  if (name.isNotEmpty) {
+    try {
+      final dynamic n = localizedName(name, lang.isEmpty ? 'en' : lang);
+      if (n != null && n.toString().trim().isNotEmpty) {
+        name = n.toString().trim();
+      }
+    } catch (_) {}
+  }
+
+  if (name.isEmpty) {
+    switch (lang) {
+      case 'he':
+        return 'הניתוח הושלם';
+      case 'es':
+        return 'Análisis completado';
+      case 'de':
+        return 'Analyse abgeschlossen';
+      case 'fr':
+        return 'Analyse terminée';
+      default:
+        return 'Analysis Completed';
+    }
+  }
+
+  switch (lang) {
+    case 'he':
+      return 'ניתוח ' + name + ' הושלם';
+    case 'es':
+      return 'Análisis de ' + name + ' completado';
+    case 'de':
+      return name + ': Analyse abgeschlossen';
+    case 'fr':
+      return 'Analyse de ' + name + ' terminée';
+    default:
+      return name + ' Analysis Completed';
+  }
+}

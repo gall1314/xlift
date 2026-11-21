@@ -130,7 +130,8 @@ class _FullResultPageWidgetState extends State<FullResultPageWidget> {
             },
           ),
           title: Text(
-            '${functions.localizedName(widget.exerciseName, '')} Analysis Completed',
+            functions.analysisPageTitle(widget.exerciseName!,
+                FFLocalizations.of(context).languageCode),
             style: FlutterFlowTheme.of(context).titleMedium.override(
                   font: GoogleFonts.interTight(
                     fontWeight:
