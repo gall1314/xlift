@@ -1052,65 +1052,78 @@ class _ProfileEditViewState extends State<ProfileEditView> {
       padding: EdgeInsets.fromLTRB(16, top + 6, 16, 10),
       child: SizedBox(
         height: 44,
-        child: NavigationToolbar(
-          centerMiddle: true,
-          middleSpacing: 10,
-          leading: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              FocusScope.of(context).unfocus();
-              HapticFeedback.selectionClick();
-              widget.onBack?.call();
-            },
-            child: Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: th.secondaryBackground,
-                shape: BoxShape.circle,
-                border: Border.all(color: th.alternate),
-              ),
-              child: Directionality(
-                textDirection: ui.TextDirection.ltr,
-                child: Icon(
-                    rtl
-                        ? Icons.chevron_right_rounded
-                        : Icons.chevron_left_rounded,
-                    size: 26,
-                    color: th.primaryText),
+        // Back and Save sit at the two ends; the title is centred on the
+        // page, not between them. (In a Row the Save pill is as wide as its
+        // label - a toolbar slot let it stretch over the whole header.)
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 100),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(_tr(lang, "title"),
+                    maxLines: 1,
+                    style: _st(16, FontWeight.w600, th.primaryText)),
               ),
             ),
-          ),
-          middle: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(_tr(lang, "title"),
-                maxLines: 1, style: _st(16, FontWeight.w600, th.primaryText)),
-          ),
-          trailing: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _saving ? null : _save,
-            child: Container(
-              height: 44,
-              constraints: const BoxConstraints(minWidth: 84),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: th.primary,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2.4, color: Colors.white),
-                    )
-                  : Text(_tr(lang, "save"),
-                      maxLines: 1,
-                      style: _st(15, FontWeight.w700, Colors.white)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    FocusScope.of(context).unfocus();
+                    HapticFeedback.selectionClick();
+                    widget.onBack?.call();
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: th.secondaryBackground,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: th.alternate),
+                    ),
+                    child: Directionality(
+                      textDirection: ui.TextDirection.ltr,
+                      child: Icon(
+                          rtl
+                              ? Icons.chevron_right_rounded
+                              : Icons.chevron_left_rounded,
+                          size: 26,
+                          color: th.primaryText),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _saving ? null : _save,
+                  child: Container(
+                    height: 44,
+                    constraints: const BoxConstraints(minWidth: 84),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: th.primary,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.4, color: Colors.white),
+                          )
+                        : Text(_tr(lang, "save"),
+                            maxLines: 1,
+                            style: _st(15, FontWeight.w700, Colors.white)),
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
       ),
     );

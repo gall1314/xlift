@@ -5,6 +5,7 @@ import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
 import '/flutter_flow/flutter_flow_widgets.dart';
 import '/custom_code/actions/index.dart' as actions;
+import '/custom_code/widgets/index.dart' as custom_widgets;
 import '/flutter_flow/custom_functions.dart' as functions;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -759,6 +760,20 @@ class _Analyze2AppWidgetState extends State<Analyze2AppWidget> {
                     width: 1.0,
                   ),
                   borderRadius: BorderRadius.circular(12.0),
+                ),
+              ),
+              Container(
+                width: MediaQuery.sizeOf(context).width * 1.0,
+                height: 44.0,
+                child: custom_widgets.AnalysisReportButton(
+                  width: MediaQuery.sizeOf(context).width * 1.0,
+                  height: 44.0,
+                  exerciseName: widget.exercise,
+                  analysis: functions.getSetAnalysis(
+                      FFAppState().workoutAnalysisState.toList(),
+                      widget.exerciseId!.toDouble(),
+                      widget.setNumber!),
+                  onReported: () async {},
                 ),
               ),
             ].divide(SizedBox(height: 20.0)),

@@ -8746,3 +8746,35 @@ String equipmentLabel(
   if (row == null) return raw;
   return row[lang] ?? row["en"] ?? raw;
 }
+
+dynamic getSetAnalysis(
+  List<dynamic> analysisList,
+  double exerciseId,
+  int setNumber,
+) {
+// The whole analysis of one set, exactly as the analyzer returned it
+  // (English texts, nothing translated). Null when the set has no analysis.
+  try {
+    for (final exercise in analysisList) {
+      if (exercise is! Map) continue;
+      if (exercise['exerciseId'] != exerciseId) continue;
+
+      final sets = exercise['sets'];
+      if (sets is! List) continue;
+
+      for (final s in sets) {
+        if (s is! Map) continue;
+        if (s['setNumber'] != setNumber) continue;
+
+        final analysis = s['analysis'];
+        if (analysis is! Map) return null;
+
+        // the data may be wrapped in "result"
+        return analysis['result'] is Map ? analysis['result'] : analysis;
+      }
+    }
+  } catch (e) {
+    print('getSetAnalysis error: $e');
+  }
+  return null;
+}

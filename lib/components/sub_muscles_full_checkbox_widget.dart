@@ -335,7 +335,10 @@ class _SubMusclesFullCheckboxWidgetState
                                                       AlignmentDirectional(
                                                           -1.0, 0.0),
                                                   child: Text(
-                                                    listViewSubMuscelsRow.name,
+                                                    functions.localizedName(
+                                                        listViewSubMuscelsRow
+                                                            .name,
+                                                        ''),
                                                     style: FlutterFlowTheme.of(
                                                             context)
                                                         .titleMedium

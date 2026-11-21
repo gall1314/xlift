@@ -12,11 +12,82 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show FileOptions;
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'xlift_log_add.dart';
 
 bool _syncAllRunning = false;
+
+// ---------- analysis reports: the attached video ----------
+
+const String _kReportBucket = 'analysis-reports';
+const String _kReportVideoDir = 'report_videos';
+
+/// Videos up to this size go up as they are.
+const int _kReportVideoKeepBytes = 8 * 1024 * 1024;
+
+/// Nothing bigger than this is uploaded (the Free plan stops at 50 MB).
+const int _kReportVideoMaxBytes = 45 * 1024 * 1024;
+
+/// Shrinks a report video to 720p without sound. Tries the encoders this
+/// build may have, one after the other; if none works the original file is
+/// returned and the caller decides by its size.
+Future<File> _shrinkReportVideo(File src) async {
+  try {
+    if (src.lengthSync() <= _kReportVideoKeepBytes) return src;
+  } catch (_) {
+    return src;
+  }
+  final String out = src.path + '.small.mp4';
+  final List<List<String>> encoders = [
+    if (Platform.isIOS) ['-c:v', 'h264_videotoolbox', '-b:v', '1800k'],
+    ['-c:v', 'libx264', '-crf', '28', '-preset', 'veryfast'],
+    ['-c:v', 'mpeg4', '-q:v', '7'],
+  ];
+  for (final enc in encoders) {
+    try {
+      final File f = File(out);
+      if (f.existsSync()) f.deleteSync();
+      final session = await FFmpegKit.executeWithArguments([
+        '-y',
+        '-i',
+        src.path,
+        '-vf',
+        "scale='if(gt(iw,ih),-2,720)':'if(gt(iw,ih),720,-2)'",
+        '-an',
+        ...enc,
+        '-movflags',
+        '+faststart',
+        out,
+      ]).timeout(const Duration(seconds: 180));
+      final rc = await session.getReturnCode();
+      if (ReturnCode.isSuccess(rc) && f.existsSync() && f.lengthSync() > 0) {
+        return f;
+      }
+    } catch (e) {
+      xliftLogAdd('[syncAll] report video encode failed: $e');
+      try {
+        await FFmpegKit.cancel();
+      } catch (_) {}
+    }
+  }
+  return src;
+}
+
+void _deleteReportVideoFiles(File? src) {
+  if (src == null) return;
+  for (final String path in [src.path, src.path + '.small.mp4']) {
+    try {
+      final File f = File(path);
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
+  }
+}
 
 /// Syncs ALL pending offline queues to Supabase in FK-safe order: custom
 /// exercises: exercise -> exercise_muscle_group templates:        workout ->
@@ -48,21 +119,29 @@ bool _syncAllRunning = false;
 /// - workout_log 23503 on workout_id (template missing) -> re-send with
 /// workout_id = null. - anything else -> stop that queue, retry next sync.
 ///
-/// DELETES: after the uploads, the Hive box `pendingWorkoutLogDeletes`
-/// (filled by deleteWorkoutComplete) is sent - set_analysis -> set_log ->
-/// workout_log per deleted workout. An entry leaves the box only after
-/// Supabase accepted all three deletes; on a failure the rest stays queued
-/// for the next sync. They run last, so a workout uploaded earlier in the
-/// same run is still removed.
+/// DELETES: after the uploads, the Hive box `pendingWorkoutLogDeletes` (filled
+/// by deleteWorkoutComplete) is sent - set_analysis -> set_log -> workout_log
+/// per deleted workout. An entry leaves the box only after Supabase accepted
+/// all three deletes; on a failure the rest stays queued for the next sync.
+/// They run last, so a workout uploaded earlier in the same run is still
+/// removed.
+///
+/// ANALYSIS REPORTS: last of all, the Hive box `pendingAnalysisReports` (filled
+/// by the AnalysisReportButton widget) is sent to `analysis_report`. A report
+/// with a video uploads the video first (shrunk to 720p, bucket
+/// `analysis-reports`, path <user id>/<report id>.mp4) and only then inserts
+/// the row, so the row never points at a file that is not there. A video that
+/// failed 3 times is given up and the report goes without it.
 ///
 /// Returns JSON: { success, exercises, exerciseMuscleGroups, workouts,
 /// workoutExercises, exerciseSets, workoutLogs, setLogs, analyses, usage,
-/// workoutDeletes, errors, pending, debug_string }
+/// workoutDeletes, reports, errors, pending, debug_string }
 Future<dynamic> syncAllPending() async {
   final sw = Stopwatch()..start();
   const Duration callTimeout = Duration(seconds: 20);
   const int batchSize = 50;
   const String deletesBox = 'pendingWorkoutLogDeletes';
+  const String reportsBox = 'pendingAnalysisReports';
 
   // FK-safe order: parents before children.
   const List<List<String>> queues = [
@@ -90,6 +169,7 @@ Future<dynamic> syncAllPending() async {
         'analyses': 0,
         'usage': 0,
         'workoutDeletes': 0,
+        'reports': 0,
         'errors': msg,
         'pending': pending,
         'debug_string': '$msg | ${sw.elapsedMilliseconds}ms',
@@ -104,6 +184,9 @@ Future<dynamic> syncAllPending() async {
     }
     try {
       p['workout_log_deletes'] = (await Hive.openBox(deletesBox)).length;
+    } catch (_) {}
+    try {
+      p['analysis_reports'] = (await Hive.openBox(reportsBox)).length;
     } catch (_) {}
     return p;
   }
@@ -385,6 +468,115 @@ Future<dynamic> syncAllPending() async {
       errors.add('$deletesBox: $e');
     }
 
+    // ---------- Queued analysis reports ----------
+    // Video first, then the row (see the header). One report failing never
+    // blocks the others: it stays queued and the loop moves on.
+    int reportsSent = 0;
+    try {
+      final box = await Hive.openBox(reportsBox);
+      String? failMsg;
+      Directory? docs;
+      for (final key in box.keys.toList()) {
+        final raw = box.get(key);
+        if (raw is! Map) {
+          await box.delete(key);
+          continue;
+        }
+        final Map<String, dynamic> entry = Map<String, dynamic>.from(raw);
+        Map<String, dynamic> row;
+        try {
+          row = Map<String, dynamic>.from(
+              jsonDecode((entry['row_json'] ?? '').toString()) as Map);
+        } catch (_) {
+          await box.delete(key); // unreadable: can never land
+          continue;
+        }
+        // another account's report waits for its owner
+        if ((row['user_id'] ?? '').toString() != userId) continue;
+
+        final String localName = (entry['video_local'] ?? '').toString();
+        final int attempts = (entry['video_attempts'] is int)
+            ? entry['video_attempts'] as int
+            : 0;
+        File? localFile;
+        String? videoPath;
+        bool retryLater = false;
+
+        if (localName.isNotEmpty) {
+          try {
+            docs ??= await getApplicationDocumentsDirectory();
+            final File f =
+                File(docs.path + '/' + _kReportVideoDir + '/' + localName);
+            if (f.existsSync()) localFile = f;
+          } catch (_) {}
+        }
+
+        if (localFile != null && attempts < 3) {
+          try {
+            final File toSend = await _shrinkReportVideo(localFile);
+            if (toSend.lengthSync() <= _kReportVideoMaxBytes) {
+              final String objectPath =
+                  userId + '/' + row['id'].toString() + '.mp4';
+              try {
+                await SupaFlow.client.storage
+                    .from(_kReportBucket)
+                    .upload(objectPath, toSend,
+                        fileOptions:
+                            const FileOptions(contentType: 'video/mp4'))
+                    .timeout(const Duration(seconds: 180));
+              } catch (e) {
+                // a retry after an upload that did land: the file is there
+                final String es = e.toString().toLowerCase();
+                final bool exists = es.contains('already exists') ||
+                    es.contains('duplicate') ||
+                    es.contains('409');
+                if (!exists) rethrow;
+              }
+              videoPath = objectPath;
+            } else {
+              xliftLogAdd('[syncAll] report ${row['id']}: video too big, '
+                  'sent without it');
+            }
+          } catch (e) {
+            entry['video_attempts'] = attempts + 1;
+            await box.put(key, entry);
+            failMsg = e.toString();
+            xliftLogAdd('[syncAll] report video upload failed '
+                '(${attempts + 1}/3): $failMsg');
+            retryLater = true;
+          }
+        }
+        if (retryLater) continue;
+
+        row['video_path'] = videoPath;
+        try {
+          await SupaFlow.client
+              .from('analysis_report')
+              .insert(row)
+              .timeout(callTimeout);
+        } catch (e) {
+          // 23505 = this report already landed on an earlier try
+          if (!e.toString().contains('23505')) {
+            failMsg = e.toString();
+            xliftLogAdd('[syncAll] analysis_report insert failed: $failMsg');
+            errors.add('analysis_report: $failMsg');
+            continue;
+          }
+        }
+        await box.delete(key);
+        _deleteReportVideoFiles(localFile);
+        reportsSent++;
+      }
+      pendingAfter['analysis_reports'] = box.length;
+      if (reportsSent > 0 || box.isNotEmpty) {
+        dbgLines.add('reports: sent $reportsSent, left ${box.length}'
+            '${failMsg != null ? ' FAIL [$failMsg]' : ''}');
+      }
+    } catch (e) {
+      xliftLogAdd('[syncAll] $reportsBox box error: $e');
+      errors.add('$reportsBox: $e');
+    }
+
     final String debugString =
         'uid=${userId.substring(0, 8)} | ${dbgLines.join(' | ')} | '
         '${sw.elapsedMilliseconds}ms';
@@ -402,6 +594,7 @@ Future<dynamic> syncAllPending() async {
       'analyses': syncedByTable['set_analysis'] ?? 0,
       'usage': syncedByTable['analysis_usage'] ?? 0,
       'workoutDeletes': deletesSent,
+      'reports': reportsSent,
       'errors': errors.join(' | '),
       'pending': pendingAfter,
       'debug_string': debugString,
