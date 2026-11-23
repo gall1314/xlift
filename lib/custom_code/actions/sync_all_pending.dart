@@ -37,13 +37,22 @@ const int _kReportVideoMaxBytes = 45 * 1024 * 1024;
 /// Shrinks a report video to 720p without sound. Tries the encoders this
 /// build may have, one after the other; if none works the original file is
 /// returned and the caller decides by its size.
+///
+/// Encoded ONCE per video: the result is kept next to the source, and a
+/// retry of the upload reuses it instead of encoding again. The encode
+/// writes to a .tmp name and is renamed only when it finished, so a file
+/// left by an interrupted run is never taken for a finished one.
 Future<File> _shrinkReportVideo(File src) async {
   try {
     if (src.lengthSync() <= _kReportVideoKeepBytes) return src;
   } catch (_) {
     return src;
   }
-  final String out = src.path + '.small.mp4';
+  final File done = File(src.path + '.small.mp4');
+  try {
+    if (done.existsSync() && done.lengthSync() > 0) return done;
+  } catch (_) {}
+  final String out = src.path + '.small.tmp.mp4';
   final List<List<String>> encoders = [
     if (Platform.isIOS) ['-c:v', 'h264_videotoolbox', '-b:v', '1800k'],
     ['-c:v', 'libx264', '-crf', '28', '-preset', 'veryfast'],
@@ -67,13 +76,12 @@ Future<File> _shrinkReportVideo(File src) async {
       ]).timeout(const Duration(seconds: 180));
       final rc = await session.getReturnCode();
       if (ReturnCode.isSuccess(rc) && f.existsSync() && f.lengthSync() > 0) {
-        return f;
+        return await f.rename(done.path);
       }
     } catch (e) {
+      // No FFmpegKit.cancel() here: it stops EVERY running session, the
+      // analyzer's frame extraction included.
       xliftLogAdd('[syncAll] report video encode failed: $e');
-      try {
-        await FFmpegKit.cancel();
-      } catch (_) {}
     }
   }
   return src;
@@ -81,7 +89,11 @@ Future<File> _shrinkReportVideo(File src) async {
 
 void _deleteReportVideoFiles(File? src) {
   if (src == null) return;
-  for (final String path in [src.path, src.path + '.small.mp4']) {
+  for (final String path in [
+    src.path,
+    src.path + '.small.mp4',
+    src.path + '.small.tmp.mp4',
+  ]) {
     try {
       final File f = File(path);
       if (f.existsSync()) f.deleteSync();
@@ -119,16 +131,16 @@ void _deleteReportVideoFiles(File? src) {
 /// - workout_log 23503 on workout_id (template missing) -> re-send with
 /// workout_id = null. - anything else -> stop that queue, retry next sync.
 ///
-/// DELETES: after the uploads, the Hive box `pendingWorkoutLogDeletes` (filled
-/// by deleteWorkoutComplete) is sent - set_analysis -> set_log -> workout_log
-/// per deleted workout. An entry leaves the box only after Supabase accepted
-/// all three deletes; on a failure the rest stays queued for the next sync.
-/// They run last, so a workout uploaded earlier in the same run is still
-/// removed.
+/// DELETES: after the uploads, the Hive box `pendingWorkoutLogDeletes`
+/// (filled by deleteWorkoutComplete) is sent - set_analysis -> set_log ->
+/// workout_log per deleted workout. An entry leaves the box only after
+/// Supabase accepted all three deletes; on a failure the rest stays queued
+/// for the next sync. They run last, so a workout uploaded earlier in the
+/// same run is still removed.
 ///
-/// ANALYSIS REPORTS: last of all, the Hive box `pendingAnalysisReports` (filled
-/// by the AnalysisReportButton widget) is sent to `analysis_report`. A report
-/// with a video uploads the video first (shrunk to 720p, bucket
+/// ANALYSIS REPORTS: last of all, the Hive box `pendingAnalysisReports`
+/// (filled by the AnalysisReportButton widget) is sent to `analysis_report`.
+/// A report with a video uploads the video first (shrunk to 720p, bucket
 /// `analysis-reports`, path <user id>/<report id>.mp4) and only then inserts
 /// the row, so the row never points at a file that is not there. A video that
 /// failed 3 times is given up and the report goes without it.

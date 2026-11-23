@@ -12,8 +12,6 @@ import 'package:flutter/material.dart' hide RepeatMode;
 // Begin custom widget code
 // DO NOT REMOVE OR MODIFY THE CODE ABOVE!
 
-import 'package:flutter/material.dart';
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -34,6 +32,11 @@ import 'package:path_provider/path_provider.dart';
 /// `pendingAnalysisReports` at once and the sheet closes; `syncAllPending`
 /// uploads it (video first, then the row) whenever there is a connection.
 /// Nothing here waits for the network.
+///
+/// A report WITHOUT a video starts a sync right away. A report WITH a video
+/// does not: shrinking and uploading it is heavy, and right after a report
+/// the next set is usually analyzed - the two must not run together. It goes
+/// out with the next regular sync (workout saved, app opened).
 ///
 /// Give it width infinity and height 44.
 ///
@@ -374,6 +377,7 @@ Map<String, dynamic> _details(dynamic analysis) {
 class _AnalysisReportButtonState extends State<AnalysisReportButton> {
   bool _sent = false;
   bool _busy = false;
+  bool _queuedVideo = false;
 
   Future<void> _open() async {
     if (_sent || _busy) return;
@@ -410,12 +414,15 @@ class _AnalysisReportButtonState extends State<AnalysisReportButton> {
     });
     if (!ok) return;
     HapticFeedback.lightImpact();
-    // the upload runs in the background; nothing here waits for it
-    unawaited(Future<void>(() async {
-      try {
-        await syncAllPending();
-      } catch (_) {}
-    }));
+    // Text-only report: send now, in the background. With a video it waits
+    // for the next regular sync (see the header).
+    if (!_queuedVideo) {
+      unawaited(Future<void>(() async {
+        try {
+          await syncAllPending();
+        } catch (_) {}
+      }));
+    }
     try {
       await widget.onReported?.call();
     } catch (_) {}
@@ -449,6 +456,8 @@ class _AnalysisReportButtonState extends State<AnalysisReportButton> {
         videoLocal = '';
       }
     }
+
+    _queuedVideo = videoLocal.isNotEmpty;
 
     final String note = (res['note'] ?? '').toString().trim();
     final Map? a = _unwrap(widget.analysis);
@@ -555,7 +564,7 @@ class _AnalysisReportButtonState extends State<AnalysisReportButton> {
 }
 
 // =============================================================================
-// The report sheet. Pops {reaso5n, actuccalReps, note, attachVideo} or null.
+// The report sheet. Pops {reason, actualReps, note, attachVideo} or null.
 // =============================================================================
 
 class _ReportSheet extends StatefulWidget {
