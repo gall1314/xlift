@@ -94,6 +94,25 @@ workflows:
         auth: integration
         submit_to_testflight: true
 
+  android-make-keystore:
+    name: Make Android keystore (run once)
+    max_build_duration: 10
+    instance_type: mac_mini_m2
+    environment:
+      java: 17
+      groups:
+        - android_keystore
+    scripts:
+      - name: Generate keystore
+        script: |
+          set -e
+          keytool -genkey -v -keystore xlift-upload.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 -alias upload \
+            -storepass "$KS_PASSWORD" -keypass "$KS_PASSWORD" \
+            -dname "CN=Gal Levi, O=GL Digital, C=IL"
+    artifacts:
+      - xlift-upload.jks
+
   android-apk:
     name: Xlift Android (APK)
     max_build_duration: 60
