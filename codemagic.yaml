@@ -93,3 +93,60 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+
+  android-apk:
+    name: Xlift Android (APK)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+      android_signing:
+        - xlift_keystore
+      vars:
+        BUILD_OFFSET: 1543
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $HOME/.gradle/caches
+    # No "triggering": started by hand from Codemagic, so a FlutterFlow push
+    # does not spend build minutes on Android every time.
+    scripts:
+      - name: Overlay latest FlutterFlow code
+        script: |
+          set -e
+          git fetch origin flutterflow --depth=1
+          FF_SHA=$(git rev-parse FETCH_HEAD)
+          git checkout "$FF_SHA" -- .
+          git checkout HEAD -- codemagic.yaml
+          git diff --name-only --diff-filter=D HEAD "$FF_SHA" -- . ':!codemagic.yaml' | xargs -r rm -f
+          echo "===== Building flutterflow @ $(git rev-parse --short "$FF_SHA") ====="
+          git log -1 --format='%h %ad %s' --date=iso "$FF_SHA"
+      - name: Android signing (key.properties)
+        script: |
+          set -e
+          {
+            echo "storePassword=$CM_KEYSTORE_PASSWORD"
+            echo "keyPassword=$CM_KEY_PASSWORD"
+            echo "keyAlias=$CM_KEY_ALIAS"
+            echo "storeFile=$CM_KEYSTORE_PATH"
+          } > android/key.properties
+          # The Gradle file must read key.properties, or the APK is not signed
+          # with this keystore.
+          grep -ln "key.properties" android/app/build.gradle android/app/build.gradle.kts 2>/dev/null \
+            || echo "WARNING: android/app/build.gradle does not read key.properties"
+          echo "===== Signing certificate (SHA-1 goes into the Google Sign-In Android client) ====="
+          keytool -list -v -keystore "$CM_KEYSTORE_PATH" -alias "$CM_KEY_ALIAS" \
+            -storepass "$CM_KEYSTORE_PASSWORD" | grep -E "SHA1|SHA256"
+      - name: Pub get
+        script: |
+          set -e
+          flutter pub get
+      - name: Build APK
+        script: |
+          set -e
+          flutter build apk --release \
+            --build-number=$((PROJECT_BUILD_NUMBER + BUILD_OFFSET))
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/mapping/release/mapping.txt
